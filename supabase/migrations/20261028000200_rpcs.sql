@@ -24,12 +24,13 @@ declare
   v_address public.addresses;
   v_settings public.store_settings;
   v_unavailable text;
-  v_subtotal int;
+  v_subtotal bigint; -- int lines can sum past int; checked below (ORDER_TOO_LARGE)
   v_fee int;
   v_status public.order_status;
   v_order_id uuid;
   v_lines uuid[];
 begin
+  perform pg_advisory_xact_lock(hashtextextended('orders:' || v_uid, 0)); -- one checkout per user at a time (PENDING_LIMIT)
   -- lock the cart lines and their variants in id order so concurrent checkouts can't deadlock. Every later
   -- statement reads only these locked lines: a line added mid-checkout must not land in the order unpriced.
   select array_agg(id) into v_lines from (
@@ -37,9 +38,16 @@ begin
     where c.user_id = v_uid order by v.id for update
   ) locked;
   if v_lines is null then raise exception 'CART_EMPTY'; end if;
+  if cardinality(v_lines) > 10 then raise exception 'CART_LIMIT' using detail = 'at most 10 lines per order'; end if;
 
   select * into v_address from public.addresses where id = p_address_id and user_id = v_uid;
   if not found then raise exception 'ADDRESS_NOT_FOUND'; end if;
+
+  -- unpaid online orders hold stock for 15 minutes: cap them so one account can't lock up the shop
+  if p_payment_method = 'razorpay' and (select count(*) from public.orders
+      where user_id = v_uid and status = 'pending_payment' and reserved_until > now()) >= 2 then
+    raise exception 'PENDING_LIMIT';
+  end if;
 
   select string_agg(v.id::text, ',') into v_unavailable
   from public.cart_items c
@@ -50,12 +58,13 @@ begin
     raise exception 'OUT_OF_STOCK' using detail = v_unavailable; -- comma-separated variant ids
   end if;
 
-  select sum(v.price_paise * c.qty) into v_subtotal
+  select sum(v.price_paise::bigint * c.qty) into v_subtotal
   from public.cart_items c join public.variants v on v.id = c.variant_id
   where c.user_id = v_uid and c.variant_id = any(v_lines);
 
   select * into v_settings from public.store_settings;
   v_fee := case when v_subtotal >= v_settings.free_delivery_min_paise then 0 else v_settings.delivery_fee_paise end;
+  if v_subtotal + v_fee > 2147483647 then raise exception 'ORDER_TOO_LARGE'; end if; -- orders store int paise
 
   if p_payment_method = 'cod'
      and (not v_settings.cod_enabled or v_subtotal + v_fee > v_settings.cod_max_paise) then

@@ -6,11 +6,12 @@ create function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
   v_phone text := '+' || ltrim(coalesce(new.phone, ''), '+'); -- auth stores phones without '+'
+  v_name text := left(btrim(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name')), 80);
 begin
   insert into public.profiles (id, full_name, phone)
   values (
     new.id,
-    left(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'), 80),
+    case when public.is_name(v_name) then v_name end, -- a sign-up must never fail on a junk display name
     case when v_phone ~ '^\+91[6-9][0-9]{9}$' then v_phone end
   );
   return new;
@@ -75,7 +76,39 @@ end $$;
 create trigger addresses_before_write before insert or update of is_default on public.addresses
 for each row execute function public.addresses_before_write();
 
-revoke execute on function public.handle_new_user(), public.is_admin(), public.addresses_before_write()
+-- Cart: max 20 lines per user (an upsert of an existing line is an update, not a new line).
+create function public.cart_items_before_insert() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended('cart:' || new.user_id, 0));
+  if (select count(*) from public.cart_items where user_id = new.user_id) >= 20
+     and not exists (select 1 from public.cart_items where user_id = new.user_id and variant_id = new.variant_id) then
+    raise exception 'CART_LIMIT' using detail = 'at most 20 lines in a cart';
+  end if;
+  return new;
+end $$;
+
+create trigger cart_items_before_insert before insert on public.cart_items
+for each row execute function public.cart_items_before_insert();
+
+-- Repairs: a customer has at most 3 open bookings; staff (walk-ins) are exempt.
+create function public.repair_bookings_before_insert() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if new.user_id is null or public.is_admin() then return new; end if;
+  perform pg_advisory_xact_lock(hashtextextended('repairs:' || new.user_id, 0));
+  if (select count(*) from public.repair_bookings
+      where user_id = new.user_id and status not in ('completed', 'cancelled')) >= 3 then
+    raise exception 'REPAIR_LIMIT' using detail = 'at most 3 open repair bookings';
+  end if;
+  return new;
+end $$;
+
+create trigger repair_bookings_before_insert before insert on public.repair_bookings
+for each row execute function public.repair_bookings_before_insert();
+
+revoke execute on function public.handle_new_user(), public.is_admin(), public.addresses_before_write(),
+  public.cart_items_before_insert(), public.repair_bookings_before_insert()
   from public, anon, authenticated;
 grant execute on function public.is_admin() to authenticated, service_role;
 

@@ -293,6 +293,10 @@ def setup_catalog(staff: Actor) -> None:
                                     'mrp_paise': mrp, 'stock': qty, 'is_active': active})
         assert r.status == 201, r
         V[key] = r.body[0]['id']
+    r = staff.post('variants', [{'product_id': P['phone'], 'sku': f'e2e-{RUN}-l{n:02}', 'name': f'l{n:02}', 'price_paise': 100,
+                                 'mrp_paise': 100, 'stock': 10} for n in range(1, 22)])  # l01..l21 for the line caps
+    assert r.status == 201, r
+    V.update({row['name']: row['id'] for row in r.body})
 
 
 def anon_checks(alice_order: str) -> None:
@@ -526,11 +530,16 @@ def money_checks(staff: Actor, alice: Actor, bob: Actor, carol: Actor, dave: Act
     section('money: delivery fee, COD limit, stale prices, stock')
     aa = addrs['alice']
 
-    def placed(lines, method, label, cust=alice):
+    def placed(lines, method, label, cust=alice, keep=False):
         set_cart(cust, lines)
         r = place(cust, addrs[cust.name], method)
         check(label, r.status == 200, r)
-        return order(r.body) if r.status == 200 else None
+        if r.status != 200:
+            return None
+        o = order(r.body)
+        if method == 'razorpay' and not keep:  # stay under PENDING_LIMIT
+            cust.rpc('cancel_order', {'p_order_id': r.body})
+        return o
 
     o = placed({'a': 1}, 'razorpay', 'subtotal 99,999 (one paisa under the free minimum) places')
     check('... pays the delivery fee', o and (o['subtotal_paise'], o['delivery_fee_paise'], o['total_paise']) == (99999, FEE, 99999 + FEE), o)
@@ -561,6 +570,8 @@ def money_checks(staff: Actor, alice: Actor, bob: Actor, carol: Actor, dave: Act
     staff.patch(f'variants?id=eq.{V["c"]}', {'price_paise': 25000})
     r = place(alice, aa, 'razorpay')
     o = order(r.body) if r.status == 200 else None
+    if o:
+        alice.rpc('cancel_order', {'p_order_id': r.body})
     check('price raised after add-to-cart: order uses the new price', o and o['order_items'][0]['unit_price_paise'] == 25000 and o['subtotal_paise'] == 50000, o or r)
     staff.patch(f'variants?id=eq.{V["c"]}', {'price_paise': 20000})
 
@@ -578,7 +589,7 @@ def money_checks(staff: Actor, alice: Actor, bob: Actor, carol: Actor, dave: Act
     s0, n0 = stock('big'), len(SVC.get(f'orders?user_id=eq.{alice.uid}&select=id').body)
     set_cart(alice, {'big': 2})
     r = place(alice, aa, 'razorpay')
-    check('2 × ₹2,14,74,836.47 overflows: refused, nothing written', r.status >= 400 and stock('big') == s0
+    check('2 × the int-max price -> ORDER_TOO_LARGE (no raw overflow), nothing written', code(r) == 'ORDER_TOO_LARGE' and stock('big') == s0
           and len(SVC.get(f'orders?user_id=eq.{alice.uid}&select=id').body) == n0 and len(alice.get('cart_items').body) == 1, r)
     r = staff.patch(f'variants?id=eq.{V["big"]}', {'price_paise': 2147483648, 'mrp_paise': 2147483648})
     check('prices beyond int range are refused', r.status == 400, r)
@@ -602,7 +613,7 @@ def money_checks(staff: Actor, alice: Actor, bob: Actor, carol: Actor, dave: Act
 
     # expiry restock
     s0 = stock('c')
-    o = placed({'c': 2}, 'razorpay', 'online order holds stock')
+    o = placed({'c': 2}, 'razorpay', 'online order holds stock', keep=True)
     check('... reserved for ~15 minutes', o and 14 * 60 < time.mktime(time.strptime(o['reserved_until'][:19], '%Y-%m-%dT%H:%M:%S')) - time.mktime(time.gmtime()) <= 15 * 60, o and o['reserved_until'])
     SVC.patch(f'orders?id=eq.{o["id"]}', {'reserved_until': '2000-01-01T00:00:00Z'})
     r = SVC.rpc('expire_unpaid_orders')
@@ -910,6 +921,151 @@ def lifecycle(staff: Actor, alice: Actor, bob: Actor, addrs: dict, functions: bo
     check('staff completes it', alice.one(f'repair_bookings?id=eq.{rid2}')['status'] == 'completed')
 
 
+def caps_checks(staff: Actor, alice: Actor, aa: str) -> None:
+    section('abuse caps')
+    for o in SVC.get(f'orders?select=id&user_id=eq.{alice.uid}&status=eq.pending_payment').body:
+        alice.rpc('cancel_order', {'p_order_id': o['id']})
+    tries = []
+    for _ in range(3):
+        set_cart(alice, {'cheap': 1})
+        tries.append(place(alice, aa, 'razorpay'))
+    check('2 unpaid online orders allowed, a 3rd -> PENDING_LIMIT', [t.status for t in tries[:2]] == [200, 200]
+          and code(tries[2]) == 'PENDING_LIMIT', tries)
+    r = place(alice, aa, 'cod')
+    check('... COD is not capped', r.status == 200, r)
+    alice.rpc('cancel_order', {'p_order_id': r.body})
+    SVC.patch(f'orders?id=eq.{tries[0].body}', {'reserved_until': '2000-01-01T00:00:00Z'})
+    set_cart(alice, {'cheap': 1})
+    r = place(alice, aa, 'razorpay')
+    check('... an expired hold no longer counts', r.status == 200, r)
+    for oid in (tries[0].body, tries[1].body, r.body):
+        alice.rpc('cancel_order', {'p_order_id': oid})
+
+    lines = [f'l{n:02}' for n in range(1, 22)]
+    set_cart(alice, {k: 1 for k in lines[:11]})
+    check('11 lines in one order -> CART_LIMIT', code(place(alice, aa, 'cod')) == 'CART_LIMIT')
+    set_cart(alice, {k: 1 for k in lines[:10]})
+    r = place(alice, aa, 'cod')
+    check('10 lines place', r.status == 200, r)
+    alice.rpc('cancel_order', {'p_order_id': r.body})
+    set_cart(alice, {k: 1 for k in lines[:20]})
+    r = alice.post('cart_items', {'user_id': alice.uid, 'variant_id': V['l21'], 'qty': 1})
+    check('a 21st cart line -> CART_LIMIT', code(r) == 'CART_LIMIT', r)
+    r = alice.post('cart_items', {'user_id': alice.uid, 'variant_id': V['l01'], 'qty': 3}, prefer='return=representation,resolution=merge-duplicates')
+    check('upserting an existing line at the cap still works (how the app adds to cart)', r.status in (200, 201) and r.body[0]['qty'] == 3, r)
+    set_cart(alice, {})
+
+    today = time.strftime('%Y-%m-%d', time.gmtime(time.time() + 19800))
+    base = {'user_id': alice.uid, 'device_brand': 'Nokia', 'device_model': '3310', 'issue': 'other', 'preferred_date': today,
+            'slot': 'afternoon', 'contact_phone': '+919876543210'}
+    open_ = [alice.post('repair_bookings', base) for _ in range(3)]
+    REPAIRS.extend(x.body[0]['id'] for x in open_ if x.status == 201)
+    r = alice.post('repair_bookings', base)
+    check('3 open repairs allowed, a 4th -> REPAIR_LIMIT', [x.status for x in open_] == [201] * 3 and code(r) == 'REPAIR_LIMIT', r)
+    r = staff.post('repair_bookings', base)
+    check('staff book a walk-in past the cap', r.status == 201, r)
+    if r.status == 201:
+        REPAIRS.append(r.body[0]['id'])
+    for rid in REPAIRS[-4:]:
+        alice.rpc('cancel_repair', {'p_booking_id': rid})
+    r = alice.post('repair_bookings', base)
+    check('cancelled bookings free the slots', r.status == 201, r)
+    if r.status == 201:
+        REPAIRS.append(r.body[0]['id'])
+
+
+def input_checks(staff: Actor, alice: Actor, addr: str) -> None:
+    section('hostile input (direct API calls, not the app)')
+    sqlish = "Robert'); drop table public.orders; -- ' or '1'='1 $$; select pg_sleep(5); $$ %_\\ <script>"
+    prof = f'profiles?id=eq.{alice.uid}'
+    for name in ('श्याम कुमार', 'José Ñúñez', sqlish[:80]):
+        r = alice.patch(prof, {'full_name': name})
+        check(f'name {name[:24]!r} is stored verbatim', r.status == 200 and r.body[0]['full_name'] == name, r)
+    for label, name in {'10,000 characters': 'a' * 10000, 'emoji only': '😀😀😀', 'zero-width space': 'Ali​ce',
+                        'bidi override': 'Ali‮ecila', 'BOM': '﻿Alice', 'newline': 'Ali\nce', 'control char': 'Ali\u0007ce',
+                        'NUL': 'Ali\u0000ce', 'blank': '   ', 'digits only': '12345', 'a number, not text': 42}.items():
+        r = alice.patch(prof, {'full_name': name})
+        check(f'profile name refused: {label}', r.status == 400, r)
+    for label, ph in {'spaces': '+91 98765 43210', '11 digits': '+9198765432101', 'no +91': '9876543210', 'starts with 5': '+915876543210',
+                      'Devanagari digits': '+९१९८७६५४३२१०', 'fullwidth digits': '+９１９８７６５４３２１０', 'trailing newline': '+919876543210\n',
+                      'SQL': "+919876543210' or '1'='1"}.items():
+        r = alice.patch(prof, {'phone': ph})
+        check(f'phone refused: {label}', r.status == 400, r)
+    alice.patch(prof, {'full_name': 'Alice E2E', 'phone': '+919812345678'})
+
+    base = {'user_id': alice.uid, 'name': 'Alice', 'phone': '+919876543210', 'line1': '1 Rajeev Complex', 'city': 'Waidhan',
+            'state': 'Madhya Pradesh', 'pincode': '486886'}
+    for label, extra in {'7-digit pincode': {'pincode': '4868860'}, 'pincode starting 0': {'pincode': '086886'},
+                         'letter in pincode': {'pincode': '48688a'}, 'fullwidth pincode': {'pincode': '４８６８８６'},
+                         'spaced pincode': {'pincode': ' 486886'}, 'emoji-only city': {'city': '🏙️🏙️'},
+                         '10,000-char line1': {'line1': 'x' * 10000}, 'bidi override in line1': {'line1': '1 MG‮ Road'},
+                         'zero-width name': {'name': '​​​'}, 'unknown label': {'label': 'office'},
+                         'phone with spaces': {'phone': '+91 98765 43210'}, 'whitespace-only landmark': {'landmark': '   '}}.items():
+        r = alice.post('addresses', {**base, **extra})
+        check(f'address refused: {label}', r.status == 400, r)
+    r = alice.post('addresses', {**base, 'line1': sqlish[:120], 'landmark': 'Near "Shiv" mandir & 1 < 2'})
+    check('SQL-ish address text is stored verbatim', r.status == 201 and r.body[0]['line1'] == sqlish[:120], r)
+    if r.status == 201:
+        alice.delete(f'addresses?id=eq.{r.body[0]["id"]}')
+
+    today = time.strftime('%Y-%m-%d', time.gmtime(time.time() + 19800))
+    rep = {'user_id': alice.uid, 'device_brand': 'Nokia', 'device_model': '3310', 'issue': 'other', 'preferred_date': today,
+           'slot': 'morning', 'contact_phone': '+919876543210'}
+    for label, extra in {'501-char description': {'description': 'd' * 501}, 'bidi override in description': {'description': 'ok‮ko'},
+                         'phone with spaces': {'contact_phone': '+91 98765 43210'}, 'unknown issue': {'issue': 'hacked'},
+                         'unknown slot': {'slot': 'midnight'}, 'blank model': {'device_model': ' '}, 'malformed date': {'preferred_date': '2026-13-45'}}.items():
+        r = alice.post('repair_bookings', {**rep, **extra})
+        check(f'repair refused: {label}', r.status == 400, r)
+    r = alice.post('repair_bookings', {**rep, 'description': 'Screen flickers.\nAlso: ' + sqlish})
+    check('digits-only model and a multi-line, SQL-ish description book fine', r.status == 201 and r.body[0]['description'].endswith(sqlish), r)
+    if r.status == 201:
+        REPAIRS.append(r.body[0]['id'])
+        alice.rpc('cancel_repair', {'p_booking_id': r.body[0]['id']})
+
+    for label, body in {'Cyrillic look-alike SKU': {'sku': f'SАM-{RUN}'}, 'SKU with a space': {'sku': f'SAM {RUN}'},
+                        '61-char SKU': {'sku': 'S' * 61}, 'negative price': {'price_paise': -1}, 'zero price': {'price_paise': 0},
+                        'price past int': {'price_paise': 2147483648}, 'decimal price': {'price_paise': 99.5},
+                        'MRP under price': {'mrp_paise': 1}, 'negative stock': {'stock': -1}, 'stock over 1,000,000': {'stock': 1000001},
+                        'colour not #RRGGBB': {'attributes': {'color_hex': 'red'}}, 'oversized attributes': {'attributes': {'x': 'y' * 2000}},
+                        'zero-width variant name': {'name': '8 GB​'}}.items():
+        r = staff.patch(f'variants?id=eq.{V["c"]}', body)
+        check(f'staff variant edit refused: {label}', r.status == 400, r)
+    for label, body in {'Cyrillic look-alike slug': {'slug': f'e2e-{RUN}-рhone'}, '161-char slug': {'slug': 'a' * 161},
+                        'upper-case slug': {'slug': f'E2E-{RUN}'}, 'GST over 28': {'gst_rate': 28.01}, 'negative GST': {'gst_rate': -1},
+                        'bidi override in name': {'name': 'Galaxy‮ S25'}, '5,001-char description': {'description': 'x' * 5001},
+                        'specs not an array': {'specs': {'Display': '6.2'}}}.items():
+        r = staff.patch(f'products?id=eq.{P["acc"]}', body)
+        check(f'staff product edit refused: {label}', r.status == 400, r)
+    desc = 'Line one.\nLine two: ' + sqlish
+    r = staff.patch(f'products?id=eq.{P["acc"]}', {'description': desc})
+    check('multi-line, SQL-ish product description stored verbatim', r.status == 200 and r.body[0]['description'] == desc, r)
+    r = staff.post('product_images', {'product_id': P['acc'], 'path': '../../other/x.png'})
+    check('product image key climbing out of its folder refused', r.status == 400, r)
+    for label, body in {'negative delivery fee': {'delivery_fee_paise': -1}, 'COD limit past int': {'cod_max_paise': 2147483648},
+                        'newline in hours': {'store_hours': '10 am\n9 pm'}, '301-char address': {'store_address': 'a' * 301},
+                        'photo key outside store/': {'store_photos': ['../x.png']}, 'shop phone with spaces': {'store_phone': '+91 98765 43210'},
+                        'javascript: maps link': {'store_maps_url': 'javascript:alert(1)'}, 'latitude 91': {'store_lat': 91, 'store_lng': 0},
+                        'half a pin': {'store_lat': 24.0, 'store_lng': None}}.items():
+        r = staff.patch('store_settings?id=eq.true', body)
+        check(f'staff settings edit refused: {label}', r.status == 400, r)
+
+    set_cart(alice, {'cheap': 1})
+    oid = place(alice, addr, 'cod').body
+    for label, args in {'501-char note': {'p_note': 'n' * 501}, 'control char in courier': {'p_courier': 'Delhi\u0007very'},
+                        '61-char tracking number': {'p_tracking_number': 't' * 61}}.items():
+        r = staff.rpc('admin_update_order', {'p_order_id': oid, 'p_status': 'confirmed', 'p_note': None, 'p_courier': None,
+                                             'p_tracking_number': None, **args})
+        check(f'order update refused: {label}', r.status == 400, r)
+    check('... and the timeline is untouched', timeline(oid) == [('confirmed', None)], timeline(oid))
+    alice.rpc('cancel_order', {'p_order_id': oid})
+    for label, (fn, args) in {'payment method "bitcoin"': ('place_order', {'p_address_id': addr, 'p_payment_method': 'bitcoin'}),
+                              'address id not a uuid': ('place_order', {'p_address_id': "'; drop table orders; --", 'p_payment_method': 'cod'}),
+                              'order id not a uuid': ('cancel_order', {'p_order_id': '1 or 1=1'}),
+                              'extra argument': ('cancel_order', {'p_order_id': oid, 'p_user_id': staff.uid})}.items():
+        r = alice.rpc(fn, args)
+        check(f'RPC refused cleanly: {label}', r.status in (400, 404), r)
+
+
 def place_one(actor: Actor, addr: str) -> str:
     set_cart(actor, {'cheap': 1})
     return place(actor, addr, 'razorpay').body
@@ -1011,7 +1167,7 @@ def cleanup(staff, settings, paths) -> None:
     if paths:
         staff.req('DELETE', '/storage/v1/object/product-images', {'prefixes': paths})
     if settings:
-        SVC.patch('store_settings?id=eq.true', {k: settings[k] for k in ('delivery_fee_paise', 'free_delivery_min_paise', 'cod_enabled', 'cod_max_paise')})
+        SVC.patch('store_settings?id=eq.true', {k: v for k, v in settings.items() if k not in ('id', 'updated_at')})
     print('removed e2e data, restored store_settings')
 
 
@@ -1041,6 +1197,8 @@ def main() -> None:
         money_checks(staff, alice, bob, carol, dave, addrs)
         functions = function_checks(staff, alice, bob, addrs)
         lifecycle(staff, alice, bob, addrs, functions)
+        caps_checks(staff, alice, addrs['alice'])
+        input_checks(staff, alice, addrs['alice'])
         if functions:
             delete_account_checks(carol, addrs['carol'])
         auth_checks(alice, bob)
