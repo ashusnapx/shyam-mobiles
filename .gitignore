@@ -11,3 +11,5 @@ supabase/.temp
 supabase/functions/.env
 .impeccable/hook.cache.json
 local.env
+/build/
+__pycache__/

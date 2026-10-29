@@ -440,3 +440,8 @@ enabled = true
 # Razorpay can't send a Supabase JWT; the function verifies the HMAC signature instead.
 [functions.razorpay-webhook]
 verify_jwt = false
+
+# Auth's Send SMS hook calls it, signed with SEND_SMS_HOOK_SECRET. Locally phone codes use [auth.sms.test_otp];
+# scripts/launch.py points production's hook at it.
+[functions.send-sms]
+verify_jwt = false

@@ -35,6 +35,8 @@ jobs:
       - name: Edge Functions
         working-directory: supabase/functions
         run: deno check */index.ts && deno test --allow-env
+      - name: Launch script (production config it writes)
+        run: python3 -m unittest scripts/test_launch.py
       - uses: supabase/setup-cli@v1
         with:
           version: latest

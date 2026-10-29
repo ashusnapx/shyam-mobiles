@@ -23,7 +23,7 @@ Not in v1 (on purpose): guest cart, coupons, reviews, banners, store pickup, cou
 | Infra / local dev | Supabase CLI migrations as code, local stack on Colima (Docker), Deno 2 for function tests |
 | CI | GitHub Actions: `flutter analyze` + `flutter test`, `supabase test db`, `deno test` on every push |
 | Store builds | Codemagic (macOS runners; this Mac has no full Xcode): signed AAB + IPA, uploads to Play and TestFlight |
-| Monitoring (before launch) | Sentry (`sentry_flutter`) for crashes and slow screens; Supabase logs and advisors for the backend |
+| Monitoring (before launch) | Play Console Android vitals for crashes and ANRs (no SDK); Supabase logs and advisors for the backend |
 
 ## Money and numbers
 

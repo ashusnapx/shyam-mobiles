@@ -14,7 +14,7 @@ Assumption: $1 = ₹88. All rupee figures include 18% GST unless marked otherwis
 | Google Play | One-time | $25 ≈ ₹2,200 once | |
 | Transactional email (Resend) | Free | ₹0 | 3,000/mo, 100/day. Supabase's built-in SMTP is only for testing, so production auth email needs custom SMTP. Pro is $20/mo for 50k. |
 | SMS DLT registration | One operator portal (Jio TrueConnect or Vi VILPower) | ~₹5,900 incl. GST (₹5,000 + GST) | Required before any OTP SMS reaches Indian numbers; one registration covers all operators. Vendor blogs disagree on whether it renews yearly, so budget it yearly. Headers and templates are free. Confirm on the portal. |
-| Sentry (crash reporting) | Developer (free) | ₹0 | 5k errors/mo. Team plan ~$26/mo if exceeded. Unverified; check sentry.io/pricing. |
+| Crash reporting | Play Console Android vitals | ₹0 | Crashes and ANRs for Play installs, no SDK. Sentry was dropped on 2026-10-29: nothing it adds is needed at launch, and it would mean another processor in the privacy policy. |
 | Codemagic (iOS + Android store builds) | Free | ₹0 | ~500 macOS build minutes/mo, enough for ~30 builds. Unverified; check codemagic.io/pricing. |
 | GitHub Actions (CI checks) | Free | ₹0 | 2,000 Linux minutes/mo on private repos; checks run on Linux. |
 | **Total fixed** | | **≈ ₹2,200/mo** + ₹8,100 one-time | |
@@ -59,6 +59,7 @@ The gateway fee is about 90% of the bill. Infrastructure is a rounding error by 
 
 ## Change log
 
+- 2026-10-29: Sentry dropped for Play Console's Android vitals (free, no SDK).
 - 2026-10-29: SMS OTP priced from MSG91's slabs incl. GST (₹0.30 at launch, ₹0.21 on the 30k pack); DLT budgeted as yearly.
 - 2026-10-29: Android-only v1, so Apple Developer is deferred (−₹725/mo).
 - 2026-10-29: Added CI (GitHub Actions), store builds (Codemagic), crash reporting (Sentry), all free tier at launch volumes.

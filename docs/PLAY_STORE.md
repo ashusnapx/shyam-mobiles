@@ -88,7 +88,7 @@ Encryption in transit: **Yes** (HTTPS). Users can request deletion: **Yes**. Sha
 | Installed apps | Yes (by the Razorpay SDK: UPI-app detection only) | Required for UPI intent | App functionality | per Razorpay's guidance |
 | Other user-generated content | Yes | Optional | App functionality | repair description |
 | Photos | Yes (staff only) | Optional | App functionality | product photos in Admin; conservative answer |
-| Crash logs, Diagnostics | **No, for now** | | | change to Yes when Sentry ships |
+| Crash logs, Diagnostics | **No** | | | Android vitals is Google's own and isn't declared; change to Yes only if an in-app crash SDK is added |
 | Device or other IDs | No | | | Razorpay says only "if configured"; we don't configure it. Confirm with Razorpay support |
 | Everything else (contacts, messages, files, health, calendar, audio, web history, financial "other", credit score) | No | | | |
 
@@ -127,7 +127,7 @@ Razorpay asks for links to **About us, Contact us, Pricing details, Terms and co
 
 ## 7. Update the pages when
 
-- **Sentry ships:** add it to Privacy → "Who we share it with" and "Technical logs". In Data safety, set Crash logs and Diagnostics to Yes (App functionality / Analytics).
+- **An in-app crash SDK is added** (none planned): add it to Privacy → "Who we share it with" and "Technical logs", and set Crash logs and Diagnostics to Yes in Data safety.
 - **"Use my current location" ships:** the pages already describe it. If it's delayed past launch, remove the Location row from Privacy and from Data safety.
 - **Any other change** to the SMS provider, delivery area or fees, store pickup, push notifications, marketing messages, coupons or reviews: update the page and its "Last updated" date.
 
