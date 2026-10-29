@@ -130,7 +130,7 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 24, height: 1)),
+                Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 22, height: 1)),
                 Text('Phones · Accessories · Repairs', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
               ],
             ),

@@ -7,10 +7,10 @@ import 'tokens.dart';
 ThemeData buildTheme(ColorScheme c) {
   final base = ThemeData(colorScheme: c, useMaterial3: true);
   final text = GoogleFonts.plusJakartaSansTextTheme(base.textTheme).copyWith(
-    // Instrument Serif is for brand moments only (hero, sign-in, status headlines, wordmark), never for prices.
-    displayLarge: GoogleFonts.instrumentSerif(fontSize: 46, height: 0.95, letterSpacing: -0.4),
-    displayMedium: GoogleFonts.instrumentSerif(fontSize: 40, height: 0.95, letterSpacing: -0.4),
-    displaySmall: GoogleFonts.instrumentSerif(fontSize: 32, height: 1.05, letterSpacing: -0.3),
+    // Familjen Grotesk is the brand face (logo 6, docs/logo-ideas.html): wordmark, hero and status headlines.
+    displayLarge: GoogleFonts.familjenGrotesk(fontSize: 40, fontWeight: FontWeight.w700, height: 1.0, letterSpacing: -1.2),
+    displayMedium: GoogleFonts.familjenGrotesk(fontSize: 34, fontWeight: FontWeight.w700, height: 1.02, letterSpacing: -1.0),
+    displaySmall: GoogleFonts.familjenGrotesk(fontSize: 28, fontWeight: FontWeight.w700, height: 1.05, letterSpacing: -0.8),
     headlineMedium: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.6, height: 1.15),
     headlineSmall: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.4, height: 1.2),
     titleLarge: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.2),

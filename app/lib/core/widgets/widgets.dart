@@ -355,7 +355,8 @@ void showMessage(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
-/// Peacock-feather eye in greyscale on an ink tile: the Shyam Mobiles mark. Same geometry as docs/mockup.html.
+/// The Shyam Mobiles mark (logo 6 in docs/logo-ideas.html): Krishna's peacock feather drawn as a grid of
+/// dots, like a phone screen up close, with the eye left open around a grey core.
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.size = 34, this.onDark = false});
 
@@ -374,18 +375,50 @@ class _BrandMarkPainter extends CustomPainter {
 
   final bool onDark;
 
+  // Same geometry as the logo page and the launcher icon (100-unit box).
+  static final List<(Offset, bool)> _dots = () {
+    final feather = Path()
+      ..moveTo(50, 14)
+      ..cubicTo(69, 29, 76, 50, 71, 67)
+      ..cubicTo(66, 84, 34, 84, 29, 67)
+      ..cubicTo(24, 50, 31, 29, 50, 14)
+      ..close();
+    bool inOval(Offset p, double cx, double cy, double rx, double ry) =>
+        ((p.dx - cx) / rx) * ((p.dx - cx) / rx) + ((p.dy - cy) / ry) * ((p.dy - cy) / ry) <= 1;
+    final dots = <(Offset, bool)>[];
+    for (var y = 17.0; y <= 82; y += 5.4) {
+      for (var x = 25.0; x <= 75; x += 5.4) {
+        final p = Offset(x, y);
+        if (!feather.contains(p)) continue;
+        if (inOval(p, 50, 63, 7, 8.5)) {
+          dots.add((p, true)); // grey core
+        } else if (!inOval(p, 50, 61, 14.5, 17.5)) {
+          dots.add((p, false));
+        }
+      }
+    }
+    return dots;
+  }();
+
   @override
   void paint(Canvas canvas, Size size) {
-    final u = size.width / 32;
-    Rect oval(double cx, double cy, double rx, double ry) =>
-        Rect.fromCenter(center: Offset(cx * u, cy * u), width: rx * 2 * u, height: ry * 2 * u);
+    canvas.scale(size.width / 100);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(9 * u)),
+      RRect.fromRectAndRadius(const Rect.fromLTWH(0, 0, 100, 100), const Radius.circular(26)),
       Paint()..color = onDark ? Colors.white.withValues(alpha: 0.14) : BrandColors.ink,
     );
-    canvas.drawOval(oval(16, 17.5, 8.5, 10.5), Paint()..color = Colors.white);
-    canvas.drawOval(oval(16, 18.5, 5.5, 7), Paint()..color = BrandColors.mist);
-    canvas.drawOval(oval(16, 19, 3, 3.9), Paint()..color = BrandColors.ink);
+    final white = Paint()..color = Colors.white;
+    final grey = Paint()..color = BrandColors.mist;
+    for (final (p, core) in _dots) {
+      canvas.drawCircle(p, 2.1, core ? grey : white);
+    }
+    canvas.drawLine(
+      const Offset(50, 84),
+      const Offset(50, 92),
+      white
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override

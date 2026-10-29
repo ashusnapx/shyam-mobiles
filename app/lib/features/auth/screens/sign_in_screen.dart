@@ -313,7 +313,7 @@ class _Hero extends StatelessWidget {
         Flexible(
           child: Semantics(
             header: true,
-            child: Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 26, color: onHero)),
+            child: Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 22, color: onHero)),
           ),
         ),
       ],

@@ -8,7 +8,7 @@
   --well-high: #EBEBEB;
   --line: #E2E2E2;
   --outline: #CFCFCF;
-  --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --serif: "Familjen Grotesk", "Plus Jakarta Sans", system-ui, sans-serif; /* brand face, logo 6 */
   --sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -49,7 +49,7 @@ nav.pages a[aria-current="page"] { background: var(--ink); color: var(--paper); 
 /* Content ------------------------------------------------------------------ */
 main { padding: 40px 0 64px; }
 
-h1, h2 { font-family: var(--serif); font-weight: 400; letter-spacing: -.01em; line-height: 1.1; }
+h1, h2 { font-family: var(--serif); font-weight: 700; letter-spacing: -.03em; line-height: 1.08; }
 h1 { font-size: clamp(2.5rem, 9vw, 3.75rem); margin: 0 0 12px; }
 h2 { font-size: clamp(1.75rem, 6vw, 2.125rem); margin: 48px 0 12px; scroll-margin-top: 16px; }
 h3 { font-size: 1.0625rem; font-weight: 700; margin: 28px 0 6px; scroll-margin-top: 16px; }
