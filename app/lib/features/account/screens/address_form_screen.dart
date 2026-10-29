@@ -13,6 +13,7 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/address_form.dart';
 import '../data/addresses.dart';
@@ -420,14 +421,16 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
                     validator: validateDistrict,
                   ),
                   gap,
-                  DropdownButtonFormField<String>(
+                  PickerField<String>(
+                    // keyed by the value so a pincode or location autofill shows up in the field
+                    key: ValueKey('state-$_state'),
+                    label: 'State',
+                    options: states,
+                    labelOf: (s) => s,
                     initialValue: _state,
-                    isExpanded: true,
-                    icon: const Icon(PhosphorIconsRegular.caretDown, size: 18),
-                    decoration: const InputDecoration(labelText: 'State'),
-                    items: [for (final s in states) DropdownMenuItem(value: s, child: Text(s))],
                     onChanged: (v) => setState(() => _state = v),
                     validator: validateState,
+                    searchHint: 'Search states',
                   ),
                   gap,
                   Semantics(header: true, child: Text('Save address as', style: t.labelLarge)),

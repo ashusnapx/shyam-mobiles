@@ -1,3 +1,5 @@
+import '../../catalog/widgets/store_photos.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -207,7 +209,6 @@ class _StoreCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(storeSettingsProvider);
     final t = Theme.of(context).textTheme;
-    final c = Theme.of(context).colorScheme;
     if (settings.hasError && !settings.hasValue) {
       return Card(
         child: ListTile(
@@ -226,28 +227,7 @@ class _StoreCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, Space.sm),
-              child: Row(
-                spacing: Space.md,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const BrandMark(size: 40),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Shyam Mobiles', style: t.titleMedium),
-                        if (s.storeAddress.isNotEmpty)
-                          Text(s.storeAddress, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-                        if (s.storeHours.isNotEmpty)
-                          Text('Open ${s.storeHours}', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _StoreHero(settings: s, onReviews: s.mapsListingUri == null ? null : () => _open(context, s.mapsListingUri!, 'Google Maps')),
             ListTile(
               leading: const Icon(PhosphorIconsRegular.phone),
               title: const Text('Call store'),
@@ -260,12 +240,6 @@ class _StoreCard extends ConsumerWidget {
                 title: const Text('Directions'),
                 subtitle: const Text('Open in Google Maps'),
                 onTap: () => _open(context, directionsUri(s.mapsDestination), 'Google Maps'),
-              ),
-            if (s.mapsListingUri != null)
-              ListTile(
-                leading: const Icon(PhosphorIconsRegular.mapTrifold),
-                title: const Text('Photos, reviews & hours on Google Maps'),
-                onTap: () => _open(context, s.mapsListingUri!, 'Google Maps'),
               ),
             ListTile(
               leading: const WhatsAppIcon(),
@@ -306,6 +280,119 @@ class _StoreCard extends ConsumerWidget {
             const SizedBox(height: Space.sm),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The shop at the top of the store card: its own photo (Admin > Settings > Shop photos) under a dark gradient
+/// with name, hours and address. Google's listing photos would need the paid Places API with attribution, so
+/// we show the owner's photos and link to Google for reviews instead.
+class _StoreHero extends StatelessWidget {
+  const _StoreHero({required this.settings, required this.onReviews});
+
+  final StoreSettings settings;
+  final VoidCallback? onReviews;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final photos = settings.storePhotos;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (photos.isEmpty)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [BrandColors.graphite, Colors.black],
+                ),
+              ),
+              child: Align(alignment: Alignment(0.75, -0.35), child: BrandMark(size: 72, onDark: true)),
+            )
+          else
+            Semantics(
+              button: true,
+              label: 'Photos of the shop, ${photos.length}',
+              child: GestureDetector(
+                onTap: () => openStorePhotoViewer(context, photos, 0),
+                child: LayoutBuilder(
+                  builder: (context, box) => CachedNetworkImage(
+                    imageUrl: publicImageUrl(photos.first),
+                    fit: BoxFit.cover,
+                    memCacheWidth: (box.maxWidth * dpr).round(),
+                    errorWidget: (_, _, _) => const ColoredBox(color: BrandColors.graphite),
+                  ),
+                ),
+              ),
+            ),
+          // Legibility: transparent at the top, near-black where the text sits.
+          const IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: [0.25, 1],
+                  colors: [Color(0x00000000), Color(0xD9000000)],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: Space.lg,
+            right: Space.lg,
+            bottom: Space.md,
+            child: IgnorePointer(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 22, color: Colors.white)),
+                  if (settings.storeHours.isNotEmpty)
+                    Text('Open ${settings.storeHours}', style: t.bodySmall?.copyWith(color: Colors.white)),
+                  if (settings.storeAddress.isNotEmpty)
+                    Text(settings.storeAddress,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.85))),
+                ],
+              ),
+            ),
+          ),
+          if (onReviews != null)
+            Positioned(
+              top: Space.sm,
+              right: Space.sm,
+              child: ActionChip(
+                onPressed: onReviews,
+                avatar: const Icon(PhosphorIconsBold.star, size: 14, color: Colors.white),
+                label: const Text('Google reviews'),
+                labelStyle: t.labelSmall?.copyWith(color: Colors.white),
+                backgroundColor: Colors.black.withValues(alpha: 0.45),
+                side: BorderSide.none,
+                tooltip: 'Open Shyam Mobile Center on Google Maps',
+              ),
+            ),
+          if (photos.length > 1)
+            Positioned(
+              top: Space.sm,
+              left: Space.sm,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(8)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 3),
+                    child: Text('1 / ${photos.length}', style: t.labelSmall?.copyWith(color: Colors.white)),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

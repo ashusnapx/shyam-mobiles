@@ -8,6 +8,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/widgets/repair_widgets.dart';
 import '../data/admin.dart';
@@ -87,6 +88,7 @@ class _EditorState extends ConsumerState<_Editor> {
   late final _slug = TextEditingController(text: _p?.slug);
   late final _description = TextEditingController(text: _p?.description);
   late final _specs = [for (final s in _p?.specs ?? const <Spec>[]) _SpecRow(s)];
+  late final _brands = [...widget.brands]; // grows when staff add a brand from the picker
   late String? _brandId = _p?.brand.id;
   late String? _categoryId = _p?.category.id;
   late num _gst = _p?.gstRate ?? 18;
@@ -192,18 +194,27 @@ class _EditorState extends ConsumerState<_Editor> {
               validator: (v) => slugPattern.hasMatch(v ?? '') ? null : 'Use a-z, 0-9 and dashes only',
             ),
             const SizedBox(height: Space.md),
-            DropdownButtonFormField<String>(
+            PickerField<String>(
+              label: 'Brand',
+              options: [for (final b in _brands) b.id],
+              labelOf: (id) => _brands.firstWhere((b) => b.id == id).name,
               initialValue: _brandId,
-              decoration: const InputDecoration(labelText: 'Brand'),
-              items: [for (final b in widget.brands) DropdownMenuItem(value: b.id, child: Text(b.name))],
               onChanged: (v) => setState(() => _brandId = v),
               validator: (v) => v == null ? 'Pick a brand' : null,
+              searchHint: 'Search or type a new brand',
+              createLabel: 'Add brand',
+              onCreate: (name) async {
+                final b = await createBrand(ref, name);
+                if (mounted && !_brands.any((x) => x.id == b.id)) setState(() => _brands.add(b));
+                return b.id;
+              },
             ),
             const SizedBox(height: Space.md),
-            DropdownButtonFormField<String>(
+            PickerField<String>(
+              label: 'Category',
+              options: [for (final k in widget.categories) k.id],
+              labelOf: (id) => widget.categories.firstWhere((k) => k.id == id).name,
               initialValue: _categoryId,
-              decoration: const InputDecoration(labelText: 'Category'),
-              items: [for (final k in widget.categories) DropdownMenuItem(value: k.id, child: Text(k.name))],
               onChanged: (v) => setState(() => _categoryId = v),
               validator: (v) => v == null ? 'Pick a category' : null,
             ),
@@ -217,11 +228,13 @@ class _EditorState extends ConsumerState<_Editor> {
               textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: Space.sm),
-            DropdownButtonFormField<num>(
+            PickerField<num>(
+              label: 'GST rate',
+              helperText: 'Prices include GST. Phones are 18%.',
+              options: gstOptions,
+              labelOf: _pct,
               initialValue: _gst,
-              decoration: const InputDecoration(labelText: 'GST rate', helperText: 'Prices include GST. Phones are 18%.'),
-              items: [for (final g in gstOptions) DropdownMenuItem(value: g, child: Text(_pct(g)))],
-              onChanged: (v) => setState(() => _gst = v ?? _gst),
+              onChanged: (v) => setState(() => _gst = v),
             ),
             const SizedBox(height: Space.sm),
             SwitchListTile(

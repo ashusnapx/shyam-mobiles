@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
+import '../../catalog/data/catalog.dart' show brandsProvider;
+import 'rules.dart';
 import '../../repairs/data/repairs.dart';
 
 // Reads rely on RLS: admins can select every row (incl. inactive products) via the "admin write" policies.
@@ -206,6 +208,25 @@ final adminBrandsProvider = FutureProvider.autoDispose<List<Brand>>((ref) async 
   final rows = await ref.watch(supabaseProvider).from('brands').select().order('name');
   return [for (final r in rows) Brand.fromJson(r)];
 });
+
+/// Staff add a brand from the product form's brand picker. An existing slug returns that brand instead.
+Future<Brand> createBrand(WidgetRef ref, String name) async {
+  final clean = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final slug = slugify(clean);
+  if (clean.isEmpty || clean.length > 40) throw const FormatException('Brand names are 1 to 40 characters.');
+  if (slug.isEmpty) throw const FormatException('Use English letters or numbers in the brand name.');
+  final db = _db(ref);
+  Map<String, dynamic> row;
+  try {
+    row = await db.from('brands').insert({'slug': slug, 'name': clean}).select().single();
+  } on PostgrestException catch (e) {
+    if (e.code != '23505') rethrow; // already exists under another spelling: use it
+    row = await db.from('brands').select().eq('slug', slug).single();
+  }
+  ref.invalidate(adminBrandsProvider);
+  ref.invalidate(brandsProvider);
+  return Brand.fromJson(row);
+}
 
 final adminCategoriesProvider = FutureProvider.autoDispose<List<Category>>((ref) async {
   final rows = await ref.watch(supabaseProvider).from('categories').select().order('sort');

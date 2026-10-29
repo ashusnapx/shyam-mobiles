@@ -33,7 +33,7 @@ class _StorePhotoCarouselState extends State<StorePhotoCarousel> {
               button: true,
               label: 'Photo of the shop, ${i + 1} of $n',
               child: GestureDetector(
-                onTap: () => _openViewer(context, widget.paths, i),
+                onTap: () => openStorePhotoViewer(context, widget.paths, i),
                 child: ProductImage(widget.paths[i], aspectRatio: 16 / 9, radius: 0, padding: 0, fit: BoxFit.cover),
               ),
             ),
@@ -86,7 +86,7 @@ class _Dots extends StatelessWidget {
   }
 }
 
-void _openViewer(BuildContext context, List<String> paths, int start) {
+void openStorePhotoViewer(BuildContext context, List<String> paths, int start) {
   final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal;
   Navigator.of(context).push(PageRouteBuilder<void>(
     fullscreenDialog: true,

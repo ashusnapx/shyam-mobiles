@@ -8,6 +8,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/catalog.dart';
 import '../widgets/product_tile.dart';
@@ -74,37 +75,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
     if (!mounted) return;
-    final picked = await showModalBottomSheet<(T?,)>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
-              child: Text(title, style: Theme.of(context).textTheme.titleLarge),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final (value, label) in list)
-                    ListTile(
-                      title: Text(label),
-                      selected: value == current,
-                      trailing: value == current ? const Icon(PhosphorIconsBold.check) : null,
-                      onTap: () => Navigator.pop(context, (value,)),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    final picked = await showPickerSheet<T>(context, title: title, options: list, selected: current);
+    if (!mounted) return;
     if (picked != null) setState(() => apply(picked.$1));
   }
 
