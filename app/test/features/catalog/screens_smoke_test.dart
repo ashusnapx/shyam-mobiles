@@ -220,19 +220,35 @@ void main() {
   testWidgets('featured hero slides to the next product on its own and swipes back', (tester) async {
     final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
-    expect(find.text('Galaxy S25'), findsOneWidget);
+    expect(find.text('Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Featured 1 of 3'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 4600));
     await tester.pumpAndSettle();
-    expect(find.text('Redmi Note 14 Pro 5G'), findsOneWidget);
-    expect(find.text('Galaxy S25'), findsNothing);
+    expect(find.text('Redmi Note 14 Pro 5G').hitTestable(), findsOneWidget);
+    expect(find.text('Galaxy S25').hitTestable(), findsNothing);
 
-    await tester.fling(find.text('Redmi Note 14 Pro 5G'), const Offset(400, 0), 1200);
+    await tester.fling(find.text('Redmi Note 14 Pro 5G').hitTestable(), const Offset(400, 0), 1200);
     await tester.pumpAndSettle();
-    expect(find.text('Galaxy S25'), findsOneWidget);
+    expect(find.text('Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Featured 1 of 3'), findsOneWidget);
     await tester.pumpWidget(const SizedBox()); // dispose, so the carousel's timer is cancelled
+  });
+
+  testWidgets('featured carousel keeps one height for every card, so the page never jumps', (tester) async {
+    // A long name wraps to two lines; the carousel must still be the same height on every slide.
+    final mixed = [cards[0], card('long', 'Samsung Galaxy S25 Ultra Titanium Edition 1 TB', 'Samsung', 129999), cards[1]];
+    await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => (categories: <Category>[], featured: mixed, accessories: <ProductCard>[]))]);
+    final carousel = find.bySemanticsLabel('Featured 1 of 3');
+    final categoriesTop = tester.getTopLeft(find.text('All')).dy;
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 4600));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('All')).dy, categoriesTop, reason: 'slide ${i + 1} moved the content below');
+      expect(find.bySemanticsLabel('Featured ${(i + 1) % 3 + 1} of 3'), findsOneWidget);
+    }
+    expect(carousel, findsOneWidget); // three slides wrap back to the first
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('home skeleton renders while loading', (tester) async {

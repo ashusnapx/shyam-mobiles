@@ -245,29 +245,39 @@ class _HeroCarouselState extends State<_HeroCarousel> {
             _restart();
           },
           onHorizontalDragCancel: _restart,
-          child: AnimatedSize(
-            duration: duration,
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: AnimatedSwitcher(
-              duration: duration,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              layoutBuilder: (current, previous) =>
-                  Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
-              transitionBuilder: (child, animation) {
-                final incoming = child.key == ValueKey(card.id);
-                final from = Offset((incoming ? 0.14 : -0.14) * _direction, 0);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween(begin: from, end: Offset.zero).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: _Hero(card, key: ValueKey(card.id)),
-            ),
+          // Every card is laid out invisibly so the carousel takes the tallest one's height and each card fills
+          // it: all featured cards are the same size and nothing below jumps when it slides.
+          child: Stack(
+            children: [
+              for (final c in widget.cards)
+                Visibility(
+                  visible: false,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child: _Hero(c),
+                ),
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: duration,
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),
+                  transitionBuilder: (child, animation) {
+                    final incoming = child.key == ValueKey(card.id);
+                    final from = Offset((incoming ? 0.14 : -0.14) * _direction, 0);
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween(begin: from, end: Offset.zero).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _Hero(card, key: ValueKey(card.id)),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: Space.md),
@@ -332,6 +342,7 @@ class _Hero extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center, // shorter cards sit centred at the carousel's height
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
