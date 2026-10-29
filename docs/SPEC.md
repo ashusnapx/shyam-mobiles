@@ -33,12 +33,12 @@ Not in v1 (on purpose): guest cart, coupons, reviews, banners, store pickup, cou
 
 ## Security rules (non-negotiable)
 
-1. RLS is on for every table. Default deny. Every policy is tested in `supabase/tests`.
+1. RLS is on for every table. Default deny. Every policy is tested in `supabase/tests`. Table privileges are explicit grants (`supabase/migrations/20261028000300_grants.sql`): `anon` has none on per-user tables, so reading them signed out fails with `42501` instead of returning no rows.
 2. The client never sends a price or total. `place_order` computes everything from DB rows.
 3. Clients never `update` `orders`, `order_items`, `payment_events` or `admins` directly. State changes go through RPCs that validate transitions.
 4. Admin rights come only from the `admins` table, which no client role can write. `public.is_admin()` is the only check.
 5. Every `security definer` function sets `search_path = ''` and uses fully-qualified names; `execute` is revoked from `public`/`anon` and granted only to the roles that need it.
-6. Secrets (Razorpay key secret, webhook secret, service role key) live only in Edge Function secrets. The app binary holds only the Supabase URL, the anon key and the Razorpay key id, all of which are public by design.
+6. Secrets (Razorpay key secret, webhook secret, Supabase secret key) live only in Edge Function secrets. The app binary holds only the Supabase URL, the publishable key (`sb_publishable_…`) and the Razorpay key id, all of which are public by design. No legacy `anon`/`service_role` JWT keys anywhere.
 7. Razorpay signatures are verified with HMAC-SHA256 and a constant-time compare. The webhook verifies the raw body and dedupes on `x-razorpay-event-id`.
 8. The app stores the auth session in `flutter_secure_storage` (Keychain/Keystore), not SharedPreferences.
 9. Stock changes are atomic, take row locks, and never go negative (check constraint).
@@ -98,16 +98,16 @@ Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code 
 
 ## Edge Functions (`supabase/functions/*`)
 
-All are `POST`. Errors: JSON `{"error": "<CODE>", "message": "<short human text>"}` with a matching status: 400 `BAD_REQUEST`/`BAD_SIGNATURE`, 401 `UNAUTHORIZED`/`BAD_SIGNATURE` (webhook), 404 `NOT_FOUND`, 409 `ORDER_NOT_PAYABLE`/`ORDER_EXPIRED`/`PAYMENT_MISMATCH`/`ACTIVE_ORDERS`, 502 `GATEWAY_ERROR` (Razorpay unreachable or erroring), 500 `INTERNAL`.
+All are `POST`. User functions keep the platform `verify_jwt` check and verify the user JWT again in code (`@supabase/server`, JWKS). A request with no `Authorization` header is refused by the platform with a 401 whose body is `{"msg": "..."}`, not the shape below; treat every 401 as `UNAUTHORIZED`. Errors: JSON `{"error": "<CODE>", "message": "<short human text>"}` with a matching status: 400 `BAD_REQUEST`/`BAD_SIGNATURE`, 401 `UNAUTHORIZED`/`BAD_SIGNATURE` (webhook), 404 `NOT_FOUND`, 409 `ORDER_NOT_PAYABLE`/`ORDER_EXPIRED`/`PAYMENT_MISMATCH`/`ACTIVE_ORDERS`, 502 `GATEWAY_ERROR` (Razorpay unreachable or erroring), 500 `INTERNAL`.
 
 | Function | Auth | Body → Response |
 |---|---|---|
-| `create-payment` | user JWT | `{order_id}` → `{key_id, razorpay_order_id, amount, currency, order_number}`. Reuses an existing `razorpay_order_id`. Refuses unless the order is the caller's, `pending_payment`, `razorpay`, and not expired. |
+| `create-payment` | user JWT | `{order_id}` → `{key_id, razorpay_order_id, amount, currency, order_number, reserved_until}` (`reserved_until`: ISO 8601 UTC, when the stock hold ends; set Razorpay's checkout `timeout` from it). Reuses an existing `razorpay_order_id`. Refuses unless the order is the caller's, `pending_payment`, `razorpay`, and not expired. |
 | `verify-payment` | user JWT | `{razorpay_order_id, razorpay_payment_id, razorpay_signature}` → `{order_id, status}`. Checks the HMAC, fetches the payment from Razorpay (order id, amount = total, status captured/authorized), then calls `mark_order_paid`. `status` is the order status afterwards (`confirmed`, or `cancelled` if it was paid too late). |
 | `razorpay-webhook` | none (`verify_jwt = false`), HMAC instead | Handles `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`. Verifies `x-razorpay-signature` over the raw body (401 if bad), dedupes on `x-razorpay-event-id` via `payment_events`, checks amount = order total. Returns 200 on duplicates, unknown events/orders and business refusals; 500 only on infrastructure errors (Razorpay retries). |
 | `delete-account` | user JWT | `{}` → 204. Returns 409 `ACTIVE_ORDERS` if any order is not delivered/cancelled/refunded, or any repair is not completed/cancelled. Otherwise deletes the auth user (cascades the profile, cart, wishlist, addresses; orders keep `user_id = null`). |
 
-Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (+ the built-in `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (+ the built-in `SUPABASE_URL`, `SUPABASE_SECRET_KEYS`, `SUPABASE_JWKS`, read by `@supabase/server`).
 
 ## App structure (`app/`)
 
@@ -115,7 +115,7 @@ Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (+ 
 lib/
   main.dart, app.dart
   core/
-    env.dart            String.fromEnvironment: SUPABASE_URL, SUPABASE_ANON_KEY, RAZORPAY_KEY_ID, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID
+    env.dart            String.fromEnvironment: SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, RAZORPAY_KEY_ID, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID
     supabase.dart       init with secure session storage; `supabaseProvider`
     router.dart         go_router, auth + admin redirects, bottom-nav shell
     theme/              tokens + ThemeData (light + dark)
