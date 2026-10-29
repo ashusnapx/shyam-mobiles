@@ -434,10 +434,15 @@ Future<bool> launchExternal(Uri uri, {LaunchMode mode = LaunchMode.externalAppli
   }
 }
 
-void showMessage(BuildContext context, String message) {
+void showMessage(BuildContext context, String message, {SnackBarAction? action}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    // an action keeps the bar up only for screen-reader users (they need time to reach it); others see it time out
+    ..showSnackBar(SnackBar(
+      content: Text(message),
+      action: action,
+      persist: action != null && MediaQuery.accessibleNavigationOf(context),
+    ));
 }
 
 /// The Shyam Mobiles mark (logo 6 in docs/logo-ideas.html): Krishna's peacock feather drawn as a grid of

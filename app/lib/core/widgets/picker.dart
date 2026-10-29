@@ -228,3 +228,35 @@ class PickerField<T> extends FormField<T> {
           },
         );
 }
+
+/// Filter chip that opens [showPickerSheet]: a caret (or [icon]) marks it as a list, tinted while a filter is set.
+class PickerChip extends StatelessWidget {
+  const PickerChip({super.key, required this.label, required this.selected, required this.onTap, this.icon});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final fg = selected ? c.onPrimaryContainer : c.onSurface;
+    return FilterChip(
+      selected: selected,
+      showCheckmark: false,
+      selectedColor: c.primaryContainer,
+      side: selected ? BorderSide.none : null,
+      avatar: icon == null ? null : Icon(icon, size: 16, color: fg),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: Space.xs,
+        children: [
+          Text(label, style: TextStyle(color: fg)),
+          if (icon == null) Icon(PhosphorIconsBold.caretDown, size: 12, color: fg),
+        ],
+      ),
+      onSelected: (_) => onTap(),
+    );
+  }
+}

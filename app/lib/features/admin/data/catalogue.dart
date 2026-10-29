@@ -234,6 +234,25 @@ typedef RowChange = ({CatalogueRow before, CatalogueRow after});
 
 // Data --------------------------------------------------------------------------
 
+/// PostgREST's `max_rows` in supabase/config.toml; the hosted project has the same default.
+const catalogueRowCap = 1000;
+
+/// Every row, one page at a time: a single request stops silently at [catalogueRowCap], which would drop products
+/// from the list and from the stock totals. A product added mid-load can repeat across pages, so ids are deduped.
+Future<List<Map<String, dynamic>>> fetchAllPages(
+  Future<List<Map<String, dynamic>>> Function(int from, int to) page, {
+  int size = catalogueRowCap,
+}) async {
+  final byId = <Object?, Map<String, dynamic>>{};
+  for (var from = 0;; from += size) {
+    final rows = await page(from, from + size - 1);
+    for (final r in rows) {
+      byId[r['id']] = r;
+    }
+    if (rows.length < size) return [...byId.values];
+  }
+}
+
 /// The row changed since this screen loaded it (an order sold one, another phone edited it), so nothing was written.
 class StaleRowException implements Exception {
   const StaleRowException();
@@ -245,8 +264,11 @@ class CatalogueNotifier extends AsyncNotifier<List<CatalogueRow>> {
   @override
   Future<List<CatalogueRow>> build() async {
     cacheFor(ref, const Duration(minutes: 2)); // writes still in flight finish after the screen closes
-    final rows = await ref.watch(supabaseProvider).from('products').select(catalogueColumns).order('name');
-    return catalogueRowsFrom(rows);
+    final db = ref.watch(supabaseProvider);
+    // name alone isn't unique: id keeps the order stable from page to page
+    final products = await fetchAllPages(
+        (from, to) => db.from('products').select(catalogueColumns).order('name').order('id').range(from, to));
+    return catalogueRowsFrom(products);
   }
 
   CatalogueRow? row(String variantId) => state.value?.where((r) => r.variantId == variantId).firstOrNull;

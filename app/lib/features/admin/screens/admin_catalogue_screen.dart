@@ -61,6 +61,14 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   final _want = <String, int>{}; // stock from −/+ taps not saved yet
   final _sending = <String>{}; // rows with a write on the way
 
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
   CatalogueView get _view => (
         query: _query,
         categoryId: _categoryId,
@@ -76,6 +84,12 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   void _endSelect() => setState(() {
         _selecting = false;
         _selected.clear();
+      });
+
+  void _clearFilters() => setState(() {
+        _categoryId = _brandId = null;
+        _stock = StockFilter.all;
+        _visibility = VisibilityFilter.all;
       });
 
   void _toggle(String id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
@@ -127,12 +141,25 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
     await _write(() => ref.read(catalogueProvider.notifier).setPrice(r, p.$1, p.$2));
   }
 
+  /// One tap, so it offers Undo: the eye sits next to the price button and a slip hides the variant at once.
   Future<void> _toggleVisible(CatalogueRow r) async {
-    if (!_sending.add('visible:${r.variantId}')) return; // a tap is already on the way
+    final key = 'visible:${r.variantId}';
+    if (!_sending.add(key)) return; // a tap is already on the way
+    final notifier = ref.read(catalogueProvider.notifier);
     try {
-      await _write(() => ref.read(catalogueProvider.notifier).setVisible([r], !r.variantActive));
+      await notifier.setVisible([r], !r.variantActive);
+      if (!mounted) return;
+      showMessage(
+        context,
+        r.variantActive ? '${r.sku} hidden from the shop' : '${r.sku} shown in the shop',
+        action: SnackBarAction(label: 'Undo', onPressed: () {
+          if (notifier.row(r.variantId) case final now?) _toggleVisible(now);
+        }),
+      );
+    } catch (e) {
+      if (mounted) showMessage(context, catalogueError(e));
     } finally {
-      _sending.remove('visible:${r.variantId}');
+      _sending.remove(key);
     }
   }
 
@@ -320,9 +347,20 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
                 child: TextField(
-                  decoration: const InputDecoration(
+                  controller: _search,
+                  decoration: InputDecoration(
                     hintText: 'Search name or SKU',
-                    prefixIcon: Icon(PhosphorIconsRegular.magnifyingGlass),
+                    prefixIcon: const Icon(PhosphorIconsRegular.magnifyingGlass),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(PhosphorIconsRegular.xCircle),
+                            onPressed: () => setState(() {
+                              _search.clear();
+                              _query = '';
+                            }),
+                          ),
                   ),
                   textInputAction: TextInputAction.search,
                   inputFormatters: textInput(MaxLen.search),
@@ -335,36 +373,43 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                 child: Row(
                   spacing: Space.sm,
                   children: [
-                    PickChip(
+                    PickerChip(
                       label: categories.where((c) => c.id == _categoryId).firstOrNull?.name ?? 'Category',
                       selected: _categoryId != null,
                       onTap: () => _pick<String>('Category', [(null, 'All categories'), for (final c in categories) (c.id, c.name)],
                           _categoryId, (v) => _categoryId = v),
                     ),
-                    PickChip(
+                    PickerChip(
                       label: brands.where((b) => b.id == _brandId).firstOrNull?.name ?? 'Brand',
                       selected: _brandId != null,
                       onTap: () => _pick<String>(
                           'Brand', [(null, 'All brands'), for (final b in brands) (b.id, b.name)], _brandId, (v) => _brandId = v),
                     ),
-                    PickChip(
+                    PickerChip(
                       label: _stock == StockFilter.all ? 'Stock' : _stock.label,
                       selected: _stock != StockFilter.all,
                       onTap: () => _pick<StockFilter>('Stock', [for (final s in StockFilter.values) (s, s.label)], _stock,
                           (v) => _stock = v ?? StockFilter.all),
                     ),
-                    PickChip(
+                    PickerChip(
                       label: _visibility == VisibilityFilter.all ? 'Visibility' : _visibility.label,
                       selected: _visibility != VisibilityFilter.all,
                       onTap: () => _pick<VisibilityFilter>('Visibility', [for (final s in VisibilityFilter.values) (s, s.label)],
                           _visibility, (v) => _visibility = v ?? VisibilityFilter.all),
                     ),
-                    PickChip(
-                      label: 'Sort: ${_sort.label}',
+                    PickerChip(
+                      label: _sort.label,
+                      icon: PhosphorIconsRegular.sortAscending,
                       selected: false,
                       onTap: () => _pick<CatalogueSort>('Sort by', [for (final s in CatalogueSort.values) (s, s.label)], _sort,
                           (v) => _sort = v ?? CatalogueSort.name),
                     ),
+                    if (_filtered)
+                      ActionChip(
+                        avatar: const Icon(PhosphorIconsRegular.x, size: 16),
+                        label: const Text('Clear filters'),
+                        onPressed: _clearFilters,
+                      ),
                   ],
                 ),
               ),
@@ -373,7 +418,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                 child: AsyncBody<List<CatalogueRow>>(
                   value: value,
                   onRetry: () => ref.invalidate(catalogueProvider),
-                  loading: Skeletonizer(child: _list(_skeleton, interactive: false)),
+                  loading: Skeletonizer(child: _list(_skeleton, total: _skeleton.length, interactive: false)),
                   data: (all) {
                     if (all.isEmpty) {
                       return EmptyState(
@@ -392,25 +437,19 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                       child: rows.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
+                              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                               children: [
                                 EmptyState(
                                   icon: PhosphorIconsRegular.magnifyingGlass,
                                   title: 'Nothing matches',
                                   message: _filtered ? 'Try another word or clear the filters.' : 'Try another word.',
                                   action: _filtered
-                                      ? OutlinedButton(
-                                          onPressed: () => setState(() {
-                                            _categoryId = _brandId = null;
-                                            _stock = StockFilter.all;
-                                            _visibility = VisibilityFilter.all;
-                                          }),
-                                          child: const Text('Clear filters'),
-                                        )
+                                      ? OutlinedButton(onPressed: _clearFilters, child: const Text('Clear filters'))
                                       : null,
                                 ),
                               ],
                             )
-                          : _list(rows),
+                          : _list(rows, total: all.length),
                     );
                   },
                 ),
@@ -422,12 +461,13 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
     );
   }
 
-  Widget _list(List<CatalogueRow> rows, {bool interactive = true}) => ListView.builder(
+  Widget _list(List<CatalogueRow> rows, {required int total, bool interactive = true}) => ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.only(bottom: Space.xl + MediaQuery.paddingOf(context).bottom),
         itemCount: rows.length + 1,
         itemBuilder: (context, i) {
-          if (i == 0) return CatalogueSummaryCard(summarize(rows));
+          if (i == 0) return CatalogueSummaryCard(summarize(rows), total: total);
           final r = rows[i - 1];
           return CatalogueTile(
             key: ValueKey(r.variantId),
@@ -460,11 +500,12 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
 
 String _rowsLabel(int n) => '$n variant${n == 1 ? '' : 's'}';
 
-/// SKUs, units, stock value and low/out counts for the rows shown.
+/// SKUs, units, stock value and low/out counts for the rows shown; says so when a search or filter hides some.
 class CatalogueSummaryCard extends StatelessWidget {
-  const CatalogueSummaryCard(this.s, {super.key});
+  const CatalogueSummaryCard(this.s, {super.key, required this.total});
 
   final CatalogueSummary s;
+  final int total; // variants in the whole catalogue
 
   @override
   Widget build(BuildContext context) {
@@ -489,16 +530,17 @@ class CatalogueSummaryCard extends StatelessWidget {
     const gap = SizedBox(height: Space.sm);
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: c.surfaceContainerLow,
-          border: Border.all(color: c.outlineVariant),
-          borderRadius: BorderRadius.circular(Radii.lg),
-        ),
+      child: Card(
+        color: c.surfaceContainerLow,
         child: Padding(
           padding: const EdgeInsets.all(Space.md),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (s.skus < total) ...[
+                Text('Showing ${s.skus} of ${_rowsLabel(total)}', style: t.labelMedium?.copyWith(color: c.onSurfaceVariant)),
+                gap,
+              ],
               Row(spacing: Space.md, children: [stat('SKUs', '${s.skus}'), stat('Units in stock', '${s.units}')]),
               gap,
               Row(spacing: Space.md, children: [
@@ -548,16 +590,20 @@ class CatalogueTile extends StatelessWidget {
     final r = row;
     final off = discountPercent(r.pricePaise, r.mrpPaise);
     const tabular = [FontFeature.tabularFigures()];
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected ? c.primaryContainer : null,
-          border: Border(bottom: BorderSide(color: c.outlineVariant)),
-        ),
+    return Card(
+      margin: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
+      color: selected ? c.primaryContainer : null,
+      shape: selected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.lg),
+              side: BorderSide(color: c.primary, width: 1.5),
+            )
+          : null,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(selecting ? Space.xs : Space.lg, Space.md, Space.sm, selecting ? Space.md : Space.xs),
+          padding: EdgeInsets.fromLTRB(selecting ? Space.xs : Space.md, Space.md, Space.md, Space.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -570,7 +616,7 @@ class CatalogueTile extends StatelessWidget {
                       onChanged: onTap == null ? null : (_) => onTap!(),
                       semanticLabel: 'Select ${r.productName}, ${r.variantName}',
                     ),
-                  SizedBox(width: 48, child: ProductImage(r.coverPath, radius: Radii.md, padding: Space.xs)),
+                  SizedBox(width: 56, child: ProductImage(r.coverPath, radius: Radii.md, padding: Space.xs)),
                   const SizedBox(width: Space.md),
                   Expanded(
                     child: Column(
@@ -609,23 +655,29 @@ class CatalogueTile extends StatelessWidget {
                   ),
                 ],
               ),
-              if (!selecting)
+              if (!selecting) ...[
+                const Padding(padding: EdgeInsets.symmetric(vertical: Space.sm), child: Divider()),
                 Row(
                   children: [
                     _StockStepper(sku: r.sku, stock: stock, onStep: onStep, onType: onTypeStock),
                     const Spacer(),
-                    IconButton(
+                    IconButton.filledTonal(
                       tooltip: 'Edit price of ${r.sku}',
                       onPressed: onEditPrice,
-                      icon: const Icon(PhosphorIconsRegular.pencilSimple),
+                      icon: const Icon(PhosphorIconsRegular.currencyInr),
                     ),
-                    IconButton(
+                    const SizedBox(width: Space.sm),
+                    // a toggle: solid while customers can see it
+                    IconButton.outlined(
                       tooltip: r.variantActive ? 'Hide ${r.sku} from the shop' : 'Show ${r.sku} in the shop',
+                      isSelected: r.variantActive,
                       onPressed: onToggleVisible,
-                      icon: Icon(r.variantActive ? PhosphorIconsRegular.eye : PhosphorIconsRegular.eyeSlash),
+                      icon: const Icon(PhosphorIconsRegular.eyeSlash),
+                      selectedIcon: const Icon(PhosphorIconsRegular.eye),
                     ),
                   ],
                 ),
+              ],
             ],
           ),
         ),
@@ -649,7 +701,7 @@ class _StockStepper extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
+        IconButton.outlined(
           tooltip: 'One less of $sku',
           onPressed: stock > 0 ? () => onStep(-1) : null,
           icon: const Icon(PhosphorIconsRegular.minus, size: 18),
@@ -673,7 +725,7 @@ class _StockStepper extends StatelessWidget {
             ),
           ),
         ),
-        IconButton(
+        IconButton.outlined(
           tooltip: 'One more of $sku',
           onPressed: stock < maxStock ? () => onStep(1) : null,
           icon: const Icon(PhosphorIconsRegular.plus, size: 18),

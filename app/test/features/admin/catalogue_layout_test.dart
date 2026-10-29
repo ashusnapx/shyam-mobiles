@@ -16,6 +16,12 @@ class _Fixed extends CatalogueNotifier {
 
   @override
   Future<List<CatalogueRow>> build() async => rows;
+
+  @override
+  Future<void> setVisible(List<CatalogueRow> rows, bool active) async {
+    final ids = {for (final r in rows) r.variantId};
+    state = AsyncData([for (final r in state.value!) ids.contains(r.variantId) ? r.copyWith(variantActive: active) : r]);
+  }
 }
 
 CatalogueRow _row(String id, String product, String variant, String sku, int rupees, int stock,
@@ -88,8 +94,28 @@ void main() {
 
   testWidgets('filters narrow the list; nothing matching says so', (tester) async {
     await _pump(tester);
+    await tester.enterText(find.byType(TextField), 'samsung');
+    await tester.pump();
+    expect(find.text('Showing 1 of 3 variants'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'no such phone');
     await tester.pump();
     expect(find.text('Nothing matches'), findsOneWidget);
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pump();
+    expect(find.text('Nothing matches'), findsNothing);
+    expect(find.text('Showing 1 of 3 variants'), findsNothing); // all shown again
+  });
+
+  testWidgets('hiding a variant from its card offers Undo', (tester) async {
+    await _pump(tester);
+    const sku = 'SAM-S25U-12-512-SLV';
+    await tester.tap(find.byTooltip('Hide $sku from the shop'));
+    await tester.pumpAndSettle();
+    expect(find.text('$sku hidden from the shop'), findsOneWidget);
+    expect(find.byTooltip('Show $sku in the shop'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Hide $sku from the shop'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5)); // let the last message time out
   });
 }

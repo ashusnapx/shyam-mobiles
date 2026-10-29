@@ -135,7 +135,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Row(
                 spacing: Space.sm,
                 children: [
-                  _FilterChip(
+                  PickerChip(
                     label: categoryName ?? 'Category',
                     selected: _category != null,
                     onTap: () => _pick<String>(
@@ -148,7 +148,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       (v) => _category = v,
                     ),
                   ),
-                  _FilterChip(
+                  PickerChip(
                     label: brandName ?? 'Brand',
                     selected: _brand != null,
                     onTap: () => _pick<String>(
@@ -161,7 +161,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       (v) => _brand = v,
                     ),
                   ),
-                  _FilterChip(
+                  PickerChip(
                     label: _maxPrice == null ? 'Price' : 'Under ${formatInr(_maxPrice!)}',
                     selected: _maxPrice != null,
                     onTap: () => _pick<int>(
@@ -171,7 +171,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       (v) => _maxPrice = v,
                     ),
                   ),
-                  _FilterChip(
+                  PickerChip(
                     label: _sort.label,
                     icon: PhosphorIconsRegular.sortAscending,
                     selected: false,
@@ -285,35 +285,4 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ],
     ),
   );
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap, this.icon});
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final fg = selected ? c.onPrimaryContainer : c.onSurface;
-    return FilterChip(
-      selected: selected,
-      showCheckmark: false,
-      selectedColor: c.primaryContainer,
-      side: selected ? BorderSide.none : null,
-      avatar: icon == null ? null : Icon(icon, size: 16, color: fg),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: Space.xs,
-        children: [
-          Text(label, style: TextStyle(color: fg)),
-          if (icon == null) Icon(PhosphorIconsBold.caretDown, size: 12, color: fg),
-        ],
-      ),
-      onSelected: (_) => onTap(),
-    );
-  }
 }

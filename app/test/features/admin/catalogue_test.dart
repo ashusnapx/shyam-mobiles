@@ -157,4 +157,17 @@ void main() {
     expect(rows.last.updatedAt, DateTime.utc(2026, 10, 20, 10)); // the product's, it's later
     expect(rows.last.visible, isFalse);
   });
+
+  test('fetchAllPages keeps asking until a short page, and drops repeats', () async {
+    final asked = <(int, int)>[];
+    final all = [for (var i = 0; i < 5; i++) {'id': 'p$i'}];
+    final got = await fetchAllPages((from, to) async {
+      asked.add((from, to));
+      // a product added at the top after the first page shifts the rest along: p1 comes again on page two
+      final now = from == 0 ? all : [{'id': 'new'}, ...all];
+      return now.sublist(from.clamp(0, now.length), (to + 1).clamp(0, now.length));
+    }, size: 2);
+    expect(asked, [(0, 1), (2, 3), (4, 5), (6, 7)]);
+    expect([for (final r in got) r['id']], ['p0', 'p1', 'p2', 'p3', 'p4']);
+  });
 }
