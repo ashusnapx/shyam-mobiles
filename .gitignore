@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+*.keystore
+*.jks
+key.properties
+app/env/*.json
+!app/env/example.json
+supabase/.branches
+supabase/.temp
+supabase/functions/.env

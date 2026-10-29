@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shyam Mobiles Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+/* Tokens mirror app/lib/core/theme/tokens.dart */
+:root {
+  --primary: #232C7A; --on-primary: #fff; --primary-c: #E3E6FF; --on-primary-c: #12185A;
+  --peacock: #0B7F73; --peacock-c: #D2F4EF; --on-peacock-c: #00382F;
+  --marigold-c: #FFE8B8; --on-marigold-c: #4A3000; --marigold: #F5B841;
+  --error: #C62828; --error-c: #FFDAD6; --on-error-c: #5F0000;
+  --surface: #fff; --on-surface: #12152B; --on-surface-v: #565C78;
+  --c-low: #F7F8FB; --c: #F1F2F7; --c-high: #EBEDF3; --c-highest: #E4E7EF;
+  --outline: #C9CDDB; --outline-v: #E3E6EE;
+  --hero-a: #232C7A; --hero-b: #141A52;
+  --page: #E9EBF3; --page-ink: #12152B; --bezel: #0B0C14;
+  --shadow: 0 30px 60px -30px rgba(18, 21, 43, .45), 0 12px 24px -16px rgba(18, 21, 43, .25);
+}
+:root[data-theme="dark"] {
+  --primary: #AEB8FF; --on-primary: #141A5C; --primary-c: #2E3790; --on-primary-c: #E3E6FF;
+  --peacock: #5FD4C4; --peacock-c: #005046; --on-peacock-c: #D2F4EF;
+  --marigold-c: #5A3D00; --on-marigold-c: #FFE8B8; --marigold: #FFC75A;
+  --error: #FF8A80; --error-c: #8C1D18; --on-error-c: #FFDAD6;
+  --surface: #0D0F1C; --on-surface: #E6E8F5; --on-surface-v: #A3A8C3;
+  --c-low: #13162A; --c: #191C33; --c-high: #20243D; --c-highest: #282C47;
+  --outline: #3C4160; --outline-v: #2A2E48;
+  --hero-a: #2A3390; --hero-b: #121650;
+  --page: #05060C; --page-ink: #E6E8F5; --bezel: #1B1D2B;
+  --shadow: 0 30px 60px -30px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, color-mix(in oklab, var(--peacock) 14%, transparent), transparent 60%),
+    var(--page);
+  color: var(--page-ink);
+  min-height: 100vh;
+  transition: background-color .3s;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.serif { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; letter-spacing: -.01em; }
+
+/* ---------- page chrome ---------- */
+.top {
+  max-width: 1600px; margin: 0 auto; padding: 32px 24px 8px;
+  display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: end; justify-content: space-between;
+}
+.top h1 { font-size: clamp(34px, 5vw, 56px); line-height: 1; }
+.top h1 em { color: var(--peacock); }
+.top p { max-width: 560px; margin-top: 10px; color: color-mix(in oklab, var(--page-ink) 78%, transparent); line-height: 1.55; font-size: 15px; }
+.brandline { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; letter-spacing: .02em; margin-bottom: 14px; }
+.toggle { display: inline-flex; padding: 4px; border-radius: 14px; background: color-mix(in oklab, var(--page-ink) 8%, transparent); }
+.toggle button { height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 600; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.toggle button[aria-pressed="true"] { background: var(--surface); color: var(--on-surface); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.howto { font-size: 13px; color: color-mix(in oklab, var(--page-ink) 75%, transparent); margin-top: 8px; }
+.howto code { font-family: ui-monospace, monospace; background: color-mix(in oklab, var(--page-ink) 8%, transparent); padding: 2px 6px; border-radius: 6px; }
+
+.board {
+  max-width: 1600px; margin: 0 auto; padding: 28px 24px 80px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 44px 28px; justify-items: center;
+}
+figure { animation: rise .7s cubic-bezier(.2, .7, .2, 1) both; }
+figure:nth-child(2) { animation-delay: .06s } figure:nth-child(3) { animation-delay: .12s }
+figure:nth-child(4) { animation-delay: .18s } figure:nth-child(5) { animation-delay: .24s }
+figure:nth-child(6) { animation-delay: .30s } figure:nth-child(7) { animation-delay: .36s }
+figure:nth-child(8) { animation-delay: .42s } figure:nth-child(9) { animation-delay: .48s }
+@keyframes rise { from { opacity: 0; transform: translateY(24px) } }
+@media (prefers-reduced-motion: reduce) { figure { animation: none } }
+figcaption { margin-top: 16px; display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+figcaption b { font-family: "Instrument Serif", serif; font-weight: 400; font-size: 26px; line-height: 1; color: var(--peacock); }
+figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); }
+
+/* ---------- phone ---------- */
+.phone { width: 360px; max-width: calc(100vw - 32px); height: 760px; padding: 9px; border-radius: 46px; background: var(--bezel); box-shadow: var(--shadow); }
+.screen {
+  height: 100%; border-radius: 38px; overflow: hidden; position: relative;
+  background: var(--surface); color: var(--on-surface); display: flex; flex-direction: column;
+  font-size: 14px; line-height: 1.45;
+}
+.status { height: 40px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 26px 0 30px; font-size: 13px; font-weight: 700; }
+.status i { font-size: 15px; margin-left: 4px; }
+.scroll { flex: 1; overflow-y: auto; scrollbar-width: none; padding-bottom: 16px; }
+.scroll::-webkit-scrollbar { display: none; }
+.pad { padding: 0 16px; }
+.muted { color: var(--on-surface-v); }
+.small { font-size: 12px; }
+.row { display: flex; align-items: center; gap: 8px; }
+.between { justify-content: space-between; }
+.grow { flex: 1; min-width: 0; }
+.tab { font-variant-numeric: tabular-nums; }
+
+.appbar { height: 56px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
+.appbar h2 { font-size: 19px; font-weight: 700; letter-spacing: -.2px; flex: 1; padding-left: 4px; }
+.icon-btn { width: 48px; height: 48px; border-radius: 24px; display: grid; place-items: center; font-size: 22px; }
+.icon-btn.tint { background: color-mix(in oklab, var(--surface) 85%, transparent); backdrop-filter: blur(8px); width: 40px; height: 40px; font-size: 20px; }
+
+.h-sec { display: flex; align-items: center; justify-content: space-between; padding: 22px 16px 10px; }
+.h-sec h3 { font-size: 18px; font-weight: 700; letter-spacing: -.2px; }
+.link { color: var(--primary); font-weight: 600; font-size: 14px; }
+
+.field { height: 52px; border-radius: 12px; background: var(--c); display: flex; align-items: center; gap: 10px; padding: 0 16px; color: var(--on-surface-v); }
+.field.focus { box-shadow: inset 0 0 0 1.5px var(--primary); color: var(--on-surface); }
+.label { font-size: 13px; font-weight: 600; margin: 18px 0 8px; }
+
+.btn { height: 52px; border-radius: 14px; font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; }
+.btn.fill { background: var(--primary); color: var(--on-primary); }
+.btn.out { box-shadow: inset 0 0 0 1px var(--outline); }
+.btn.tonal { background: var(--primary-c); color: var(--on-primary-c); }
+.btn.sm { height: 40px; border-radius: 12px; font-size: 14px; padding: 0 14px; }
+
+.chip { height: 36px; flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--outline-v); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.chip.on { background: var(--primary-c); color: var(--on-primary-c); box-shadow: none; }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 0 16px; }
+.chips::-webkit-scrollbar { display: none; }
+
+.card { border-radius: 16px; box-shadow: inset 0 0 0 1px var(--outline-v); background: var(--surface); }
+.well { background: var(--c); border-radius: 16px; display: grid; place-items: center; position: relative; overflow: hidden; }
+
+.tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: .2px; }
+.tag.deal { background: var(--marigold-c); color: var(--on-marigold-c); }
+.tag.ok { background: var(--peacock-c); color: var(--on-peacock-c); }
+.tag.info { background: var(--primary-c); color: var(--on-primary-c); }
+.tag.bad { background: var(--error-c); color: var(--on-error-c); }
+
+.price { font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; }
+.mrp { text-decoration: line-through; color: var(--on-surface-v); font-size: 12px; font-variant-numeric: tabular-nums; }
+.off { color: var(--peacock); font-weight: 700; font-size: 12px; }
+
+.nav { height: 68px; flex: none; display: flex; background: var(--surface); box-shadow: inset 0 1px 0 var(--outline-v); padding: 6px 4px 0; }
+.nav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--on-surface-v); text-decoration: none; }
+.nav .ind { width: 56px; height: 30px; border-radius: 15px; display: grid; place-items: center; font-size: 22px; position: relative; }
+.nav a.on { color: var(--on-surface); }
+.nav a.on .ind { background: var(--primary-c); color: var(--on-primary-c); }
+.badge { position: absolute; top: -2px; right: 10px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--error); color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; padding: 0 5px; }
+:root[data-theme="dark"] .badge { color: #3a0000; }
+.home-ind { height: 22px; flex: none; display: grid; place-items: center; background: var(--surface); }
+.home-ind::after { content: ""; width: 120px; height: 4px; border-radius: 2px; background: var(--on-surface); opacity: .8; }
+
+.sticky { flex: none; padding: 12px 16px 4px; background: var(--surface); box-shadow: 0 -1px 0 var(--outline-v), 0 -12px 24px -16px rgba(0,0,0,.12); }
+
+/* ---------- device art (placeholder for real product photos) ---------- */
+.dev {
+  --c: #2b3a67; width: 40%; aspect-ratio: 9 / 19; border-radius: 16% / 7.5%; position: relative;
+  background: linear-gradient(150deg, color-mix(in oklab, var(--c) 70%, white) 0%, var(--c) 45%, color-mix(in oklab, var(--c) 75%, black) 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.22), inset -6px -10px 18px rgba(0,0,0,.18), 0 20px 26px -14px rgba(10, 12, 30, .55);
+  transform: rotate(-8deg);
+}
+.dev .l { position: absolute; width: 17%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 38% 34%, #6b7194 0 8%, #1b1e2e 30%, #05060b 70%); box-shadow: 0 0 0 2px color-mix(in oklab, var(--c) 60%, #9aa0b8); }
+.dev .mod { position: absolute; top: 3.5%; left: 7%; width: 46%; aspect-ratio: 1; border-radius: 24%; background: rgba(255,255,255,.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+.dev .mod .l { width: 40%; }
+.dev .bar { position: absolute; top: 10%; left: 0; right: 0; height: 8%; background: rgba(0,0,0,.28); }
+.dev.flat { transform: none; }
+.acc { font-size: 64px; color: var(--primary); opacity: .9; }
+
+/* ---------- 1 home ---------- */
+.hero {
+  margin: 4px 16px 0; height: 190px; border-radius: 22px; position: relative; overflow: hidden; color: #fff; padding: 20px;
+  background:
+    repeating-radial-gradient(ellipse at 88% 62%, rgba(255,255,255,.07) 0 1.5px, transparent 1.5px 16px),
+    radial-gradient(ellipse at 90% 30%, rgba(95,212,196,.45), transparent 55%),
+    linear-gradient(135deg, var(--hero-a), var(--hero-b));
+}
+.hero .kicker { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+.hero h4 { font-size: 40px; line-height: .95; margin: 8px 0 8px; }
+.hero .dev { position: absolute; right: 8%; top: 14%; width: 26%; }
+.hero .dev + .dev { right: 24%; top: 24%; transform: rotate(-16deg); width: 22%; opacity: .95; }
+.hero .btn { height: 38px; background: #fff; color: #141A52; font-size: 13px; padding: 0 14px; border-radius: 11px; margin-top: 14px; width: fit-content; }
+.cats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 6px; padding: 18px 12px 0; }
+.cat { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; text-align: center; line-height: 1.2; }
+.cat .ic { width: 58px; height: 58px; border-radius: 18px; background: var(--c); display: grid; place-items: center; font-size: 26px; color: var(--primary); }
+.hscroll { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; padding: 0 16px; }
+.hscroll::-webkit-scrollbar { display: none; }
+.pcard { width: 148px; flex: none; }
+.pcard .well { aspect-ratio: 1; }
+.meta { padding: 8px 2px 0; }
+.meta .brand { font-size: 11px; font-weight: 700; color: var(--on-surface-v); text-transform: uppercase; letter-spacing: .06em; }
+.meta .name { font-weight: 600; font-size: 13.5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 2px 0 4px; min-height: 35px; }
+.heart { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 17px; background: var(--surface); display: grid; place-items: center; font-size: 17px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.heart.on { color: #D93F5B; }
+.repair-cta { margin: 22px 16px 0; padding: 18px; border-radius: 20px; background: var(--peacock-c); color: var(--on-peacock-c); display: flex; gap: 14px; align-items: center; position: relative; overflow: hidden; }
+.repair-cta .ic { width: 52px; height: 52px; flex: none; border-radius: 16px; background: color-mix(in oklab, var(--peacock) 20%, var(--surface)); display: grid; place-items: center; font-size: 26px; color: var(--peacock); }
+.repair-cta h5 { font-size: 16px; font-weight: 700; }
+.repair-cta p { font-size: 12.5px; opacity: .85; margin-top: 2px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; padding: 0 16px; }
+.grid2 .well { aspect-ratio: 1; }
+.store { margin: 22px 16px 0; padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+
+/* ---------- 3 product ---------- */
+.gallery { height: 330px; flex: none; background: var(--c); position: relative; display: grid; place-items: center; }
+.gallery .dev { width: 34%; }
+.gallery .top-btns { position: absolute; top: 0; left: 8px; right: 8px; display: flex; justify-content: space-between; }
+.dots { position: absolute; bottom: 14px; display: flex; gap: 6px; }
+.dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--outline); }
+.dots i.on { width: 18px; background: var(--primary); }
+.swatch { width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; }
+.swatch span { width: 30px; height: 30px; border-radius: 15px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.swatch.on { box-shadow: 0 0 0 2px var(--primary); }
+.spec { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--outline-v); font-size: 13px; }
+.spec i { font-size: 20px; color: var(--on-surface-v); }
+.spec b { display: block; font-weight: 600; }
+
+/* ---------- 4 cart ---------- */
+.line { display: flex; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--outline-v); }
+.line .well { width: 84px; height: 84px; flex: none; border-radius: 14px; }
+.line .well .dev { width: 30%; }
+.line .well .acc { font-size: 34px; }
+.stepper { display: inline-flex; align-items: center; height: 36px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--outline-v); }
+.stepper button { width: 36px; height: 36px; display: grid; place-items: center; font-size: 15px; }
+.stepper button:disabled { opacity: .35; }
+.stepper span { width: 20px; text-align: center; font-weight: 700; font-size: 14px; }
+.sumrow { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+.sumrow.total { font-weight: 800; font-size: 16px; padding-top: 12px; margin-top: 6px; border-top: 1px dashed var(--outline); }
+
+/* ---------- 5 checkout ---------- */
+.radio-card { padding: 14px; display: flex; gap: 12px; align-items: flex-start; }
+.radio-card.on { box-shadow: inset 0 0 0 2px var(--primary); }
+.radio-card.off b, .radio-card.off > i { color: var(--on-surface-v); } .radio-card.off .radio { opacity: .5; }
+.radio { width: 22px; height: 22px; border-radius: 11px; box-shadow: inset 0 0 0 2px var(--outline); flex: none; margin-top: 1px; }
+.on .radio { box-shadow: inset 0 0 0 2px var(--primary), inset 0 0 0 6px var(--surface), inset 0 0 0 12px var(--primary); }
+.paylogos { display: flex; gap: 6px; margin-top: 8px; }
+.paylogos span { height: 26px; padding: 0 8px; border-radius: 6px; background: var(--c); display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; }
+.secure { margin: 16px; padding: 12px 14px; border-radius: 12px; background: var(--c-low); display: flex; gap: 10px; font-size: 12px; color: var(--on-surface-v); }
+.thumbs { display: flex; }
+.thumbs .well { width: 40px; height: 40px; border-radius: 10px; margin-right: -8px; box-shadow: 0 0 0 2px var(--surface); }
+.thumbs .well .dev { width: 30%; }
+
+/* ---------- 6 order ---------- */
+.status-hero { margin: 4px 16px 0; padding: 18px; border-radius: 20px; background: var(--primary-c); color: var(--on-primary-c); }
+.status-hero h4 { font-size: 30px; line-height: 1; margin: 6px 0 4px; }
+.awb { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: color-mix(in oklab, var(--surface) 70%, transparent); font-size: 12.5px; }
+.tl { padding: 8px 16px 0 16px; }
+.tl li { list-style: none; display: grid; grid-template-columns: 28px 1fr; gap: 10px; position: relative; padding-bottom: 18px; }
+.tl li::before { content: ""; position: absolute; left: 13px; top: 24px; bottom: 0; width: 2px; background: var(--peacock); }
+.tl li.todo::before, .tl li:last-child::before { background: var(--outline-v); }
+.tl li:last-child::before { display: none; }
+.tl .dot { width: 28px; height: 28px; border-radius: 14px; background: var(--peacock); color: #fff; display: grid; place-items: center; font-size: 15px; }
+:root[data-theme="dark"] .tl .dot { color: #00382F; }
+.tl li.todo .dot { background: var(--c); color: var(--on-surface-v); box-shadow: inset 0 0 0 2px var(--outline-v); }
+.tl b { font-weight: 600; display: block; padding-top: 4px; }
+.imei { font-family: ui-monospace, monospace; font-size: 11.5px; letter-spacing: .02em; }
+
+/* ---------- 7 repair ---------- */
+.issues { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.issue { height: 76px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--outline-v); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.15; padding: 0 4px; }
+.issue i { font-size: 24px; color: var(--on-surface-v); }
+.issue.on { background: var(--primary-c); color: var(--on-primary-c); box-shadow: none; }
+.issue.on i { color: var(--on-primary-c); }
+.date { width: 56px; height: 68px; flex: none; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--outline-v); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--on-surface-v); }
+.date b { font-size: 19px; color: var(--on-surface); font-weight: 800; }
+.date.on { background: var(--primary); color: var(--on-primary); box-shadow: none; }
+.date.on b { color: var(--on-primary); }
+.slot { flex: 1; height: 56px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--outline-v); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.slot span { font-size: 11px; font-weight: 500; color: var(--on-surface-v); }
+.slot.on { background: var(--primary-c); color: var(--on-primary-c); box-shadow: none; }
+.slot.on span { color: inherit; opacity: .8; }
+.note { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--marigold-c); color: var(--on-marigold-c); display: flex; gap: 10px; font-size: 12.5px; }
+
+/* ---------- 8 sign in ---------- */
+.signin-top {
+  height: 290px; flex: none; position: relative; overflow: hidden; color: #fff; padding: 56px 24px 0;
+  background:
+    repeating-radial-gradient(ellipse at 50% 120%, rgba(255,255,255,.07) 0 1.5px, transparent 1.5px 20px),
+    radial-gradient(ellipse at 50% 110%, rgba(95,212,196,.5), transparent 60%),
+    linear-gradient(180deg, var(--hero-b), var(--hero-a));
+}
+.signin-top h4 { font-size: 46px; line-height: .95; margin-top: 18px; }
+.signin-top p { opacity: .8; margin-top: 10px; max-width: 260px; }
+.sheet { margin-top: -26px; border-radius: 26px 26px 0 0; background: var(--surface); position: relative; padding: 22px 20px 0; flex: 1; }
+.seg { display: flex; padding: 4px; border-radius: 14px; background: var(--c); }
+.seg span { flex: 1; height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 600; font-size: 14px; color: var(--on-surface-v); }
+.seg span.on { background: var(--surface); color: var(--on-surface); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.or { display: flex; align-items: center; gap: 12px; margin: 18px 0; font-size: 12px; color: var(--on-surface-v); }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--outline-v); }
+
+/* ---------- 9 admin ---------- */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px; }
+.stat { padding: 14px; border-radius: 16px; background: var(--c-low); box-shadow: inset 0 0 0 1px var(--outline-v); }
+.stat .v { font-size: 24px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.stat .k { font-size: 12px; color: var(--on-surface-v); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.stat.warn { background: var(--marigold-c); color: var(--on-marigold-c); box-shadow: none; }
+.stat.warn .k, .stat.bad .k { color: inherit; opacity: .85; }
+.stat.bad { background: var(--error-c); color: var(--on-error-c); box-shadow: none; }
+.qa { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 16px; }
+.qa div { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; }
+.qa i { width: 52px; height: 52px; border-radius: 16px; background: var(--primary-c); color: var(--on-primary-c); display: grid; place-items: center; font-size: 24px; }
+.todo-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--outline-v); }
+.todo-row .ic { width: 40px; height: 40px; border-radius: 12px; background: var(--c); display: grid; place-items: center; font-size: 20px; color: var(--on-surface-v); flex: none; }
+.nav.six .ind { width: 46px; }
+
+@media print {
+  @page { size: A3 landscape; margin: 10mm; }
+  html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { zoom: .78; }
+  .toggle { display: none; }
+  figure { animation: none; break-inside: avoid; }
+  .board { padding-bottom: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <div class="brandline"><svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#232C7A"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" fill="#0B7F73"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" fill="#F5B841"/><ellipse cx="16" cy="19" rx="3" ry="3.9" fill="#232C7A"/></svg>SHYAM MOBILES · APP MOCKUP v1</div>
+    <h1 class="serif">Phones, accessories &amp; <em>repairs</em>, in one app.</h1>
+    <p>Nine key screens drawn with the real design tokens, schema and prices. The phone drawings stand in for product photos, which you upload from the admin panel.</p>
+    <p class="howto">Ask for edits by screen number, e.g. <code>3: bigger Buy now</code> or <code>all: warmer colours</code>.</p>
+  </div>
+  <div class="toggle" role="group" aria-label="Theme">
+    <button type="button" data-set="light" aria-pressed="true"><i class="ph ph-sun"></i>Light</button>
+    <button type="button" data-set="dark" aria-pressed="false"><i class="ph ph-moon"></i>Dark</button>
+  </div>
+</header>
+
+<main class="board">
+
+<!-- 1 HOME -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+    <div class="scroll">
+      <div class="pad row between" style="height:52px">
+        <div class="row" style="gap:10px">
+          <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#232C7A"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" fill="#0B7F73"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" fill="#F5B841"/><ellipse cx="16" cy="19" rx="3" ry="3.9" fill="#232C7A"/></svg>
+          <div><div class="serif" style="font-size:24px;line-height:1">Shyam Mobiles</div><div class="small muted">Phones · Accessories · Repairs</div></div>
+        </div>
+        <button class="icon-btn" aria-label="Call the store"><i class="ph ph-phone"></i></button>
+      </div>
+      <div class="pad" style="margin:8px 0 14px"><div class="field"><i class="ph ph-magnifying-glass" style="font-size:20px"></i>Search phones, cases, chargers…</div></div>
+      <div class="hero">
+        <div class="kicker">Featured</div>
+        <h4 class="serif">Galaxy S25</h4>
+        <div style="font-size:13px;opacity:.9">From <b class="tab">₹74,999</b> &nbsp;·&nbsp; 7% off MRP</div>
+        <button class="btn">View phone <i class="ph-bold ph-arrow-right"></i></button>
+        <div class="dev" data-kind="tri" style="--c:#1F2B4D"></div>
+        <div class="dev" data-kind="tri" style="--c:#BFD6EA"></div>
+      </div>
+      <div class="cats">
+        <div class="cat"><div class="ic"><i class="ph ph-device-mobile"></i></div>Phones</div>
+        <div class="cat"><div class="ic"><i class="ph ph-phone-call"></i></div>Cases</div>
+        <div class="cat"><div class="ic"><i class="ph ph-shield-check"></i></div>Screen guards</div>
+        <div class="cat"><div class="ic"><i class="ph ph-plug-charging"></i></div>Chargers</div>
+        <div class="cat"><div class="ic"><i class="ph ph-headphones"></i></div>Earbuds</div>
+        <div class="cat"><div class="ic"><i class="ph ph-battery-charging"></i></div>Power banks</div>
+        <div class="cat"><div class="ic" style="background:var(--peacock-c);color:var(--peacock)"><i class="ph ph-wrench"></i></div>Repairs</div>
+        <div class="cat"><div class="ic"><i class="ph ph-squares-four"></i></div>All</div>
+      </div>
+      <div class="h-sec"><h3>Featured phones</h3><span class="link">See all</span></div>
+      <div class="hscroll">
+        <div class="pcard"><div class="well"><div class="dev" data-kind="mod" style="--c:#E9D9C4"></div><span class="heart"><i class="ph ph-heart"></i></span></div><div class="meta"><div class="brand">Apple</div><div class="name">iPhone 16</div><span class="price">₹69,900</span> <span class="mrp">₹79,900</span></div></div>
+        <div class="pcard"><div class="well"><div class="dev" data-kind="bar" style="--c:#C9D3C0"></div><span class="heart on"><i class="ph-fill ph-heart"></i></span></div><div class="meta"><div class="brand">Google</div><div class="name">Pixel 9a</div><span class="price">₹49,999</span></div></div>
+        <div class="pcard"><div class="well"><div class="dev" data-kind="tri" style="--c:#3B2F2F"></div><span class="heart"><i class="ph ph-heart"></i></span></div><div class="meta"><div class="brand">OnePlus</div><div class="name">OnePlus 13</div><span class="price">₹69,999</span> <span class="mrp">₹72,999</span></div></div>
+      </div>
+      <div class="repair-cta">
+        <div class="ic"><i class="ph ph-wrench"></i></div>
+        <div class="grow"><h5>Cracked screen? Weak battery?</h5><p>Pick a slot and walk in. You pay at the store after the inspection.</p></div>
+        <i class="ph-bold ph-caret-right" style="font-size:18px"></i>
+      </div>
+      <div class="h-sec"><h3>Accessories under ₹1,500</h3><span class="link">See all</span></div>
+      <div class="grid2">
+        <div><div class="well"><i class="ph-duotone ph-headphones acc"></i><span class="heart"><i class="ph ph-heart"></i></span><span class="tag deal" style="position:absolute;left:8px;top:8px">75% off</span></div><div class="meta"><div class="brand">boAt</div><div class="name">Airdopes 141 earbuds</div><span class="price">₹1,099</span> <span class="mrp">₹4,490</span></div></div>
+        <div><div class="well"><i class="ph-duotone ph-plug-charging acc"></i><span class="heart"><i class="ph ph-heart"></i></span></div><div class="meta"><div class="brand">Anker</div><div class="name">Nano 20W USB-C charger</div><span class="price">₹1,299</span> <span class="mrp">₹1,999</span></div></div>
+      </div>
+      <div class="card store">
+        <i class="ph ph-storefront" style="font-size:24px;color:var(--primary)"></i>
+        <div class="grow"><b style="font-weight:700">Visit the store</b><div class="small muted">Main Road, near Bus Stand · Open 10 am – 9 pm</div></div>
+        <button class="icon-btn" aria-label="WhatsApp the store" style="width:40px;height:40px;color:var(--peacock)"><i class="ph ph-whatsapp-logo"></i></button>
+      </div>
+    </div>
+    <nav class="nav"><a class="on"><span class="ind"><i class="ph-fill ph-house"></i></span>Home</a><a><span class="ind"><i class="ph ph-magnifying-glass"></i></span>Search</a><a><span class="ind"><i class="ph ph-wrench"></i></span>Repairs</a><a><span class="ind"><i class="ph ph-shopping-bag"></i><span class="badge">2</span></span>Cart</a><a><span class="ind"><i class="ph ph-user"></i></span>Account</a></nav>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>1</b> Home <span>· featured, categories, repair CTA</span></figcaption>
+</figure>
+
+<!-- 2 SEARCH -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+    <div class="pad" style="padding-top:6px"><div class="field focus"><i class="ph ph-magnifying-glass" style="font-size:20px"></i><span class="grow">5g phone</span><i class="ph ph-x-circle" style="font-size:20px;color:var(--on-surface-v)"></i></div></div>
+    <div class="chips" style="padding-top:12px;padding-bottom:4px">
+      <span class="chip on">Smartphones <i class="ph-bold ph-x" style="font-size:12px"></i></span>
+      <span class="chip">Brand <i class="ph-bold ph-caret-down" style="font-size:12px"></i></span>
+      <span class="chip">Under ₹30k</span>
+      <span class="chip"><i class="ph ph-sort-ascending"></i>Relevance</span>
+    </div>
+    <div class="scroll">
+      <div class="pad small muted" style="padding-top:10px;padding-bottom:12px">12 results</div>
+      <div class="grid2">
+        <div><div class="well"><div class="dev" data-kind="tri" style="--c:#2E3B33"></div><span class="heart"><i class="ph ph-heart"></i></span></div><div class="meta"><div class="brand">Samsung</div><div class="name">Galaxy A56 5G</div><span class="price">₹41,999</span> <span class="mrp">₹44,999</span> <span class="off">6% off</span></div></div>
+        <div><div class="well"><div class="dev" data-kind="bar" style="--c:#EDEDED"></div><span class="heart on"><i class="ph-fill ph-heart"></i></span><span class="tag deal" style="position:absolute;left:8px;top:8px">Only 2 left</span></div><div class="meta"><div class="brand">Nothing</div><div class="name">Phone (3a)</div><span class="price">₹24,999</span> <span class="mrp">₹27,999</span> <span class="off">10% off</span></div></div>
+        <div><div class="well"><div class="dev" data-kind="mod" style="--c:#6E4A8E"></div><span class="heart"><i class="ph ph-heart"></i></span></div><div class="meta"><div class="brand">Xiaomi</div><div class="name">Redmi Note 14 Pro 5G</div><span class="price">₹23,999</span> <span class="mrp">₹28,999</span> <span class="off">17% off</span></div></div>
+        <div><div class="well"><div class="dev" data-kind="tri" style="--c:#C6A15B;opacity:.45"></div><span class="tag bad" style="position:absolute;left:8px;top:8px">Out of stock</span></div><div class="meta"><div class="brand">realme</div><div class="name">Narzo 80 Pro 5G</div><span class="price">₹19,999</span></div></div>
+        <div><div class="well"><div class="dev" data-kind="mod" style="--c:#7FA7C9"></div><span class="heart"><i class="ph ph-heart"></i></span></div><div class="meta"><div class="brand">vivo</div><div class="name">V50 5G</div><span class="price">₹34,999</span> <span class="mrp">₹40,999</span> <span class="off">14% off</span></div></div>
+        <div><div class="well"><div class="dev" data-kind="tri" style="--c:#203A4C"></div><span class="heart"><i class="ph ph-heart"></i></span></div><div class="meta"><div class="brand">Motorola</div><div class="name">Edge 60 Fusion</div><span class="price">₹22,999</span> <span class="mrp">₹25,999</span> <span class="off">11% off</span></div></div>
+      </div>
+    </div>
+    <nav class="nav"><a><span class="ind"><i class="ph ph-house"></i></span>Home</a><a class="on"><span class="ind"><i class="ph-bold ph-magnifying-glass"></i></span>Search</a><a><span class="ind"><i class="ph ph-wrench"></i></span>Repairs</a><a><span class="ind"><i class="ph ph-shopping-bag"></i><span class="badge">2</span></span>Cart</a><a><span class="ind"><i class="ph ph-user"></i></span>Account</a></nav>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>2</b> Search <span>· filters, stock badges, wishlist hearts</span></figcaption>
+</figure>
+
+<!-- 3 PRODUCT -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="scroll" style="padding-bottom:0">
+      <div class="gallery">
+        <div class="status" style="position:absolute;top:0;left:0;right:0"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+        <div class="top-btns" style="top:44px"><button class="icon-btn tint" aria-label="Back"><i class="ph ph-arrow-left"></i></button><button class="icon-btn tint" aria-label="Save to wishlist" style="color:#D93F5B"><i class="ph-fill ph-heart"></i></button></div>
+        <div class="dev flat" data-kind="tri" style="--c:#1F2B4D;margin-top:30px"></div>
+        <div class="dots"><i class="on"></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="pad" style="padding-top:16px">
+        <div class="row between"><span class="small" style="font-weight:700;letter-spacing:.06em;color:var(--on-surface-v)">SAMSUNG</span><span class="tag ok"><i class="ph-bold ph-check"></i>In stock</span></div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.4px;margin-top:4px">Galaxy S25 5G</div>
+        <div class="row" style="margin-top:8px;align-items:baseline;gap:10px"><span class="price" style="font-size:26px">₹74,999</span><span class="mrp" style="font-size:14px">₹80,999</span><span class="off" style="font-size:14px">7% off</span></div>
+        <div class="small muted" style="margin-top:2px">Inclusive of all taxes · EMI options at checkout</div>
+        <div class="label">Memory &amp; storage</div>
+        <div class="row" style="flex-wrap:wrap"><span class="chip on">12 GB · 256 GB</span><span class="chip">12 GB · 512 GB <span class="muted" style="font-weight:500">+₹12,000</span></span></div>
+        <div class="label">Colour · <span class="muted" style="font-weight:500">Navy</span></div>
+        <div class="row" style="gap:10px"><span class="swatch on"><span style="background:#1F2B4D"></span></span><span class="swatch"><span style="background:#BFD6EA"></span></span><span class="swatch"><span style="background:#C9CCD2"></span></span><span class="swatch"><span style="background:#BFE3D0"></span></span></div>
+        <div class="card row" style="margin-top:18px;padding:12px 14px;gap:12px"><i class="ph ph-truck" style="font-size:22px;color:var(--peacock)"></i><div class="small"><b style="font-weight:700">Free delivery</b> on orders above ₹999 · Cash on delivery up to ₹25,000</div></div>
+        <div class="label" style="margin-top:22px;font-size:16px;font-weight:700">Specifications</div>
+        <div class="spec"><i class="ph ph-device-mobile"></i><div><b>Display</b><span class="muted">6.2" FHD+ Dynamic AMOLED 2X, 120 Hz</span></div></div>
+        <div class="spec"><i class="ph ph-cpu"></i><div><b>Processor</b><span class="muted">Snapdragon 8 Elite for Galaxy</span></div></div>
+        <div class="spec"><i class="ph ph-camera"></i><div><b>Camera</b><span class="muted">50 MP + 12 MP + 10 MP · 12 MP front</span></div></div>
+        <div class="spec"><i class="ph ph-battery-high"></i><div><b>Battery</b><span class="muted">4000 mAh · 25 W wired</span></div></div>
+      </div>
+    </div>
+    <div class="sticky row" style="gap:10px">
+      <button class="btn out grow"><i class="ph ph-shopping-bag"></i>Add to cart</button>
+      <button class="btn fill grow">Buy now</button>
+    </div>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>3</b> Product <span>· gallery, variant picker, specs</span></figcaption>
+</figure>
+
+<!-- 4 CART -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+    <div class="appbar"><h2>Cart <span class="muted" style="font-weight:600">· 3 items</span></h2></div>
+    <div class="scroll">
+      <div class="line">
+        <div class="well"><div class="dev" data-kind="tri" style="--c:#1F2B4D"></div></div>
+        <div class="grow">
+          <div style="font-weight:600">Samsung Galaxy S25 5G</div><div class="small muted">12 GB · 256 GB · Navy</div>
+          <div class="row between" style="margin-top:8px"><span class="price">₹74,999</span><div class="stepper"><button disabled aria-label="Decrease"><i class="ph-bold ph-minus"></i></button><span>1</span><button aria-label="Increase"><i class="ph-bold ph-plus"></i></button></div></div>
+        </div>
+      </div>
+      <div class="line">
+        <div class="well"><i class="ph-duotone ph-shield-check acc"></i></div>
+        <div class="grow">
+          <div style="font-weight:600">Spigen GlasTR screen guard, Galaxy S25</div><div class="small muted">2 pack</div>
+          <div class="row between" style="margin-top:8px"><span class="price">₹1,299</span><div class="stepper"><button disabled aria-label="Decrease"><i class="ph-bold ph-minus"></i></button><span>1</span><button aria-label="Increase"><i class="ph-bold ph-plus"></i></button></div></div>
+        </div>
+      </div>
+      <div class="line">
+        <div class="well"><i class="ph-duotone ph-headphones acc"></i></div>
+        <div class="grow">
+          <div style="font-weight:600">boAt Airdopes 141</div><div class="small muted">Bold Black</div>
+          <span class="tag deal" style="margin-top:6px"><i class="ph-bold ph-warning"></i>Only 1 left</span>
+          <div class="row between" style="margin-top:8px"><span class="price">₹1,099</span><div class="stepper"><button disabled aria-label="Decrease"><i class="ph-bold ph-minus"></i></button><span>1</span><button disabled aria-label="Increase"><i class="ph-bold ph-plus"></i></button></div></div>
+        </div>
+      </div>
+      <div class="pad" style="padding-top:18px">
+        <div class="card" style="padding:14px 16px">
+          <div class="sumrow"><span class="muted">Subtotal</span><span class="tab">₹77,397</span></div>
+          <div class="sumrow"><span class="muted">Delivery</span><span style="color:var(--peacock);font-weight:700">Free</span></div>
+          <div class="sumrow total"><span>Total</span><span class="tab">₹77,397</span></div>
+        </div>
+        <div class="small muted row" style="margin-top:12px;gap:6px"><i class="ph ph-arrow-u-up-left"></i>Swipe an item left to remove it. You can undo.</div>
+      </div>
+    </div>
+    <div class="sticky"><button class="btn fill" style="width:100%">Checkout · ₹77,397 <i class="ph-bold ph-arrow-right"></i></button></div>
+    <nav class="nav"><a><span class="ind"><i class="ph ph-house"></i></span>Home</a><a><span class="ind"><i class="ph ph-magnifying-glass"></i></span>Search</a><a><span class="ind"><i class="ph ph-wrench"></i></span>Repairs</a><a class="on"><span class="ind"><i class="ph-fill ph-shopping-bag"></i><span class="badge">3</span></span>Cart</a><a><span class="ind"><i class="ph ph-user"></i></span>Account</a></nav>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>4</b> Cart <span>· stock warnings, totals from the server</span></figcaption>
+</figure>
+
+<!-- 5 CHECKOUT -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+    <div class="appbar"><button class="icon-btn" aria-label="Back"><i class="ph ph-arrow-left"></i></button><h2>Checkout</h2></div>
+    <div class="scroll">
+      <div class="pad">
+        <div class="label" style="margin-top:4px">Deliver to</div>
+        <div class="card" style="padding:14px 16px">
+          <div class="row between"><b style="font-weight:700">Rahul Kumar</b><span class="link">Change</span></div>
+          <div class="small muted" style="margin-top:4px">House 14, Gandhi Nagar, near Shiv Mandir, Gaya, Bihar 823001</div>
+          <div class="small" style="margin-top:6px"><i class="ph ph-phone"></i> +91 98765 43210</div>
+        </div>
+        <div class="label">Payment</div>
+        <div class="card radio-card on">
+          <span class="radio"></span>
+          <div class="grow"><b style="font-weight:700">Pay online</b><div class="small muted">UPI, cards, netbanking, EMI</div>
+            <div class="paylogos"><span><i class="ph-bold ph-qr-code"></i>UPI</span><span><i class="ph-bold ph-credit-card"></i>Cards</span><span><i class="ph-bold ph-bank"></i>Netbanking</span><span>EMI</span></div></div>
+        </div>
+        <div class="card radio-card off" style="margin-top:10px">
+          <span class="radio"></span>
+          <div class="grow"><b style="font-weight:700">Cash on delivery</b><div class="small muted">Not available for orders above ₹25,000</div></div>
+          <i class="ph ph-money" style="font-size:22px;color:var(--on-surface-v)"></i>
+        </div>
+        <div class="label">Order summary</div>
+        <div class="card" style="padding:14px 16px">
+          <div class="row between">
+            <div class="thumbs"><div class="well"><div class="dev" data-kind="tri" style="--c:#1F2B4D"></div></div><div class="well"><i class="ph-duotone ph-shield-check" style="font-size:20px;color:var(--primary)"></i></div><div class="well"><i class="ph-duotone ph-headphones" style="font-size:20px;color:var(--primary)"></i></div></div>
+            <span class="link">3 items <i class="ph-bold ph-caret-down"></i></span>
+          </div>
+          <div class="sumrow" style="margin-top:10px"><span class="muted">Subtotal</span><span class="tab">₹77,397</span></div>
+          <div class="sumrow"><span class="muted">Delivery</span><span style="color:var(--peacock);font-weight:700">Free</span></div>
+          <div class="sumrow total"><span>To pay</span><span class="tab">₹77,397</span></div>
+        </div>
+      </div>
+      <div class="secure"><i class="ph-fill ph-lock-key" style="font-size:18px;color:var(--peacock)"></i><span>Payments go through Razorpay. Shyam Mobiles never sees your card details or UPI PIN.</span></div>
+    </div>
+    <div class="sticky"><button class="btn fill" style="width:100%">Pay ₹77,397</button></div>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>5</b> Checkout <span>· address, Razorpay or COD</span></figcaption>
+</figure>
+
+<!-- 6 ORDER -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+    <div class="appbar"><button class="icon-btn" aria-label="Back"><i class="ph ph-arrow-left"></i></button><h2>Order SM100023</h2></div>
+    <div class="scroll">
+      <div class="status-hero">
+        <span class="small" style="font-weight:700;letter-spacing:.08em">ON ITS WAY</span>
+        <h4 class="serif">Shipped</h4>
+        <div class="small" style="opacity:.85">Placed 27 Oct 2026 · Paid online</div>
+        <div class="awb"><span>Delhivery · <b class="tab">1490 2231 0098</b></span><span class="row" style="gap:4px;font-weight:700"><i class="ph ph-copy"></i>Copy</span></div>
+      </div>
+      <ol class="tl" style="margin-top:16px">
+        <li><span class="dot"><i class="ph-bold ph-check"></i></span><div><b>Order confirmed</b><span class="small muted">27 Oct, 6:42 pm · Payment received</span></div></li>
+        <li><span class="dot"><i class="ph-bold ph-package"></i></span><div><b>Packed</b><span class="small muted">28 Oct, 11:05 am · IMEI recorded</span></div></li>
+        <li><span class="dot"><i class="ph-bold ph-truck"></i></span><div><b>Shipped</b><span class="small muted">28 Oct, 5:30 pm</span></div></li>
+        <li class="todo"><span class="dot"><i class="ph-bold ph-house-line"></i></span><div><b class="muted">Delivered</b><span class="small muted">Usually 2–4 days after shipping</span></div></li>
+      </ol>
+      <div class="h-sec" style="padding-top:6px"><h3>Items</h3></div>
+      <div class="pad">
+        <div class="card" style="padding:12px;display:flex;gap:12px">
+          <div class="well" style="width:64px;height:64px;border-radius:12px;flex:none"><div class="dev" data-kind="tri" style="--c:#1F2B4D;width:30%"></div></div>
+          <div class="grow"><div style="font-weight:600">Samsung Galaxy S25 5G</div><div class="small muted">12 GB · 256 GB · Navy · Qty 1</div><div class="imei muted" style="margin-top:4px">IMEI 352099214488120</div></div>
+          <span class="price" style="font-size:14px">₹74,999</span>
+        </div>
+      </div>
+      <div class="pad row" style="gap:10px;margin-top:16px">
+        <button class="btn out sm grow"><i class="ph ph-phone"></i>Call store</button>
+        <button class="btn out sm grow"><i class="ph ph-whatsapp-logo"></i>WhatsApp</button>
+      </div>
+    </div>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>6</b> Order <span>· live timeline, courier, IMEI</span></figcaption>
+</figure>
+
+<!-- 7 REPAIR -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+    <div class="appbar"><button class="icon-btn" aria-label="Close"><i class="ph ph-x"></i></button><h2>Book a repair</h2></div>
+    <div class="scroll">
+      <div class="label pad" style="margin-top:0">Your phone</div>
+      <div class="chips"><span class="chip">Apple</span><span class="chip on">Samsung</span><span class="chip">OnePlus</span><span class="chip">Xiaomi</span><span class="chip">vivo</span><span class="chip">Other</span></div>
+      <div class="pad" style="margin-top:10px"><div class="field" style="color:var(--on-surface)">Galaxy S23</div></div>
+      <div class="pad">
+        <div class="label">What’s wrong?</div>
+        <div class="issues">
+          <div class="issue on"><i class="ph ph-device-mobile-slash"></i>Screen</div>
+          <div class="issue"><i class="ph ph-battery-warning"></i>Battery</div>
+          <div class="issue"><i class="ph ph-plug"></i>Charging</div>
+          <div class="issue"><i class="ph ph-camera"></i>Camera</div>
+          <div class="issue"><i class="ph ph-speaker-high"></i>Speaker / mic</div>
+          <div class="issue"><i class="ph ph-drop"></i>Water damage</div>
+          <div class="issue"><i class="ph ph-gear"></i>Software</div>
+          <div class="issue"><i class="ph ph-dots-three-circle"></i>Other</div>
+        </div>
+        <div class="label">When can you come in?</div>
+      </div>
+      <div class="chips">
+        <div class="date"><span>Today</span><b>29</b></div><div class="date on"><span>Thu</span><b>30</b></div><div class="date"><span>Fri</span><b>31</b></div><div class="date"><span>Sat</span><b>1</b></div><div class="date"><span>Sun</span><b>2</b></div><div class="date"><span>Mon</span><b>3</b></div>
+      </div>
+      <div class="pad">
+        <div class="row" style="margin-top:10px"><div class="slot">Morning<span>10 am – 1 pm</span></div><div class="slot on">Afternoon<span>1 – 5 pm</span></div><div class="slot">Evening<span>5 – 9 pm</span></div></div>
+        <div class="note"><i class="ph-fill ph-info" style="font-size:18px"></i><span>Final price is confirmed after inspection at the store. Booking is free.</span></div>
+      </div>
+    </div>
+    <div class="sticky"><button class="btn fill" style="width:100%">Book for Thu 30 Oct, afternoon</button></div>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>7</b> Repair booking <span>· device, issue, day and slot</span></figcaption>
+</figure>
+
+<!-- 8 SIGN IN -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="signin-top">
+      <div class="status" style="position:absolute;top:0;left:0;right:0;color:#fff"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+      <button class="icon-btn tint" aria-label="Close" style="position:absolute;top:44px;left:12px;background:rgba(255,255,255,.14);color:#fff"><i class="ph ph-x"></i></button>
+      <svg width="52" height="52" viewBox="0 0 32 32" aria-hidden="true" style="margin-top:28px"><rect width="32" height="32" rx="9" fill="#fff" fill-opacity=".14"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" fill="#0B7F73"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" fill="#F5B841"/><ellipse cx="16" cy="19" rx="3" ry="3.9" fill="#232C7A"/></svg>
+      <h4 class="serif">Welcome to<br>Shyam Mobiles</h4>
+      <p class="small">Sign in to check out, track orders and book repairs.</p>
+    </div>
+    <div class="sheet">
+      <div class="seg"><span class="on">Phone</span><span>Email</span></div>
+      <div class="label">Mobile number</div>
+      <div class="field focus"><b style="color:var(--on-surface)">+91</b><span style="width:1px;height:22px;background:var(--outline)"></span><span class="tab" style="color:var(--on-surface)">98765 43210</span></div>
+      <button class="btn fill" style="width:100%;margin-top:14px">Send code</button>
+      <div class="or">or</div>
+      <button class="btn out" style="width:100%"><i class="ph-bold ph-google-logo" style="font-size:18px"></i>Continue with Google</button>
+      <p class="small muted" style="text-align:center;margin-top:16px">By continuing you agree to the <u>Terms</u> and <u>Privacy Policy</u>.</p>
+    </div>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>8</b> Sign in <span>· phone OTP, email code, Google</span></figcaption>
+</figure>
+
+<!-- 9 ADMIN -->
+<figure>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+    <div class="scroll">
+      <div class="pad" style="padding-top:8px">
+        <div class="small muted" style="font-weight:600">Wednesday, 29 October</div>
+        <div class="serif" style="font-size:34px;line-height:1.05;margin:2px 0 14px">Today at the shop</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k"><i class="ph ph-receipt"></i>Orders today</div><div class="v">12</div></div>
+        <div class="stat"><div class="k"><i class="ph ph-currency-inr"></i>Revenue today</div><div class="v">₹4.82L</div></div>
+        <div class="stat"><div class="k"><i class="ph ph-package"></i>To ship</div><div class="v">7</div></div>
+        <div class="stat"><div class="k"><i class="ph ph-wrench"></i>Open repairs</div><div class="v">5</div></div>
+        <div class="stat warn"><div class="k"><i class="ph-bold ph-warning"></i>Low stock</div><div class="v">3</div></div>
+        <div class="stat bad"><div class="k"><i class="ph-bold ph-arrow-counter-clockwise"></i>Needs refund</div><div class="v">1</div></div>
+      </div>
+      <div class="h-sec"><h3>Manage</h3></div>
+      <div class="qa"><div><i class="ph ph-plus"></i>Add product</div><div><i class="ph ph-receipt"></i>Orders</div><div><i class="ph ph-wrench"></i>Repairs</div><div><i class="ph ph-gear-six"></i>Settings</div></div>
+      <div class="h-sec"><h3>Needs action</h3><span class="link">All orders</span></div>
+      <div class="todo-row"><span class="ic"><i class="ph ph-receipt"></i></span><div class="grow"><b style="font-weight:700">SM100031</b> <span class="tag info">Confirmed</span><div class="small muted">Pixel 9a · ₹49,999 · COD</div></div><button class="btn tonal sm">Pack</button></div>
+      <div class="todo-row"><span class="ic"><i class="ph ph-package"></i></span><div class="grow"><b style="font-weight:700">SM100029</b> <span class="tag info">Packed</span><div class="small muted">iPhone 16 · ₹69,900 · Paid</div></div><button class="btn tonal sm">Ship</button></div>
+      <div class="todo-row"><span class="ic"><i class="ph ph-wrench"></i></span><div class="grow"><b style="font-weight:700">RP100012</b> <span class="tag deal">Requested</span><div class="small muted">Galaxy S23 · Screen · Thu, afternoon</div></div><button class="btn tonal sm">Confirm</button></div>
+    </div>
+    <nav class="nav six"><a><span class="ind"><i class="ph ph-house"></i></span>Home</a><a><span class="ind"><i class="ph ph-magnifying-glass"></i></span>Search</a><a><span class="ind"><i class="ph ph-wrench"></i></span>Repairs</a><a><span class="ind"><i class="ph ph-shopping-bag"></i></span>Cart</a><a><span class="ind"><i class="ph ph-user"></i></span>Account</a><a class="on"><span class="ind"><i class="ph-fill ph-storefront"></i></span>Admin</a></nav>
+    <div class="home-ind"></div>
+  </div></div>
+  <figcaption><b>9</b> Admin <span>· staff-only tab: today, stock, to-dos</span></figcaption>
+</figure>
+
+</main>
+
+<script>
+// Draw camera modules on the placeholder phones.
+const lens = (top, left, w) => `<i class="l" style="top:${top}%;left:${left}%${w ? `;width:${w}%` : ''}"></i>`;
+const kinds = {
+  tri: lens(6, 12) + lens(14, 12) + lens(22, 12),
+  mod: `<span class="mod">${lens(10, 10)}${lens(50, 50)}</span>`,
+  bar: `<span class="bar"></span>${lens(10.5, 18, 15)}${lens(10.5, 40, 15)}`,
+};
+document.querySelectorAll('.dev').forEach(d => { d.innerHTML = kinds[d.dataset.kind] || ''; });
+
+// Theme: follows the OS until the viewer picks one.
+const root = document.documentElement;
+const buttons = document.querySelectorAll('.toggle button');
+const apply = t => { root.dataset.theme = t; buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.set === t))); };
+let saved = null;
+try { saved = localStorage.getItem('sm-mockup-theme'); } catch {}
+apply(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+buttons.forEach(b => b.addEventListener('click', () => { apply(b.dataset.set); try { localStorage.setItem('sm-mockup-theme', b.dataset.set); } catch {} }));
+</script>
+</body>
+</html>
