@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shyam Mobiles Colours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root { --ink: #0A0A0A; --paper: #fff; --muted: #5E5E5E; --line: #E6E6E6; --page: #ECECEC; }
+* { box-sizing: border-box; margin: 0; }
+body { font-family: "Plus Jakarta Sans", system-ui, sans-serif; background: var(--page); color: var(--ink); padding: 32px 16px 64px; }
+header { max-width: 1320px; margin: 0 auto 28px; }
+header h1 { font: 700 clamp(30px, 5vw, 46px)/1.05 "Familjen Grotesk", sans-serif; letter-spacing: -0.03em; }
+header p { color: var(--muted); margin-top: 10px; max-width: 680px; line-height: 1.55; }
+.grid { max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.option { background: var(--paper); border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.option h2 { font: 700 20px/1.2 "Familjen Grotesk"; letter-spacing: -0.01em; }
+.num { font: 700 12px/1 "Plus Jakarta Sans"; color: var(--muted); letter-spacing: .08em; margin-bottom: 6px; }
+.why { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.swatches { display: flex; gap: 6px; }
+.swatches span { flex: 1; height: 34px; border-radius: 10px; display: grid; place-items: end start; padding: 4px 6px; font: 600 9px/1 "Plus Jakarta Sans"; }
+
+/* phone */
+.phone { width: 100%; max-width: 300px; margin: 0 auto; border: 8px solid #111; border-radius: 34px; overflow: hidden; background: #fff; font-size: 11px; }
+.status { display: flex; justify-content: space-between; padding: 8px 16px 2px; font-weight: 700; font-size: 10px; }
+.appbar { display: flex; align-items: center; gap: 8px; padding: 6px 14px; }
+.appbar svg { width: 28px; height: 28px; flex: none; }
+.appbar b { font: 700 16px/1 "Familjen Grotesk"; letter-spacing: -0.02em; display: block; }
+.appbar small { color: var(--muted); font-size: 9px; }
+.appbar .call { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); color: var(--primary); font-size: 14px; }
+.search { margin: 6px 14px; padding: 9px 12px; border-radius: 12px; background: #F3F3F3; color: #6B6B6B; display: flex; gap: 6px; align-items: center; }
+.hero { margin: 8px 14px 4px; border-radius: 16px; padding: 14px; color: #fff; background: var(--hero); display: flex; gap: 10px; position: relative; overflow: hidden; }
+.hero::after { content: ""; position: absolute; right: -40px; top: -40px; width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, var(--glow) 0%, transparent 70%); }
+.hero .kicker { font-size: 8px; letter-spacing: .14em; font-weight: 700; opacity: .8; }
+.hero h3 { font: 700 19px/1.1 "Familjen Grotesk"; margin: 4px 0 2px; }
+.hero .from { font-size: 10px; opacity: .9; }
+.hero .btn { margin-top: 10px; display: inline-block; padding: 6px 10px; border-radius: 9px; background: var(--hero-btn); color: var(--hero-btn-ink); font-weight: 700; font-size: 10px; }
+.hero .img { margin-left: auto; width: 64px; height: 76px; border-radius: 12px; background: rgba(255,255,255,.92); display: grid; place-items: center; color: #9a9a9a; font-size: 26px; z-index: 1; }
+.dots { display: flex; justify-content: center; gap: 4px; margin: 6px 0 8px; }
+.dots i { width: 5px; height: 5px; border-radius: 3px; background: #D6D6D6; }
+.dots i.on { width: 16px; background: var(--primary); }
+.cats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; padding: 0 10px; text-align: center; }
+.cats div { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; font-weight: 600; }
+.cats span { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 17px; background: var(--tile); color: var(--tile-ink); }
+.banner { margin: 10px 14px; padding: 10px; border-radius: 14px; background: var(--soft); display: flex; gap: 8px; align-items: center; }
+.banner span { width: 30px; height: 30px; flex: none; border-radius: 10px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font-size: 15px; }
+.banner b { font-size: 11px; display: block; }
+.banner small { color: var(--muted); font-size: 9px; }
+.row-title { padding: 2px 14px 6px; font: 700 13px/1.2 "Plus Jakarta Sans"; }
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 10px; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 6px; }
+.card .pic { height: 54px; border-radius: 8px; background: #F5F5F5; display: grid; place-items: center; font-size: 20px; color: #a3a3a3; position: relative; }
+.card .pic em { position: absolute; left: 4px; top: 4px; font-style: normal; font-size: 8px; font-weight: 700; padding: 2px 5px; border-radius: 5px; background: var(--accent); color: var(--on-accent); }
+.card b { display: block; font-size: 10px; margin-top: 5px; }
+.card .p { font-weight: 800; font-size: 11px; }
+.card .p s { color: #8a8a8a; font-weight: 500; font-size: 9px; margin-left: 3px; }
+.card .p i { font-style: normal; color: var(--save); font-weight: 700; font-size: 9px; display: block; }
+.nav { display: flex; justify-content: space-around; border-top: 1px solid var(--line); padding: 7px 4px 10px; }
+.nav div { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 8px; color: #6B6B6B; position: relative; }
+.nav span { font-size: 16px; padding: 2px 12px; border-radius: 12px; }
+.nav .on { color: var(--ink); font-weight: 700; }
+.nav .on span { background: var(--soft); color: var(--primary); }
+.nav sup { position: absolute; top: -2px; right: 6px; background: var(--accent); color: var(--on-accent); font-size: 7px; font-weight: 800; border-radius: 6px; padding: 1px 4px; }
+
+/* components */
+.kit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.b { padding: 9px 14px; border-radius: 11px; font-weight: 700; font-size: 12px; }
+.b.fill { background: var(--primary); color: var(--on-primary); }
+.b.tonal { background: var(--soft); color: var(--soft-ink); }
+.chip { padding: 6px 10px; border-radius: 9px; font-size: 11px; font-weight: 600; border: 1px solid var(--line); }
+.chip.on { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+.tag { padding: 3px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+.t-feat { background: var(--accent); color: var(--on-accent); }
+.t-ok { background: #DCFCE7; color: #166534; }
+.t-low { background: #FEF3C7; color: #92400E; }
+.t-bad { background: #FDE8E7; color: #B3261E; }
+
+/* palettes */
+.peacock { --primary: #0F766E; --on-primary: #fff; --soft: #E3F3F0; --soft-ink: #0B4F4A; --accent: #E0A82E; --on-accent: #241A00;
+  --hero: linear-gradient(135deg, #0A3532 0%, #0F766E 62%, #155E75 100%); --glow: rgba(224,168,46,.45); --hero-btn: #fff; --hero-btn-ink: #0A3532;
+  --tile: #E3F3F0; --tile-ink: #0F766E; --save: #15803D; --mark-bg: #0A3532; --ring: #E0A82E; --core: #38BDF8; }
+.marigold { --primary: #C2410C; --on-primary: #fff; --soft: #FFEEDF; --soft-ink: #7C2D12; --accent: #F5B014; --on-accent: #2B1A00;
+  --hero: linear-gradient(135deg, #5A1E08 0%, #C2410C 60%, #EA6A0C 100%); --glow: rgba(245,176,20,.5); --hero-btn: #fff; --hero-btn-ink: #7C2D12;
+  --tile: #FFEEDF; --tile-ink: #C2410C; --save: #15803D; --mark-bg: #7C2D12; --ring: #F5B014; --core: #FFE7A3; }
+.emerald { --primary: #047857; --on-primary: #fff; --soft: #E2F5EC; --soft-ink: #064E3B; --accent: #B7EB4F; --on-accent: #1A2E05;
+  --hero: linear-gradient(135deg, #03291F 0%, #047857 60%, #0E7490 100%); --glow: rgba(183,235,79,.4); --hero-btn: #B7EB4F; --hero-btn-ink: #1A2E05;
+  --tile: #E2F5EC; --tile-ink: #047857; --save: #047857; --mark-bg: #03291F; --ring: #B7EB4F; --core: #34D399; }
+.inkplus { --primary: #0A0A0A; --on-primary: #fff; --soft: #F1F1F1; --soft-ink: #0A0A0A; --accent: #E0A82E; --on-accent: #241A00;
+  --hero: linear-gradient(135deg, #0A0A0A 0%, #12302E 70%, #0F766E 130%); --glow: rgba(56,189,248,.35); --hero-btn: #fff; --hero-btn-ink: #0A0A0A;
+  --tile: #F1F1F1; --tile-ink: #0A0A0A; --save: #15803D; --mark-bg: #0A0A0A; --ring: #E0A82E; --core: #38BDF8; }
+.inkplus .cats div:nth-child(1) span { background: #E0F2FE; color: #0369A1; }
+.inkplus .cats div:nth-child(2) span { background: #EDE9FE; color: #6D28D9; }
+.inkplus .cats div:nth-child(3) span { background: #FCE7F3; color: #BE185D; }
+.inkplus .cats div:nth-child(4) span { background: #DCFCE7; color: #15803D; }
+.inkplus .cats div:nth-child(5) span { background: #FEF3C7; color: #B45309; }
+.inkplus .cats div:nth-child(6) span { background: #FFE4E6; color: #BE123C; }
+.inkplus .cats div:nth-child(7) span { background: #E3F3F0; color: #0F766E; }
+.inkplus .cats div:nth-child(8) span { background: #F1F1F1; color: #0A0A0A; }
+.pick { margin-top: auto; font-size: 13px; color: var(--muted); }
+.pick b { color: var(--ink); }
+</style>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+</head>
+<body>
+<header>
+  <h1>Colour for Shyam Mobiles</h1>
+  <p>Four directions on the same home screen, with buttons, chips and tags underneath. Each keeps black text and red for errors. Coloured buttons pass WCAG AA contrast. Tell me a number, or mix them, e.g. “1 with the 4 category tiles”.</p>
+</header>
+<main class="grid" id="grid"></main>
+
+<template id="screen">
+  <div class="phone">
+    <div class="status"><span>5:33</span><span>5G ▮▮▮ 80</span></div>
+    <div class="appbar"><svg viewBox="0 0 100 100" aria-hidden="true"></svg><div><b>Shyam Mobiles</b><small>Phones · Accessories · Repairs</small></div><span class="call"><i class="ph ph-phone"></i></span></div>
+    <div class="search"><i class="ph ph-magnifying-glass"></i> Search phones, cases, chargers…</div>
+    <div class="hero"><div><div class="kicker">FEATURED</div><h3>Pixel 9a</h3><div class="from">From ₹49,999</div><span class="btn">View phone →</span></div><div class="img"><i class="ph ph-device-mobile"></i></div></div>
+    <div class="dots"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+    <div class="cats">
+      <div><span><i class="ph ph-device-mobile"></i></span>Phones</div>
+      <div><span><i class="ph ph-phone-call"></i></span>Keypad</div>
+      <div><span><i class="ph ph-device-mobile-camera"></i></span>Cases</div>
+      <div><span><i class="ph ph-shield-check"></i></span>Guards</div>
+      <div><span><i class="ph ph-plug-charging"></i></span>Chargers</div>
+      <div><span><i class="ph ph-headphones"></i></span>Earbuds</div>
+      <div><span><i class="ph ph-wrench"></i></span>Repairs</div>
+      <div><span><i class="ph ph-squares-four"></i></span>All</div>
+    </div>
+    <div class="banner"><span><i class="ph ph-wrench"></i></span><div><b>Cracked screen? Weak battery?</b><small>Pick a slot and walk in.</small></div></div>
+    <div class="row-title">Accessories under ₹1,500</div>
+    <div class="cards">
+      <div class="card"><div class="pic"><em>35% off</em><i class="ph ph-plug-charging"></i></div><b>Anker Nano 20W</b><div class="p">₹1,299<s>₹1,999</s></div></div>
+      <div class="card"><div class="pic"><i class="ph ph-headphones"></i></div><b>boAt Airdopes 141</b><div class="p">₹1,099<s>₹1,499</s><i>27% off</i></div></div>
+    </div>
+    <div class="nav">
+      <div class="on"><span><i class="ph-fill ph-house"></i></span>Home</div>
+      <div><span><i class="ph ph-magnifying-glass"></i></span>Search</div>
+      <div><span><i class="ph ph-wrench"></i></span>Repairs</div>
+      <div><span><i class="ph ph-shopping-bag"></i></span>Cart<sup>2</sup></div>
+      <div><span><i class="ph ph-user"></i></span>Account</div>
+    </div>
+  </div>
+  <div class="kit">
+    <span class="b fill">Buy now</span><span class="b tonal">Add to cart</span>
+    <span class="chip on">Samsung</span><span class="chip">Under ₹15,000</span>
+  </div>
+  <div class="kit"><span class="tag t-feat">Featured</span><span class="tag t-ok">Delivered</span><span class="tag t-low">Low stock</span><span class="tag t-bad">Out of stock</span></div>
+</template>
+
+<script>
+const options = [
+  { cls: 'peacock', name: 'Peacock', tag: 'Recommended',
+    why: 'Teal and gold from the peacock feather in the logo (Shyam is Krishna). Calm, trustworthy, and no big Indian shop app uses it, so it stands out.',
+    sw: [['#0F766E','#fff','Teal'],['#0A3532','#fff','Deep'],['#E3F3F0','#0B4F4A','Mist'],['#E0A82E','#241A00','Gold']] },
+  { cls: 'marigold', name: 'Marigold',
+    why: 'Saffron and marigold: warm, festive, feels like the bazaar on a Diwali sale. Loud in a good way, and strong on cheap screens in sunlight.',
+    sw: [['#C2410C','#fff','Saffron'],['#5A1E08','#fff','Deep'],['#FFEEDF','#7C2D12','Cream'],['#F5B014','#2B1A00','Marigold']] },
+  { cls: 'emerald', name: 'Emerald',
+    why: 'Emerald with a lime accent: fresh and techy, reads as “savings” and “go”. Discounts and the buy button share one colour.',
+    sw: [['#047857','#fff','Emerald'],['#03291F','#fff','Deep'],['#E2F5EC','#064E3B','Mint'],['#B7EB4F','#1A2E05','Lime']] },
+  { cls: 'inkplus', name: 'Ink + colour',
+    why: 'Keeps today’s black buttons (premium), adds colour where it helps: one colour per category tile, a peacock glow on the hero, gold tags.',
+    sw: [['#0A0A0A','#fff','Ink'],['#0F766E','#fff','Teal'],['#E0A82E','#241A00','Gold'],['#EDE9FE','#6D28D9','Tiles']] },
+];
+
+// The app's pixel feather (core/widgets/widgets.dart), with the eye ring and core in the palette's colours.
+function feather(svg) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const path = new Path2D('M50 14 C69 29 76 50 71 67 C66 84 34 84 29 67 C24 50 31 29 50 14 Z');
+  const ctx = document.createElement('canvas').getContext('2d');
+  const inOval = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+  const add = (tag, attrs) => { const el = document.createElementNS(ns, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); svg.appendChild(el); };
+  add('rect', { width: 100, height: 100, rx: 26, fill: 'var(--mark-bg)' });
+  for (let y = 17; y <= 82; y += 5.4) for (let x = 25; x <= 75; x += 5.4) {
+    if (!ctx.isPointInPath(path, x, y)) continue;
+    if (inOval(x, y, 50, 63, 7, 8.5)) add('circle', { cx: x, cy: y, r: 2.1, fill: 'var(--core)' });
+    else if (!inOval(x, y, 50, 61, 14.5, 17.5)) add('circle', { cx: x, cy: y, r: 2.1, fill: inOval(x, y, 50, 61, 20, 23) ? 'var(--ring)' : '#fff' });
+  }
+  add('line', { x1: 50, y1: 84, x2: 50, y2: 92, stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round' });
+}
+
+const grid = document.getElementById('grid');
+const tpl = document.getElementById('screen');
+options.forEach((o, i) => {
+  const el = document.createElement('section');
+  el.className = 'option ' + o.cls;
+  el.innerHTML = `<div><div class="num">${i + 1}${o.tag ? ' · ' + o.tag.toUpperCase() : ''}</div><h2>${o.name}</h2></div>
+    <p class="why">${o.why}</p>
+    <div class="swatches">${o.sw.map(([bg, fg, n]) => `<span style="background:${bg};color:${fg}">${n}</span>`).join('')}</div>`;
+  el.appendChild(tpl.content.cloneNode(true));
+  feather(el.querySelector('.appbar svg'));
+  grid.appendChild(el);
+});
+</script>
+</body>
+</html>

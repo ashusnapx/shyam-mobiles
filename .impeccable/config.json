@@ -74,6 +74,15 @@
         ],
         "createdAt": "2026-10-29T08:28:01.776Z",
         "reason": "Claude: 0.08em applies only to the short uppercase card number labels, not body text"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          "docs/palette-ideas.html"
+        ],
+        "createdAt": "2026-10-29T13:13:04.029030Z",
+        "reason": "sanctioned exception: the small sizes are inside a phone mock drawn at ~0.8x of a 360 dp screen; page copy outside the mock is 13-14px+"
       }
     ]
   }
