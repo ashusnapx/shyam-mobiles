@@ -52,6 +52,7 @@ class OrdersNotifier extends AsyncNotifier<OrdersPage> {
 /// One order with its items and timeline.
 final orderProvider = FutureProvider.autoDispose.family<Order, String>((ref, id) async {
   cacheFor(ref, const Duration(minutes: 2));
+  ref.watch(currentUserIdProvider); // the cached copy must not outlive a sign-out or survive into another account
   final row = await ref
       .watch(supabaseProvider)
       .from('orders')

@@ -3,7 +3,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/env.dart';
-import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 
 /// Public pages in site/ (Play Store and Razorpay need them as real URLs). Opened in a Custom Tab.
@@ -42,22 +41,5 @@ class PolicyRows extends StatelessWidget {
               onTap: () => openPolicy(context, page),
             ),
         ],
-      );
-}
-
-/// Signed-out entry point: the same list in a sheet.
-class PoliciesButton extends StatelessWidget {
-  const PoliciesButton({super.key});
-
-  @override
-  Widget build(BuildContext context) => TextButton.icon(
-        onPressed: () => showModalBottomSheet<void>(
-          context: context,
-          builder: (_) => const SafeArea(
-            child: Padding(padding: EdgeInsets.only(bottom: Space.lg), child: PolicyRows()),
-          ),
-        ),
-        icon: const Icon(PhosphorIconsRegular.info, size: 18),
-        label: const Text('About & policies'),
       );
 }

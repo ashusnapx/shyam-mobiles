@@ -12,18 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'env.dart';
 
 /// How much the app downloads. Saver: thumbnails, no hero auto-advance, smaller search pages, no prefetching.
+/// Always automatic, like video quality on Auto: the app picks from the network and the phone, there's no setting.
 enum DataMode { full, saver }
-
-/// The customer's choice in Account → Data saver.
-enum DataSaverSetting {
-  auto('Auto'),
-  on('On'),
-  off('Off');
-
-  const DataSaverSetting(this.label);
-
-  final String label;
-}
 
 /// connectivity_plus boiled down. [unknown] before the first check, or for VPN/Bluetooth alone.
 enum NetType { unknown, none, mobile, wifi }
@@ -39,27 +29,16 @@ NetType netTypeOf(List<ConnectivityResult> r) => r.contains(ConnectivityResult.w
 /// A fresh HTTPS request (DNS + TLS + one round trip) slower than this means roughly a 200 ms+ round trip.
 const slowLatencyMs = 800;
 
-/// Auto saves data on low-RAM phones and slow networks. Mobile data counts as slow until a probe has measured it;
+/// Saves data on low-RAM phones and slow networks. Mobile data counts as slow until a probe has measured it;
 /// going offline changes nothing (saved photos show either way).
-DataMode decideDataMode({
-  required DataSaverSetting setting,
-  required NetType net,
-  int? latencyMs,
-  bool lowRam = false,
-}) =>
-    switch (setting) {
-      DataSaverSetting.on => DataMode.saver,
-      DataSaverSetting.off => DataMode.full,
-      DataSaverSetting.auto =>
-        lowRam || (latencyMs == null ? net == NetType.mobile : latencyMs > slowLatencyMs) ? DataMode.saver : DataMode.full,
-    };
+DataMode decideDataMode({required NetType net, int? latencyMs, bool lowRam = false}) =>
+    lowRam || (latencyMs == null ? net == NetType.mobile : latencyMs > slowLatencyMs) ? DataMode.saver : DataMode.full;
 
-typedef NetSignals = ({DataSaverSetting setting, NetType net, int? latencyMs, bool lowRam});
+typedef NetSignals = ({NetType net, int? latencyMs, bool lowRam});
 
-/// Watches the setting, connectivity, a latency probe and the device. Does nothing until [start] (main() calls it),
+/// Watches connectivity, a latency probe and the device. Does nothing until [start] (main() calls it),
 /// so tests stay in full mode, online, with no platform calls.
 class NetworkMonitor extends Notifier<NetSignals> {
-  static const _settingKey = 'data_saver';
   static const _latencyKey = 'net_latency_ms'; // last probe, so a cold start doesn't guess
   static const probeEvery = Duration(minutes: 3);
 
@@ -73,17 +52,16 @@ class NetworkMonitor extends Notifier<NetSignals> {
       _sub?.cancel();
       _timer?.cancel();
     });
-    return (setting: DataSaverSetting.auto, net: NetType.unknown, latencyMs: null, lowRam: false);
+    return (net: NetType.unknown, latencyMs: null, lowRam: false);
   }
 
-  void _set({DataSaverSetting? setting, NetType? net, int? latencyMs}) => state = (
-        setting: setting ?? state.setting,
+  void _set({NetType? net, int? latencyMs}) => state = (
         net: net ?? state.net,
         latencyMs: latencyMs ?? state.latencyMs,
         lowRam: state.lowRam,
       );
 
-  /// Quick reads (setting, device, connectivity) before the first frame; the probe runs in the background.
+  /// Quick reads (last probe, device, connectivity) before the first frame; the probe runs in the background.
   Future<void> start() async {
     if (_sub != null) return;
     final prefs = await _prefs();
@@ -100,7 +78,6 @@ class NetworkMonitor extends Notifier<NetSignals> {
       net = netTypeOf(await connectivity.checkConnectivity());
     } catch (_) {}
     state = (
-      setting: DataSaverSetting.values.asNameMap()[prefs?.getString(_settingKey)] ?? DataSaverSetting.auto,
       net: net,
       latencyMs: prefs?.getInt(_latencyKey),
       lowRam: lowRam,
@@ -140,11 +117,6 @@ class NetworkMonitor extends Notifier<NetSignals> {
     _set(latencyMs: ms);
     await (await _prefs())?.setInt(_latencyKey, ms);
   }
-
-  Future<void> setSetting(DataSaverSetting s) async {
-    _set(setting: s);
-    await (await _prefs())?.setString(_settingKey, s.name);
-  }
 }
 
 Future<SharedPreferences?> _prefs() async {
@@ -166,7 +138,7 @@ final networkProvider = NotifierProvider<NetworkMonitor, NetSignals>(NetworkMoni
 
 final dataSaverProvider = Provider<DataMode>((ref) {
   final s = ref.watch(networkProvider);
-  return decideDataMode(setting: s.setting, net: s.net, latencyMs: s.latencyMs, lowRam: s.lowRam);
+  return decideDataMode(net: s.net, latencyMs: s.latencyMs, lowRam: s.lowRam);
 });
 
 /// For the "You're offline" banner.

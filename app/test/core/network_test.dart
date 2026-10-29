@@ -12,34 +12,28 @@ import 'package:shyam_mobiles/features/catalog/data/catalog.dart';
 void main() {
   group('decideDataMode', () {
     const s = DataMode.saver, f = DataMode.full;
-    const auto = DataSaverSetting.auto, on = DataSaverSetting.on, off = DataSaverSetting.off;
-    // (setting, network, latency ms, low RAM) → mode
-    const table = <(DataSaverSetting, NetType, int?, bool, DataMode)>[
-      // the customer's choice wins over every signal
-      (on, NetType.wifi, 50, false, s),
-      (on, NetType.none, null, false, s),
-      (off, NetType.mobile, 3000, true, f),
-      (off, NetType.unknown, null, true, f),
-      // auto: wifi is fast until measured slow
-      (auto, NetType.wifi, null, false, f),
-      (auto, NetType.wifi, 200, false, f),
-      (auto, NetType.wifi, 800, false, f),
-      (auto, NetType.wifi, 801, false, s),
-      // auto: mobile data is slow until measured fast
-      (auto, NetType.mobile, null, false, s),
-      (auto, NetType.mobile, 400, false, f),
-      (auto, NetType.mobile, 1500, false, s),
-      // auto: offline or unknown keeps the last reading (nothing loads anyway)
-      (auto, NetType.none, null, false, f),
-      (auto, NetType.none, 2000, false, s),
-      (auto, NetType.unknown, null, false, f),
-      // auto: a low-RAM phone always saves
-      (auto, NetType.wifi, 100, true, s),
-      (auto, NetType.unknown, null, true, s),
+    // (network, latency ms, low RAM) → mode
+    const table = <(NetType, int?, bool, DataMode)>[
+      // wifi is fast until measured slow
+      (NetType.wifi, null, false, f),
+      (NetType.wifi, 200, false, f),
+      (NetType.wifi, 800, false, f),
+      (NetType.wifi, 801, false, s),
+      // mobile data is slow until measured fast
+      (NetType.mobile, null, false, s),
+      (NetType.mobile, 400, false, f),
+      (NetType.mobile, 1500, false, s),
+      // offline or unknown keeps the last reading (nothing loads anyway)
+      (NetType.none, null, false, f),
+      (NetType.none, 2000, false, s),
+      (NetType.unknown, null, false, f),
+      // a low-RAM phone always saves
+      (NetType.wifi, 100, true, s),
+      (NetType.unknown, null, true, s),
     ];
-    for (final (setting, net, ms, lowRam, want) in table) {
-      test('$setting · $net · ${ms ?? '?'} ms · lowRam $lowRam → $want', () {
-        expect(decideDataMode(setting: setting, net: net, latencyMs: ms, lowRam: lowRam), want);
+    for (final (net, ms, lowRam, want) in table) {
+      test('$net · ${ms ?? '?'} ms · lowRam $lowRam → $want', () {
+        expect(decideDataMode(net: net, latencyMs: ms, lowRam: lowRam), want);
       });
     }
   });
@@ -59,15 +53,6 @@ void main() {
     addTearDown(c.dispose);
     expect(c.read(dataSaverProvider), DataMode.full);
     expect(c.read(offlineProvider), isFalse);
-  });
-
-  test('setSetting switches the mode and is remembered', () async {
-    SharedPreferences.setMockInitialValues({});
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await c.read(networkProvider.notifier).setSetting(DataSaverSetting.on);
-    expect(c.read(dataSaverProvider), DataMode.saver);
-    expect((await SharedPreferences.getInstance()).getString('data_saver'), 'on');
   });
 
   test('thumbPathFor', () {
