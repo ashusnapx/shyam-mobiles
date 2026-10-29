@@ -13,7 +13,7 @@ Assumption: $1 = ₹88. All rupee figures include 18% GST unless marked otherwis
 | Apple Developer | Deferred | ₹0 now ($99/yr ≈ ₹725/mo when iOS starts) | v1 is Android only. |
 | Google Play | One-time | $25 ≈ ₹2,200 once | |
 | Transactional email (Resend) | Free | ₹0 | 3,000/mo, 100/day. Supabase's built-in SMTP is only for testing, so production auth email needs custom SMTP. Pro is $20/mo for 50k. |
-| SMS DLT registration | Per operator portal | one-time, ~₹5,900 incl. GST (varies by portal) | Required before any OTP SMS reaches Indian numbers. Unverified estimate; confirm with the chosen portal. |
+| SMS DLT registration | One operator portal (Jio TrueConnect or Vi VILPower) | ~₹5,900 incl. GST (₹5,000 + GST) | Required before any OTP SMS reaches Indian numbers; one registration covers all operators. Vendor blogs disagree on whether it renews yearly, so budget it yearly. Headers and templates are free. Confirm on the portal. |
 | Sentry (crash reporting) | Developer (free) | ₹0 | 5k errors/mo. Team plan ~$26/mo if exceeded. Unverified; check sentry.io/pricing. |
 | Codemagic (iOS + Android store builds) | Free | ₹0 | ~500 macOS build minutes/mo, enough for ~30 builds. Unverified; check codemagic.io/pricing. |
 | GitHub Actions (CI checks) | Free | ₹0 | 2,000 Linux minutes/mo on private repos; checks run on Linux. |
@@ -27,7 +27,7 @@ Assumption: $1 = ₹88. All rupee figures include 18% GST unless marked otherwis
 | Razorpay, corporate cards | 2.15% + GST = 2.54% | |
 | Razorpay refunds, setup, AMC | ₹0 | The fee on a refunded payment is **not** returned. |
 | COD | ₹0 gateway fee | Real costs: courier COD charges, failed-delivery returns (RTO), cash handling. Not modelled yet. |
-| SMS OTP (MSG91, India) | ~₹0.15–0.25 + GST per SMS | Third-party estimates; confirm on msg91.com. Budget 1.3 SMS per phone login (resends). |
+| SMS OTP (MSG91, India) | ₹0.25 + GST = **₹0.30 per SMS** on the 5,000 pack (₹1,475 prepaid, the smallest); ₹0.18 + GST = ₹0.21 on the 30,000 pack | MSG91's slab table as quoted by third parties in Oct 2026 (₹0.25 / ₹0.18 / ₹0.16, negotiable to ~₹0.13); confirm on msg91.com. Budget 1.3 SMS per phone login (resends). Supabase has no built-in MSG91 provider: it goes through the Send SMS auth hook (one small Edge Function). |
 | Email OTP / Google sign-in | ₹0 | Inside the Resend free tier and Supabase Auth. |
 | Supabase over quota | $0.00325/MAU over 100k; $0.09/GB egress over 250 GB; $0.0213/GB storage over 100 GB; $2/1M function calls over 2M | Not reached at the scenarios below. |
 
@@ -41,10 +41,10 @@ Average order value: ₹15,000 (phones dominate). Online/COD split 70/30. Phone 
 | Online GMV | ₹10.5 lakh | ₹1.05 crore |
 | Logins | 1,000 | 10,000 |
 | Razorpay (2.36%) | ₹24,780 | ₹2,47,800 |
-| SMS OTP (650 / 6,500 SMS × ~₹0.24) | ₹160 | ₹1,560 |
+| SMS OTP (650 SMS × ₹0.30 / 6,500 SMS × ₹0.21) | ₹190 | ₹1,380 |
 | Fixed | ₹2,200 | ₹2,200 (+₹1,760 if Resend Pro) |
-| **Total** | **≈ ₹27,100** | **≈ ₹2,51,600** |
-| Infra excluding payments | ≈ ₹2,400 | ≈ ₹5,500 |
+| **Total** | **≈ ₹27,200** | **≈ ₹2,51,400** |
+| Infra excluding payments | ≈ ₹2,400 | ≈ ₹5,300 |
 
 The gateway fee is about 90% of the bill. Infrastructure is a rounding error by comparison.
 
@@ -59,6 +59,7 @@ The gateway fee is about 90% of the bill. Infrastructure is a rounding error by 
 
 ## Change log
 
+- 2026-10-29: SMS OTP priced from MSG91's slabs incl. GST (₹0.30 at launch, ₹0.21 on the 30k pack); DLT budgeted as yearly.
 - 2026-10-29: Android-only v1, so Apple Developer is deferred (−₹725/mo).
 - 2026-10-29: Added CI (GitHub Actions), store builds (Codemagic), crash reporting (Sentry), all free tier at launch volumes.
 - 2026-10-28: First estimate. Stack: Supabase Pro, Razorpay Standard, MSG91 SMS, Resend free, app stores.
