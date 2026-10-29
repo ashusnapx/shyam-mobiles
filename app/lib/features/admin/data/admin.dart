@@ -211,7 +211,7 @@ final adminBrandsProvider = FutureProvider.autoDispose<List<Brand>>((ref) async 
 
 /// Staff add a brand from the product form's brand picker. An existing slug returns that brand instead.
 Future<Brand> createBrand(WidgetRef ref, String name) async {
-  final clean = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final clean = brandDisplayName(name);
   final slug = slugify(clean);
   if (clean.isEmpty || clean.length > 40) throw const FormatException('Brand names are 1 to 40 characters.');
   if (slug.isEmpty) throw const FormatException('Use English letters or numbers in the brand name.');

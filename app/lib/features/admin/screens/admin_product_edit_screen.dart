@@ -203,6 +203,7 @@ class _EditorState extends ConsumerState<_Editor> {
               validator: (v) => v == null ? 'Pick a brand' : null,
               searchHint: 'Search or type a new brand',
               createLabel: 'Add brand',
+              createName: brandDisplayName,
               onCreate: (name) async {
                 final b = await createBrand(ref, name);
                 if (mounted && !_brands.any((x) => x.id == b.id)) setState(() => _brands.add(b));

@@ -80,6 +80,13 @@ void main() {
     expect(shortInr(0), '₹0');
   });
 
+  test('new brand names start with a capital letter', () {
+    expect(brandDisplayName('itel'), 'Itel');
+    expect(brandDisplayName('  tecno   mobile '), 'Tecno mobile');
+    expect(brandDisplayName('iQOO'), 'IQOO');
+    expect(brandDisplayName('   '), '');
+  });
+
   group('IMEIs', () {
     const a = '352099214488120', b = '352099214488138';
 

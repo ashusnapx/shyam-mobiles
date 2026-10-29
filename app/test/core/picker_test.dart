@@ -11,6 +11,7 @@ Future<GlobalKey<FormState>> _pump(
   Future<String?> Function(String)? onCreate,
   ValueChanged<String>? onChanged,
   List<String>? options,
+  String Function(String)? createName,
 }) async {
   tester.view.physicalSize = const Size(1080, 2400); // 360x800 dp
   tester.view.devicePixelRatio = 3;
@@ -32,6 +33,7 @@ Future<GlobalKey<FormState>> _pump(
           validator: (v) => v == null ? 'Pick a brand' : null,
           onCreate: onCreate,
           createLabel: 'Add brand',
+          createName: createName,
         ),
       ),
     ),
@@ -76,6 +78,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(created, ['Itel']);
     expect(changed, 'Itel');
+  });
+
+  testWidgets('the Add row previews the name as it will be saved', (tester) async {
+    await _pump(tester, onCreate: (n) async => n, createName: (s) => s[0].toUpperCase() + s.substring(1));
+    await tester.tap(find.byType(PickerField<String>));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'itel');
+    await tester.pump();
+    expect(find.text('Add brand “Itel”'), findsOneWidget);
   });
 
   testWidgets('validator shows until a value is picked', (tester) async {

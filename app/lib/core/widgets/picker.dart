@@ -17,6 +17,7 @@ Future<(T?,)?> showPickerSheet<T>(
   String? searchHint,
   Future<T?> Function(String name)? onCreate,
   String createLabel = 'Add',
+  String Function(String typed)? createName,
 }) =>
     showModalBottomSheet<(T?,)>(
       context: context,
@@ -29,6 +30,7 @@ Future<(T?,)?> showPickerSheet<T>(
         searchHint: searchHint,
         onCreate: onCreate,
         createLabel: createLabel,
+        createName: createName,
       ),
     );
 
@@ -40,6 +42,7 @@ class _PickerSheet<T> extends StatefulWidget {
     required this.searchHint,
     required this.onCreate,
     required this.createLabel,
+    required this.createName,
   });
 
   final String title;
@@ -48,6 +51,7 @@ class _PickerSheet<T> extends StatefulWidget {
   final String? searchHint;
   final Future<T?> Function(String name)? onCreate;
   final String createLabel;
+  final String Function(String typed)? createName; // how the new entry will be saved, for the preview
 
   @override
   State<_PickerSheet<T>> createState() => _PickerSheetState<T>();
@@ -152,7 +156,7 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
                       leading: _creating
                           ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(PhosphorIconsRegular.plusCircle),
-                      title: Text('${widget.createLabel} “${_query.text.trim()}”'),
+                      title: Text('${widget.createLabel} “${(widget.createName ?? (String s) => s)(_query.text.trim())}”'),
                       onTap: _creating ? null : _create,
                     ),
                 ],
@@ -179,6 +183,7 @@ class PickerField<T> extends FormField<T> {
     String? searchHint,
     Future<T?> Function(String name)? onCreate,
     String createLabel = 'Add',
+    String Function(String typed)? createName,
   }) : super(
           builder: (field) {
             final value = field.value;
@@ -191,6 +196,7 @@ class PickerField<T> extends FormField<T> {
                 searchHint: searchHint,
                 onCreate: onCreate,
                 createLabel: createLabel,
+                createName: createName,
               );
               final choice = picked?.$1;
               if (choice == null) return;

@@ -83,6 +83,12 @@ String? imeisError(List<String> imeis, int qty) {
 /// Same rule as the DB check on products/brands/categories.
 final slugPattern = RegExp(r'^[a-z0-9-]+$');
 
+/// A new brand's display name: spaces tidied and the first letter capitalised ("itel" → "Itel").
+String brandDisplayName(String typed) {
+  final s = typed.trim().replaceAll(RegExp(r'\s+'), ' ');
+  return s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
 /// "Samsung Galaxy S25+ (12 GB)" → "samsung-galaxy-s25-plus-12-gb".
 String slugify(String name) => name
     .toLowerCase()
