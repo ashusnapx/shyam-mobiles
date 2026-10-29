@@ -1,3 +1,4 @@
+import '../format.dart';
 import 'catalog.dart';
 
 /// One cart row, as loaded by
@@ -50,6 +51,17 @@ class CartLine {
   }
 }
 
+enum AddressLabel {
+  home('Home'),
+  work('Work'),
+  other('Other');
+
+  const AddressLabel(this.displayName);
+  final String displayName; // the DB value is `name`
+
+  static AddressLabel parse(String? v) => values.asNameMap()[v] ?? home; // old order snapshots have no label
+}
+
 class Address {
   const Address({
     this.id,
@@ -61,6 +73,8 @@ class Address {
     required this.pincode,
     this.line2,
     this.landmark,
+    this.district,
+    this.label = AddressLabel.home,
     this.isDefault = false,
   });
 
@@ -71,11 +85,20 @@ class Address {
   final String? line2;
   final String? landmark;
   final String city;
+  final String? district;
   final String state;
   final String pincode;
+  final AddressLabel label;
   final bool isDefault;
 
-  String get oneLine => [line1, line2, landmark, city, '$state $pincode'].where((s) => s != null && s.isNotEmpty).join(', ');
+  String get oneLine => [
+        line1,
+        line2,
+        landmark,
+        city,
+        if (district?.toLowerCase() != city.toLowerCase()) district,
+        '$state $pincode',
+      ].where((s) => s != null && s.isNotEmpty).join(', ');
 
   factory Address.fromJson(Map<String, dynamic> j) => Address(
         id: j['id'],
@@ -85,8 +108,10 @@ class Address {
         line2: j['line2'],
         landmark: j['landmark'],
         city: j['city'],
+        district: j['district'],
         state: j['state'],
         pincode: j['pincode'],
+        label: AddressLabel.parse(j['label']),
         isDefault: j['is_default'] ?? false,
       );
 
@@ -98,8 +123,10 @@ class Address {
         'line2': line2,
         'landmark': landmark,
         'city': city,
+        'district': district,
         'state': state,
         'pincode': pincode,
+        'label': label.name,
         'is_default': isDefault,
       };
 }
@@ -112,6 +139,10 @@ class StoreSettings {
     required this.codMaxPaise,
     required this.storePhone,
     required this.storeAddress,
+    this.storeLat,
+    this.storeLng,
+    this.storeMapsUrl,
+    this.storePhotos = const [],
     this.storeHours = '',
     required this.repairNote,
     this.returnsPolicy = '',
@@ -123,6 +154,10 @@ class StoreSettings {
   final int codMaxPaise;
   final String storePhone;
   final String storeAddress;
+  final double? storeLat;
+  final double? storeLng;
+  final String? storeMapsUrl; // the Google Maps listing; we only link to it
+  final List<String> storePhotos; // product-images object keys, in display order
   final String storeHours;
   final String repairNote;
   final String returnsPolicy;
@@ -131,6 +166,16 @@ class StoreSettings {
   int deliveryFeeFor(int subtotalPaise) => subtotalPaise >= freeDeliveryMinPaise ? 0 : deliveryFeePaise;
   bool codAllowedFor(int totalPaise) => codEnabled && totalPaise <= codMaxPaise;
 
+  /// Where directions go: the exact pin when staff set one, else the address text.
+  String get mapsDestination => storeLat == null || storeLng == null ? storeAddress : '$storeLat,$storeLng';
+
+  /// The shop on Google Maps (photos, reviews, hours): its listing, else the pin. Null when neither is set.
+  Uri? get mapsListingUri => storeMapsUrl != null
+      ? Uri.tryParse(storeMapsUrl!)
+      : storeLat == null || storeLng == null
+          ? null
+          : mapPinUri(storeLat!, storeLng!);
+
   factory StoreSettings.fromJson(Map<String, dynamic> j) => StoreSettings(
         deliveryFeePaise: j['delivery_fee_paise'],
         freeDeliveryMinPaise: j['free_delivery_min_paise'],
@@ -138,6 +183,10 @@ class StoreSettings {
         codMaxPaise: j['cod_max_paise'],
         storePhone: j['store_phone'],
         storeAddress: j['store_address'],
+        storeLat: (j['store_lat'] as num?)?.toDouble(),
+        storeLng: (j['store_lng'] as num?)?.toDouble(),
+        storeMapsUrl: j['store_maps_url'],
+        storePhotos: [...?(j['store_photos'] as List?)?.cast<String>()],
         storeHours: j['store_hours'],
         repairNote: j['repair_note'],
         returnsPolicy: j['returns_policy'],
@@ -150,6 +199,10 @@ class StoreSettings {
         'cod_max_paise': codMaxPaise,
         'store_phone': storePhone,
         'store_address': storeAddress,
+        'store_lat': storeLat,
+        'store_lng': storeLng,
+        'store_maps_url': storeMapsUrl,
+        'store_photos': storePhotos,
         'store_hours': storeHours,
         'repair_note': repairNote,
         'returns_policy': returnsPolicy,

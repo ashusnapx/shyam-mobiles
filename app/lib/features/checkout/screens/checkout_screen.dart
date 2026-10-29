@@ -274,7 +274,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(address.name, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+                      Expanded(
+                        child: Wrap(
+                          spacing: Space.sm,
+                          runSpacing: Space.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(address.name, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                            Tag(address.label.displayName),
+                          ],
+                        ),
+                      ),
                       TextButton(
                         onPressed: busy ? null : () => _changeAddress(addresses, address),
                         child: Text('Change', semanticsLabel: 'Change delivery address'),

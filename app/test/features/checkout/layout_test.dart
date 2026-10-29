@@ -194,7 +194,7 @@ void main() {
         find.textContaining('Handed to Delhivery'),
         find.text('Check it: dial *#06# on the phone and match the box label.'),
         find.text('Pay ₹1,29,999'),
-        find.text('Ask on WhatsApp'),
+        find.text('WhatsApp'),
       ]) {
         await tester.scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
       }

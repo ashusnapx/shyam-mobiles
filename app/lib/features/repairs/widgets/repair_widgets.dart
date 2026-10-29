@@ -161,7 +161,7 @@ Future<void> openUri(BuildContext context, Uri uri) async {
   if (!ok && context.mounted) showMessage(context, 'Couldn’t open that on this phone.');
 }
 
-/// "Ask on WhatsApp" and "Call store" buttons, from store_settings.store_phone.
+/// "WhatsApp" and "Call store" buttons, from store_settings.store_phone.
 class StoreContactButtons extends ConsumerWidget {
   const StoreContactButtons({super.key, required this.message});
 
@@ -175,8 +175,8 @@ class StoreContactButtons extends ConsumerWidget {
       children: [
         FilledButton.tonalIcon(
           onPressed: phone == null ? null : () => openUri(context, whatsAppUri(phone, text: message)),
-          icon: const Icon(PhosphorIconsRegular.whatsappLogo),
-          label: const Text('Ask on WhatsApp'),
+          icon: const WhatsAppIcon(),
+          label: const Text('WhatsApp'),
         ),
         const SizedBox(height: Space.sm),
         OutlinedButton.icon(

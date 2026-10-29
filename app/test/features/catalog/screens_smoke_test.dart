@@ -126,6 +126,7 @@ Future<void> pump(
   List overrides = const [],
   ColorScheme scheme = lightScheme,
   String? userId,
+  StoreSettings store = settings,
 }) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 3;
@@ -140,7 +141,7 @@ Future<void> pump(
     overrides: [
       currentUserIdProvider.overrideWithValue(userId),
       wishlistApiProvider.overrideWithValue(FakeWishlistApi()),
-      storeSettingsProvider.overrideWith((ref) async => settings),
+      storeSettingsProvider.overrideWith((ref) async => store),
       categoriesProvider.overrideWith((ref) async => [
             for (final (i, s) in ['smartphones', 'cases-covers', 'screen-guards', 'chargers-cables', 'earbuds-headphones', 'power-banks'].indexed)
               Category(id: '$i', slug: s, name: s, kind: CategoryKind.accessory),
@@ -182,6 +183,40 @@ void main() {
     });
   }
 
+  testWidgets('store card with 3 shop photos fits, opens the viewer and links to Maps', (tester) async {
+    const withPhotos = StoreSettings(
+      deliveryFeePaise: 4900,
+      freeDeliveryMinPaise: 99900,
+      codEnabled: true,
+      codMaxPaise: 2500000,
+      storePhone: '+917987559272',
+      storeAddress: 'Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886',
+      storeLat: 24.0670269,
+      storeLng: 82.6307508,
+      storeMapsUrl: 'https://maps.google.com/?cid=3396347197360889573',
+      storePhotos: ['store/1.jpg', 'store/2.jpg', 'store/3.jpg'], // no network in tests: the fallback well shows
+      storeHours: '10 am – 9 pm',
+      repairNote: '',
+    );
+    await pump(tester, '/', store: withPhotos, overrides: [homeProvider.overrideWith((ref) async => homeData)]);
+    await scrollThrough(tester);
+    expect(find.text('Visit the store'), findsOneWidget);
+    expect(find.text('Photos, reviews & hours on Google Maps'), findsOneWidget);
+    expect(find.bySemanticsLabel('Photo of the shop, 1 of 3'), findsOneWidget);
+
+    await tester.drag(find.bySemanticsLabel('Photo of the shop, 1 of 3'), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Photo of the shop, 2 of 3'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Photo of the shop, 2 of 3'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 of 3'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 of 3'), findsNothing);
+    expect(find.text('Visit the store'), findsOneWidget);
+  });
+
   testWidgets('home skeleton renders while loading', (tester) async {
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) => Completer<HomeData>().future)]);
     expect(find.text('Featured'), findsOneWidget);
@@ -206,7 +241,7 @@ void main() {
     await tester.pump();
     expect(find.text('Only 2 left'), findsOneWidget);
     await scrollThrough(tester);
-    expect(find.text('Ask on WhatsApp'), findsOneWidget);
+    expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.text('Battery'), findsOneWidget);
   });
 

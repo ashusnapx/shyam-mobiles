@@ -91,25 +91,16 @@ class InlineError extends StatelessWidget {
   }
 }
 
+/// Staff confirmations, same rule as everywhere: the recommended choice is filled, on the right.
 Future<bool> confirmAction(
   BuildContext context, {
   required String title,
   required String message,
   required String action,
   String cancel = 'Not now',
-}) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(cancel)),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(action)),
-        ],
-      ),
-    ) ??
-    false;
+  bool destructive = false,
+}) =>
+    confirmChoice(context, title: title, message: message, action: action, keep: cancel, destructive: destructive);
 
 /// Asks for courier (required) and tracking number (optional). Null if dismissed.
 Future<({String courier, String? tracking})?> showShipSheet(

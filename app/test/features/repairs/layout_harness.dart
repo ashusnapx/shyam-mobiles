@@ -32,6 +32,7 @@ Future<void> pumpScreen(
   Widget screen, {
   List<Override> overrides = const [],
   bool dark = false,
+  StoreSettings store = testSettings,
 }) async {
   await tester.runAsync(_loadRoboto);
   tester.view.physicalSize = const Size(360 * 3, 800 * 3);
@@ -44,7 +45,7 @@ Future<void> pumpScreen(
       overrides: [
         currentUserIdProvider.overrideWithValue('user-1'),
         isAdminProvider.overrideWithValue(const AsyncData(true)),
-        storeSettingsProvider.overrideWithValue(const AsyncData(testSettings)),
+        storeSettingsProvider.overrideWithValue(AsyncData(store)),
         ...overrides,
       ],
       child: MaterialApp.router(

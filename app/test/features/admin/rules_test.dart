@@ -168,4 +168,36 @@ void main() {
       );
     });
   });
+
+  group('parseMapPin', () {
+    const place = 'https://www.google.com/maps/place/Shyam+Mobile+Center/@24.0670269,82.6281759,17z/data=!3m1!4b1!4m6!3m5'
+        '!1s0x398f36a1677a416d:0x2f223fc80896dee5!8m2!3d24.0670269!4d82.6307508!16s%2Fg%2F11g68z4gkx';
+
+    test('reads the founder\'s search link, an @ link, q/ll params and plain text', () {
+      expect(parseMapPin('https://www.google.com/maps/search/?api=1&query=24.0665176,82.6259026'), (lat: 24.0665176, lng: 82.6259026));
+      expect(parseMapPin('https://www.google.com/maps/search/?api=1&query=24.0665176%2C82.6259026'), (lat: 24.0665176, lng: 82.6259026));
+      expect(parseMapPin('https://www.google.com/maps/@24.0665176,82.6259026,18z'), (lat: 24.0665176, lng: 82.6259026));
+      expect(parseMapPin('https://maps.google.com/?q=24.0665,82.6259'), (lat: 24.0665, lng: 82.6259));
+      expect(parseMapPin('https://maps.google.com/?ll=24.0665,82.6259&z=17'), (lat: 24.0665, lng: 82.6259));
+      expect(parseMapPin('  24.0665176, 82.6259026 '), (lat: 24.0665176, lng: 82.6259026));
+    });
+
+    test('prefers the place pin over the @ viewport centre', () {
+      expect(parseMapPin(place), (lat: 24.0670269, lng: 82.6307508));
+    });
+
+    test('rejects pins outside India and anything without one', () {
+      expect(parseMapPin('https://www.google.com/maps/@51.5072,-0.1276,12z'), isNull); // London
+      expect(parseMapPin('40.7128, -74.0060'), isNull);
+      for (final bad in ['', 'Rajeev Complex, Waidhan', 'https://maps.app.goo.gl/AbCdEf123', '24.06', 'lat, lng', '100%']) {
+        expect(parseMapPin(bad), isNull, reason: bad);
+      }
+    });
+
+    test('only full place links are kept as the listing', () {
+      expect(isMapsPlaceLink(place), isTrue);
+      expect(isMapsPlaceLink('https://www.google.com/maps/search/?api=1&query=24.0665176,82.6259026'), isFalse);
+      expect(isMapsPlaceLink('24.0670269, 82.6307508'), isFalse);
+    });
+  });
 }

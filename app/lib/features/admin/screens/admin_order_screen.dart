@@ -220,7 +220,7 @@ class _Body extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(Space.sm, 0, Space.sm, Space.sm),
                 child: TextButton.icon(
                   onPressed: () => openUri(context, whatsAppUri(a.phone, text: orderUpdateText(o))),
-                  icon: const Icon(PhosphorIconsRegular.whatsappLogo),
+                  icon: const WhatsAppIcon(),
                   label: const Text('Send update on WhatsApp'),
                 ),
               ),
@@ -467,11 +467,18 @@ class _CancelDialogState extends State<_CancelDialog> {
           ),
         ],
       ),
+      // Same rule as confirmChoice: destructive is quiet red text on the left, the safe choice is filled on the right.
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Keep order')),
         TextButton(
           onPressed: () => missing ? setState(() => _tried = true) : Navigator.pop(context, _reason.text.trim()),
+          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error, minimumSize: const Size(64, 44)),
           child: const Text('Cancel order'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
+          child: const Text('Keep order'),
         ),
       ],
     );

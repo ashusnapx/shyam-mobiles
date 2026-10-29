@@ -27,3 +27,11 @@ String? normalizeIndianPhone(String input) {
 /// "+919876543210" → "+91 98765 43210"
 String displayPhone(String e164) =>
     e164.length == 13 ? '${e164.substring(0, 3)} ${e164.substring(3, 8)} ${e164.substring(8)}' : e164;
+
+/// Google Maps directions to [address] (opens the Maps app, or the browser). Maps universal link: no API key.
+Uri directionsUri(String address) =>
+    Uri.https('www.google.com', '/maps/dir/', {'api': '1', 'destination': address});
+
+/// Google Maps centred on a pin, with the place card when Maps knows one there.
+Uri mapPinUri(double lat, double lng) =>
+    Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': '$lat,$lng'});

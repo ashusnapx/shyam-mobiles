@@ -146,8 +146,10 @@ create table public.addresses (
   line2 text check (char_length(line2) <= 120),
   landmark text check (char_length(landmark) <= 80),
   city text not null check (char_length(city) between 2 and 60),
+  district text check (char_length(district) <= 60),
   state text not null check (char_length(state) between 2 and 60),
   pincode text not null check (pincode ~ '^[1-9][0-9]{5}$'),
+  label text not null default 'home' check (label in ('home', 'work', 'other')),
   is_default boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -248,6 +250,14 @@ create table public.store_settings (
   cod_max_paise int not null default 2500000 check (cod_max_paise >= 0),
   store_phone public.in_phone not null default '+919999999999',
   store_address text not null default '',
+  -- the shop's map pin (directions go here); both or neither
+  store_lat double precision check (store_lat between -90 and 90),
+  store_lng double precision check (store_lng between -180 and 180),
+  constraint store_pin_complete check ((store_lat is null) = (store_lng is null)),
+  -- the Google Maps listing, linked to for photos, reviews and hours; never fetched
+  store_maps_url text check (char_length(store_maps_url) <= 500 and store_maps_url like 'https://%'),
+  -- object keys in the product-images bucket (store/<millis>.<ext>), in display order
+  store_photos text[] not null default '{}' check (cardinality(store_photos) <= 8),
   store_hours text not null default '10 am – 9 pm' check (char_length(store_hours) <= 60),
   repair_note text not null default 'Final price is confirmed after inspection at the store.',
   -- placeholder policy: the owner must review and edit it in Admin → Settings before launch

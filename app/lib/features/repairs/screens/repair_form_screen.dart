@@ -223,8 +223,8 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: () => openUri(context, whatsAppUri(storePhone, text: 'Hi, I have a question about a repair')),
-                  icon: const Icon(PhosphorIconsRegular.whatsappLogo),
-                  label: const Text('Ask on WhatsApp'),
+                  icon: const WhatsAppIcon(),
+                  label: const Text('WhatsApp'),
                 ),
               )),
           ],

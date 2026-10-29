@@ -2,16 +2,18 @@
 
 insert into public.categories (slug, name, kind, sort) values
   ('smartphones', 'Smartphones', 'phone', 0),
-  ('cases-covers', 'Cases & covers', 'accessory', 1),
-  ('screen-guards', 'Screen guards', 'accessory', 2),
-  ('chargers-cables', 'Chargers & cables', 'accessory', 3),
-  ('earbuds-headphones', 'Earbuds & headphones', 'accessory', 4),
-  ('power-banks', 'Power banks', 'accessory', 5);
+  ('keypad-phones', 'Keypad phones', 'phone', 1), -- LAVA / Nokia feature phones sell big in a town shop
+  ('cases-covers', 'Cases & covers', 'accessory', 2),
+  ('screen-guards', 'Screen guards', 'accessory', 3),
+  ('chargers-cables', 'Chargers & cables', 'accessory', 4),
+  ('earbuds-headphones', 'Earbuds & headphones', 'accessory', 5),
+  ('power-banks', 'Power banks', 'accessory', 6);
 
 insert into public.brands (slug, name) values
   ('samsung', 'Samsung'), ('apple', 'Apple'), ('oneplus', 'OnePlus'), ('xiaomi', 'Xiaomi'),
   ('vivo', 'vivo'), ('realme', 'realme'), ('motorola', 'Motorola'), ('google', 'Google'),
-  ('nothing', 'Nothing'), ('spigen', 'Spigen'), ('anker', 'Anker'), ('boat', 'boAt');
+  ('nothing', 'Nothing'), ('oppo', 'OPPO'), ('lava', 'LAVA'), ('nokia', 'Nokia'),
+  ('spigen', 'Spigen'), ('anker', 'Anker'), ('boat', 'boAt');
 
 insert into public.products (slug, name, brand_id, category_id, description, specs, is_featured)
 select p.slug, p.name, b.id, c.id, p.description, p.specs::jsonb, p.featured
@@ -108,3 +110,12 @@ from (values
   ('anker-powercore-10000', 'AN-PC10K-BLK', 'Black', '{"color":"Black","color_hex":"#202020"}', 1999, 3999, 2, 0)
 ) v(product, sku, name, attributes, price, mrp, stock, sort)
 join public.products pr on pr.slug = v.product;
+
+-- The shop: श्याम मोबाइल शॉप, wholesale and retail, Rajeev Complex, Waidhan (Singrauli, MP).
+update public.store_settings set
+  store_phone = '+917987559272',
+  store_address = 'Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886',
+  -- the place pin of the "Shyam Mobile Center" Google Maps listing (!3d/!4d, not the @ viewport)
+  store_lat = 24.0670269,
+  store_lng = 82.6307508,
+  store_maps_url = 'https://maps.google.com/?cid=3396347197360889573';

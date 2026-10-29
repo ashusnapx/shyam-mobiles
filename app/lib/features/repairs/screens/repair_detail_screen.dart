@@ -26,18 +26,15 @@ class RepairDetailScreen extends ConsumerWidget {
   final String bookingId;
 
   Future<void> _cancel(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel this booking?'),
-        content: const Text('Your slot will be released. You can book again any time.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep booking')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cancel booking')),
-        ],
-      ),
+    final ok = await confirmChoice(
+      context,
+      title: 'Cancel this booking?',
+      message: 'Your slot will be released. You can book again any time.',
+      action: 'Cancel booking',
+      keep: 'Keep booking',
+      destructive: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     try {
       await cancelRepair(ref.read(supabaseProvider), bookingId);
       ref.invalidate(repairProvider(bookingId));
@@ -163,7 +160,7 @@ class _QuoteCard extends ConsumerWidget {
               FilledButton.icon(
                 onPressed: () =>
                     openUri(context, whatsAppUri(phone, text: 'I approve the quote of $quote for ${b.number}')),
-                icon: const Icon(PhosphorIconsRegular.whatsappLogo),
+                icon: const WhatsAppIcon(),
                 label: const Text('Approve on WhatsApp'),
               ),
             ],

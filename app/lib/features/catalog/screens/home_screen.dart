@@ -13,6 +13,7 @@ import '../../../core/widgets/widgets.dart';
 import '../data/catalog.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/store_links.dart';
+import '../widgets/store_photos.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -308,6 +309,7 @@ class _FeatherPainter extends CustomPainter {
 
 const _categoryLooks = {
   'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile),
+  'keypad-phones': ('Keypad phones', PhosphorIconsRegular.deviceMobileSpeaker),
   'cases-covers': ('Cases', PhosphorIconsRegular.deviceMobileCamera),
   'screen-guards': ('Screen guards', PhosphorIconsRegular.shieldCheck),
   'chargers-cables': ('Chargers', PhosphorIconsRegular.plugCharging),
@@ -488,32 +490,57 @@ class _StoreCard extends StatelessWidget {
       settings.storeAddress,
       if (settings.storeHours.isNotEmpty) 'Open ${settings.storeHours}',
     ].where((s) => s.isNotEmpty).join(' · ');
+    final listing = settings.mapsListingUri;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, 22, Space.lg, 0),
       child: Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.xs, Space.md),
-          child: Row(
-            children: [
-              Icon(PhosphorIconsRegular.storefront, size: 24, color: c.primary),
-              const SizedBox(width: Space.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Visit the store', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                    Text(details, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-                  ],
-                ),
+        clipBehavior: Clip.antiAlias, // rounds the photos' top corners
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (settings.storePhotos.isNotEmpty) StorePhotoCarousel(settings.storePhotos),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.xs, Space.md),
+              child: Row(
+                children: [
+                  Icon(PhosphorIconsRegular.storefront, size: 24, color: c.primary),
+                  const SizedBox(width: Space.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Visit the store', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(details, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                  if (settings.mapsDestination.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Directions to the store',
+                      icon: const Icon(PhosphorIconsRegular.navigationArrow),
+                      onPressed: () =>
+                          openExternal(context, directionsUri(settings.mapsDestination), 'Couldn’t open Google Maps.'),
+                    ),
+                  IconButton(
+                    tooltip: 'WhatsApp the store',
+                    color: c.secondary,
+                    icon: const WhatsAppIcon(),
+                    onPressed: () => openExternal(context, whatsappUri(settings.storePhone), 'Couldn’t open WhatsApp.'),
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: 'WhatsApp the store',
-                color: c.secondary,
-                icon: const Icon(PhosphorIconsRegular.whatsappLogo),
-                onPressed: () => openExternal(context, whatsappUri(settings.storePhone), 'Couldn’t open WhatsApp.'),
+            ),
+            if (listing != null)
+              ListTile(
+                contentPadding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xs),
+                minLeadingWidth: 24,
+                horizontalTitleGap: Space.md,
+                leading: const Icon(PhosphorIconsRegular.mapTrifold),
+                title: const Text('Photos, reviews & hours on Google Maps'),
+                trailing: const Icon(PhosphorIconsRegular.arrowSquareOut, size: 18),
+                onTap: () => openExternal(context, listing, 'Couldn’t open Google Maps.'),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

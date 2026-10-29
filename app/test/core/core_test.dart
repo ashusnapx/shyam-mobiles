@@ -41,6 +41,37 @@ void main() {
     });
   });
 
+  group('store location', () {
+    final json = {
+      'delivery_fee_paise': 4900, 'free_delivery_min_paise': 99900, 'cod_enabled': true, 'cod_max_paise': 2500000,
+      'store_phone': '+917987559272', 'store_address': 'Rajeev Complex, Waidhan',
+      'store_lat': 24.0670269, 'store_lng': 82.6307508, 'store_maps_url': 'https://maps.google.com/?cid=3396347197360889573',
+      'store_photos': ['store/1.jpg', 'store/2.webp'],
+      'store_hours': '10 am – 9 pm', 'repair_note': 'x', 'returns_policy': 'y',
+    };
+
+    test('JSON round trip keeps the pin, link and photo order', () {
+      final s = StoreSettings.fromJson(json);
+      expect(s.storePhotos, ['store/1.jpg', 'store/2.webp']);
+      expect(s.toJson(), json);
+    });
+
+    test('directions and the Maps link use the pin, else the address', () {
+      final s = StoreSettings.fromJson(json);
+      expect(s.mapsDestination, '24.0670269,82.6307508');
+      expect(directionsUri(s.mapsDestination).queryParameters['destination'], '24.0670269,82.6307508');
+      expect(s.mapsListingUri.toString(), 'https://maps.google.com/?cid=3396347197360889573');
+
+      final noLink = StoreSettings.fromJson({...json, 'store_maps_url': null});
+      expect(noLink.mapsListingUri!.queryParameters['query'], '24.0670269,82.6307508');
+
+      final noPin = StoreSettings.fromJson({...json, 'store_lat': null, 'store_lng': null, 'store_maps_url': null, 'store_photos': null});
+      expect(noPin.mapsDestination, 'Rajeev Complex, Waidhan');
+      expect(noPin.mapsListingUri, isNull);
+      expect(noPin.storePhotos, isEmpty);
+    });
+  });
+
   test('normalizes Indian mobile numbers to E.164', () {
     for (final input in ['98765 43210', '+91 98765 43210', '098765-43210', '919876543210']) {
       expect(normalizeIndianPhone(input), '+919876543210', reason: input);

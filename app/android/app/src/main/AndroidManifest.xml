@@ -1,5 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Address form "Use my current location": asked only when tapped. Android's geocoder (Google Play
+         services) turns the position into an address; the app doesn't store or send the coordinates itself.
+         Approximate location is enough. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="Shyam Mobiles"
         android:allowBackup="false"

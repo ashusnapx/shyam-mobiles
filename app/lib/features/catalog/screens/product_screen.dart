@@ -319,7 +319,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                 const SizedBox(height: 18),
                 _DeliveryCard(settings),
                 const SizedBox(height: Space.md),
-                _StoreRows(settings: settings, message: 'Hi, I’m interested in ${p.name} (${v.name})'),
+                _StoreRows(settings: settings, item: '${p.name} (${v.name})'),
               ],
               if (p.description.isNotEmpty) ...[
                 const SizedBox(height: 18),
@@ -519,12 +519,24 @@ class _DeliveryCard extends StatelessWidget {
   }
 }
 
-/// "Returns & warranty" (opens the policy) and "Ask on WhatsApp" (prefilled with the product and variant).
+/// "Returns & warranty", "WhatsApp" (prefilled with the product and variant) and a wholesale enquiry:
+/// the shop sells wholesale too, and dealers ask for bulk prices over WhatsApp.
 class _StoreRows extends StatelessWidget {
-  const _StoreRows({required this.settings, required this.message});
+  const _StoreRows({required this.settings, required this.item});
 
   final StoreSettings settings;
-  final String message;
+  final String item; // "Samsung Galaxy S25 (12 GB · 256 GB · Navy)"
+
+  Future<void> _askBulk(BuildContext context) async {
+    final qty = await showModalBottomSheet<int>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => const _BulkSheet(),
+    );
+    if (qty == null || !context.mounted) return;
+    await openExternal(context, whatsappUri(settings.storePhone, 'Hi, I’d like your wholesale price for $qty × $item.'),
+        'Couldn’t open WhatsApp.');
+  }
 
   void _showReturns(BuildContext context) => showModalBottomSheet<void>(
         context: context,
@@ -547,7 +559,6 @@ class _StoreRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
     const chevron = Icon(PhosphorIconsBold.caretRight, size: 16);
     return Card(
       child: Column(
@@ -562,10 +573,66 @@ class _StoreRows extends StatelessWidget {
             const Divider(),
           ],
           ListTile(
-            leading: Icon(PhosphorIconsRegular.whatsappLogo, color: c.secondary),
-            title: const Text('Ask on WhatsApp'),
+            leading: const WhatsAppIcon(),
+            title: const Text('WhatsApp'),
+            subtitle: const Text('Ask us about this product'),
             trailing: chevron,
-            onTap: () => openExternal(context, whatsappUri(settings.storePhone, message), 'Couldn’t open WhatsApp.'),
+            onTap: () => openExternal(
+                context, whatsappUri(settings.storePhone, 'Hi, I’m interested in $item'), 'Couldn’t open WhatsApp.'),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(PhosphorIconsRegular.package),
+            title: const Text('Buying in bulk?'),
+            subtitle: const Text('Get our wholesale price on WhatsApp'),
+            trailing: chevron,
+            onTap: () => _askBulk(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Picks a quantity for a wholesale enquiry; pops with it.
+class _BulkSheet extends StatefulWidget {
+  const _BulkSheet();
+
+  @override
+  State<_BulkSheet> createState() => _BulkSheetState();
+}
+
+class _BulkSheetState extends State<_BulkSheet> {
+  static const _options = [10, 25, 50, 100, 200];
+  int _qty = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Wholesale enquiry', style: t.titleLarge),
+          const SizedBox(height: Space.xs),
+          Text('How many units? We\'ll reply on WhatsApp with our best price.',
+              style: t.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          const SizedBox(height: Space.lg),
+          Wrap(
+            spacing: Space.sm,
+            runSpacing: Space.sm,
+            children: [
+              for (final q in _options)
+                ChoiceChip(label: Text('$q+'), selected: _qty == q, onSelected: (_) => setState(() => _qty = q)),
+            ],
+          ),
+          const SizedBox(height: Space.xl),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, _qty),
+            icon: const WhatsAppIcon(size: 20),
+            label: const Text('Send on WhatsApp'),
           ),
         ],
       ),

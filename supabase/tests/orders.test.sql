@@ -52,9 +52,9 @@ insert into public.variants (id, product_id, sku, name, price_paise, mrp_paise, 
   ('d0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'T-EMPTY', 'Empty', 20000, 20000, 0, true),
   ('d0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000002', 'T-RETIRED', 'Retired', 10000, 10000, 5, true);
 
-insert into public.addresses (id, user_id, name, phone, line1, line2, city, state, pincode) values
-  ('e0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Alice', '+919876543210', '1 MG Road', 'Flat 2', 'Patna', 'Bihar', '800001'),
-  ('e0000000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'Bob', '+919876543211', '2 MG Road', null, 'Patna', 'Bihar', '800001');
+insert into public.addresses (id, user_id, name, phone, line1, line2, city, district, state, pincode, label) values
+  ('e0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Alice', '+919876543210', '1 MG Road', 'Flat 2', 'Danapur', 'Patna', 'Bihar', '801503', 'work'),
+  ('e0000000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'Bob', '+919876543211', '2 MG Road', null, 'Patna', null, 'Bihar', '800001', 'home');
 
 -- place_order: failures -----------------------------------------------------
 
@@ -97,8 +97,8 @@ select ok((select reserved_until between now() + interval '14 minutes' and now()
   'stock held for 15 minutes');
 select matches((select number from public.orders where id = tests.id('rzp')), '^SM[0-9]{6}$', 'order number SM + 6 digits');
 select is((select address from public.orders where id = tests.id('rzp')),
-  '{"name": "Alice", "phone": "+919876543210", "line1": "1 MG Road", "line2": "Flat 2", "landmark": null, "city": "Patna", "state": "Bihar", "pincode": "800001"}'::jsonb,
-  'address snapshot has exactly the contract keys');
+  '{"name": "Alice", "phone": "+919876543210", "line1": "1 MG Road", "line2": "Flat 2", "landmark": null, "city": "Danapur", "district": "Patna", "state": "Bihar", "pincode": "801503"}'::jsonb,
+  'address snapshot has exactly the contract keys, district included');
 select results_eq(
   $$select variant_id, product_name, variant_name, image_path, unit_price_paise, qty, gst_rate from public.order_items where order_id = tests.id('rzp')$$,
   $$values ('d0000000-0000-0000-0000-000000000001'::uuid, 'Test Phone', '4 GB', 'test/cover.webp', 50000, 1, 18.00::numeric(4,2))$$,

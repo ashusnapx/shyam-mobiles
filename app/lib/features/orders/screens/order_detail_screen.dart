@@ -396,22 +396,19 @@ class _ActionsState extends ConsumerState<_Actions> {
 
   Future<void> _cancel() async {
     final paid = o.paymentStatus == PaymentStatus.paid;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel this order?'),
-        content: Text(paid
-            ? 'We’ll refund ${formatInr(o.totalPaise)} to your original payment method. Banks usually take 5–7 working days.'
-            : o.status == OrderStatus.pendingPayment
-                ? 'If you already paid, we’ll refund it in full.'
-                : 'This can’t be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep order')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Cancel order')),
-        ],
-      ),
+    final ok = await confirmChoice(
+      context,
+      title: 'Cancel this order?',
+      message: paid
+          ? 'We’ll refund ${formatInr(o.totalPaise)} to your original payment method. Banks usually take 5–7 working days.'
+          : o.status == OrderStatus.pendingPayment
+              ? 'If you already paid, we’ll refund it in full.'
+              : 'This can’t be undone.',
+      action: 'Cancel order',
+      keep: 'Keep order',
+      destructive: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _busy = true);
@@ -493,14 +490,14 @@ class _ActionsState extends ConsumerState<_Actions> {
               children: [
                 for (final (i, (icon, label, uri, fallback)) in [
                   (
-                    PhosphorIconsRegular.phone,
+                    const Icon(PhosphorIconsRegular.phone, size: 20) as Widget,
                     'Call store',
                     Uri(scheme: 'tel', path: store.storePhone),
                     'Couldn’t open the phone app. Call ${displayPhone(store.storePhone)}.',
                   ),
                   (
-                    PhosphorIconsRegular.whatsappLogo,
-                    'Ask on WhatsApp',
+                    const WhatsAppIcon(size: 20),
+                    'WhatsApp',
                     Uri.https('wa.me', '/${store.storePhone.replaceAll(RegExp(r'\D'), '')}', {
                       'text': 'Hi, about order ${o.number}',
                     }),
@@ -511,7 +508,7 @@ class _ActionsState extends ConsumerState<_Actions> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _open(uri, fallback),
-                      icon: Icon(icon, size: 20),
+                      icon: icon,
                       label: Text(label, textAlign: TextAlign.center),
                     ),
                   ),

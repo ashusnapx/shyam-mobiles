@@ -66,7 +66,8 @@ begin
     v_uid, v_status, p_payment_method, v_subtotal, v_fee, v_subtotal + v_fee,
     jsonb_build_object(
       'name', v_address.name, 'phone', v_address.phone, 'line1', v_address.line1, 'line2', v_address.line2,
-      'landmark', v_address.landmark, 'city', v_address.city, 'state', v_address.state, 'pincode', v_address.pincode),
+      'landmark', v_address.landmark, 'city', v_address.city, 'district', v_address.district, 'state', v_address.state,
+      'pincode', v_address.pincode),
     case p_payment_method when 'razorpay' then now() + interval '15 minutes' end
   )
   returning id into v_order_id;

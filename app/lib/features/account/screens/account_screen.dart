@@ -32,25 +32,15 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   }
 
   Future<void> _deleteAccount() async {
-    final c = Theme.of(context).colorScheme;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete your account?'),
-        content: const Text(
-          'This removes your profile, saved addresses, cart and wishlist, and signs you out. '
+    final ok = await confirmChoice(
+      context,
+      title: 'Delete your account?',
+      message: 'This removes your profile, saved addresses, cart and wishlist, and signs you out. '
           'Past orders stay on record for tax purposes but are no longer linked to you. '
           'This can’t be undone.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep account')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: c.error),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      action: 'Delete account',
+      keep: 'Keep account',
+      destructive: true,
     );
     if (ok != true || !mounted) return;
     setState(() => _deleting = true);
@@ -264,8 +254,21 @@ class _StoreCard extends ConsumerWidget {
               subtitle: Text(displayPhone(phone)),
               onTap: () => _open(context, Uri(scheme: 'tel', path: phone), 'the dialler'),
             ),
+            if (s.mapsDestination.isNotEmpty)
+              ListTile(
+                leading: const Icon(PhosphorIconsRegular.navigationArrow),
+                title: const Text('Directions'),
+                subtitle: const Text('Open in Google Maps'),
+                onTap: () => _open(context, directionsUri(s.mapsDestination), 'Google Maps'),
+              ),
+            if (s.mapsListingUri != null)
+              ListTile(
+                leading: const Icon(PhosphorIconsRegular.mapTrifold),
+                title: const Text('Photos, reviews & hours on Google Maps'),
+                onTap: () => _open(context, s.mapsListingUri!, 'Google Maps'),
+              ),
             ListTile(
-              leading: const Icon(PhosphorIconsRegular.whatsappLogo),
+              leading: const WhatsAppIcon(),
               title: const Text('WhatsApp store'),
               onTap: () => _open(
                 context,

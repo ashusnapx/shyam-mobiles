@@ -55,13 +55,13 @@ Exact DDL: `supabase/migrations/20261028000000_schema.sql`. Summary:
 - `product_images(product_id, path, sort)`: `path` is an object key in the public `product-images` bucket.
 - `variants(product_id, sku, name, attributes jsonb, price_paise, mrp_paise, stock, is_active)`. Every product has ≥1 variant; cart/order lines point at variants.
 - `product_cards` (view, `security_invoker`): one row per active product with `min_price_paise`, `mrp_paise` (of the cheapest variant), `in_stock`, `cover_path`, `brand_name`, `category_slug`. Listing/search screens read this.
-- `wishlist(user_id, product_id)`, `cart_items(user_id, variant_id, qty 1..5)`, `addresses(...)`.
+- `wishlist(user_id, product_id)`, `cart_items(user_id, variant_id, qty 1..5)`, `addresses(user_id, name, phone, line1, line2, landmark, city, district, state, pincode, label 'home'|'work'|'other', is_default)`: max 10 per user, one default.
 - `orders(number 'SM100001', user_id, status, payment_method, payment_status, subtotal/delivery_fee/total paise, address jsonb snapshot, razorpay_order_id, razorpay_payment_id, courier, tracking_number, reserved_until)`.
 - `order_items(order_id, variant_id, product_name, variant_name, unit_price_paise, qty, gst_rate, imeis text[])`: snapshot of what was sold.
 - `order_events(order_id, status, note, created_at)`: timeline shown to the customer.
 - `payment_events(razorpay_event_id unique, type, payload)`: webhook audit + idempotency.
 - `repair_bookings(number 'RP100001', user_id, device_brand, device_model, issue, description, preferred_date, slot, contact_phone, status, quote_paise, admin_note)`.
-- `store_settings` (single row): `delivery_fee_paise`, `free_delivery_min_paise`, `cod_enabled`, `cod_max_paise`, `store_phone`, `store_address`, `store_hours`, `repair_note`, `returns_policy` (placeholder text the owner must edit before launch).
+- `store_settings` (single row): `delivery_fee_paise`, `free_delivery_min_paise`, `cod_enabled`, `cod_max_paise`, `store_phone`, `store_address`, `store_lat`/`store_lng` (the shop's map pin, both or neither; directions go to it, else to the address), `store_maps_url` (https, ≤500: the shop's Google Maps listing, linked to as "Photos, reviews & hours on Google Maps"; seeded with the `?cid=` link of "Shyam Mobile Center"), `store_photos text[]` (≤8 object keys `store/<millis>.<ext>` in the `product-images` bucket, in display order), `store_hours`, `repair_note`, `returns_policy` (placeholder text the owner must edit before launch).
 
 ### State machines
 
@@ -85,7 +85,7 @@ Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code 
 | Function | Caller | Does |
 |---|---|---|
 | `is_admin() → bool` | authenticated | Whether the caller is staff. |
-| `place_order(p_address_id uuid, p_payment_method payment_method) → uuid` | authenticated | Reads the caller's cart, locks variants, checks stock and active flags, computes totals, applies the COD rules, creates the order, items and first event, decrements stock, clears the cart. Errors: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK` (also for inactive variants/products; `details` = comma-separated variant ids), `COD_UNAVAILABLE` (COD disabled or total > `cod_max_paise`). `address` snapshot keys: `name, phone, line1, line2, landmark, city, state, pincode`. |
+| `place_order(p_address_id uuid, p_payment_method payment_method) → uuid` | authenticated | Reads the caller's cart, locks variants, checks stock and active flags, computes totals, applies the COD rules, creates the order, items and first event, decrements stock, clears the cart. Errors: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK` (also for inactive variants/products; `details` = comma-separated variant ids), `COD_UNAVAILABLE` (COD disabled or total > `cod_max_paise`). `address` snapshot keys: `name, phone, line1, line2, landmark, city, district, state, pincode` (`district` may be null). |
 | `cancel_order(p_order_id uuid) → void` | authenticated (owner) | Allowed while `pending_payment` or `confirmed`. Restocks. A paid order cancelled here shows up as **needs refund**. |
 | `cancel_repair(p_booking_id uuid) → void` | authenticated (owner) | Allowed while `requested` or `confirmed`. |
 | `admin_update_order(p_order_id uuid, p_status order_status, p_note text, p_courier text, p_tracking_number text) → void` | admin | Validates the transition, writes an event, restocks on cancel, marks COD paid on delivered; `refunded` also sets `payment_status = refunded`. `p_status` = current status just updates courier/tracking (null keeps the old value) and adds a note event if `p_note` is set. |
@@ -164,6 +164,7 @@ Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account
 - **Visible refunds:** paid orders cancelled by the customer or store get a timeline note promising the refund; `refund.processed` adds "Refund issued…".
 - **Genuine-product proof:** order detail shows IMEIs once packed, with "Check it: dial *#06# on the phone and match the box label".
 - **Returns & warranty:** `store_settings.returns_policy` shown from the product page and the account screen; editable in admin settings.
+- **Find the shop:** the home "Visit the store" card shows the shop photos (swipeable, tap for full screen) and, with the account store card, links to Directions (the exact pin) and to the Google Maps listing. Staff set the pin in Admin → Settings by pasting a Google Maps link or "lat, lng" (a pasted place link also becomes `store_maps_url`); photos are added, reordered and removed there and save straight away (removing one deletes the file too: no order references shop photos). We only link out to Google Maps: showing its ratings or reviews in the app would need the Places API (API key, billing, Google attribution rules), so it is deliberately not used and nothing is fetched or copied from Google.
 - **No surprise money:** cart shows "No platform, COD or packing fees"; checkout says EMI bank charges, if any, are shown by Razorpay before you pay; repair quotes say "Work starts only after you approve this price".
 - **Less sign-in friction:** "Use email instead" link on the code screen after 30 s; add-to-cart/buy-now resumes automatically after sign-in (`from=/product/<slug>?add=<variantId>` or `&buy=<variantId>`).
 

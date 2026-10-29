@@ -12,12 +12,20 @@ import '../theme/tokens.dart';
 
 /// Product photo from the `product-images` bucket on a soft tinted well, with an icon when there's no photo.
 class ProductImage extends StatelessWidget {
-  const ProductImage(this.path, {super.key, this.aspectRatio = 1, this.radius = Radii.lg, this.padding = Space.md});
+  const ProductImage(
+    this.path, {
+    super.key,
+    this.aspectRatio = 1,
+    this.radius = Radii.lg,
+    this.padding = Space.md,
+    this.fit = BoxFit.contain,
+  });
 
   final String? path;
   final double aspectRatio;
   final double radius;
   final double padding;
+  final BoxFit fit; // cover for shop photos; clip the parent to round its corners
 
   @override
   Widget build(BuildContext context) {
@@ -37,8 +45,8 @@ class ProductImage extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (context, box) => CachedNetworkImage(
                     imageUrl: publicImageUrl(path!),
-                    fit: BoxFit.contain,
-                    fadeInDuration: Motion.normal,
+                    fit: fit,
+                    fadeInDuration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal,
                     memCacheWidth: box.maxWidth.isFinite
                         ? (box.maxWidth * MediaQuery.devicePixelRatioOf(context)).round()
                         : null,
@@ -292,6 +300,55 @@ class SectionHeader extends StatelessWidget {
       );
 }
 
+/// Every yes/no confirmation in the app. The recommended choice is the filled button on the right. For
+/// destructive actions that's the safe one ("Keep order"); the destructive one is quiet red text far left,
+/// so a hurried thumb keeps things as they are. Returns true only when [action] was chosen.
+Future<bool> confirmChoice(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String action,
+  required String keep,
+  bool destructive = false,
+}) async {
+  final c = Theme.of(context).colorScheme;
+  const compact = Size(64, 44);
+  final picked = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: destructive
+          ? [
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: c.error, minimumSize: compact),
+                child: Text(action),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, false),
+                style: FilledButton.styleFrom(minimumSize: compact),
+                child: Text(keep),
+              ),
+            ]
+          : [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                style: TextButton.styleFrom(minimumSize: compact),
+                child: Text(keep),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(minimumSize: compact),
+                child: Text(action),
+              ),
+            ],
+    ),
+  );
+  return picked ?? false;
+}
+
 void showMessage(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -333,6 +390,18 @@ class _BrandMarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BrandMarkPainter old) => old.onDark != onDark;
+}
+
+/// WhatsApp's own glyph in its brand green. Third-party marks keep their native colours, never the app's ink.
+class WhatsAppIcon extends StatelessWidget {
+  const WhatsAppIcon({super.key, this.size});
+
+  final double? size;
+
+  static const green = Color(0xFF25D366);
+
+  @override
+  Widget build(BuildContext context) => Icon(PhosphorIconsFill.whatsappLogo, size: size, color: green);
 }
 
 enum TagTone { info, ok, deal, bad }

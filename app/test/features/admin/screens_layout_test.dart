@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
 import 'package:shyam_mobiles/features/admin/data/admin.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_dashboard_screen.dart';
@@ -176,6 +177,41 @@ void main() {
       expect(find.text('Save settings'), findsOneWidget);
       await scrollTo(tester, find.text('Returns and warranty policy'));
       expect(find.text('Returns and warranty policy'), findsOneWidget);
+    });
+
+    testWidgets('settings: shop pin and photos ($theme)', (tester) async {
+      const withPin = StoreSettings(
+        deliveryFeePaise: 4900,
+        freeDeliveryMinPaise: 99900,
+        codEnabled: true,
+        codMaxPaise: 2500000,
+        storePhone: '+917987559272',
+        storeAddress: 'Rajeev Complex, Waidhan',
+        storeLat: 24.0670269,
+        storeLng: 82.6307508,
+        storePhotos: ['store/1.jpg', 'store/2.jpg', 'store/3.jpg'],
+        repairNote: 'Final price is confirmed after inspection at the store.',
+        returnsPolicy: 'Unopened items can be returned within 7 days of delivery.',
+      );
+      await pumpScreen(tester, const AdminSettingsScreen(), dark: dark, store: withPin);
+      await scrollTo(tester, find.text('Open in Google Maps'));
+      expect(find.text('Pin: 24.0670269, 82.6307508'), findsOneWidget);
+      await tester.enterText(find.widgetWithText(TextFormField, 'Shop location'), 'https://maps.app.goo.gl/AbCdEf123');
+      await tester.tap(find.text('Save settings'));
+      await tester.pump();
+      expect(find.textContaining('No pin in India found'), findsOneWidget);
+      expect(find.text('Open in Google Maps'), findsNothing);
+
+      await scrollTo(tester, find.byTooltip('Remove photo 1'));
+      expect(find.textContaining('3 of 8'), findsOneWidget);
+      expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, PhosphorIconsRegular.arrowLeft).first).onPressed, isNull);
+
+      await tester.tap(find.byTooltip('Remove photo 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove this photo?'), findsOneWidget);
+      await tester.tap(find.text('Keep photo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove this photo?'), findsNothing);
     });
   }
 }

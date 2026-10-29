@@ -1,7 +1,7 @@
 -- RLS, table privileges, profile/address triggers, storage bucket.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(91);
+select plan(97);
 
 -- Helpers -------------------------------------------------------------------
 
@@ -169,6 +169,10 @@ select lives_ok($$insert into public.addresses (user_id, name, phone, line1, cit
 select is((select array_agg(name) from public.addresses where is_default), '{Office}', 'new default unsets the old one');
 select lives_ok($$update public.addresses set is_default = true where id = 'e0000000-0000-0000-0000-000000000001'$$, 'alice: switches default back');
 select is((select array_agg(name) from public.addresses where is_default), '{Alice}', 'exactly one default after switching');
+select throws_ok($$insert into public.addresses (user_id, name, phone, line1, city, state, pincode, label)
+  values ('11111111-1111-1111-1111-111111111111', 'Shop', '+919876543210', '4 Boring Road', 'Patna', 'Bihar', '800001', 'office')$$,
+  '23514', null, 'address label must be home, work or other');
+select is((select label from public.addresses where id = 'e0000000-0000-0000-0000-000000000001'), 'home', 'address label defaults to home');
 select lives_ok($$insert into public.addresses (user_id, name, phone, line1, city, state, pincode)
   select '11111111-1111-1111-1111-111111111111', 'Extra ' || n, '+919876543210', 'Lane ' || n, 'Patna', 'Bihar', '800001' from generate_series(1, 8) n$$,
   'alice: fills up to 10 addresses');
@@ -201,6 +205,13 @@ select is((select count(*)::int from public.order_items), 2, 'staff: sees all or
 select isnt_empty($$update public.products set is_active = true where slug = 'test-inactive' returning 1$$, 'staff: updates products');
 select lives_ok($$insert into public.brands (slug, name) values ('test-brand-2', 'Test 2')$$, 'staff: inserts brands');
 select isnt_empty($$update public.store_settings set delivery_fee_paise = 5900 returning 1$$, 'staff: updates store_settings');
+select throws_ok($$update public.store_settings set store_lat = 24.0670269, store_lng = null$$, '23514', null,
+  'store_settings: a map pin needs both lat and lng');
+select lives_ok($$update public.store_settings set store_lat = 24.0670269, store_lng = 82.6307508$$, 'store_settings: full map pin saves');
+select throws_ok($$update public.store_settings set store_photos = array_fill('store/x.jpg'::text, array[9])$$, '23514', null,
+  'store_settings: at most 8 store photos');
+select throws_ok($$update public.store_settings set store_maps_url = 'javascript:alert(1)'$$, '23514', null,
+  'store_settings: maps link must be https');
 select isnt_empty($$update public.repair_bookings set status = 'confirmed', quote_paise = 150000 where id = '90000000-0000-0000-0000-000000000002' returning 1$$,
   'staff: updates repairs');
 select throws_ok($$update public.orders set status = 'delivered'$$, '42501', null, 'staff: no direct order updates either');

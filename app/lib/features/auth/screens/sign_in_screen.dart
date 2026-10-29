@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ import '../../../core/router.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/widgets/policies.dart';
 import '../data/google.dart';
 import '../widgets/dev_login.dart';
 
@@ -34,6 +36,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
   bool _sending = false;
   bool _googleBusy = false;
 
+  late final _termsTap = TapGestureRecognizer()..onTap = () => openPolicy(context, 'terms.html');
+  late final _privacyTap = TapGestureRecognizer()..onTap = () => openPolicy(context, 'privacy.html');
+
   bool get _usePhone => _tabs.index == 0;
 
   @override
@@ -49,6 +54,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
   @override
   void dispose() {
     _tabs.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     _phone.dispose();
     _email.dispose();
     super.dispose();
@@ -102,6 +109,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
     final t = Theme.of(context).textTheme;
     final busy = _sending || _googleBusy;
     final label = t.labelMedium;
+    final link = TextStyle(color: c.onSurface, fontWeight: FontWeight.w600, decoration: TextDecoration.underline);
 
     final field = _usePhone
         ? TextField(
@@ -215,13 +223,20 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                             const SizedBox(height: 18),
                             OutlinedButton.icon(
                               onPressed: busy ? null : _google,
-                              icon: _googleBusy ? const _Spinner() : const Icon(PhosphorIconsBold.googleLogo, size: 18),
+                              icon: _googleBusy ? const _Spinner() : Image.asset('assets/brand/google_g.png', width: 18, height: 18, semanticLabel: 'Google'),
                               label: const Text('Continue with Google'),
                             ),
                           ],
                           const SizedBox(height: Space.lg),
-                          Text(
-                            'By continuing you agree to the Terms and Privacy Policy.',
+                          // Play requires the privacy policy to be reachable inside the app, so these are real links.
+                          Text.rich(
+                            TextSpan(children: [
+                              const TextSpan(text: 'By continuing you agree to the '),
+                              TextSpan(text: 'Terms', style: link, recognizer: _termsTap),
+                              const TextSpan(text: ' and '),
+                              TextSpan(text: 'Privacy Policy', style: link, recognizer: _privacyTap),
+                              const TextSpan(text: '.'),
+                            ]),
                             textAlign: TextAlign.center,
                             style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
                           ),

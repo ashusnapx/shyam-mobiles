@@ -289,6 +289,41 @@ Future<void> saveVariant(WidgetRef ref, String productId, String? variantId, Map
 // Settings --------------------------------------------------------------------
 
 Future<void> saveSettings(WidgetRef ref, StoreSettings settings) async {
-  await _db(ref).from('store_settings').update(settings.toJson()).eq('id', true).select('id').single();
+  // store_photos has its own writers below; the form's copy may be stale
+  await _db(ref).from('store_settings').update(settings.toJson()..remove('store_photos')).eq('id', true).select('id').single();
   ref.invalidate(storeSettingsProvider);
+}
+
+/// Saves the shop photo list (max 8) and waits for the reload, so the next edit starts from the saved list.
+Future<void> saveStorePhotos(WidgetRef ref, List<String> paths) async {
+  await _db(ref).from('store_settings').update({'store_photos': paths}).eq('id', true).select('id').single();
+  ref.invalidate(storeSettingsProvider);
+  try {
+    await ref.read(storeSettingsProvider.future);
+  } catch (_) {} // saved; the screen shows the reload error
+}
+
+/// Uploads to `store/<millis>.<ext>`, then appends it to [current] (removing the file if that fails).
+Future<void> addStorePhoto(WidgetRef ref, List<String> current, Uint8List bytes) async {
+  final type = imageTypeOf(bytes);
+  if (type == null) throw const FormatException('Use a JPEG, PNG or WebP photo.');
+  final bucket = _db(ref).storage.from('product-images');
+  final path = 'store/${DateTime.now().millisecondsSinceEpoch}.${type.$1}';
+  await bucket.uploadBinary(path, bytes, fileOptions: FileOptions(contentType: type.$2));
+  try {
+    await saveStorePhotos(ref, [...current, path]);
+  } catch (_) {
+    try {
+      await bucket.remove([path]);
+    } catch (_) {} // best effort; the save error below is what matters
+    rethrow;
+  }
+}
+
+/// Unlike product photos, no order points at shop photos, so the file is deleted too.
+Future<void> removeStorePhoto(WidgetRef ref, List<String> current, String path) async {
+  await saveStorePhotos(ref, [...current]..remove(path));
+  try {
+    await _db(ref).storage.from('product-images').remove([path]);
+  } catch (_) {} // best effort: an orphaned file is harmless
 }

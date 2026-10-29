@@ -127,3 +127,34 @@ String repairUpdateText(RepairBooking b) {
       : ' Quote: ${formatInr(b.quotePaise!)}. Work starts only after you approve it.';
   return 'Hi, your Shyam Mobiles repair ${b.number} (${b.deviceBrand} ${b.deviceModel}) is $where.$quote';
 }
+
+const _num = r'(-?\d{1,3}(?:\.\d+)?)';
+
+// First match wins: a place's own pin (!3d…!4d…), then query/q/ll params, then the @ viewport centre, then plain text.
+final _pinPatterns = [
+  RegExp('!3d$_num!4d$_num'),
+  RegExp('[?&](?:query|q|ll)=$_num,\\s*$_num'),
+  RegExp('@$_num,$_num'),
+  RegExp('^\\s*$_num\\s*,\\s*$_num\\s*\$'),
+];
+
+/// A Google Maps link (full, not maps.app.goo.gl) or "lat, lng" → the pin, or null unless it's inside India.
+({double lat, double lng})? parseMapPin(String input) {
+  var s = input.trim();
+  try {
+    s = Uri.decodeFull(s); // query=24.06%2C82.62
+  } catch (_) {}
+  for (final p in _pinPatterns) {
+    final m = p.firstMatch(s);
+    if (m == null) continue;
+    final lat = double.parse(m[1]!), lng = double.parse(m[2]!);
+    return lat >= 6 && lat <= 38 && lng >= 68 && lng <= 98 ? (lat: lat, lng: lng) : null;
+  }
+  return null;
+}
+
+/// A shareable Google Maps place link: worth keeping as the shop's listing (`store_maps_url`).
+bool isMapsPlaceLink(String input) {
+  final s = input.trim();
+  return s.length <= 500 && s.startsWith('https://') && s.contains('/maps/place/') && parseMapPin(s) != null;
+}

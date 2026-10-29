@@ -391,6 +391,8 @@ class _PhotosState extends ConsumerState<_Photos> {
       title: 'Delete this photo?',
       message: 'It’s removed from the shop right away.',
       action: 'Delete',
+      cancel: 'Keep photo',
+      destructive: true,
     );
     if (ok) await _run(() => deleteProductImage(ref, widget.product.id, image), 'Photo deleted');
   }

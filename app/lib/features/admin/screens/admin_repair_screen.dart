@@ -79,7 +79,8 @@ class _BodyState extends ConsumerState<_Body> {
           title: 'Cancel ${widget.booking.number}?',
           message: 'The customer sees the booking as cancelled.',
           action: 'Cancel booking',
-          cancel: 'Keep',
+          cancel: 'Keep booking',
+          destructive: true,
         )) {
       return;
     }
@@ -140,7 +141,7 @@ class _BodyState extends ConsumerState<_Body> {
                 padding: const EdgeInsets.fromLTRB(Space.sm, 0, Space.sm, Space.sm),
                 child: TextButton.icon(
                   onPressed: () => openUri(context, whatsAppUri(b.contactPhone, text: repairUpdateText(b))),
-                  icon: const Icon(PhosphorIconsRegular.whatsappLogo),
+                  icon: const WhatsAppIcon(),
                   label: const Text('Send update on WhatsApp'),
                 ),
               ),

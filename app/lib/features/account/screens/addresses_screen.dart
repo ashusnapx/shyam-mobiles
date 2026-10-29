@@ -95,22 +95,15 @@ class _AddressCard extends ConsumerWidget {
           await notifier.setDefault(address.id!);
           if (context.mounted) showMessage(context, 'Default address updated.');
         case _Action.delete:
-          final ok = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Delete this address?'),
-              content: Text(address.oneLine),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                  child: const Text('Delete'),
-                ),
-              ],
-            ),
+          final ok = await confirmChoice(
+            context,
+            title: 'Delete this address?',
+            message: address.oneLine,
+            action: 'Delete',
+            keep: 'Keep address',
+            destructive: true,
           );
-          if (ok != true) return;
+          if (!ok) return;
           await notifier.delete(address.id!);
           if (context.mounted) showMessage(context, 'Address deleted.');
       }
@@ -143,6 +136,7 @@ class _AddressCard extends ConsumerWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(address.name, style: t.titleSmall),
+                        Tag(address.label.displayName),
                         if (address.isDefault) const Tag('Default', tone: TagTone.ok),
                       ],
                     ),
