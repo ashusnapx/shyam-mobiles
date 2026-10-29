@@ -60,8 +60,9 @@ async function apply(type: string, payload: Record<string, { entity?: Entity }>,
     case "refund.processed": {
       const refund = payload.refund?.entity;
       if (!refund?.payment_id) return "ignored";
-      // shortcut: partial refunds are left for staff to reconcile; only a full refund flips payment_status
-      if (payment && payment.amount_refunded < payment.amount) return "partial_refund";
+      // shortcut: partial refunds are left for staff to reconcile; only a full refund flips payment_status.
+      // Fail safe: without the payment's totals it is not provably full, so it isn't marked refunded.
+      if (!(payment && payment.amount > 0 && payment.amount_refunded >= payment.amount)) return "partial_refund";
       return await call(store, "mark_order_refunded", { p_razorpay_payment_id: refund.payment_id }, "refunded");
     }
     default:

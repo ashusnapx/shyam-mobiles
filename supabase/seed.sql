@@ -119,3 +119,6 @@ update public.store_settings set
   store_lat = 24.0670269,
   store_lng = 82.6307508,
   store_maps_url = 'https://maps.google.com/?cid=3396347197360889573';
+
+-- Local dev logins (scripts/dev_setup.py, app DEV_LOGIN) still use a password; production keeps this table empty.
+insert into private.password_sign_in_domains (domain) values ('shyammobiles.test');

@@ -28,7 +28,8 @@ Not in v1 (on purpose): guest cart, coupons, reviews, banners, store pickup, cou
 ## Money and numbers
 
 - All money is **integer paise** (`*_paise` columns, `int` in Dart). Never use floats for money.
-- Prices include GST. `gst_rate` is stored per product for future invoices.
+- Prices include GST. `gst_rate` is stored per product for future invoices, and copied to each order line.
+- Delivery is free when the subtotal is at or above `free_delivery_min_paise`, else `delivery_fee_paise`. COD needs `cod_enabled` and a **total** (subtotal + delivery) at or below `cod_max_paise`. Every order satisfies `subtotal = Σ unit_price × qty` and `total = subtotal + delivery_fee`.
 - The display format is `₹1,29,999` (Indian grouping, no decimals unless paise != 0): `formatInr(int paise)` in `lib/core/format.dart`.
 
 ## Security rules (non-negotiable)
@@ -43,6 +44,7 @@ Not in v1 (on purpose): guest cart, coupons, reviews, banners, store pickup, cou
 8. The app stores the auth session in `flutter_secure_storage` (Keychain/Keystore), not SharedPreferences.
 9. Stock changes are atomic, take row locks, and never go negative (check constraint).
 10. Account deletion works in the app (store requirement). Orders are kept for tax records with `user_id` set to null.
+11. Sign-in is passwordless, enforced: an Auth access token hook (`private.custom_access_token_hook`) refuses every token from the password grant, refreshes included, and email and phone confirmations are on, so nobody can pre-register someone else's email or phone with a password. Only accounts on a domain in `private.password_sign_in_domains` may use one (the local dev logins; empty in production).
 
 ## Data model
 
@@ -76,7 +78,7 @@ repair.status:  requested ─> confirmed ─> in_progress ─> ready ─> comple
 - COD orders start `confirmed` with `payment_status = pending`. They become `paid` when the admin marks them `delivered`.
 - Razorpay orders start `pending_payment` and hold their stock until `reserved_until` (now + 15 min). A `pg_cron` job cancels expired ones and puts the stock back.
 - If a payment lands on an order that already expired, `mark_order_paid` tries to re-reserve the stock. If it can't, the order stays `cancelled` with `payment_status = paid`, and the admin dashboard lists it as **needs refund**.
-- Customers book repairs with a plain `insert` (RLS: own `user_id`, `status = requested`, no `quote_paise`/`admin_note`, `preferred_date` from today to today + 30 in IST) and cancel via `cancel_repair`. Admins write repairs directly.
+- Customers book repairs with a plain `insert` of `user_id, device_brand, device_model, issue, description, preferred_date, slot, contact_phone` (RLS: own `user_id`, `status = requested`, no `quote_paise`/`admin_note`, `preferred_date` from today to today + 30 in IST; `id`, `number` and timestamps are never client-set) and cancel via `cancel_repair`. Admins write repairs directly.
 
 ## RPC contract (called by the app via `supabase.rpc`)
 
@@ -85,11 +87,11 @@ Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code 
 | Function | Caller | Does |
 |---|---|---|
 | `is_admin() → bool` | authenticated | Whether the caller is staff. |
-| `place_order(p_address_id uuid, p_payment_method payment_method) → uuid` | authenticated | Reads the caller's cart, locks variants, checks stock and active flags, computes totals, applies the COD rules, creates the order, items and first event, decrements stock, clears the cart. Errors: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK` (also for inactive variants/products; `details` = comma-separated variant ids), `COD_UNAVAILABLE` (COD disabled or total > `cod_max_paise`). `address` snapshot keys: `name, phone, line1, line2, landmark, city, district, state, pincode` (`district` may be null). |
+| `place_order(p_address_id uuid, p_payment_method payment_method) → uuid` | authenticated | Reads the caller's cart, locks its lines and variants (only those locked lines are ordered: a line added while it runs stays in the cart), checks stock and active flags, computes totals, applies the COD rules, creates the order, items and first event, decrements stock, clears the cart. Errors: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK` (also for inactive variants/products; `details` = comma-separated variant ids), `COD_UNAVAILABLE` (COD disabled or total > `cod_max_paise`). `address` snapshot keys: `name, phone, line1, line2, landmark, city, district, state, pincode` (`district` may be null). |
 | `cancel_order(p_order_id uuid) → void` | authenticated (owner) | Allowed while `pending_payment` or `confirmed`. Restocks. A paid order cancelled here shows up as **needs refund**. |
 | `cancel_repair(p_booking_id uuid) → void` | authenticated (owner) | Allowed while `requested` or `confirmed`. |
 | `admin_update_order(p_order_id uuid, p_status order_status, p_note text, p_courier text, p_tracking_number text) → void` | admin | Validates the transition, writes an event, restocks on cancel, marks COD paid on delivered; `refunded` also sets `payment_status = refunded`. `p_status` = current status just updates courier/tracking (null keeps the old value) and adds a note event if `p_note` is set. |
-| `admin_set_imeis(p_order_item_id uuid, p_imeis text[]) → void` | admin | Count must equal qty; each value 15 digits; no duplicates. Else `INVALID_IMEIS`. |
+| `admin_set_imeis(p_order_item_id uuid, p_imeis text[]) → void` | admin | A one-dimensional array; count must equal qty; each value 15 digits; no duplicates. Else `INVALID_IMEIS`. |
 | `admin_dashboard() → json` | admin | `{orders_today, revenue_today_paise, open_orders, low_stock, open_repairs, needs_refund}`, all integers. Today = IST calendar day, orders in confirmed/packed/shipped/delivered. `open_orders`: confirmed/packed/shipped. `low_stock`: active variants of active products with stock ≤ 3. `open_repairs`: not completed/cancelled. `needs_refund`: `status = cancelled and payment_status = paid`. |
 | `mark_order_paid(p_order_id uuid, p_razorpay_payment_id text) → void` | service_role only | Idempotent. Used by the Edge Functions. A late payment revives an *expired* order if stock allows; a customer/admin-cancelled order is never revived (→ needs refund). |
 | `mark_payment_failed(p_order_id uuid) → void` | service_role only | From the `payment.failed` webhook: `pending → failed`, order stays payable until expiry. |
@@ -104,7 +106,7 @@ All are `POST`. User functions keep the platform `verify_jwt` check and verify t
 |---|---|---|
 | `create-payment` | user JWT | `{order_id}` → `{key_id, razorpay_order_id, amount, currency, order_number, reserved_until}` (`reserved_until`: ISO 8601 UTC, when the stock hold ends; set Razorpay's checkout `timeout` from it). Reuses an existing `razorpay_order_id`. Refuses unless the order is the caller's, `pending_payment`, `razorpay`, and not expired. |
 | `verify-payment` | user JWT | `{razorpay_order_id, razorpay_payment_id, razorpay_signature}` → `{order_id, status}`. Checks the HMAC, fetches the payment from Razorpay (order id, amount = total, status captured/authorized), then calls `mark_order_paid`. `status` is the order status afterwards (`confirmed`, or `cancelled` if it was paid too late). |
-| `razorpay-webhook` | none (`verify_jwt = false`), HMAC instead | Handles `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`. Verifies `x-razorpay-signature` over the raw body (401 if bad), dedupes on `x-razorpay-event-id` via `payment_events`, checks amount = order total. Returns 200 on duplicates, unknown events/orders and business refusals; 500 only on infrastructure errors (Razorpay retries). |
+| `razorpay-webhook` | none (`verify_jwt = false`), HMAC instead | Handles `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`. Verifies `x-razorpay-signature` over the raw body (401 if bad), dedupes on `x-razorpay-event-id` via `payment_events`, checks amount = order total. `refund.processed` counts as full only when the event's payment has `amount_refunded ≥ amount`; anything else (a partial refund, missing totals) is left for staff. Returns 200 on duplicates, unknown events/orders and business refusals; 500 only on infrastructure errors (Razorpay retries). |
 | `delete-account` | user JWT | `{}` → 204. Returns 409 `ACTIVE_ORDERS` if any order is not delivered/cancelled/refunded, or any repair is not completed/cancelled. Otherwise deletes the auth user (cascades the profile, cart, wishlist, addresses; orders keep `user_id = null`). |
 
 Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (+ the built-in `SUPABASE_URL`, `SUPABASE_SECRET_KEYS`, `SUPABASE_JWKS`, read by `@supabase/server`).

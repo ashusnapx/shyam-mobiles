@@ -25,8 +25,11 @@ grant select, insert, update, delete on public.cart_items, public.addresses to a
 -- Orders are read-only to clients; every change goes through an RPC.
 grant select on public.orders, public.order_items, public.order_events to authenticated;
 
--- Repairs: customers create and read their own; staff update (RLS).
-grant select, insert, update on public.repair_bookings to authenticated;
+-- Repairs: customers create and read their own; staff update (RLS). No insert of id, number or timestamps:
+-- a chosen `number` would collide with the sequence later and block someone else's booking.
+grant select, update on public.repair_bookings to authenticated;
+grant insert (user_id, device_brand, device_model, issue, description, preferred_date, slot, contact_phone,
+  status, quote_paise, admin_note) on public.repair_bookings to authenticated;
 grant usage on sequence public.repair_number_seq to authenticated; -- the `number` default calls nextval()
 
 -- admins and payment_events: no client access at all.

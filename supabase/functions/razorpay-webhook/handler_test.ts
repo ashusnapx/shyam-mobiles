@@ -126,6 +126,15 @@ Deno.test("refund.processed: full refund marks refunded, partial is skipped", as
   assertEquals(calls, [["mark_order_refunded", { p_razorpay_payment_id: "pay_1" }]]);
 });
 
+Deno.test("refund.processed without the payment totals is not taken as a full refund", async () => {
+  const { store, calls } = fakeStore();
+  const refund = { id: "rfnd_2", payment_id: "pay_1", amount: 54900 };
+  assertEquals((await post(store, { event: "refund.processed", payload: { refund: { entity: refund } } }, { eventId: "evt_c" })).body.result, "partial_refund");
+  const noRefunded = { refund: { entity: refund }, payment: { entity: { id: "pay_1", amount: 54900 } } };
+  assertEquals((await post(store, { event: "refund.processed", payload: noRefunded }, { eventId: "evt_d" })).body.result, "partial_refund");
+  assertEquals(calls, []);
+});
+
 Deno.test("business error from the RPC is acknowledged", async () => {
   const { store, forgotten } = fakeStore("NOT_FOUND");
   assertEquals(await post(store, captured()), { status: 200, body: { result: "not_found" } });

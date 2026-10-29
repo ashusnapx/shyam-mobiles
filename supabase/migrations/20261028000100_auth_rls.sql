@@ -19,6 +19,35 @@ end $$;
 create trigger on_auth_user_created after insert on auth.users
 for each row execute function public.handle_new_user();
 
+-- Auth: no passwords -------------------------------------------------------
+
+-- Sign-in is passwordless (SPEC), but Auth's /signup still accepts a password and nothing proves who owns the
+-- email or phone. Without this, anyone could pre-register a customer's email/phone with a password, and once the
+-- customer signs in by code, read their orders and addresses with that password. This access token hook
+-- (config.toml; dashboard: Auth → Hooks) refuses every token from a password grant, refreshes included; email and
+-- phone confirmations stop /signup from issuing a session at all.
+create schema private;
+-- accounts on these email domains may still use a password: seed.sql adds the local dev accounts'; empty in production
+create table private.password_sign_in_domains (domain text primary key);
+alter table private.password_sign_in_domains enable row level security;
+create policy "auth reads" on private.password_sign_in_domains for select to supabase_auth_admin using (true);
+
+create function private.custom_access_token_hook(event jsonb) returns jsonb
+language sql stable set search_path = '' as $$
+  select case
+    when event -> 'claims' -> 'amr' @> '[{"method": "password"}]' and not exists (
+      select 1 from auth.users u join private.password_sign_in_domains d on d.domain = split_part(u.email, '@', 2)
+      where u.id = (event ->> 'user_id')::uuid)
+    then jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'Sign in with a one-time code.'))
+    else event
+  end;
+$$;
+
+grant usage on schema private to supabase_auth_admin;
+grant select on private.password_sign_in_domains to supabase_auth_admin;
+revoke execute on function private.custom_access_token_hook(jsonb) from public, anon, authenticated;
+grant execute on function private.custom_access_token_hook(jsonb) to supabase_auth_admin;
+
 -- Admins --------------------------------------------------------------------
 
 create function public.is_admin() returns boolean

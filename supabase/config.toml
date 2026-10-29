@@ -223,7 +223,9 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# On: /signup with a password must not mint a session for an email nobody proved (see the access token hook).
+# OTP sign-in is unaffected: a new user's first code is the confirmation.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
@@ -261,8 +263,8 @@ content_path = "./supabase/templates/otp.html"
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
 enable_signup = true
-# If enabled, users need to confirm their phone number before signing in.
-enable_confirmations = false
+# If enabled, users need to confirm their phone number before signing in. On, for the same reason as email.
+enable_confirmations = true
 # Template for sending OTP to users. Production: must match the DLT-registered template word for word.
 template = "{{ .Code }} is your Shyam Mobiles sign-in code. Do not share it."
 # Controls the minimum amount of time that must pass before sending another sms otp.
@@ -285,9 +287,10 @@ max_frequency = "60s"
 # uri = "pg-functions://postgres/auth/before-user-created-hook"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
-# [auth.hook.custom_access_token]
-# enabled = true
-# uri = "pg-functions://<database>/<schema>/<hook_name>"
+# Refuses tokens from the password grant (sign-in is passwordless); see 20261028000100_auth_rls.sql.
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/private/custom_access_token_hook"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 # Local only: a provider must be enabled for phone sign-in; test_otp numbers never reach it.

@@ -28,11 +28,15 @@ declare
   v_fee int;
   v_status public.order_status;
   v_order_id uuid;
+  v_lines uuid[];
 begin
-  -- lock the cart lines and their variants in id order so concurrent checkouts can't deadlock
-  perform 1 from public.cart_items c join public.variants v on v.id = c.variant_id
-  where c.user_id = v_uid order by v.id for update;
-  if not found then raise exception 'CART_EMPTY'; end if;
+  -- lock the cart lines and their variants in id order so concurrent checkouts can't deadlock. Every later
+  -- statement reads only these locked lines: a line added mid-checkout must not land in the order unpriced.
+  select array_agg(id) into v_lines from (
+    select v.id from public.cart_items c join public.variants v on v.id = c.variant_id
+    where c.user_id = v_uid order by v.id for update
+  ) locked;
+  if v_lines is null then raise exception 'CART_EMPTY'; end if;
 
   select * into v_address from public.addresses where id = p_address_id and user_id = v_uid;
   if not found then raise exception 'ADDRESS_NOT_FOUND'; end if;
@@ -41,14 +45,14 @@ begin
   from public.cart_items c
   join public.variants v on v.id = c.variant_id
   join public.products p on p.id = v.product_id
-  where c.user_id = v_uid and (not v.is_active or not p.is_active or v.stock < c.qty);
+  where c.user_id = v_uid and c.variant_id = any(v_lines) and (not v.is_active or not p.is_active or v.stock < c.qty);
   if v_unavailable is not null then
     raise exception 'OUT_OF_STOCK' using detail = v_unavailable; -- comma-separated variant ids
   end if;
 
   select sum(v.price_paise * c.qty) into v_subtotal
   from public.cart_items c join public.variants v on v.id = c.variant_id
-  where c.user_id = v_uid;
+  where c.user_id = v_uid and c.variant_id = any(v_lines);
 
   select * into v_settings from public.store_settings;
   v_fee := case when v_subtotal >= v_settings.free_delivery_min_paise then 0 else v_settings.delivery_fee_paise end;
@@ -80,13 +84,13 @@ begin
   from public.cart_items c
   join public.variants v on v.id = c.variant_id
   join public.products p on p.id = v.product_id
-  where c.user_id = v_uid;
+  where c.user_id = v_uid and c.variant_id = any(v_lines);
 
   update public.variants v set stock = v.stock - c.qty
   from public.cart_items c
-  where c.user_id = v_uid and c.variant_id = v.id;
+  where c.user_id = v_uid and c.variant_id = v.id and c.variant_id = any(v_lines);
 
-  delete from public.cart_items where user_id = v_uid;
+  delete from public.cart_items where user_id = v_uid and variant_id = any(v_lines);
 
   insert into public.order_events (order_id, status) values (v_order_id, v_status);
   return v_order_id;
@@ -183,7 +187,7 @@ begin
   select qty into v_qty from public.order_items where id = p_order_item_id for update;
   if not found then raise exception 'NOT_FOUND'; end if;
 
-  if cardinality(p_imeis) is distinct from v_qty
+  if cardinality(p_imeis) is distinct from v_qty or array_ndims(p_imeis) <> 1
      or exists (select 1 from unnest(p_imeis) x where x is null or x !~ '^[0-9]{15}$')
      or (select count(distinct x) from unnest(p_imeis) x) <> v_qty then
     raise exception 'INVALID_IMEIS' using detail = 'need ' || v_qty || ' distinct 15-digit IMEIs';
