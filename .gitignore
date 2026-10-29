@@ -9,3 +9,4 @@ app/env/*.json
 supabase/.branches
 supabase/.temp
 supabase/functions/.env
+.impeccable/hook.cache.json

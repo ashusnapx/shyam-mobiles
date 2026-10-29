@@ -9,30 +9,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
 <style>
-/* Tokens mirror app/lib/core/theme/tokens.dart */
+/* Tokens mirror app/lib/core/theme/tokens.dart. Monochrome: ink, paper and greys; red only for errors. */
 :root {
-  --primary: #232C7A; --on-primary: #fff; --primary-c: #E3E6FF; --on-primary-c: #12185A;
-  --peacock: #0B7F73; --peacock-c: #D2F4EF; --on-peacock-c: #00382F;
-  --marigold-c: #FFE8B8; --on-marigold-c: #4A3000; --marigold: #F5B841;
-  --error: #C62828; --error-c: #FFDAD6; --on-error-c: #5F0000;
-  --surface: #fff; --on-surface: #12152B; --on-surface-v: #565C78;
-  --c-low: #F7F8FB; --c: #F1F2F7; --c-high: #EBEDF3; --c-highest: #E4E7EF;
-  --outline: #C9CDDB; --outline-v: #E3E6EE;
-  --hero-a: #232C7A; --hero-b: #141A52;
-  --page: #E9EBF3; --page-ink: #12152B; --bezel: #0B0C14;
-  --shadow: 0 30px 60px -30px rgba(18, 21, 43, .45), 0 12px 24px -16px rgba(18, 21, 43, .25);
-}
-:root[data-theme="dark"] {
-  --primary: #AEB8FF; --on-primary: #141A5C; --primary-c: #2E3790; --on-primary-c: #E3E6FF;
-  --peacock: #5FD4C4; --peacock-c: #005046; --on-peacock-c: #D2F4EF;
-  --marigold-c: #5A3D00; --on-marigold-c: #FFE8B8; --marigold: #FFC75A;
-  --error: #FF8A80; --error-c: #8C1D18; --on-error-c: #FFDAD6;
-  --surface: #0D0F1C; --on-surface: #E6E8F5; --on-surface-v: #A3A8C3;
-  --c-low: #13162A; --c: #191C33; --c-high: #20243D; --c-highest: #282C47;
-  --outline: #3C4160; --outline-v: #2A2E48;
-  --hero-a: #2A3390; --hero-b: #121650;
-  --page: #05060C; --page-ink: #E6E8F5; --bezel: #1B1D2B;
-  --shadow: 0 30px 60px -30px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .04);
+  --primary: #0A0A0A; --on-primary: #fff; --primary-c: #EBEBEB; --on-primary-c: #0A0A0A;
+  --peacock: #0A0A0A; --peacock-c: #EBEBEB; --on-peacock-c: #0A0A0A;
+  --marigold-c: #EBEBEB; --on-marigold-c: #0A0A0A; --marigold: #8C8C8C;
+  --error: #B3261E; --error-c: #FBE9E8; --on-error-c: #6E120D;
+  --surface: #fff; --on-surface: #0A0A0A; --on-surface-v: #5E5E5E;
+  --c-low: #FAFAFA; --c: #F3F3F3; --c-high: #EBEBEB; --c-highest: #E2E2E2;
+  --outline: #CFCFCF; --outline-v: #E6E6E6;
+  --hero-a: #262626; --hero-b: #000000; --hero-line: transparent;
+  --page: #E8E8E8; --page-ink: #0A0A0A; --bezel: #0A0A0A; --accent-ink: #4A4A4A;
+  --logo-tile: #0A0A0A; --logo-o: #FFFFFF; --logo-m: #8C8C8C; --logo-i: #0A0A0A;
+  --shadow: 0 30px 60px -30px rgba(0, 0, 0, .45), 0 12px 24px -16px rgba(0, 0, 0, .25);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -55,12 +44,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: end; justify-content: space-between;
 }
 .top h1 { font-size: clamp(34px, 5vw, 56px); line-height: 1; }
-.top h1 em { color: var(--peacock); }
+.top h1 em { font-style: normal; color: var(--accent-ink); }
 .top p { max-width: 560px; margin-top: 10px; color: color-mix(in oklab, var(--page-ink) 78%, transparent); line-height: 1.55; font-size: 15px; }
 .brandline { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; letter-spacing: .02em; margin-bottom: 14px; }
-.toggle { display: inline-flex; padding: 4px; border-radius: 14px; background: color-mix(in oklab, var(--page-ink) 8%, transparent); }
-.toggle button { height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 600; font-size: 14px; display: flex; gap: 8px; align-items: center; }
-.toggle button[aria-pressed="true"] { background: var(--surface); color: var(--on-surface); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .howto { font-size: 13px; color: color-mix(in oklab, var(--page-ink) 75%, transparent); margin-top: 8px; }
 .howto code { font-family: ui-monospace, monospace; background: color-mix(in oklab, var(--page-ink) 8%, transparent); padding: 2px 6px; border-radius: 6px; }
 
@@ -76,7 +62,7 @@ figure:nth-child(8) { animation-delay: .42s } figure:nth-child(9) { animation-de
 @keyframes rise { from { opacity: 0; transform: translateY(24px) } }
 @media (prefers-reduced-motion: reduce) { figure { animation: none } }
 figcaption { margin-top: 16px; display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
-figcaption b { font-family: "Instrument Serif", serif; font-weight: 400; font-size: 26px; line-height: 1; color: var(--peacock); }
+figcaption b { font-family: "Instrument Serif", serif; font-weight: 400; font-size: 26px; line-height: 1; color: var(--accent-ink); }
 figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); }
 
 /* ---------- phone ---------- */
@@ -118,7 +104,7 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 .btn.sm { height: 40px; border-radius: 12px; font-size: 14px; padding: 0 14px; }
 
 .chip { height: 36px; flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--outline-v); font-size: 13px; font-weight: 600; white-space: nowrap; }
-.chip.on { background: var(--primary-c); color: var(--on-primary-c); box-shadow: none; }
+.chip.on { background: var(--primary); color: var(--on-primary); box-shadow: none; }
 .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 0 16px; }
 .chips::-webkit-scrollbar { display: none; }
 
@@ -126,22 +112,21 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 .well { background: var(--c); border-radius: 16px; display: grid; place-items: center; position: relative; overflow: hidden; }
 
 .tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: .2px; }
-.tag.deal { background: var(--marigold-c); color: var(--on-marigold-c); }
-.tag.ok { background: var(--peacock-c); color: var(--on-peacock-c); }
-.tag.info { background: var(--primary-c); color: var(--on-primary-c); }
+.tag.deal { background: var(--on-surface); color: var(--surface); }
+.tag.ok { background: var(--c-high); color: var(--on-surface); }
+.tag.info { background: var(--c-high); color: var(--on-surface); }
 .tag.bad { background: var(--error-c); color: var(--on-error-c); }
 
 .price { font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; }
 .mrp { text-decoration: line-through; color: var(--on-surface-v); font-size: 12px; font-variant-numeric: tabular-nums; }
-.off { color: var(--peacock); font-weight: 700; font-size: 12px; }
+.off { color: var(--on-surface); font-weight: 800; font-size: 12px; }
 
 .nav { height: 68px; flex: none; display: flex; background: var(--surface); box-shadow: inset 0 1px 0 var(--outline-v); padding: 6px 4px 0; }
 .nav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--on-surface-v); text-decoration: none; }
 .nav .ind { width: 56px; height: 30px; border-radius: 15px; display: grid; place-items: center; font-size: 22px; position: relative; }
 .nav a.on { color: var(--on-surface); }
 .nav a.on .ind { background: var(--primary-c); color: var(--on-primary-c); }
-.badge { position: absolute; top: -2px; right: 10px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--error); color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; padding: 0 5px; }
-:root[data-theme="dark"] .badge { color: #3a0000; }
+.badge { position: absolute; top: -2px; right: 10px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--on-surface); color: var(--surface); font-size: 10px; font-weight: 800; display: grid; place-items: center; padding: 0 5px; }
 .home-ind { height: 22px; flex: none; display: grid; place-items: center; background: var(--surface); }
 .home-ind::after { content: ""; width: 120px; height: 4px; border-radius: 2px; background: var(--on-surface); opacity: .8; }
 
@@ -163,17 +148,17 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 
 /* ---------- 1 home ---------- */
 .hero {
-  margin: 4px 16px 0; height: 190px; border-radius: 22px; position: relative; overflow: hidden; color: #fff; padding: 20px;
+  margin: 4px 16px 0; height: 190px; border-radius: 22px; position: relative; overflow: hidden; color: #fff; padding: 20px; box-shadow: inset 0 0 0 1px var(--hero-line);
   background:
     repeating-radial-gradient(ellipse at 88% 62%, rgba(255,255,255,.07) 0 1.5px, transparent 1.5px 16px),
-    radial-gradient(ellipse at 90% 30%, rgba(95,212,196,.45), transparent 55%),
+    radial-gradient(ellipse at 90% 25%, rgba(255,255,255,.16), transparent 55%),
     linear-gradient(135deg, var(--hero-a), var(--hero-b));
 }
 .hero .kicker { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
 .hero h4 { font-size: 40px; line-height: .95; margin: 8px 0 8px; }
 .hero .dev { position: absolute; right: 8%; top: 14%; width: 26%; }
 .hero .dev + .dev { right: 24%; top: 24%; transform: rotate(-16deg); width: 22%; opacity: .95; }
-.hero .btn { height: 38px; background: #fff; color: #141A52; font-size: 13px; padding: 0 14px; border-radius: 11px; margin-top: 14px; width: fit-content; }
+.hero .btn { height: 38px; background: #fff; color: #0A0A0A; font-size: 13px; padding: 0 14px; border-radius: 11px; margin-top: 14px; width: fit-content; }
 .cats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 6px; padding: 18px 12px 0; }
 .cat { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; text-align: center; line-height: 1.2; }
 .cat .ic { width: 58px; height: 58px; border-radius: 18px; background: var(--c); display: grid; place-items: center; font-size: 26px; color: var(--primary); }
@@ -185,9 +170,9 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 .meta .brand { font-size: 11px; font-weight: 700; color: var(--on-surface-v); text-transform: uppercase; letter-spacing: .06em; }
 .meta .name { font-weight: 600; font-size: 13.5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 2px 0 4px; min-height: 35px; }
 .heart { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 17px; background: var(--surface); display: grid; place-items: center; font-size: 17px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-.heart.on { color: #D93F5B; }
+.heart.on { color: var(--on-surface); }
 .repair-cta { margin: 22px 16px 0; padding: 18px; border-radius: 20px; background: var(--peacock-c); color: var(--on-peacock-c); display: flex; gap: 14px; align-items: center; position: relative; overflow: hidden; }
-.repair-cta .ic { width: 52px; height: 52px; flex: none; border-radius: 16px; background: color-mix(in oklab, var(--peacock) 20%, var(--surface)); display: grid; place-items: center; font-size: 26px; color: var(--peacock); }
+.repair-cta .ic { width: 52px; height: 52px; flex: none; border-radius: 16px; background: var(--surface); display: grid; place-items: center; font-size: 26px; color: var(--on-surface); }
 .repair-cta h5 { font-size: 16px; font-weight: 700; }
 .repair-cta p { font-size: 12.5px; opacity: .85; margin-top: 2px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; padding: 0 16px; }
@@ -234,16 +219,15 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 .thumbs .well .dev { width: 30%; }
 
 /* ---------- 6 order ---------- */
-.status-hero { margin: 4px 16px 0; padding: 18px; border-radius: 20px; background: var(--primary-c); color: var(--on-primary-c); }
+.status-hero { margin: 4px 16px 0; padding: 18px; border-radius: 20px; background: var(--on-surface); color: var(--surface); }
 .status-hero h4 { font-size: 30px; line-height: 1; margin: 6px 0 4px; }
-.awb { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: color-mix(in oklab, var(--surface) 70%, transparent); font-size: 12.5px; }
+.awb { margin-top: 14px; padding-top: 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid color-mix(in oklab, currentColor 22%, transparent); font-size: 12.5px; }
 .tl { padding: 8px 16px 0 16px; }
 .tl li { list-style: none; display: grid; grid-template-columns: 28px 1fr; gap: 10px; position: relative; padding-bottom: 18px; }
 .tl li::before { content: ""; position: absolute; left: 13px; top: 24px; bottom: 0; width: 2px; background: var(--peacock); }
 .tl li.todo::before, .tl li:last-child::before { background: var(--outline-v); }
 .tl li:last-child::before { display: none; }
 .tl .dot { width: 28px; height: 28px; border-radius: 14px; background: var(--peacock); color: #fff; display: grid; place-items: center; font-size: 15px; }
-:root[data-theme="dark"] .tl .dot { color: #00382F; }
 .tl li.todo .dot { background: var(--c); color: var(--on-surface-v); box-shadow: inset 0 0 0 2px var(--outline-v); }
 .tl b { font-weight: 600; display: block; padding-top: 4px; }
 .imei { font-family: ui-monospace, monospace; font-size: 11.5px; letter-spacing: .02em; }
@@ -252,24 +236,24 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 .issues { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .issue { height: 76px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--outline-v); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.15; padding: 0 4px; }
 .issue i { font-size: 24px; color: var(--on-surface-v); }
-.issue.on { background: var(--primary-c); color: var(--on-primary-c); box-shadow: none; }
-.issue.on i { color: var(--on-primary-c); }
+.issue.on { background: var(--primary); color: var(--on-primary); box-shadow: none; }
+.issue.on i { color: var(--on-primary); }
 .date { width: 56px; height: 68px; flex: none; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--outline-v); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--on-surface-v); }
 .date b { font-size: 19px; color: var(--on-surface); font-weight: 800; }
 .date.on { background: var(--primary); color: var(--on-primary); box-shadow: none; }
 .date.on b { color: var(--on-primary); }
 .slot { flex: 1; height: 56px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--outline-v); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
 .slot span { font-size: 11px; font-weight: 500; color: var(--on-surface-v); }
-.slot.on { background: var(--primary-c); color: var(--on-primary-c); box-shadow: none; }
+.slot.on { background: var(--primary); color: var(--on-primary); box-shadow: none; }
 .slot.on span { color: inherit; opacity: .8; }
-.note { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--marigold-c); color: var(--on-marigold-c); display: flex; gap: 10px; font-size: 12.5px; }
+.note { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--c); color: var(--on-surface); display: flex; gap: 10px; font-size: 12.5px; }
 
 /* ---------- 8 sign in ---------- */
 .signin-top {
   height: 290px; flex: none; position: relative; overflow: hidden; color: #fff; padding: 56px 24px 0;
   background:
     repeating-radial-gradient(ellipse at 50% 120%, rgba(255,255,255,.07) 0 1.5px, transparent 1.5px 20px),
-    radial-gradient(ellipse at 50% 110%, rgba(95,212,196,.5), transparent 60%),
+    radial-gradient(ellipse at 50% 110%, rgba(255,255,255,.18), transparent 60%),
     linear-gradient(180deg, var(--hero-b), var(--hero-a));
 }
 .signin-top h4 { font-size: 46px; line-height: .95; margin-top: 18px; }
@@ -286,7 +270,7 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 .stat { padding: 14px; border-radius: 16px; background: var(--c-low); box-shadow: inset 0 0 0 1px var(--outline-v); }
 .stat .v { font-size: 24px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; margin-top: 6px; }
 .stat .k { font-size: 12px; color: var(--on-surface-v); font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.stat.warn { background: var(--marigold-c); color: var(--on-marigold-c); box-shadow: none; }
+.stat.warn { background: var(--surface); color: var(--on-surface); box-shadow: inset 0 0 0 1.5px var(--on-surface); }
 .stat.warn .k, .stat.bad .k { color: inherit; opacity: .85; }
 .stat.bad { background: var(--error-c); color: var(--on-error-c); box-shadow: none; }
 .qa { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 16px; }
@@ -300,7 +284,6 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
   @page { size: A3 landscape; margin: 10mm; }
   html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { zoom: .78; }
-  .toggle { display: none; }
   figure { animation: none; break-inside: avoid; }
   .board { padding-bottom: 0; }
 }
@@ -310,14 +293,10 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
 
 <header class="top">
   <div>
-    <div class="brandline"><svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#232C7A"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" fill="#0B7F73"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" fill="#F5B841"/><ellipse cx="16" cy="19" rx="3" ry="3.9" fill="#232C7A"/></svg>SHYAM MOBILES · APP MOCKUP v1</div>
+    <div class="brandline"><svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" style="fill:var(--logo-tile)"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" style="fill:var(--logo-o)"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" style="fill:var(--logo-m)"/><ellipse cx="16" cy="19" rx="3" ry="3.9" style="fill:var(--logo-i)"/></svg>SHYAM MOBILES · APP MOCKUP v2 · MONOCHROME · LIGHT ONLY</div>
     <h1 class="serif">Phones, accessories &amp; <em>repairs</em>, in one app.</h1>
     <p>Nine key screens drawn with the real design tokens, schema and prices. The phone drawings stand in for product photos, which you upload from the admin panel.</p>
-    <p class="howto">Ask for edits by screen number, e.g. <code>3: bigger Buy now</code> or <code>all: warmer colours</code>.</p>
-  </div>
-  <div class="toggle" role="group" aria-label="Theme">
-    <button type="button" data-set="light" aria-pressed="true"><i class="ph ph-sun"></i>Light</button>
-    <button type="button" data-set="dark" aria-pressed="false"><i class="ph ph-moon"></i>Dark</button>
+    <p class="howto">Light mode only, by design. Ask for edits by screen number, e.g. <code>3: bigger Buy now</code> or <code>all: warmer colours</code>.</p>
   </div>
 </header>
 
@@ -330,7 +309,7 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
     <div class="scroll">
       <div class="pad row between" style="height:52px">
         <div class="row" style="gap:10px">
-          <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#232C7A"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" fill="#0B7F73"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" fill="#F5B841"/><ellipse cx="16" cy="19" rx="3" ry="3.9" fill="#232C7A"/></svg>
+          <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" style="fill:var(--logo-tile)"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" style="fill:var(--logo-o)"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" style="fill:var(--logo-m)"/><ellipse cx="16" cy="19" rx="3" ry="3.9" style="fill:var(--logo-i)"/></svg>
           <div><div class="serif" style="font-size:24px;line-height:1">Shyam Mobiles</div><div class="small muted">Phones · Accessories · Repairs</div></div>
         </div>
         <button class="icon-btn" aria-label="Call the store"><i class="ph ph-phone"></i></button>
@@ -416,7 +395,7 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
     <div class="scroll" style="padding-bottom:0">
       <div class="gallery">
         <div class="status" style="position:absolute;top:0;left:0;right:0"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
-        <div class="top-btns" style="top:44px"><button class="icon-btn tint" aria-label="Back"><i class="ph ph-arrow-left"></i></button><button class="icon-btn tint" aria-label="Save to wishlist" style="color:#D93F5B"><i class="ph-fill ph-heart"></i></button></div>
+        <div class="top-btns" style="top:44px"><button class="icon-btn tint" aria-label="Back"><i class="ph ph-arrow-left"></i></button><button class="icon-btn tint" aria-label="Remove from wishlist"><i class="ph-fill ph-heart"></i></button></div>
         <div class="dev flat" data-kind="tri" style="--c:#1F2B4D;margin-top:30px"></div>
         <div class="dots"><i class="on"></i><i></i><i></i><i></i></div>
       </div>
@@ -612,7 +591,7 @@ figcaption span { color: color-mix(in oklab, var(--page-ink) 75%, transparent); 
     <div class="signin-top">
       <div class="status" style="position:absolute;top:0;left:0;right:0;color:#fff"><span>9:41</span><span><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
       <button class="icon-btn tint" aria-label="Close" style="position:absolute;top:44px;left:12px;background:rgba(255,255,255,.14);color:#fff"><i class="ph ph-x"></i></button>
-      <svg width="52" height="52" viewBox="0 0 32 32" aria-hidden="true" style="margin-top:28px"><rect width="32" height="32" rx="9" fill="#fff" fill-opacity=".14"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" fill="#0B7F73"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" fill="#F5B841"/><ellipse cx="16" cy="19" rx="3" ry="3.9" fill="#232C7A"/></svg>
+      <svg width="52" height="52" viewBox="0 0 32 32" aria-hidden="true" style="margin-top:28px"><rect width="32" height="32" rx="9" fill="#fff" fill-opacity=".14"/><ellipse cx="16" cy="17.5" rx="8.5" ry="10.5" fill="#FFFFFF"/><ellipse cx="16" cy="18.5" rx="5.5" ry="7" fill="#8C8C8C"/><ellipse cx="16" cy="19" rx="3" ry="3.9" fill="#0A0A0A"/></svg>
       <h4 class="serif">Welcome to<br>Shyam Mobiles</h4>
       <p class="small">Sign in to check out, track orders and book repairs.</p>
     </div>
@@ -672,14 +651,6 @@ const kinds = {
 };
 document.querySelectorAll('.dev').forEach(d => { d.innerHTML = kinds[d.dataset.kind] || ''; });
 
-// Theme: follows the OS until the viewer picks one.
-const root = document.documentElement;
-const buttons = document.querySelectorAll('.toggle button');
-const apply = t => { root.dataset.theme = t; buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.set === t))); };
-let saved = null;
-try { saved = localStorage.getItem('sm-mockup-theme'); } catch {}
-apply(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-buttons.forEach(b => b.addEventListener('click', () => { apply(b.dataset.set); try { localStorage.setItem('sm-mockup-theme', b.dataset.set); } catch {} }));
 </script>
 </body>
 </html>

@@ -1,0 +1,62 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "files": [
+          "docs/mockup.html"
+        ],
+        "createdAt": "2026-10-29T06:52:54.215Z",
+        "reason": "user confirmed: approved the mockup typography on 2026-10-29 ('this looks really cool, lets start building it')"
+      },
+      {
+        "rule": "overused-font",
+        "value": "instrument serif",
+        "files": [
+          "docs/mockup.html"
+        ],
+        "createdAt": "2026-10-29T06:52:54.269Z",
+        "reason": "user confirmed: approved the mockup typography on 2026-10-29 ('this looks really cool, lets start building it')"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "docs/mockup.html"
+        ],
+        "createdAt": "2026-10-29T06:54:03.857Z",
+        "reason": "Claude: every hit is a fixed-height flex-centred box (field, slot, image well) or the phone frame; the height already insets the content"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "docs/mockup.html"
+        ],
+        "createdAt": "2026-10-29T06:54:03.919Z",
+        "reason": "Claude: hits are product thumbnails and icon tiles inside list rows, not cards inside cards"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "docs/mockup.html"
+        ],
+        "createdAt": "2026-10-29T06:54:03.957Z",
+        "reason": "user confirmed: approved the peacock-ripple hero motif in the mockup on 2026-10-29"
+      },
+      {
+        "rule": "skipped-heading",
+        "value": "*",
+        "files": [
+          "docs/mockup.html"
+        ],
+        "createdAt": "2026-10-29T06:54:03.990Z",
+        "reason": "Claude: each phone frame is a standalone screen; its heading levels mirror the app screen, not the page outline; not shipped"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "SUPABASE_URL": "http://10.0.2.2:54321",
+  "SUPABASE_PUBLISHABLE_KEY": "<publishable key from `supabase status`>",
+  "RAZORPAY_KEY_ID": "rzp_test_xxxxxxxxxxxx",
+  "GOOGLE_WEB_CLIENT_ID": "<web OAuth client id>.apps.googleusercontent.com",
+  "GOOGLE_IOS_CLIENT_ID": "<iOS OAuth client id>.apps.googleusercontent.com"
+}

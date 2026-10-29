@@ -1,0 +1,720 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+import '../../../core/format.dart';
+import '../../../core/models/models.dart';
+import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/widgets.dart';
+import '../../repairs/widgets/repair_widgets.dart';
+import '../data/admin.dart';
+import '../data/rules.dart';
+import '../widgets/admin_widgets.dart';
+
+const _gstRates = <num>[0, 5, 12, 18, 28];
+
+String _pct(num g) => g == g.roundToDouble() ? '${g.toInt()}%' : '$g%';
+
+class AdminProductEditScreen extends ConsumerWidget {
+  const AdminProductEditScreen({super.key, this.productId});
+
+  final String? productId; // null = new product
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final brands = ref.watch(adminBrandsProvider);
+    final categories = ref.watch(adminCategoriesProvider);
+    final AsyncValue<Product?> product = productId == null ? const AsyncData(null) : ref.watch(adminProductProvider(productId!));
+    final error = brands.error ?? categories.error ?? product.error;
+    final ready = brands.hasValue && categories.hasValue && product.hasValue;
+    return AdminGate(
+      child: ready
+          ? _Editor(
+              key: ValueKey(productId),
+              product: product.value,
+              brands: brands.value!,
+              categories: categories.value!,
+            )
+          : Scaffold(
+              appBar: AppBar(title: Text(productId == null ? 'New product' : 'Edit product')),
+              body: error != null
+                  ? ErrorView(
+                      error: error,
+                      onRetry: () {
+                        ref.invalidate(adminBrandsProvider);
+                        ref.invalidate(adminCategoriesProvider);
+                        if (productId != null) ref.invalidate(adminProductProvider(productId!));
+                      },
+                    )
+                  : const Center(child: CircularProgressIndicator()),
+            ),
+    );
+  }
+}
+
+class _SpecRow {
+  _SpecRow([Spec? s])
+      : label = TextEditingController(text: s?.label),
+        value = TextEditingController(text: s?.value);
+
+  final TextEditingController label;
+  final TextEditingController value;
+
+  void dispose() {
+    label.dispose();
+    value.dispose();
+  }
+}
+
+class _Editor extends ConsumerStatefulWidget {
+  const _Editor({super.key, required this.product, required this.brands, required this.categories});
+
+  final Product? product;
+  final List<Brand> brands;
+  final List<Category> categories;
+
+  @override
+  ConsumerState<_Editor> createState() => _EditorState();
+}
+
+class _EditorState extends ConsumerState<_Editor> {
+  final _form = GlobalKey<FormState>();
+  late final Product? _p = widget.product; // the row the form was opened with
+  late final _name = TextEditingController(text: _p?.name);
+  late final _slug = TextEditingController(text: _p?.slug);
+  late final _description = TextEditingController(text: _p?.description);
+  late final _specs = [for (final s in _p?.specs ?? const <Spec>[]) _SpecRow(s)];
+  late String? _brandId = _p?.brand.id;
+  late String? _categoryId = _p?.category.id;
+  late num _gst = _p?.gstRate ?? 18;
+  late bool _active = _p?.isActive ?? true;
+  late bool _featured = _p?.isFeatured ?? false;
+  late bool _slugEdited = _p != null; // existing slugs stay put: shared links use them
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    for (final c in [_name, _slug, _description]) {
+      c.dispose();
+    }
+    for (final s in _specs) {
+      s.dispose();
+    }
+    super.dispose();
+  }
+
+  void _moveSpec(int i, int to) => setState(() => _specs.insert(to, _specs.removeAt(i)));
+
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() => _busy = true);
+    final fields = {
+      'name': _name.text.trim(),
+      'slug': _slug.text.trim(),
+      'brand_id': _brandId,
+      'category_id': _categoryId,
+      'description': _description.text.trim(),
+      'specs': [
+        for (final s in _specs)
+          if (s.label.text.trim().isNotEmpty) Spec(s.label.text.trim(), s.value.text.trim()).toJson(),
+      ],
+      'gst_rate': _gst,
+      'is_active': _active,
+      'is_featured': _featured,
+    };
+    try {
+      final id = await saveProduct(ref, _p?.id, fields);
+      if (!mounted) return;
+      if (_p == null) {
+        showMessage(context, 'Product created. Now add photos and variants.');
+        context.pushReplacement('/admin/products/$id');
+      } else {
+        showMessage(context, 'Details saved');
+      }
+    } catch (e) {
+      if (mounted) showMessage(context, adminError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    final live = widget.product; // refreshed after photo/variant changes
+    final gstOptions = {..._gstRates, _gst}.toList()..sort();
+    return Scaffold(
+      appBar: AppBar(title: Text(_p == null ? 'New product' : 'Edit product')),
+      bottomNavigationBar: StickyBar(
+        child: FilledButton(
+          onPressed: _busy ? null : _save,
+          child: Text(_p == null ? 'Create product' : 'Save details'),
+        ),
+      ),
+      body: Form(
+        key: _form,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, Space.xl),
+          children: [
+            NoteBox(
+              _p == null
+                  ? 'Save the details first. Then you can add photos and variants.'
+                  : 'Details save with the button below. Photos and variants save as soon as you change them.',
+              tone: TagTone.info,
+            ),
+            if (live != null && live.isActive && live.activeVariants.isEmpty) ...[
+              const SizedBox(height: Space.sm),
+              const NoteBox('Customers can’t see this product until it has an active variant.',
+                  icon: PhosphorIconsBold.warning),
+            ],
+            const ListSection('Details'),
+            TextFormField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Name', hintText: 'Start with the brand: Samsung Galaxy S25'),
+              textCapitalization: TextCapitalization.words,
+              maxLength: 120,
+              onChanged: (v) {
+                if (!_slugEdited) _slug.text = slugify(v);
+              },
+              validator: (v) => (v ?? '').trim().length < 2 ? 'Enter at least 2 characters' : null,
+            ),
+            const SizedBox(height: Space.sm),
+            TextFormField(
+              controller: _slug,
+              decoration: const InputDecoration(labelText: 'Slug (web address)', helperText: 'Lowercase letters, numbers and dashes'),
+              autocorrect: false,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9-]'))],
+              onChanged: (_) => _slugEdited = true,
+              validator: (v) => slugPattern.hasMatch(v ?? '') ? null : 'Use a-z, 0-9 and dashes only',
+            ),
+            const SizedBox(height: Space.md),
+            DropdownButtonFormField<String>(
+              initialValue: _brandId,
+              decoration: const InputDecoration(labelText: 'Brand'),
+              items: [for (final b in widget.brands) DropdownMenuItem(value: b.id, child: Text(b.name))],
+              onChanged: (v) => setState(() => _brandId = v),
+              validator: (v) => v == null ? 'Pick a brand' : null,
+            ),
+            const SizedBox(height: Space.md),
+            DropdownButtonFormField<String>(
+              initialValue: _categoryId,
+              decoration: const InputDecoration(labelText: 'Category'),
+              items: [for (final k in widget.categories) DropdownMenuItem(value: k.id, child: Text(k.name))],
+              onChanged: (v) => setState(() => _categoryId = v),
+              validator: (v) => v == null ? 'Pick a category' : null,
+            ),
+            const SizedBox(height: Space.md),
+            TextFormField(
+              controller: _description,
+              decoration: const InputDecoration(labelText: 'Description', alignLabelWithHint: true),
+              minLines: 3,
+              maxLines: 8,
+              maxLength: 5000,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: Space.sm),
+            DropdownButtonFormField<num>(
+              initialValue: _gst,
+              decoration: const InputDecoration(labelText: 'GST rate', helperText: 'Prices include GST. Phones are 18%.'),
+              items: [for (final g in gstOptions) DropdownMenuItem(value: g, child: Text(_pct(g)))],
+              onChanged: (v) => setState(() => _gst = v ?? _gst),
+            ),
+            const SizedBox(height: Space.sm),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Show in the shop'),
+              subtitle: const Text('Off hides it from customers'),
+              value: _active,
+              onChanged: (v) => setState(() => _active = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Featured on home'),
+              value: _featured,
+              onChanged: (v) => setState(() => _featured = v),
+            ),
+            ListSection(
+              'Specs',
+              trailing: TextButton.icon(
+                onPressed: () => setState(() => _specs.add(_SpecRow())),
+                icon: const Icon(PhosphorIconsRegular.plus),
+                label: const Text('Add spec'),
+              ),
+            ),
+            if (_specs.isEmpty)
+              Text('Add rows like Display · 6.2 in AMOLED.', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+            for (final (i, s) in _specs.indexed)
+              Padding(
+                key: ObjectKey(s),
+                padding: const EdgeInsets.only(bottom: Space.md),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: s.label,
+                            decoration: InputDecoration(labelText: 'Label ${i + 1}', hintText: 'Display'),
+                            textCapitalization: TextCapitalization.words,
+                            validator: (v) =>
+                                (v ?? '').trim().isEmpty && s.value.text.trim().isNotEmpty ? 'Add a label' : null,
+                          ),
+                          const SizedBox(height: Space.xs),
+                          TextFormField(
+                            controller: s.value,
+                            decoration: const InputDecoration(labelText: 'Value', hintText: '6.2 in AMOLED, 120 Hz'),
+                            validator: (v) =>
+                                (v ?? '').trim().isEmpty && s.label.text.trim().isNotEmpty ? 'Add a value' : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        IconButton(
+                          tooltip: 'Move spec ${i + 1} up',
+                          onPressed: i == 0 ? null : () => _moveSpec(i, i - 1),
+                          icon: const Icon(PhosphorIconsRegular.arrowUp),
+                        ),
+                        IconButton(
+                          tooltip: 'Move spec ${i + 1} down',
+                          onPressed: i == _specs.length - 1 ? null : () => _moveSpec(i, i + 1),
+                          icon: const Icon(PhosphorIconsRegular.arrowDown),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove spec ${i + 1}',
+                          onPressed: () {
+                            final row = _specs[i];
+                            setState(() => _specs.removeAt(i));
+                            // its fields still hold the controllers until this frame is built
+                            WidgetsBinding.instance.addPostFrameCallback((_) => row.dispose());
+                          },
+                          icon: const Icon(PhosphorIconsRegular.trash),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            if (live == null) ...[
+              const ListSection('Photos and variants'),
+              Text('Create the product first. Photos and variants come next.',
+                  style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+            ] else ...[
+              _Photos(product: live),
+              _Variants(product: live),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Photos ----------------------------------------------------------------------
+
+class _Photos extends ConsumerStatefulWidget {
+  const _Photos({required this.product});
+
+  final Product product;
+
+  @override
+  ConsumerState<_Photos> createState() => _PhotosState();
+}
+
+class _PhotosState extends ConsumerState<_Photos> {
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() write, [String? done]) async {
+    setState(() => _busy = true);
+    try {
+      await write();
+      if (mounted && done != null) showMessage(context, done);
+    } catch (e) {
+      if (mounted) showMessage(context, adminError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _add() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(PhosphorIconsRegular.image),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(PhosphorIconsRegular.camera),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final XFile? file;
+    try {
+      file = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
+    } catch (_) {
+      if (mounted) showMessage(context, 'Couldn’t open the camera or gallery.');
+      return;
+    }
+    if (file == null) return;
+    final images = widget.product.images;
+    await _run(
+      () async => addProductImage(ref, widget.product.id, await file!.readAsBytes(), images.isEmpty ? 0 : images.last.sort + 1),
+      'Photo added',
+    );
+  }
+
+  void _move(int i, int to) {
+    final list = [...widget.product.images];
+    list.insert(to, list.removeAt(i));
+    _run(() => reorderImages(ref, widget.product.id, list));
+  }
+
+  Future<void> _delete(ProductPhoto image) async {
+    final ok = await confirmAction(
+      context,
+      title: 'Delete this photo?',
+      message: 'It’s removed from the shop right away.',
+      action: 'Delete',
+    );
+    if (ok) await _run(() => deleteProductImage(ref, widget.product.id, image), 'Photo deleted');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    final images = widget.product.images;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListSection(
+          'Photos',
+          trailing: TextButton.icon(
+            onPressed: _busy ? null : _add,
+            icon: _busy
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(PhosphorIconsRegular.plus),
+            label: const Text('Add photo'),
+          ),
+        ),
+        if (images.isEmpty)
+          Text('No photos yet. The first photo is the cover.', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+        for (final (i, img) in images.indexed)
+          Padding(
+            key: ValueKey(img.id),
+            padding: const EdgeInsets.only(bottom: Space.sm),
+            child: Row(
+              children: [
+                SizedBox(width: 64, child: ProductImage(img.path, radius: Radii.md, padding: Space.xs)),
+                const SizedBox(width: Space.md),
+                Expanded(child: Text(i == 0 ? 'Cover photo' : 'Photo ${i + 1}', style: t.bodyMedium)),
+                IconButton(
+                  tooltip: 'Move photo ${i + 1} up',
+                  onPressed: _busy || i == 0 ? null : () => _move(i, i - 1),
+                  icon: const Icon(PhosphorIconsRegular.arrowUp),
+                ),
+                IconButton(
+                  tooltip: 'Move photo ${i + 1} down',
+                  onPressed: _busy || i == images.length - 1 ? null : () => _move(i, i + 1),
+                  icon: const Icon(PhosphorIconsRegular.arrowDown),
+                ),
+                IconButton(
+                  tooltip: 'Delete photo ${i + 1}',
+                  onPressed: _busy ? null : () => _delete(img),
+                  icon: const Icon(PhosphorIconsRegular.trash),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// Variants --------------------------------------------------------------------
+
+class _Variants extends StatelessWidget {
+  const _Variants({required this.product});
+
+  final Product product;
+
+  void _open(BuildContext context, Variant? v) => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => _VariantSheet(
+          productId: product.id,
+          variant: v,
+          sort: product.variants.isEmpty ? 0 : product.variants.last.sort + 1,
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListSection(
+          'Variants',
+          trailing: TextButton.icon(
+            onPressed: () => _open(context, null),
+            icon: const Icon(PhosphorIconsRegular.plus),
+            label: const Text('Add variant'),
+          ),
+        ),
+        if (product.variants.isEmpty)
+          Text('Add at least one: RAM, storage, colour, price and stock.',
+              style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+        for (final v in product.variants)
+          Padding(
+            key: ValueKey(v.id),
+            padding: const EdgeInsets.only(bottom: Space.sm),
+            child: Card(
+              child: InkWell(
+                onTap: () => _open(context, v),
+                child: Padding(
+                  padding: const EdgeInsets.all(Space.md),
+                  child: Row(
+                    children: [
+                      if (v.colorHex != null && hexColorPattern.hasMatch(v.colorHex!)) ...[
+                        _Swatch(v.colorHex!),
+                        const SizedBox(width: Space.md),
+                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(v.name, style: t.titleSmall),
+                            Text(
+                              '${v.sku} · ${v.stock == 0 ? 'out of stock' : '${v.stock} in stock'}',
+                              style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
+                            ),
+                            if (!v.isActive || v.stock <= 3)
+                              Padding(
+                                padding: const EdgeInsets.only(top: Space.xs),
+                                child: Wrap(spacing: Space.xs, children: [
+                                  if (!v.isActive) const Tag('Hidden', tone: TagTone.bad),
+                                  if (v.isActive && v.stock <= 3) const Tag('Low stock', tone: TagTone.deal),
+                                ]),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: Space.sm),
+                      PriceTag(pricePaise: v.pricePaise, mrpPaise: v.mrpPaise),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _Swatch extends StatelessWidget {
+  const _Swatch(this.hex);
+
+  final String hex;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color(0xFF000000 | int.parse(hex.substring(1), radix: 16)), // a product colour, not a theme colour
+          shape: BoxShape.circle,
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+        ),
+        child: const SizedBox.square(dimension: 24),
+      );
+}
+
+class _VariantSheet extends ConsumerStatefulWidget {
+  const _VariantSheet({required this.productId, required this.variant, required this.sort});
+
+  final String productId;
+  final Variant? variant; // null = new
+  final int sort;
+
+  @override
+  ConsumerState<_VariantSheet> createState() => _VariantSheetState();
+}
+
+class _VariantSheetState extends ConsumerState<_VariantSheet> {
+  final _form = GlobalKey<FormState>();
+  late final Variant? _v = widget.variant;
+  late final _ram = TextEditingController(text: _v?.ram);
+  late final _storage = TextEditingController(text: _v?.storage);
+  late final _color = TextEditingController(text: _v?.color);
+  late final _hex = TextEditingController(text: _v?.colorHex);
+  late final _name = TextEditingController(text: _v?.name);
+  late final _sku = TextEditingController(text: _v?.sku);
+  late final _price = TextEditingController(text: _v == null ? '' : rupeesText(_v.pricePaise));
+  late final _mrp = TextEditingController(text: _v == null ? '' : rupeesText(_v.mrpPaise));
+  late final _stock = TextEditingController(text: '${_v?.stock ?? 0}');
+  late bool _active = _v?.isActive ?? true;
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    for (final c in [_ram, _storage, _color, _hex, _name, _sku, _price, _mrp, _stock]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String get _autoName => variantName([_ram.text, _storage.text, _color.text]);
+
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
+    final attributes = {...?_v?.attributes}; // keeps any keys this form doesn't edit
+    for (final (key, c) in [('ram', _ram), ('storage', _storage), ('color', _color), ('color_hex', _hex)]) {
+      c.text.trim().isEmpty ? attributes.remove(key) : attributes[key] = c.text.trim();
+    }
+    final fields = {
+      'sku': _sku.text.trim(),
+      'name': _name.text.trim().isEmpty ? _autoName : _name.text.trim(),
+      'attributes': attributes,
+      'price_paise': parseRupees(_price.text),
+      'mrp_paise': parseRupees(_mrp.text),
+      'stock': int.parse(_stock.text),
+      'is_active': _active,
+      if (_v == null) 'sort': widget.sort,
+    };
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await saveVariant(ref, widget.productId, _v?.id, fields);
+      if (!mounted) return;
+      Navigator.pop(context);
+      showMessage(context, _v == null ? 'Variant added' : 'Variant saved');
+    } catch (e) {
+      if (mounted) setState(() => _error = adminError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hexOk = hexColorPattern.hasMatch(_hex.text.trim());
+    const gap = SizedBox(width: Space.md);
+    return SheetForm(
+      formKey: _form,
+      title: _v == null ? 'New variant' : 'Edit variant',
+      children: [
+        Row(children: [
+          Expanded(child: _field(_ram, 'RAM', hint: '8 GB')),
+          gap,
+          Expanded(child: _field(_storage, 'Storage', hint: '256 GB')),
+        ]),
+        Row(children: [
+          Expanded(child: _field(_color, 'Colour', hint: 'Navy')),
+          gap,
+          Expanded(
+            child: TextFormField(
+              controller: _hex,
+              decoration: InputDecoration(
+                labelText: 'Colour code',
+                hintText: '#1F2B4D',
+                suffixIcon: hexOk ? Padding(padding: const EdgeInsets.all(12), child: _Swatch(_hex.text.trim())) : null,
+              ),
+              autocorrect: false,
+              onChanged: (_) => setState(() {}),
+              validator: (v) => (v ?? '').trim().isEmpty || hexColorPattern.hasMatch(v!.trim()) ? null : 'Like #1F2B4D',
+            ),
+          ),
+        ]),
+        const SizedBox(height: Space.md),
+        TextFormField(
+          controller: _name,
+          decoration: InputDecoration(
+            labelText: 'Name',
+            helperText: 'Blank uses RAM · storage · colour',
+            hintText: _autoName.isEmpty ? '8 GB · 256 GB · Navy' : _autoName,
+          ),
+          maxLength: 80,
+          validator: (v) => (v ?? '').trim().isEmpty && _autoName.isEmpty ? 'Add a name or RAM/storage/colour' : null,
+        ),
+        _field(_sku, 'SKU', hint: 'SAM-S25-8-256-NVY', required: true),
+        const SizedBox(height: Space.md),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: TextFormField(
+              controller: _price,
+              decoration: const InputDecoration(labelText: 'Price', prefixText: '₹ '),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) => (parseRupees(v ?? '') ?? 0) > 0 ? null : 'Enter a price above ₹0',
+            ),
+          ),
+          gap,
+          Expanded(
+            child: TextFormField(
+              controller: _mrp,
+              decoration: const InputDecoration(labelText: 'MRP', prefixText: '₹ '),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) {
+                final mrp = parseRupees(v ?? '');
+                if (mrp == null) return 'Enter the MRP';
+                final price = parseRupees(_price.text);
+                return price != null && mrp < price ? 'Can’t be below ${formatInr(price)}' : null;
+              },
+            ),
+          ),
+        ]),
+        const SizedBox(height: Space.md),
+        TextFormField(
+          controller: _stock,
+          decoration: const InputDecoration(labelText: 'Stock'),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          validator: (v) => int.tryParse(v ?? '') == null ? 'Enter a number' : null,
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Active'),
+          subtitle: const Text('Off hides this variant from customers'),
+          value: _active,
+          onChanged: (v) => setState(() => _active = v),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.sm),
+            child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+        FilledButton(onPressed: _busy ? null : _save, child: Text(_v == null ? 'Add variant' : 'Save variant')),
+      ],
+    );
+  }
+
+  Widget _field(TextEditingController c, String label, {String? hint, bool required = false}) => Padding(
+        padding: const EdgeInsets.only(bottom: Space.md),
+        child: TextFormField(
+          controller: c,
+          decoration: InputDecoration(labelText: label, hintText: hint),
+          onChanged: (_) => setState(() {}), // refreshes the auto name hint
+          validator: required ? (v) => (v ?? '').trim().isEmpty ? 'Enter the $label' : null : null,
+        ),
+      );
+}
