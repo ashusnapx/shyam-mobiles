@@ -12,6 +12,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../auth/data/google.dart';
+import '../widgets/policies.dart';
 import '../data/profile.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
@@ -84,7 +85,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 from: '/account',
               ),
             ),
-            const Padding(padding: EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg), child: _StoreCard()),
+            const Padding(padding: EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm), child: _StoreCard()),
+            const Padding(padding: EdgeInsets.only(bottom: Space.lg), child: PoliciesButton()),
           ],
         ),
       );
@@ -120,7 +122,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             row(PhosphorIconsRegular.userCircle, 'Profile', () => context.push('/account/profile')),
             const SectionHeader('Store'),
             const Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: _StoreCard()),
-            const SizedBox(height: Space.lg),
+            const SectionHeader('About & policies'),
+            const PolicyRows(),
+            const SizedBox(height: Space.sm),
             const Divider(),
             row(PhosphorIconsRegular.signOut, 'Sign out', _deleting ? null : _signOut, trailing: const SizedBox.shrink()),
             row(

@@ -5,12 +5,15 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../../core/env.dart';
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
+import '../../../core/router.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/google.dart';
+import '../widgets/dev_login.dart';
 
 final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -32,6 +35,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
   bool _googleBusy = false;
 
   bool get _usePhone => _tabs.index == 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // go_router checks redirects against the route this screen was pushed over, not /sign-in, so leave
+    // explicitly once a session exists. OTP (from the code screen above), Google and dev sign-in all land here.
+    ref.listenManual(currentUserIdProvider, (_, uid) {
+      if (uid != null && mounted) context.go(safeReturnPath(widget.from) ?? '/');
+    });
+  }
 
   @override
   void dispose() {
@@ -128,21 +141,25 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
             decoration: InputDecoration(hintText: 'you@example.com', errorText: _error),
           );
 
+    // Typing: the hero folds into a compact bar so the form stays fully in view and nothing is cut off.
+    final compact = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(statusBarIconBrightness: Brightness.light, statusBarBrightness: Brightness.dark),
       child: Scaffold(
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              _Hero(onClose: () => context.canPop() ? context.pop() : context.go('/')),
-              Transform.translate(
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, // hero spans the screen on any width
+          children: [
+            _Hero(compact: compact, onClose: () => context.canPop() ? context.pop() : context.go('/')),
+            Expanded(
+              child: Transform.translate(
                 offset: const Offset(0, -26),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: c.surface,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
                   ),
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(20, 22, 20, Space.lg + MediaQuery.paddingOf(context).bottom),
                     child: AutofillGroup(
                       child: Column(
@@ -208,14 +225,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                             textAlign: TextAlign.center,
                             style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
                           ),
+                          if (Env.devLogin) const DevLoginButtons(),
                         ],
                       ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -230,18 +248,64 @@ class _Spinner extends StatelessWidget {
       const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5));
 }
 
-/// Indigo hero with the peacock glow and ripple rings from mockup screen 8. Indigo in both themes.
+/// Black hero with a soft white glow and ripple rings (mockup screen 8). Folds to a compact bar while typing.
 class _Hero extends StatelessWidget {
-  const _Hero({required this.onClose});
+  const _Hero({required this.compact, required this.onClose});
 
+  final bool compact;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     const onHero = Colors.white;
+    final still = MediaQuery.disableAnimationsOf(context);
+    final close = Transform.translate(
+      offset: const Offset(-Space.md, 0),
+      child: IconButton(
+        tooltip: 'Close',
+        onPressed: onClose,
+        style: IconButton.styleFrom(backgroundColor: onHero.withValues(alpha: 0.14), foregroundColor: onHero),
+        icon: const Icon(PhosphorIconsRegular.x, size: 20),
+      ),
+    );
+    final full = Column(
+      key: const ValueKey('full'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        close,
+        const SizedBox(height: Space.lg),
+        const BrandMark(size: 52, onDark: true),
+        const SizedBox(height: 18),
+        Semantics(
+          header: true,
+          child: Text('Welcome to\nShyam Mobiles', style: t.displayLarge?.copyWith(color: onHero)),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Sign in or create your account with a one-time code. No password to remember.',
+          style: t.bodyMedium?.copyWith(color: onHero.withValues(alpha: 0.8)),
+        ),
+      ],
+    );
+    final bar = Row(
+      key: const ValueKey('compact'),
+      children: [
+        close,
+        const BrandMark(size: 28, onDark: true),
+        const SizedBox(width: Space.md),
+        Flexible(
+          child: Semantics(
+            header: true,
+            child: Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 26, color: onHero)),
+          ),
+        ),
+      ],
+    );
+    final duration = still ? Duration.zero : Motion.normal;
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -250,39 +314,25 @@ class _Hero extends StatelessWidget {
       ),
       child: CustomPaint(
         painter: const _RipplePainter(),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(Space.xl, MediaQuery.paddingOf(context).top + Space.xs, Space.xl, Space.xxl + 26),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Transform.translate(
-                offset: const Offset(-Space.md, 0),
-                child: IconButton(
-                  tooltip: 'Close',
-                  onPressed: onClose,
-                  style: IconButton.styleFrom(
-                    backgroundColor: onHero.withValues(alpha: 0.14),
-                    foregroundColor: onHero,
-                  ),
-                  icon: const Icon(PhosphorIconsRegular.x, size: 20),
-                ),
-              ),
-              const SizedBox(height: Space.lg),
-              const BrandMark(size: 52, onDark: true),
-              const SizedBox(height: 18),
-              Semantics(
-                header: true,
-                child: Text('Welcome to\nShyam Mobiles', style: t.displayLarge?.copyWith(color: onHero)),
-              ),
-              const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 260),
-                child: Text(
-                  'Sign in to check out, track orders and book repairs.',
-                  style: t.bodySmall?.copyWith(color: onHero.withValues(alpha: 0.8)),
-                ),
-              ),
-            ],
+        child: AnimatedPadding(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.fromLTRB(
+            Space.xl,
+            MediaQuery.paddingOf(context).top + Space.xs,
+            Space.xl,
+            (compact ? Space.md : Space.xxl) + 26, // + the sheet's overlap
+          ),
+          child: AnimatedSize(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: AnimatedSwitcher(
+              duration: still ? Duration.zero : Motion.fast,
+              layoutBuilder: (current, previous) =>
+                  Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
+              child: compact ? bar : full,
+            ),
           ),
         ),
       ),

@@ -4,4 +4,6 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Profile builds are for on-device testing against the local stack (http via adb reverse). Release stays HTTPS-only. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

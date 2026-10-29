@@ -53,6 +53,7 @@ final homeProvider = FutureProvider<HomeData>((ref) async {
 
 /// Null when the slug doesn't exist or the product is inactive (RLS hides it).
 final productProvider = FutureProvider.autoDispose.family<Product?, String>((ref, slug) async {
+  cacheFor(ref, const Duration(minutes: 5));
   final row = await ref
       .watch(supabaseProvider)
       .from('products')
@@ -113,6 +114,7 @@ class SearchNotifier extends AsyncNotifier<SearchResults> {
 
   @override
   Future<SearchResults> build() async {
+    cacheFor(ref, const Duration(minutes: 5));
     final (items, total) = await _page(0);
     return (items: items, total: total, moreFailed: false);
   }

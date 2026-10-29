@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +39,14 @@ Future<void> initSupabase() async {
     publishableKey: Env.supabasePublishableKey,
     authOptions: const FlutterAuthClientOptions(localStorage: _SecureSessionStorage()),
   );
+}
+
+/// Keeps an autoDispose provider's data for [d] after its last listener leaves, so going back and forth
+/// between screens shows the cached content instead of a fresh skeleton.
+void cacheFor(Ref ref, Duration d) {
+  final link = ref.keepAlive();
+  final timer = Timer(d, link.close);
+  ref.onDispose(timer.cancel);
 }
 
 String publicImageUrl(String path) => '${Env.supabaseUrl}/storage/v1/object/public/product-images/$path';

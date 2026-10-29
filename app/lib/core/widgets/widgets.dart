@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -183,12 +184,49 @@ class AsyncBody<T> extends StatelessWidget {
   final VoidCallback? onRetry;
 
   @override
-  Widget build(BuildContext context) => value.when(
-        skipLoadingOnRefresh: true,
-        skipLoadingOnReload: true,
-        data: data,
-        loading: () => loading,
-        error: (e, _) => ErrorView(error: e, onRetry: onRetry),
+  Widget build(BuildContext context) => AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal,
+        child: value.when(
+          skipLoadingOnRefresh: true,
+          skipLoadingOnReload: true,
+          data: (d) => KeyedSubtree(key: const ValueKey('data'), child: data(d)),
+          loading: () => _DelayedReveal(key: const ValueKey('loading'), child: loading),
+          error: (e, _) => KeyedSubtree(key: const ValueKey('error'), child: ErrorView(error: e, onRetry: onRetry)),
+        ),
+      );
+}
+
+/// Shows [child] only if loading lasts longer than a beat, so fast loads never flash a skeleton.
+class _DelayedReveal extends StatefulWidget {
+  const _DelayedReveal({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_DelayedReveal> createState() => _DelayedRevealState();
+}
+
+class _DelayedRevealState extends State<_DelayedReveal> {
+  late final Timer _timer;
+  bool _shown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(milliseconds: 250), () => setState(() => _shown = true));
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedOpacity(
+        opacity: _shown ? 1 : 0,
+        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal,
+        child: widget.child,
       );
 }
 

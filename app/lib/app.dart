@@ -1,3 +1,4 @@
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -23,7 +24,18 @@ class App extends ConsumerWidget {
             systemNavigationBarColor: Colors.transparent,
             systemNavigationBarContrastEnforced: false,
           ),
-          child: MediaQuery.withClampedTextScaling(maxScaleFactor: 1.3, child: child!),
+          child: SkeletonizerConfig(
+            // A slow, soft grey pulse instead of the default fast shimmer; crossfades into content.
+            data: SkeletonizerConfigData(
+              effectResolver: (_) => const PulseEffect(
+                from: Color(0xFFF3F3F3),
+                to: Color(0xFFE8E8E8),
+                duration: Duration(milliseconds: 1600),
+              ),
+              enableSwitchAnimation: true,
+            ),
+            child: MediaQuery.withClampedTextScaling(maxScaleFactor: 1.3, child: child!),
+          ),
         ),
       );
 }

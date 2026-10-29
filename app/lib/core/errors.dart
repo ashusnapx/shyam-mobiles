@@ -19,6 +19,7 @@ const _codes = {
   'INVALID_IMEIS': 'Each IMEI must be 15 digits, one per unit, with no repeats.',
   'PAYMENT_MISMATCH': 'That payment doesn’t match this order. If money was taken, it will be refunded.',
   'INTERNAL': fallbackError,
+  'UNAUTHORIZED': 'Your session has ended. Sign in again to continue.',
 };
 
 const fallbackError = 'Something went wrong. Try again.';
@@ -28,6 +29,9 @@ String friendlyError(Object e) {
   switch (e) {
     case PostgrestException(:final message, :final code):
       return _codes[message] ?? (code == '42501' ? _codes['FORBIDDEN']! : fallbackError);
+    // The platform's own 401 body has no code, so any 401 means the session is gone.
+    case FunctionException(status: 401):
+      return _codes['UNAUTHORIZED']!;
     case FunctionException(:final details):
       final code = details is Map ? details['error'] : null;
       return _codes[code] ?? (details is Map && details['message'] is String ? details['message'] : fallbackError);
