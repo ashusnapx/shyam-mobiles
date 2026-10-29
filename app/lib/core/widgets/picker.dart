@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../errors.dart';
+import '../input.dart';
 import '../theme/tokens.dart';
 import 'widgets.dart';
 
@@ -109,6 +110,7 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
                   controller: _query,
                   autofocus: widget.options.length > 7,
                   textInputAction: TextInputAction.search,
+                  inputFormatters: textInput(MaxLen.search),
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) {
                     if (shown.length == 1) {

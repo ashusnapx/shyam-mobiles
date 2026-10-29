@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
@@ -11,6 +12,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../catalog/widgets/store_links.dart';
 import '../../repairs/widgets/repair_widgets.dart';
 import '../data/admin.dart';
+import '../data/photos.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
 
@@ -48,7 +50,7 @@ class _FormState extends ConsumerState<_Form> {
   late final _fee = TextEditingController(text: rupeesText(_s.deliveryFeePaise));
   late final _freeMin = TextEditingController(text: rupeesText(_s.freeDeliveryMinPaise));
   late final _codMax = TextEditingController(text: rupeesText(_s.codMaxPaise));
-  late final _phone = TextEditingController(text: displayPhone(_s.storePhone));
+  late final _phone = TextEditingController(text: localPhone(_s.storePhone));
   late final _address = TextEditingController(text: _s.storeAddress);
   late final _pin = TextEditingController(text: _s.storeLat == null ? '' : '${_s.storeLat}, ${_s.storeLng}');
   late String? _mapsUrl = _s.storeMapsUrl;
@@ -67,9 +69,9 @@ class _FormState extends ConsumerState<_Form> {
   }
 
   Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
-    final pinText = _pin.text.trim();
-    final pin = parseMapPin(pinText); // null when empty: clears the pin
+    if (_busy || !_form.currentState!.validate()) return;
+    final pinText = tidy(_pin.text).replaceAll(' ', ''); // a link never has spaces; a wrapped paste may
+    final pin = parseMapPin(pinText.isEmpty ? '' : tidy(_pin.text)); // null when empty: clears the pin
     // a pasted place link becomes the listing customers open; plain "lat, lng" keeps the old one
     if (isMapsPlaceLink(pinText)) _mapsUrl = pinText;
     setState(() => _busy = true);
@@ -82,13 +84,13 @@ class _FormState extends ConsumerState<_Form> {
           codEnabled: _cod,
           codMaxPaise: parseRupees(_codMax.text)!,
           storePhone: normalizeIndianPhone(_phone.text)!,
-          storeAddress: _address.text.trim(),
+          storeAddress: tidy(_address.text, multiline: true),
           storeLat: pin?.lat,
           storeLng: pin?.lng,
           storeMapsUrl: _mapsUrl,
-          storeHours: _hours.text.trim(),
-          repairNote: _repairNote.text.trim(),
-          returnsPolicy: _returns.text.trim(),
+          storeHours: tidy(_hours.text),
+          repairNote: tidy(_repairNote.text, multiline: true),
+          returnsPolicy: tidy(_returns.text, multiline: true),
         ),
       );
       if (mounted) showMessage(context, 'Settings saved');
@@ -99,7 +101,8 @@ class _FormState extends ConsumerState<_Form> {
     }
   }
 
-  String? _money(String? v) => parseRupees(v ?? '') == null ? 'Enter an amount like 49 or 999' : null;
+  String? _feeError(String? v) => rupeesError(v, maxPaise: maxFeePaise);
+  String? _limitError(String? v) => rupeesError(v, maxPaise: maxAmountPaise);
 
   Widget _gap() => const SizedBox(height: Space.md);
 
@@ -113,126 +116,155 @@ class _FormState extends ConsumerState<_Form> {
       ),
       body: Form(
         key: _form,
-        child: ListView(
+        // not a ListView: a lazy list drops fields scrolled far away, and Form.validate() would skip them
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xl),
-          children: [
-            const ListSection('Delivery'),
-            TextFormField(
-              controller: _fee,
-              decoration: const InputDecoration(labelText: 'Delivery fee', prefixText: '₹ '),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: _money,
-            ),
-            _gap(),
-            TextFormField(
-              controller: _freeMin,
-              decoration: const InputDecoration(
-                labelText: 'Free delivery from',
-                prefixText: '₹ ',
-                helperText: 'Orders at or above this pay no delivery fee. 0 makes delivery always free.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const ListSection('Delivery'),
+              TextFormField(
+                controller: _fee,
+                decoration: const InputDecoration(labelText: 'Delivery fee', prefixText: '₹ '),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [RupeesFormatter(maxDigits: 5)],
+                textInputAction: TextInputAction.next,
+                validator: _feeError,
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: _money,
-            ),
-            const ListSection('Cash on delivery'),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Offer cash on delivery'),
-              value: _cod,
-              onChanged: (v) => setState(() => _cod = v),
-            ),
-            TextFormField(
-              controller: _codMax,
-              enabled: _cod,
-              decoration: const InputDecoration(
-                labelText: 'COD limit',
-                prefixText: '₹ ',
-                helperText: 'Orders above this must pay online.',
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: _money,
-            ),
-            const ListSection('Store'),
-            TextFormField(
-              controller: _phone,
-              decoration: const InputDecoration(labelText: 'Store phone (also WhatsApp)'),
-              keyboardType: TextInputType.phone,
-              validator: (v) => normalizeIndianPhone(v ?? '') == null ? 'Enter a 10-digit Indian mobile number' : null,
-            ),
-            _gap(),
-            TextFormField(
-              controller: _address,
-              decoration: const InputDecoration(labelText: 'Address', alignLabelWithHint: true),
-              minLines: 2,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            _gap(),
-            TextFormField(
-              controller: _pin,
-              decoration: InputDecoration(
-                labelText: 'Shop location',
-                hintText: 'Google Maps link, or 24.0670, 82.6307',
-                helperText: pin == null
-                    ? 'In Google Maps, open the shop and copy the link from the address bar. Directions go to this exact spot.'
-                    : 'Pin: ${pin.lat}, ${pin.lng}',
-                helperMaxLines: 3,
-                errorMaxLines: 3,
-              ),
-              keyboardType: TextInputType.url,
-              minLines: 1,
-              maxLines: 3,
-              onChanged: (_) => setState(() {}),
-              validator: (v) => (v ?? '').trim().isEmpty || parseMapPin(v!) != null
-                  ? null
-                  : 'No pin in India found. Paste “lat, lng” or the full link from the browser, not a maps.app.goo.gl short link.',
-            ),
-            if (pin != null)
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  onPressed: () =>
-                      openExternal(context, mapPinUri(pin.lat, pin.lng), 'Couldn’t open Google Maps.'),
-                  icon: const Icon(PhosphorIconsRegular.mapPin),
-                  label: const Text('Open in Google Maps'),
+              _gap(),
+              TextFormField(
+                controller: _freeMin,
+                decoration: const InputDecoration(
+                  labelText: 'Free delivery from',
+                  prefixText: '₹ ',
+                  helperText: 'Orders at or above this pay no delivery fee. 0 makes delivery always free.',
+                  helperMaxLines: 3,
                 ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [RupeesFormatter(maxDigits: 7)],
+                textInputAction: TextInputAction.next,
+                validator: _limitError,
               ),
-            _gap(),
-            TextFormField(
-              controller: _hours,
-              decoration: const InputDecoration(labelText: 'Opening hours', hintText: '10 am – 9 pm, closed Tuesday'),
-              maxLength: 60,
-            ),
-            const _ShopPhotos(),
-            const ListSection('Customer notes'),
-            TextFormField(
-              controller: _repairNote,
-              decoration: const InputDecoration(
-                labelText: 'Repair booking note',
-                helperText: 'Shown on the repair booking form.',
-                alignLabelWithHint: true,
+              const ListSection('Cash on delivery'),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Offer cash on delivery'),
+                value: _cod,
+                onChanged: (v) => setState(() => _cod = v),
               ),
-              minLines: 2,
-              maxLines: 4,
-              maxLength: 300,
-              textCapitalization: TextCapitalization.sentences,
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Add a short note' : null,
-            ),
-            _gap(),
-            TextFormField(
-              controller: _returns,
-              decoration: const InputDecoration(
-                labelText: 'Returns and warranty policy',
-                helperText: 'Shown on product pages and in Account.',
-                alignLabelWithHint: true,
+              TextFormField(
+                controller: _codMax,
+                enabled: _cod,
+                decoration: const InputDecoration(
+                  labelText: 'COD limit',
+                  prefixText: '₹ ',
+                  helperText: 'Orders above this must pay online.',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [RupeesFormatter(maxDigits: 7)],
+                textInputAction: TextInputAction.next,
+                validator: _limitError,
               ),
-              minLines: 4,
-              maxLines: 10,
-              maxLength: 2000,
-              textCapitalization: TextCapitalization.sentences,
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Add your returns policy' : null,
-            ),
-          ],
+              const ListSection('Store'),
+              TextFormField(
+                controller: _phone,
+                decoration: const InputDecoration(labelText: 'Store phone (also WhatsApp)', prefixText: '+91 ', hintText: '98765 43210'),
+                keyboardType: TextInputType.phone,
+                inputFormatters: const [IndianMobileFormatter()],
+                textInputAction: TextInputAction.next,
+                validator: validateMobile,
+              ),
+              _gap(),
+              TextFormField(
+                controller: _address,
+                decoration: InputDecoration(
+                  labelText: 'Address',
+                  alignLabelWithHint: true,
+                  counter: LengthCounter(_address, MaxLen.storeAddress),
+                ),
+                minLines: 2,
+                maxLines: 4,
+                textCapitalization: TextCapitalization.sentences,
+                inputFormatters: textInput(MaxLen.storeAddress, multiline: true),
+                validator: (v) => checkText(v, max: MaxLen.storeAddress, multiline: true),
+              ),
+              _gap(),
+              TextFormField(
+                controller: _pin,
+                decoration: InputDecoration(
+                  labelText: 'Shop location',
+                  hintText: 'Google Maps link, or 24.0670, 82.6307',
+                  helperText: pin == null
+                      ? 'In Google Maps, open the shop and copy the link from the address bar. Directions go to this exact spot.'
+                      : 'Pin: ${pin.lat}, ${pin.lng}',
+                  helperMaxLines: 3,
+                  errorMaxLines: 3,
+                ),
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                enableSuggestions: false,
+                textInputAction: TextInputAction.done,
+                // generous: full place links run long and their pin sits near the end, so a cut would lose it
+                inputFormatters: textInput(2000),
+                minLines: 1,
+                maxLines: 3,
+                onChanged: (_) => setState(() {}),
+                validator: (v) => (v ?? '').trim().isEmpty || parseMapPin(v!) != null
+                    ? null
+                    : 'No pin in India found. Paste “lat, lng” or the full link from the browser, not a maps.app.goo.gl short link.',
+              ),
+              if (pin != null)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        openExternal(context, mapPinUri(pin.lat, pin.lng), 'Couldn’t open Google Maps.'),
+                    icon: const Icon(PhosphorIconsRegular.mapPin),
+                    label: const Text('Open in Google Maps'),
+                  ),
+                ),
+              _gap(),
+              TextFormField(
+                controller: _hours,
+                decoration: const InputDecoration(labelText: 'Opening hours', hintText: '10 am – 9 pm, closed Tuesday'),
+                inputFormatters: textInput(MaxLen.storeHours),
+                textInputAction: TextInputAction.done,
+                validator: (v) => checkText(v, max: MaxLen.storeHours),
+              ),
+              const _ShopPhotos(),
+              const ListSection('Customer notes'),
+              TextFormField(
+                controller: _repairNote,
+                decoration: InputDecoration(
+                  labelText: 'Repair booking note',
+                  helperText: 'Shown on the repair booking form.',
+                  alignLabelWithHint: true,
+                  counter: LengthCounter(_repairNote, MaxLen.storeAddress),
+                ),
+                minLines: 2,
+                maxLines: 4,
+                inputFormatters: textInput(MaxLen.storeAddress, multiline: true),
+                textCapitalization: TextCapitalization.sentences,
+                validator: (v) => tidy(v).isEmpty ? 'Add a short note' : checkText(v, max: MaxLen.storeAddress, multiline: true),
+              ),
+              _gap(),
+              TextFormField(
+                controller: _returns,
+                decoration: InputDecoration(
+                  labelText: 'Returns and warranty policy',
+                  helperText: 'Shown on product pages and in Account.',
+                  alignLabelWithHint: true,
+                  counter: LengthCounter(_returns, MaxLen.returnsPolicy),
+                ),
+                minLines: 4,
+                maxLines: 10,
+                inputFormatters: textInput(MaxLen.returnsPolicy, multiline: true),
+                textCapitalization: TextCapitalization.sentences,
+                validator: (v) =>
+                    tidy(v).isEmpty ? 'Add your returns policy' : checkText(v, max: MaxLen.returnsPolicy, multiline: true),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -291,13 +323,19 @@ class _ShopPhotosState extends ConsumerState<_ShopPhotos> {
     if (source == null) return;
     final XFile? file;
     try {
-      file = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
+      // the original: photos.dart resizes, turns it upright and strips the metadata (image_picker's resize keeps GPS)
+      file = await ImagePicker().pickImage(source: source);
     } catch (_) {
       if (mounted) showMessage(context, 'Couldn’t open the camera or gallery.');
       return;
     }
     if (file == null) return;
-    await _run(() async => addStorePhoto(ref, _photos, await file!.readAsBytes()), 'Photo added. Customers see it now.');
+    await _run(() async {
+      final saved = await addStorePhoto(ref, _photos, await readPhoto(file!));
+      if (mounted) {
+        showMessage(context, 'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}. Customers see it now.');
+      }
+    });
   }
 
   void _move(int i, int to) {

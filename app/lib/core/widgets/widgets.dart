@@ -1,16 +1,21 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show SignOutScope;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../errors.dart';
 import '../format.dart';
+import '../network.dart';
 import '../supabase.dart';
 import '../theme/tokens.dart';
 
 /// Product photo from the `product-images` bucket on a soft tinted well, with an icon when there's no photo.
+/// In data-saver mode it loads the 480 px thumb; [full] (the product gallery) adds a "Tap for full photo" button.
 class ProductImage extends StatelessWidget {
   const ProductImage(
     this.path, {
@@ -19,6 +24,7 @@ class ProductImage extends StatelessWidget {
     this.radius = Radii.lg,
     this.padding = Space.md,
     this.fit = BoxFit.contain,
+    this.full = false,
   });
 
   final String? path;
@@ -26,6 +32,7 @@ class ProductImage extends StatelessWidget {
   final double radius;
   final double padding;
   final BoxFit fit; // cover for shop photos; clip the parent to round its corners
+  final bool full;
 
   @override
   Widget build(BuildContext context) {
@@ -41,21 +48,78 @@ class ProductImage extends StatelessWidget {
             ? fallback
             : Padding(
                 padding: EdgeInsets.all(padding),
-                // Decode at display size, not the 1600px upload, to keep lists smooth on mid-range phones.
-                child: LayoutBuilder(
-                  builder: (context, box) => CachedNetworkImage(
-                    imageUrl: publicImageUrl(path!),
-                    fit: fit,
-                    fadeInDuration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal,
-                    memCacheWidth: box.maxWidth.isFinite
-                        ? (box.maxWidth * MediaQuery.devicePixelRatioOf(context)).round()
-                        : null,
-                    errorWidget: (_, _, _) => fallback,
-                  ),
-                ),
+                child: _NetworkPhoto(path!, fit: fit, full: full, fallback: fallback),
               ),
       ),
     );
+  }
+}
+
+/// Photos whose thumb failed to load (uploaded before thumbs existed): straight to the full photo next time.
+final _noThumb = <String>{};
+
+class _NetworkPhoto extends ConsumerStatefulWidget {
+  const _NetworkPhoto(this.path, {required this.fit, required this.full, required this.fallback});
+
+  final String path;
+  final BoxFit fit;
+  final bool full;
+  final Widget fallback;
+
+  @override
+  ConsumerState<_NetworkPhoto> createState() => _NetworkPhotoState();
+}
+
+class _NetworkPhotoState extends ConsumerState<_NetworkPhoto> {
+  bool _wantFull = false; // tapped "Tap for full photo"
+
+  @override
+  Widget build(BuildContext context) {
+    final saver = ref.watch(dataSaverProvider) == DataMode.saver;
+    final path = widget.path;
+    final thumb = _noThumb.contains(path) ? null : thumbPathFor(path);
+    final still = MediaQuery.disableAnimationsOf(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return LayoutBuilder(builder: (context, box) {
+      // Decode at display size, not the 1600px upload, to keep lists smooth on mid-range phones; saver caps it at 1.5x.
+      final width = box.maxWidth.isFinite ? (box.maxWidth * (saver ? min(dpr, 1.5) : dpr)).round() : null;
+      Widget image(String p, {Widget? placeholder, Widget Function()? onError}) => CachedNetworkImage(
+            imageUrl: publicImageUrl(p),
+            fit: widget.fit,
+            fadeInDuration: still ? Duration.zero : Motion.normal,
+            memCacheWidth: width,
+            placeholder: placeholder == null ? null : (_, _) => placeholder,
+            errorWidget: (_, _, _) => onError?.call() ?? widget.fallback,
+          );
+      if (!saver || thumb == null) return image(path);
+      // the thumb stays up while the full photo loads
+      if (_wantFull) return image(path, placeholder: image(thumb));
+      final shown = image(thumb, onError: () {
+        // no thumb: show the full photo, and drop the "Tap for full photo" button on the next frame
+        if (_noThumb.add(path)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() {});
+          });
+        }
+        return image(path);
+      });
+      if (!widget.full) return shown;
+      return Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          Positioned.fill(child: shown),
+          FilledButton.tonalIcon(
+            onPressed: () => setState(() => _wantFull = true),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: Space.md),
+              textStyle: Theme.of(context).textTheme.labelMedium,
+            ),
+            icon: const Icon(PhosphorIconsRegular.arrowsOut, size: 16),
+            label: const Text('Tap for full photo'),
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -150,13 +214,24 @@ class ErrorView extends StatelessWidget {
         icon: PhosphorIconsRegular.cloudX,
         title: 'Couldn’t load this',
         message: friendlyError(error),
-        action: onRetry == null
-            ? null
-            : OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(PhosphorIconsRegular.arrowClockwise),
-                label: const Text('Try again'),
-              ),
+        action: isSessionError(error)
+            ? FilledButton(
+                // Dropping the dead local session lets the router send auth-only screens to /sign-in?from=<here>
+                // (and back after sign-in); public screens just reload signed out.
+                onPressed: () async {
+                  final auth = ProviderScope.containerOf(context, listen: false).read(supabaseProvider).auth;
+                  await auth.signOut(scope: SignOutScope.local).catchError((Object _) {});
+                  onRetry?.call();
+                },
+                child: const Text('Sign in again'),
+              )
+            : onRetry == null
+                ? null
+                : OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(PhosphorIconsRegular.arrowClockwise),
+                    label: const Text('Try again'),
+                  ),
       );
 }
 
@@ -347,6 +422,16 @@ Future<bool> confirmChoice(
     ),
   );
   return picked ?? false;
+}
+
+/// Every url_launcher call goes through here. False when [uri] isn't allowed or nothing could open it.
+Future<bool> launchExternal(Uri uri, {LaunchMode mode = LaunchMode.externalApplication}) async {
+  if (!isAllowedExternalUri(uri)) return false;
+  try {
+    return await launchUrl(uri, mode: mode);
+  } catch (_) {
+    return false; // no app for it, or the platform refused
+  }
 }
 
 void showMessage(BuildContext context, String message) {

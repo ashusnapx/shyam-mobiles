@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
@@ -379,6 +380,7 @@ class _Actions extends ConsumerStatefulWidget {
 
 class _ActionsState extends ConsumerState<_Actions> {
   bool _busy = false;
+  bool _asking = false; // the confirm dialog is up
 
   Order get o => widget.order;
 
@@ -387,7 +389,7 @@ class _ActionsState extends ConsumerState<_Actions> {
     final container = ProviderScope.containerOf(context, listen: false);
     final r = await container.read(paymentFlowProvider.notifier).pay(o.id);
     if (r == null) return;
-    if (r.outcome == PayOutcome.paid) HapticFeedback.mediumImpact();
+    if (r.outcome == PayOutcome.paid) unawaited(HapticFeedback.mediumImpact());
     if (r.message ?? (r.outcome == PayOutcome.paid ? 'Payment received. Your order is confirmed.' : null) case final m?) {
       _say(messenger, m);
     }
@@ -395,6 +397,8 @@ class _ActionsState extends ConsumerState<_Actions> {
   }
 
   Future<void> _cancel() async {
+    if (_busy || _asking) return; // a double tap would open two dialogs and cancel twice
+    _asking = true;
     final paid = o.paymentStatus == PaymentStatus.paid;
     final ok = await confirmChoice(
       context,
@@ -407,13 +411,13 @@ class _ActionsState extends ConsumerState<_Actions> {
       action: 'Cancel order',
       keep: 'Keep order',
       destructive: true,
-    );
+    ).whenComplete(() => _asking = false);
     if (!ok || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _busy = true);
     try {
-      await container.read(supabaseProvider).rpc('cancel_order', params: {'p_order_id': o.id});
+      await container.read(supabaseProvider).rpc<void>('cancel_order', params: {'p_order_id': o.id});
       _say(messenger, 'Order cancelled');
     } catch (e) {
       _say(messenger, friendlyError(e));
@@ -445,8 +449,7 @@ class _ActionsState extends ConsumerState<_Actions> {
 
   Future<void> _open(Uri uri, String fallback) async {
     final messenger = ScaffoldMessenger.of(context);
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((Object _) => false);
-    if (!ok) _say(messenger, fallback);
+    if (!await launchExternal(uri)) _say(messenger, fallback);
   }
 
   @override

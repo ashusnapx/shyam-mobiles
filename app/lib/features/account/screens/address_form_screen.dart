@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart' show Geocoding;
 import 'package:geolocator/geolocator.dart';
@@ -10,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
@@ -71,7 +71,7 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
   final _form = GlobalKey<FormState>();
   late final Address? _a = widget.existing;
   late final _name = TextEditingController(text: _a?.name ?? ref.read(profileProvider).value?.fullName);
-  late final _phone = TextEditingController(text: _localPhone(_a?.phone ?? ref.read(currentUserProvider)?.phone));
+  late final _phone = TextEditingController(text: localPhone(_a?.phone ?? ref.read(currentUserProvider)?.phone));
   late final _pincode = TextEditingController(text: _a?.pincode);
   late final _line1 = TextEditingController(text: _a?.line1);
   late final _line2 = TextEditingController(text: _a?.line2);
@@ -98,12 +98,6 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
   (String, Future<bool> Function())? _locFix; // button label and the settings screen it opens
 
   bool _saving = false;
-
-  /// "+919876543210" or "919876543210" → "98765 43210".
-  static String? _localPhone(String? raw) {
-    final p = normalizeIndianPhone(raw ?? '');
-    return p == null ? null : '${p.substring(3, 8)} ${p.substring(8)}';
-  }
 
   @override
   void dispose() {
@@ -240,18 +234,18 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
   }
 
   Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
-    String? opt(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
+    if (_saving || !_form.currentState!.validate()) return;
+    String? opt(TextEditingController c) => tidy(c.text).isEmpty ? null : tidy(c.text);
     setState(() => _saving = true);
     try {
       final saved = await ref.read(addressesProvider.notifier).save(Address(
             id: _a?.id,
-            name: _name.text.trim(),
+            name: tidy(_name.text),
             phone: normalizeIndianPhone(_phone.text)!,
-            line1: _line1.text.trim(),
+            line1: tidy(_line1.text),
             line2: opt(_line2),
             landmark: opt(_landmark),
-            city: _city.text.trim(),
+            city: tidy(_city.text),
             district: opt(_district),
             state: _state!,
             pincode: _pincode.text.trim(),
@@ -281,186 +275,196 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
           child: Form(
             key: _form,
             child: AutofillGroup(
-              child: ListView(
+              // not a ListView: a lazy list drops fields scrolled far away, and Form.validate() would skip them
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.xl),
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _locating ? null : _useLocation,
-                      icon: _locating
-                          ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(PhosphorIconsRegular.crosshair),
-                      label: Text(_locating ? 'Finding your location…' : 'Use my current location'),
-                    ),
-                  ),
-                  if (_locNote != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: Space.sm),
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(_locNote!, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _locating ? null : _useLocation,
+                        icon: _locating
+                            ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(PhosphorIconsRegular.crosshair),
+                        label: Text(_locating ? 'Finding your location…' : 'Use my current location'),
                       ),
                     ),
-                  if (_locFix case (final label, final open))
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(onPressed: open, child: Text(label)),
+                    if (_locNote != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Space.sm),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(_locNote!, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                        ),
+                      ),
+                    if (_locFix case (final label, final open))
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(onPressed: open, child: Text(label)),
+                      ),
+                    gap,
+                    TextFormField(
+                      controller: _name,
+                      decoration: const InputDecoration(labelText: 'Full name'),
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.name],
+                      inputFormatters: textInput(MaxLen.name),
+                      textInputAction: TextInputAction.next,
+                      validator: validateName,
                     ),
-                  gap,
-                  TextFormField(
-                    controller: _name,
-                    decoration: const InputDecoration(labelText: 'Full name'),
-                    textCapitalization: TextCapitalization.words,
-                    autofillHints: const [AutofillHints.name],
-                    textInputAction: TextInputAction.next,
-                    validator: validateName,
-                  ),
-                  gap,
-                  TextFormField(
-                    controller: _phone,
-                    decoration: const InputDecoration(labelText: 'Mobile number', prefixText: '+91 '),
-                    keyboardType: TextInputType.phone,
-                    autofillHints: const [AutofillHints.telephoneNumberNational],
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d ]')), LengthLimitingTextInputFormatter(14)],
-                    textInputAction: TextInputAction.next,
-                    validator: validatePhone,
-                  ),
-                  gap,
-                  TextFormField(
-                    controller: _pincode,
-                    decoration: InputDecoration(
-                      labelText: 'Pincode',
-                      helperText: _lookingUp
-                          ? 'Checking pincode…'
-                          : place != null
-                              ? [place.district, ?place.state].join(' · ')
-                              : _pinNote,
-                      helperMaxLines: 3,
-                      suffixIcon: _lookingUp
-                          ? const Padding(
-                              padding: EdgeInsets.all(Space.md),
-                              child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                            )
-                          : place != null
-                              ? const Icon(PhosphorIconsRegular.checkCircle, semanticLabel: 'Pincode found')
-                              : null,
+                    gap,
+                    TextFormField(
+                      controller: _phone,
+                      decoration: const InputDecoration(labelText: 'Mobile number', prefixText: '+91 ', hintText: '98765 43210'),
+                      keyboardType: TextInputType.phone,
+                      autofillHints: const [AutofillHints.telephoneNumberNational],
+                      inputFormatters: const [IndianMobileFormatter()],
+                      textInputAction: TextInputAction.next,
+                      validator: validatePhone,
                     ),
-                    keyboardType: TextInputType.number,
-                    autofillHints: const [AutofillHints.postalCode],
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                    textInputAction: TextInputAction.next,
-                    onChanged: _onPincode,
-                    validator: validatePincode,
-                  ),
-                  if (areas.isNotEmpty) ...[
-                    const SizedBox(height: Space.md),
-                    Text('Tap your area', style: t.labelLarge),
+                    gap,
+                    TextFormField(
+                      controller: _pincode,
+                      decoration: InputDecoration(
+                        labelText: 'Pincode',
+                        helperText: _lookingUp
+                            ? 'Checking pincode…'
+                            : place != null
+                                ? [place.district, ?place.state].join(' · ')
+                                : _pinNote,
+                        helperMaxLines: 3,
+                        suffixIcon: _lookingUp
+                            ? const Padding(
+                                padding: EdgeInsets.all(Space.md),
+                                child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                              )
+                            : place != null
+                                ? const Icon(PhosphorIconsRegular.checkCircle, semanticLabel: 'Pincode found')
+                                : null,
+                      ),
+                      keyboardType: TextInputType.number,
+                      autofillHints: const [AutofillHints.postalCode],
+                      inputFormatters: const [DigitsFormatter(6)],
+                      textInputAction: TextInputAction.next,
+                      onChanged: _onPincode,
+                      validator: validatePincode,
+                    ),
+                    if (areas.isNotEmpty) ...[
+                      const SizedBox(height: Space.md),
+                      Text('Tap your area', style: t.labelLarge),
+                      const SizedBox(height: Space.xs),
+                      ListenableBuilder(
+                        listenable: _line2,
+                        builder: (context, _) => Wrap(
+                          spacing: Space.sm,
+                          children: [
+                            for (final a in shownAreas)
+                              ChoiceChip(
+                                label: Text(a),
+                                selected: _line2.text.trim() == a,
+                                onSelected: (_) => _line2.text = a,
+                              ),
+                            if (shownAreas.length < areas.length)
+                              ActionChip(
+                                label: Text('${areas.length - shownAreas.length} more'),
+                                onPressed: () => setState(() => _allAreas = true),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    gap,
+                    TextFormField(
+                      controller: _line1,
+                      decoration: const InputDecoration(labelText: 'House no., flat, building'),
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.streetAddressLine1],
+                      inputFormatters: textInput(MaxLen.addressLine),
+                      textInputAction: TextInputAction.next,
+                      validator: validateLine1,
+                    ),
+                    gap,
+                    TextFormField(
+                      controller: _line2,
+                      decoration: const InputDecoration(labelText: 'Area, street, locality (optional)'),
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.streetAddressLine2],
+                      inputFormatters: textInput(MaxLen.addressLine),
+                      textInputAction: TextInputAction.next,
+                      validator: validateLine2,
+                    ),
+                    gap,
+                    TextFormField(
+                      controller: _landmark,
+                      decoration: const InputDecoration(labelText: 'Landmark (optional)', hintText: 'Near Shiv Mandir'),
+                      textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: textInput(MaxLen.landmark),
+                      textInputAction: TextInputAction.next,
+                      validator: validateLandmark,
+                    ),
+                    gap,
+                    TextFormField(
+                      controller: _city,
+                      decoration: const InputDecoration(labelText: 'City, town or village'),
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.addressCity],
+                      inputFormatters: textInput(MaxLen.place),
+                      textInputAction: TextInputAction.next,
+                      validator: validateCity,
+                    ),
+                    gap,
+                    TextFormField(
+                      controller: _district,
+                      decoration: const InputDecoration(labelText: 'District (optional)'),
+                      textCapitalization: TextCapitalization.words,
+                      inputFormatters: textInput(MaxLen.place),
+                      textInputAction: TextInputAction.done,
+                      validator: validateDistrict,
+                    ),
+                    gap,
+                    PickerField<String>(
+                      // keyed by the value so a pincode or location autofill shows up in the field
+                      key: ValueKey('state-$_state'),
+                      label: 'State',
+                      options: states,
+                      labelOf: (s) => s,
+                      initialValue: _state,
+                      onChanged: (v) => setState(() => _state = v),
+                      validator: validateState,
+                      searchHint: 'Search states',
+                    ),
+                    gap,
+                    Semantics(header: true, child: Text('Save address as', style: t.labelLarge)),
                     const SizedBox(height: Space.xs),
-                    ListenableBuilder(
-                      listenable: _line2,
-                      builder: (context, _) => Wrap(
-                        spacing: Space.sm,
-                        children: [
-                          for (final a in shownAreas)
-                            ChoiceChip(
-                              label: Text(a),
-                              selected: _line2.text.trim() == a,
-                              onSelected: (_) => _line2.text = a,
-                            ),
-                          if (shownAreas.length < areas.length)
-                            ActionChip(
-                              label: Text('${areas.length - shownAreas.length} more'),
-                              onPressed: () => setState(() => _allAreas = true),
-                            ),
-                        ],
-                      ),
+                    Wrap(
+                      spacing: Space.sm,
+                      children: [
+                        for (final l in AddressLabel.values)
+                          ChoiceChip(
+                            showCheckmark: false,
+                            avatar: Icon(_labelIcons[l], size: 18, color: l == _label ? c.onPrimary : c.onSurface),
+                            label: Text(l.displayName),
+                            selected: l == _label,
+                            onSelected: (_) => setState(() => _label = l),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: Space.sm),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Use as default address'),
+                      subtitle: widget.forceDefault
+                          ? Text(widget.existing == null
+                              ? 'Your first address is the default.'
+                              : 'To change this, set another address as default.')
+                          : null,
+                      value: _isDefault,
+                      onChanged: widget.forceDefault ? null : (v) => setState(() => _isDefault = v),
                     ),
                   ],
-                  gap,
-                  TextFormField(
-                    controller: _line1,
-                    decoration: const InputDecoration(labelText: 'House no., flat, building'),
-                    textCapitalization: TextCapitalization.words,
-                    autofillHints: const [AutofillHints.streetAddressLine1],
-                    textInputAction: TextInputAction.next,
-                    validator: validateLine1,
-                  ),
-                  gap,
-                  TextFormField(
-                    controller: _line2,
-                    decoration: const InputDecoration(labelText: 'Area, street, locality (optional)'),
-                    textCapitalization: TextCapitalization.words,
-                    autofillHints: const [AutofillHints.streetAddressLine2],
-                    textInputAction: TextInputAction.next,
-                    validator: validateLine2,
-                  ),
-                  gap,
-                  TextFormField(
-                    controller: _landmark,
-                    decoration: const InputDecoration(labelText: 'Landmark (optional)', hintText: 'Near Shiv Mandir'),
-                    textCapitalization: TextCapitalization.sentences,
-                    textInputAction: TextInputAction.next,
-                    validator: validateLandmark,
-                  ),
-                  gap,
-                  TextFormField(
-                    controller: _city,
-                    decoration: const InputDecoration(labelText: 'City, town or village'),
-                    textCapitalization: TextCapitalization.words,
-                    autofillHints: const [AutofillHints.addressCity],
-                    textInputAction: TextInputAction.next,
-                    validator: validateCity,
-                  ),
-                  gap,
-                  TextFormField(
-                    controller: _district,
-                    decoration: const InputDecoration(labelText: 'District (optional)'),
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.done,
-                    validator: validateDistrict,
-                  ),
-                  gap,
-                  PickerField<String>(
-                    // keyed by the value so a pincode or location autofill shows up in the field
-                    key: ValueKey('state-$_state'),
-                    label: 'State',
-                    options: states,
-                    labelOf: (s) => s,
-                    initialValue: _state,
-                    onChanged: (v) => setState(() => _state = v),
-                    validator: validateState,
-                    searchHint: 'Search states',
-                  ),
-                  gap,
-                  Semantics(header: true, child: Text('Save address as', style: t.labelLarge)),
-                  const SizedBox(height: Space.xs),
-                  Wrap(
-                    spacing: Space.sm,
-                    children: [
-                      for (final l in AddressLabel.values)
-                        ChoiceChip(
-                          showCheckmark: false,
-                          avatar: Icon(_labelIcons[l], size: 18, color: l == _label ? c.onPrimary : c.onSurface),
-                          label: Text(l.displayName),
-                          selected: l == _label,
-                          onSelected: (_) => setState(() => _label = l),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: Space.sm),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Use as default address'),
-                    subtitle: widget.forceDefault
-                        ? Text(widget.existing == null
-                            ? 'Your first address is the default.'
-                            : 'To change this, set another address as default.')
-                        : null,
-                    value: _isDefault,
-                    onChanged: widget.forceDefault ? null : (v) => setState(() => _isDefault = v),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
@@ -16,7 +17,6 @@ String adminError(Object e) => switch (e) {
       PostgrestException(code: '23505', :final message) when message.contains('sku') =>
         'Another variant already uses this SKU.',
       PostgrestException(code: '23505') => 'That’s already in use. Pick a different value.',
-      PostgrestException(code: '23514') => 'One of the values isn’t allowed. Check the form and try again.',
       PostgrestException(code: 'PGRST116') => 'Nothing was saved. Check you’re signed in with a staff account.',
       PostgrestException(message: 'INVALID_IMEIS') => 'Each IMEI must be 15 digits, one per unit, no repeats.',
       StorageException() => 'Couldn’t upload the photo. Check your connection and try again.',
@@ -143,8 +143,8 @@ class _ShipSheetState extends State<_ShipSheet> {
 
   void _submit() {
     if (!_form.currentState!.validate()) return;
-    final tracking = _tracking.text.trim();
-    Navigator.pop(context, (courier: _courier.text.trim(), tracking: tracking.isEmpty ? null : tracking));
+    final tracking = tidy(_tracking.text);
+    Navigator.pop(context, (courier: tidy(_courier.text), tracking: tracking.isEmpty ? null : tracking));
   }
 
   @override
@@ -157,14 +157,17 @@ class _ShipSheetState extends State<_ShipSheet> {
             autofocus: widget.courier == null,
             decoration: const InputDecoration(labelText: 'Courier', hintText: 'e.g. Delhivery, or Shop delivery'),
             textCapitalization: TextCapitalization.words,
-            maxLength: 60,
-            validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the courier' : null,
+            inputFormatters: textInput(MaxLen.courier),
+            textInputAction: TextInputAction.next,
+            validator: (v) => checkText(v, min: 1, max: MaxLen.courier, what: 'the courier', mustHave: hasLetterOrDigit),
           ),
           const SizedBox(height: Space.sm),
           TextFormField(
             controller: _tracking,
             decoration: const InputDecoration(labelText: 'Tracking number (optional)'),
-            maxLength: 60,
+            autocorrect: false,
+            enableSuggestions: false,
+            inputFormatters: textInput(MaxLen.courier),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _submit(),
           ),

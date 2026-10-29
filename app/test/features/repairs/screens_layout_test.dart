@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:shyam_mobiles/features/repairs/data/repairs.dart';
 import 'package:shyam_mobiles/features/repairs/screens/repair_detail_screen.dart';
 import 'package:shyam_mobiles/features/repairs/screens/repair_form_screen.dart';
@@ -21,8 +22,9 @@ void main() {
       await tester.tap(find.text('Water damage'));
       await tester.pump();
       // scroll to the bottom so every row gets laid out
-      await scrollTo(tester, find.text('+91 98765 43210'));
-      expect(find.text('+91 98765 43210'), findsOneWidget);
+      final phone = find.widgetWithText(TextFormField, 'Phone for updates');
+      await scrollTo(tester, phone);
+      expect(tester.widget<TextFormField>(phone).controller!.text, '98765 43210', reason: 'the 10 digits after a fixed +91');
     });
 
     testWidgets('booking detail with quote lays out ($theme)', (tester) async {

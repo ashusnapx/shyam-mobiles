@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 
@@ -12,9 +13,9 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
   return row == null ? null : Profile.fromJson(row);
 });
 
-/// Blank clears the name. Max 80 chars (DB check).
+/// Blank clears the name. Max 80 chars with a letter (DB check), tidied like every typed value.
 Future<void> saveFullName(WidgetRef ref, String name) async {
-  final trimmed = name.trim();
+  final trimmed = tidy(name);
   await ref
       .read(supabaseProvider)
       .from('profiles')

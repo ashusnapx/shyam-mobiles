@@ -9,6 +9,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
+import '../../../core/network.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
@@ -35,6 +36,14 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider);
     final settings = ref.watch(storeSettingsProvider).value;
+    final saver = ref.watch(dataSaverProvider) == DataMode.saver;
+    final offline = ref.watch(offlineProvider);
+    ref.listen(offlineProvider, (was, now) {
+      if (was != true || now) return;
+      // back online: replace what was saved on the phone
+      ref.invalidate(homeProvider);
+      ref.invalidate(storeSettingsProvider);
+    });
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -44,8 +53,9 @@ class HomeScreen extends ConsumerWidget {
             slivers: [
               SliverToBoxAdapter(key: const ValueKey('header'), child: _Header(settings)),
               const SliverToBoxAdapter(key: ValueKey('search'), child: _SearchField()),
+              if (offline && home.hasValue) const SliverToBoxAdapter(key: ValueKey('offline'), child: _OfflineBanner()),
               ...switch (home) {
-                AsyncValue(value: final d?) => _sections(context, d, settings),
+                AsyncValue(value: final d?) => _sections(context, d, settings, saver: saver),
                 AsyncValue(:final error?) => [
                     SliverFillRemaining(
                       key: const ValueKey('error'),
@@ -62,7 +72,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  List<Widget> _sections(BuildContext context, HomeData d, StoreSettings? settings) {
+  List<Widget> _sections(BuildContext context, HomeData d, StoreSettings? settings, {required bool saver}) {
     if (d.categories.isEmpty && d.featured.isEmpty && d.accessories.isEmpty) {
       return const [
         SliverFillRemaining(
@@ -78,7 +88,7 @@ class HomeScreen extends ConsumerWidget {
     }
     return [
       if (d.featured.isNotEmpty)
-        SliverToBoxAdapter(key: const ValueKey('hero'), child: _HeroCarousel(d.featured.take(6).toList())),
+        SliverToBoxAdapter(key: const ValueKey('hero'), child: _HeroCarousel(d.featured.take(6).toList(), saver: saver)),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryGrid(d.categories)),
       const SliverToBoxAdapter(key: ValueKey('repair'), child: _RepairCta()),
       if (d.accessories.isNotEmpty) ...[
@@ -142,6 +152,33 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.md),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(Radii.md)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+          child: Row(
+            children: [
+              Icon(PhosphorIconsRegular.wifiSlash, size: 18, color: c.onSurfaceVariant),
+              const SizedBox(width: Space.sm),
+              Expanded(
+                child: Text('You’re offline · showing saved items', style: Theme.of(context).textTheme.bodySmall),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SearchField extends StatelessWidget {
   const _SearchField();
 
@@ -177,11 +214,12 @@ class _SearchField extends StatelessWidget {
 }
 
 /// Featured products as a hero that slides to the next one every few seconds. Swipe to move; touching it
-/// pauses it. Stays still with reduce-motion or TalkBack on, and while another tab is showing.
+/// pauses it. Stays still with reduce-motion or TalkBack on, in data-saver mode, and while another tab is showing.
 class _HeroCarousel extends StatefulWidget {
-  const _HeroCarousel(this.cards);
+  const _HeroCarousel(this.cards, {required this.saver});
 
   final List<ProductCard> cards;
+  final bool saver; // no auto-advance, and only the shown card loads its photo
 
   @override
   State<_HeroCarousel> createState() => _HeroCarouselState();
@@ -216,7 +254,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
 
   void _restart() {
     _timer?.cancel();
-    if (_count < 2) return;
+    if (_count < 2 || widget.saver) return;
     _timer = Timer.periodic(_interval, (_) {
       if (!mounted) return;
       final still = MediaQuery.disableAnimationsOf(context) || MediaQuery.accessibleNavigationOf(context);
@@ -255,7 +293,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                   maintainSize: true,
                   maintainAnimation: true,
                   maintainState: true,
-                  child: _Hero(c),
+                  child: _Hero(c, photo: !widget.saver),
                 ),
               Positioned.fill(
                 child: AnimatedSwitcher(
@@ -308,9 +346,10 @@ class _HeroCarouselState extends State<_HeroCarousel> {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero(this.card, {super.key});
+  const _Hero(this.card, {super.key, this.photo = true});
 
   final ProductCard card;
+  final bool photo; // false for the invisible sizing copies in data-saver mode: same size, nothing downloaded
 
   @override
   Widget build(BuildContext context) {
@@ -323,7 +362,7 @@ class _Hero extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         child: DecoratedBox(
           // the hero stays indigo in both themes, so its text is always white
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -392,7 +431,7 @@ class _Hero extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: Space.md),
-                      SizedBox(width: 108, child: ProductImage(card.coverPath, aspectRatio: 0.8, padding: Space.sm)),
+                      SizedBox(width: 108, child: ProductImage(photo ? card.coverPath : null, aspectRatio: 0.8, padding: Space.sm)),
                     ],
                   ),
                 ),

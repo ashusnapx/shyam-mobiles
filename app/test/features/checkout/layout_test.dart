@@ -113,6 +113,7 @@ class _Orders extends OrdersNotifier {
   Future<OrdersPage> build() async => (
         orders: [_order(OrderStatus.shipped), _order(OrderStatus.pendingPayment, pay: PaymentStatus.pending)],
         hasMore: false,
+        moreFailed: false,
       );
 }
 

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import '../../../core/input.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/widgets/repair_widgets.dart';
@@ -43,7 +44,8 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                   prefixIcon: Icon(PhosphorIconsRegular.magnifyingGlass),
                 ),
                 textInputAction: TextInputAction.search,
-                onChanged: (q) => setState(() => _query = q.trim().toLowerCase()),
+                inputFormatters: textInput(MaxLen.search),
+                onChanged: (q) => setState(() => _query = tidy(q).toLowerCase()),
               ),
             ),
             ChipBar(

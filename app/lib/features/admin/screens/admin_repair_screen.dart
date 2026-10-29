@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
@@ -61,12 +62,20 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   Future<void> _write(String done, Map<String, dynamic> changes) async {
-    setState(() => _busy = true);
     try {
       await updateRepair(ref, widget.booking.id, changes);
       if (mounted) showMessage(context, done);
     } catch (e) {
       if (mounted) showMessage(context, adminError(e));
+    }
+  }
+
+  /// One action at a time, the confirm dialog included, so a double tap can't open two or write twice.
+  Future<void> _once(Future<void> Function() flow) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await flow();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -87,10 +96,10 @@ class _BodyState extends ConsumerState<_Body> {
     await _write('Marked ${to.label.toLowerCase()}', {'status': to.value});
   }
 
-  void _saveQuote() {
+  Future<void> _saveQuote() async {
     if (!_form.currentState!.validate()) return;
-    final note = _note.text.trim();
-    _write('Saved', {
+    final note = tidy(_note.text, multiline: true);
+    await _write('Saved', {
       'quote_paise': _quote.text.trim().isEmpty ? null : parseRupees(_quote.text),
       'admin_note': note.isEmpty ? null : note,
     });
@@ -113,14 +122,14 @@ class _BodyState extends ConsumerState<_Body> {
               if (next != null)
                 Expanded(
                   child: FilledButton(
-                    onPressed: _busy ? null : () => _setStatus(next),
+                    onPressed: _busy ? null : () => _once(() => _setStatus(next)),
                     child: Text('Mark ${next.label.toLowerCase()}'),
                   ),
                 ),
               const SizedBox(width: Space.sm),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(foregroundColor: c.error),
-                onPressed: _busy ? null : () => _setStatus(RepairStatus.cancelled),
+                onPressed: _busy ? null : () => _once(() => _setStatus(RepairStatus.cancelled)),
                 child: const Text('Cancel'),
               ),
             ],
@@ -170,16 +179,20 @@ class _BodyState extends ConsumerState<_Body> {
                 controller: _quote,
                 decoration: const InputDecoration(labelText: 'Quote', prefixText: '₹ ', hintText: 'Blank until inspected'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty || parseRupees(v!) != null ? null : 'Enter an amount like 2499',
+                inputFormatters: const [RupeesFormatter(maxDigits: 7)],
+                textInputAction: TextInputAction.next,
+                validator: (v) => rupeesError(v, maxPaise: maxAmountPaise, optional: true),
               ),
               const SizedBox(height: Space.md),
               TextFormField(
                 controller: _note,
-                decoration: const InputDecoration(labelText: 'Note for the customer (optional)'),
+                decoration: InputDecoration(
+                  labelText: 'Note for the customer (optional)',
+                  counter: LengthCounter(_note, MaxLen.note),
+                ),
                 minLines: 2,
                 maxLines: 5,
-                maxLength: 500,
+                inputFormatters: textInput(MaxLen.note, multiline: true),
                 textCapitalization: TextCapitalization.sentences,
               ),
               Text(
@@ -187,7 +200,10 @@ class _BodyState extends ConsumerState<_Body> {
                 style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
               ),
               const SizedBox(height: Space.md),
-              FilledButton.tonal(onPressed: _busy ? null : _saveQuote, child: const Text('Save quote and note')),
+              FilledButton.tonal(
+                onPressed: _busy ? null : () => _once(_saveQuote),
+                child: const Text('Save quote and note'),
+              ),
             ],
           ),
         ),

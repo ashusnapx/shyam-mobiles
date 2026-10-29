@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart' show Placemark;
 import 'package:http/http.dart' as http;
 
-import '../../../core/format.dart';
+import '../../../core/input.dart';
 
 /// 28 states + 8 union territories, as India Post spells them today.
 const indianStates = [
@@ -36,24 +36,16 @@ String? matchState(String raw) {
   return _stateAliases[key];
 }
 
-// Validators return null when valid, else short copy. Limits mirror the `addresses` table checks.
+// Validators return null when valid, else short copy. Limits and the letter rule mirror the `addresses` table checks.
 
-String? _length(String? v, String what, int min, int max) {
-  final n = (v ?? '').trim().length;
-  if (n == 0 && min > 0) return 'Enter $what.';
-  if (n < min) return 'Too short.';
-  if (n > max) return 'Keep it under ${max + 1} characters.';
-  return null;
-}
-
-String? validateName(String? v) => _length(v, 'a name', 2, 80);
-String? validateLine1(String? v) => _length(v, 'house and street', 3, 120);
-String? validateLine2(String? v) => _length(v, '', 0, 120);
-String? validateLandmark(String? v) => _length(v, '', 0, 80);
-String? validateCity(String? v) => _length(v, 'a city', 2, 60);
-String? validateDistrict(String? v) => _length(v, '', 0, 60);
+String? validateName(String? v) => checkText(v, min: 2, max: MaxLen.name, what: 'a name', mustHave: hasLetter);
+String? validateLine1(String? v) => checkText(v, min: 3, max: MaxLen.addressLine, what: 'house and street');
+String? validateLine2(String? v) => checkText(v, max: MaxLen.addressLine);
+String? validateLandmark(String? v) => checkText(v, max: MaxLen.landmark);
+String? validateCity(String? v) => checkText(v, min: 2, max: MaxLen.place, what: 'a city', mustHave: hasLetter);
+String? validateDistrict(String? v) => checkText(v, max: MaxLen.place, mustHave: hasLetter);
 String? validateState(String? v) => v == null || v.isEmpty ? 'Pick a state.' : null;
-String? validatePhone(String? v) => normalizeIndianPhone(v ?? '') == null ? 'Enter a 10-digit mobile number.' : null;
+String? validatePhone(String? v) => validateMobile(v);
 String? validatePincode(String? v) =>
     RegExp(r'^[1-9][0-9]{5}$').hasMatch((v ?? '').trim()) ? null : 'Enter a 6-digit pincode.';
 

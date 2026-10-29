@@ -118,7 +118,7 @@ class _CartList extends ConsumerWidget {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
     final settings = ref.watch(storeSettingsProvider);
-    final subtotal = lines.fold<int>(0, (sum, l) => sum + l.lineTotalPaise);
+    final subtotal = cartSubtotalPaise(lines);
     return RefreshIndicator(
       onRefresh: () {
         ref.invalidate(storeSettingsProvider);
@@ -171,11 +171,12 @@ class _CartList extends ConsumerWidget {
                   ]),
                   data: (s) {
                     final fee = s.deliveryFeeFor(subtotal);
+                    final gap = s.freeDeliveryGapFor(subtotal);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         TotalsRows(subtotalPaise: subtotal, deliveryFeePaise: fee, totalPaise: subtotal + fee),
-                        if (fee > 0 && s.freeDeliveryMinPaise > subtotal)
+                        if (gap > 0)
                           Padding(
                             padding: const EdgeInsets.only(top: Space.sm),
                             child: Row(
@@ -184,7 +185,7 @@ class _CartList extends ConsumerWidget {
                                 const SizedBox(width: Space.sm),
                                 Expanded(
                                   child: Text(
-                                    'Add ${formatInr(s.freeDeliveryMinPaise - subtotal)} more for free delivery',
+                                    'Add ${formatInr(gap)} more for free delivery',
                                     style: t.bodySmall?.copyWith(color: c.secondary, fontWeight: FontWeight.w600),
                                   ),
                                 ),
@@ -297,7 +298,7 @@ class _CheckoutBar extends ConsumerWidget {
     final c = Theme.of(context).colorScheme;
     final settings = ref.watch(storeSettingsProvider).value;
     final blocked = lines.any((l) => !l.purchasable);
-    final subtotal = lines.fold<int>(0, (sum, l) => sum + l.lineTotalPaise);
+    final subtotal = cartSubtotalPaise(lines);
     final total = settings == null ? null : subtotal + settings.deliveryFeeFor(subtotal);
     return DecoratedBox(
       decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.outlineVariant))),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
+import '../../../core/network.dart';
 import '../../../core/supabase.dart';
 
 /// Columns of `product_cards` that [ProductCard] reads (skips the `search` tsvector).
@@ -9,6 +10,7 @@ const cardColumns =
     'id, slug, name, is_featured, category_slug, brand_name, min_price_paise, mrp_paise, in_stock, cover_path';
 
 const searchPageSize = 20;
+const saverPageSize = 12; // data-saver mode
 
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
   final rows = await ref.watch(supabaseProvider).from('categories').select().order('sort', ascending: true);
@@ -22,34 +24,44 @@ final brandsProvider = FutureProvider<List<Brand>>((ref) async {
 
 typedef HomeData = ({List<Category> categories, List<ProductCard> featured, List<ProductCard> accessories});
 
-final homeProvider = FutureProvider<HomeData>((ref) async {
+/// Saved on the phone: a cold start (or no signal) shows the last home at once and refreshes in the background.
+final homeProvider = FutureProvider<HomeData>((ref) {
   final db = ref.watch(supabaseProvider);
-  final (categories, featured, accessories) = await (
-    ref.watch(categoriesProvider.future),
-    // phones first (enum order), so the hero is a phone when one is featured
-    db
-        .from('product_cards')
-        .select(cardColumns)
-        .eq('is_featured', true)
-        .order('category_kind', ascending: true)
-        .order('created_at')
-        .order('id', ascending: true)
-        .limit(10),
-    db
-        .from('product_cards')
-        .select(cardColumns)
-        .eq('category_kind', 'accessory')
-        .lte('min_price_paise', 150000)
-        .order('min_price_paise', ascending: true)
-        .order('id', ascending: true)
-        .limit(4),
-  ).wait;
-  return (
-    categories: categories,
-    featured: [for (final r in featured) ProductCard.fromJson(r)],
-    accessories: [for (final r in accessories) ProductCard.fromJson(r)],
-  );
+  return savedOrFetch(ref, 'home', () async {
+    final (categories, featured, accessories) = await (
+      db.from('categories').select().order('sort', ascending: true),
+      // phones first (enum order), so the hero is a phone when one is featured
+      db
+          .from('product_cards')
+          .select(cardColumns)
+          .eq('is_featured', true)
+          .order('category_kind', ascending: true)
+          .order('created_at')
+          .order('id', ascending: true)
+          .limit(10),
+      db
+          .from('product_cards')
+          .select(cardColumns)
+          .eq('category_kind', 'accessory')
+          .lte('min_price_paise', 150000)
+          .order('min_price_paise', ascending: true)
+          .order('id', ascending: true)
+          .limit(4),
+    ).wait;
+    return {'categories': categories, 'featured': featured, 'accessories': accessories};
+  }, homeFromJson);
 });
+
+/// The saved/fetched home payload (PostgREST rows by section) as [HomeData].
+HomeData homeFromJson(Object? json) {
+  final j = json! as Map<String, dynamic>;
+  List<Map<String, dynamic>> rows(String k) => [for (final r in j[k] as List) r as Map<String, dynamic>];
+  return (
+    categories: [for (final r in rows('categories')) Category.fromJson(r)],
+    featured: [for (final r in rows('featured')) ProductCard.fromJson(r)],
+    accessories: [for (final r in rows('accessories')) ProductCard.fromJson(r)],
+  );
+}
 
 /// Null when the slug doesn't exist or the product is inactive (RLS hides it).
 final productProvider = FutureProvider.autoDispose.family<Product?, String>((ref, slug) async {
@@ -82,7 +94,12 @@ enum SearchSort {
 typedef SearchParams = ({String q, String? category, String? brand, int? maxPricePaise, SearchSort sort});
 
 /// One page of `product_cards` for [p], starting at row [offset]. Always ends on `id` so paging is stable.
-PostgrestTransformBuilder<PostgrestList> searchQuery(PostgrestQueryBuilder table, SearchParams p, {int offset = 0}) {
+PostgrestTransformBuilder<PostgrestList> searchQuery(
+  PostgrestQueryBuilder table,
+  SearchParams p, {
+  int offset = 0,
+  int pageSize = searchPageSize,
+}) {
   var q = table.select(cardColumns);
   final tsquery = prefixTsQuery(p.q);
   if (tsquery != null) q = q.textSearch('search', tsquery, config: 'simple');
@@ -96,7 +113,7 @@ PostgrestTransformBuilder<PostgrestList> searchQuery(PostgrestQueryBuilder table
     SearchSort.priceAsc => q.order('min_price_paise', ascending: true),
     SearchSort.priceDesc => q.order('min_price_paise'),
   };
-  return sorted.order('id', ascending: true).range(offset, offset + searchPageSize - 1);
+  return sorted.order('id', ascending: true).range(offset, offset + pageSize - 1);
 }
 
 /// [moreFailed]: the last next-page load failed; paging pauses until a retry.
@@ -120,7 +137,8 @@ class SearchNotifier extends AsyncNotifier<SearchResults> {
   }
 
   Future<(List<ProductCard>, int)> _page(int offset) async {
-    final res = await searchQuery(ref.read(supabaseProvider).from('product_cards'), params, offset: offset)
+    final size = ref.read(dataSaverProvider) == DataMode.saver ? saverPageSize : searchPageSize;
+    final res = await searchQuery(ref.read(supabaseProvider).from('product_cards'), params, offset: offset, pageSize: size)
         .count(CountOption.exact);
     return ([for (final r in res.data) ProductCard.fromJson(r)], res.count);
   }
@@ -143,8 +161,10 @@ class SearchNotifier extends AsyncNotifier<SearchResults> {
 }
 
 /// "sams gal" → "sams:* & gal:*" so results appear while the customer is still typing.
-/// Strips everything but letters and digits, so tsquery syntax (& | ! ( ) :) in input can't break the query.
+/// Strips everything but letters, their marks (Hindi vowel signs: "सैमसंग" stays one word) and digits, so tsquery
+/// syntax (& | ! ( ) : * ' \) and PostgREST's , . ( ) in input can't break or widen the query. At most 10 words.
 String? prefixTsQuery(String input) {
-  final words = input.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)).where((w) => w.isNotEmpty);
+  final words =
+      input.toLowerCase().split(RegExp(r'[^\p{L}\p{M}\p{N}]+', unicode: true)).where((w) => w.isNotEmpty).take(10);
   return words.isEmpty ? null : words.map((w) => '$w:*').join(' & ');
 }

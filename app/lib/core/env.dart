@@ -10,13 +10,15 @@ abstract final class Env {
   /// Base URL of the published site/ pages (privacy, terms, refunds...), e.g. https://shyammobiles.in
   static const policiesUrl = String.fromEnvironment('POLICIES_URL');
 
-  /// Dev-only one-tap sign-in to local test accounts (see scripts/dev_setup.py). Release builds never
-  /// get these defines, and kReleaseMode keeps the buttons out even if someone passes them.
+  /// Dev-only one-tap sign-in to local test accounts (see scripts/dev_setup.py). Compile-time false in
+  /// release (kReleaseMode is a const), so the buttons are tree-shaken. The credentials are gated the same
+  /// way: a release build made with env/dev.json by mistake still holds '' instead of the test passwords.
+  /// test/core/release_safety_test.dart pins both.
   static const devLogin = bool.fromEnvironment('DEV_LOGIN') && !kReleaseMode;
-  static const devCustomerEmail = String.fromEnvironment('DEV_CUSTOMER_EMAIL');
-  static const devCustomerPassword = String.fromEnvironment('DEV_CUSTOMER_PASSWORD');
-  static const devAdminEmail = String.fromEnvironment('DEV_ADMIN_EMAIL');
-  static const devAdminPassword = String.fromEnvironment('DEV_ADMIN_PASSWORD');
+  static const devCustomerEmail = devLogin ? String.fromEnvironment('DEV_CUSTOMER_EMAIL') : '';
+  static const devCustomerPassword = devLogin ? String.fromEnvironment('DEV_CUSTOMER_PASSWORD') : '';
+  static const devAdminEmail = devLogin ? String.fromEnvironment('DEV_ADMIN_EMAIL') : '';
+  static const devAdminPassword = devLogin ? String.fromEnvironment('DEV_ADMIN_PASSWORD') : '';
 
   static void check() {
     assert(supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty,

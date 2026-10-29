@@ -1,10 +1,14 @@
 import 'package:intl/intl.dart';
 
 final _inr = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-final _inrPaise = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
-/// 12999900 → "₹1,29,999". Shows paise only when there are some.
-String formatInr(int paise) => paise % 100 == 0 ? _inr.format(paise ~/ 100) : _inrPaise.format(paise / 100);
+/// 12999900 → "₹1,29,999", 4950 → "₹49.50", -4950 → "-₹49.50". Shows paise only when there are some.
+/// Integer maths only: rupees and paise are formatted separately, never through a double.
+String formatInr(int paise) {
+  if (paise < 0) return '-${formatInr(-paise)}';
+  final rupees = _inr.format(paise ~/ 100);
+  return paise % 100 == 0 ? rupees : '$rupees.${(paise % 100).toString().padLeft(2, '0')}';
+}
 
 /// Whole-percent discount off MRP, rounded down so we never overstate it.
 int discountPercent(int pricePaise, int mrpPaise) =>
@@ -27,6 +31,11 @@ String? normalizeIndianPhone(String input) {
 /// "+919876543210" → "+91 98765 43210"
 String displayPhone(String e164) =>
     e164.length == 13 ? '${e164.substring(0, 3)} ${e164.substring(3, 8)} ${e164.substring(8)}' : e164;
+
+/// The only links the app hands to other apps: the dialler, https (WhatsApp, Maps, policy pages) and UPI.
+/// Store settings and admin-typed links are data, so anything else (intent:, file:, javascript:) is refused.
+bool isAllowedExternalUri(Uri uri) =>
+    uri.scheme == 'tel' || uri.scheme == 'upi' || (uri.scheme == 'https' && uri.host.isNotEmpty);
 
 /// Google Maps directions to [address] (opens the Maps app, or the browser). Maps universal link: no API key.
 Uri directionsUri(String address) =>

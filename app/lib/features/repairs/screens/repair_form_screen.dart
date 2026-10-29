@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
@@ -42,7 +45,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
   void initState() {
     super.initState();
     ref.read(myPhoneProvider.future).then((p) {
-      if (mounted && p != null && _phone.text.isEmpty) _phone.text = displayPhone(p);
+      if (mounted && p != null && _phone.text.isEmpty) _phone.text = localPhone(p);
     }, onError: (_) {}); // prefill is a nicety; the field stays editable
   }
 
@@ -57,6 +60,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
   bool _slotOpen(RepairSlot s) => !slotOver(s, _day, _now);
 
   Future<void> _submit() async {
+    if (_busy) return; // a double tap would book twice
     final missing = [
       if (_brand == null) 'your phone’s brand',
       if (_issue == null) 'what’s wrong',
@@ -69,17 +73,17 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
     try {
       final id = await bookRepair(
         ref.read(supabaseProvider),
-        deviceBrand: _brand == 'Other' ? _otherBrand.text.trim() : _brand!,
-        deviceModel: _model.text.trim(),
+        deviceBrand: _brand == 'Other' ? tidy(_otherBrand.text) : _brand!,
+        deviceModel: tidy(_model.text),
         issue: _issue!,
-        description: _description.text.trim(),
+        description: tidy(_description.text, multiline: true),
         preferredDate: isoDate(_day),
         slot: _slot!,
         contactPhone: normalizeIndianPhone(_phone.text)!,
       );
       ref.invalidate(myRepairsProvider);
       if (!mounted) return;
-      HapticFeedback.mediumImpact();
+      unawaited(HapticFeedback.mediumImpact());
       showMessage(context, 'Booked. We’ll call you to confirm.');
       context.pushReplacement('/repairs/$id');
     } catch (e) {
@@ -115,119 +119,135 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
       ),
       body: Form(
         key: _form,
-        child: ListView(
+        // not a ListView: a lazy list drops fields scrolled far away, and Form.validate() would skip them
+        child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: Space.xl),
-          children: [
-            const _Pad(FieldLabel('Your phone')),
-            ChipBar(
-              options: {for (final b in _brands) b: b},
-              selected: _brand,
-              onSelected: (b) => setState(() => _brand = b),
-            ),
-            if (_brand == 'Other')
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _Pad(FieldLabel('Your phone')),
+              ChipBar(
+                options: {for (final b in _brands) b: b},
+                selected: _brand,
+                onSelected: (b) => setState(() => _brand = b),
+              ),
+              if (_brand == 'Other')
+                _Pad(Padding(
+                  padding: const EdgeInsets.only(top: Space.sm),
+                  child: TextFormField(
+                    controller: _otherBrand,
+                    decoration: const InputDecoration(labelText: 'Brand'),
+                    textCapitalization: TextCapitalization.words,
+                    inputFormatters: textInput(MaxLen.deviceBrand),
+                    textInputAction: TextInputAction.next,
+                    validator: (v) =>
+                        checkText(v, min: 1, max: MaxLen.deviceBrand, what: 'the brand', mustHave: hasLetterOrDigit),
+                  ),
+                )),
               _Pad(Padding(
                 padding: const EdgeInsets.only(top: Space.sm),
                 child: TextFormField(
-                  controller: _otherBrand,
-                  decoration: const InputDecoration(labelText: 'Brand'),
+                  controller: _model,
+                  decoration: const InputDecoration(labelText: 'Model', hintText: 'e.g. Galaxy S23'),
                   textCapitalization: TextCapitalization.words,
-                  maxLength: 40,
-                  validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the brand' : null,
+                  inputFormatters: textInput(MaxLen.deviceModel),
+                  textInputAction: TextInputAction.next,
+                  validator: (v) =>
+                      checkText(v, min: 1, max: MaxLen.deviceModel, what: 'the model', mustHave: hasLetterOrDigit),
                 ),
               )),
-            _Pad(Padding(
-              padding: const EdgeInsets.only(top: Space.sm),
-              child: TextFormField(
-                controller: _model,
-                decoration: const InputDecoration(labelText: 'Model', hintText: 'e.g. Galaxy S23'),
-                textCapitalization: TextCapitalization.words,
-                maxLength: 60,
-                validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the model' : null,
-              ),
-            )),
-            const _Pad(FieldLabel('What’s wrong?')),
-            _Pad(_IssueGrid(selected: _issue, onSelected: (i) => setState(() => _issue = i))),
-            _Pad(Padding(
-              padding: const EdgeInsets.only(top: Space.md),
-              child: TextFormField(
-                controller: _description,
-                decoration: const InputDecoration(labelText: 'Anything else? (optional)'),
-                minLines: 2,
-                maxLines: 4,
-                maxLength: 500,
-              ),
-            )),
-            const _Pad(FieldLabel('When can you come in?')),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-              child: Row(
-                children: [
-                  for (final d in _days)
-                    Padding(
-                      padding: const EdgeInsets.only(right: Space.sm),
-                      child: _DayChip(
-                        day: d,
-                        today: isIstToday(d, _now),
-                        selected: d == _day,
-                        onTap: () => setState(() {
-                          _day = d;
-                          if (_slot != null && !_slotOpen(_slot!)) _slot = null;
-                        }),
+              const _Pad(FieldLabel('What’s wrong?')),
+              _Pad(_IssueGrid(selected: _issue, onSelected: (i) => setState(() => _issue = i))),
+              _Pad(Padding(
+                padding: const EdgeInsets.only(top: Space.md),
+                child: TextFormField(
+                  controller: _description,
+                  decoration: InputDecoration(
+                    labelText: 'Anything else? (optional)',
+                    counter: LengthCounter(_description, MaxLen.note),
+                  ),
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: textInput(MaxLen.note, multiline: true),
+                ),
+              )),
+              const _Pad(FieldLabel('When can you come in?')),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                child: Row(
+                  children: [
+                    for (final d in _days)
+                      Padding(
+                        padding: const EdgeInsets.only(right: Space.sm),
+                        child: _DayChip(
+                          day: d,
+                          today: isIstToday(d, _now),
+                          selected: d == _day,
+                          onTap: () => setState(() {
+                            _day = d;
+                            if (_slot != null && !_slotOpen(_slot!)) _slot = null;
+                          }),
+                        ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            _Pad(Padding(
-              padding: const EdgeInsets.only(top: Space.md),
-              child: Row(
-                children: [
-                  for (final s in RepairSlot.values) ...[
-                    if (s != RepairSlot.values.first) const SizedBox(width: Space.sm),
-                    Expanded(
-                      child: _SlotChip(
-                        slot: s,
-                        selected: s == _slot,
-                        onTap: _slotOpen(s) ? () => setState(() => _slot = s) : null,
-                      ),
-                    ),
                   ],
-                ],
-              ),
-            )),
-            _Pad(Padding(
-              padding: const EdgeInsets.only(top: Space.xl),
-              child: TextFormField(
-                controller: _phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone for updates',
-                  prefixIcon: Icon(PhosphorIconsRegular.phone),
                 ),
-                keyboardType: TextInputType.phone,
-                autofillHints: const [AutofillHints.telephoneNumber],
-                validator: (v) => normalizeIndianPhone(v ?? '') == null ? 'Enter a 10-digit Indian mobile number' : null,
               ),
-            )),
-            if (note != null && note.isNotEmpty)
-              _Pad(Padding(padding: const EdgeInsets.only(top: Space.lg), child: NoteBox(note))),
-            _Pad(Padding(
-              padding: const EdgeInsets.only(top: Space.md),
-              child: Text(
-                'Booking is free. You can cancel until the repair starts.',
-                style: t.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
-            )),
-            if (storePhone != null)
-              _Pad(Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => openUri(context, whatsAppUri(storePhone, text: 'Hi, I have a question about a repair')),
-                  icon: const WhatsAppIcon(),
-                  label: const Text('WhatsApp'),
+              _Pad(Padding(
+                padding: const EdgeInsets.only(top: Space.md),
+                child: Row(
+                  children: [
+                    for (final s in RepairSlot.values) ...[
+                      if (s != RepairSlot.values.first) const SizedBox(width: Space.sm),
+                      Expanded(
+                        child: _SlotChip(
+                          slot: s,
+                          selected: s == _slot,
+                          onTap: _slotOpen(s) ? () => setState(() => _slot = s) : null,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               )),
-          ],
+              _Pad(Padding(
+                padding: const EdgeInsets.only(top: Space.xl),
+                child: TextFormField(
+                  controller: _phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone for updates',
+                    prefixIcon: Icon(PhosphorIconsRegular.phone),
+                    prefixText: '+91 ',
+                    hintText: '98765 43210',
+                  ),
+                  keyboardType: TextInputType.phone,
+                  autofillHints: const [AutofillHints.telephoneNumberNational],
+                  inputFormatters: const [IndianMobileFormatter()],
+                  textInputAction: TextInputAction.done,
+                  validator: validateMobile,
+                ),
+              )),
+              if (note != null && note.isNotEmpty)
+                _Pad(Padding(padding: const EdgeInsets.only(top: Space.lg), child: NoteBox(note))),
+              _Pad(Padding(
+                padding: const EdgeInsets.only(top: Space.md),
+                child: Text(
+                  'Booking is free. You can cancel until the repair starts.',
+                  style: t.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              )),
+              if (storePhone != null)
+                _Pad(Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => openUri(context, whatsAppUri(storePhone, text: 'Hi, I have a question about a repair')),
+                    icon: const WhatsAppIcon(),
+                    label: const Text('WhatsApp'),
+                  ),
+                )),
+            ],
+          ),
         ),
       ),
     );

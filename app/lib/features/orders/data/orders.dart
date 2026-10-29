@@ -7,7 +7,8 @@ import '../../cart/data/cart.dart';
 
 const ordersPageSize = 20;
 
-typedef OrdersPage = ({List<Order> orders, bool hasMore});
+/// [moreFailed]: the last next-page load failed; paging pauses until a retry (no endless spinner).
+typedef OrdersPage = ({List<Order> orders, bool hasMore, bool moreFailed});
 
 /// The signed-in user's orders, newest first. Filtered by user_id: RLS also lets admins read everyone's.
 final ordersProvider = AsyncNotifierProvider.autoDispose<OrdersNotifier, OrdersPage>(OrdersNotifier.new);
@@ -16,7 +17,7 @@ class OrdersNotifier extends AsyncNotifier<OrdersPage> {
   bool _loadingMore = false;
 
   Future<OrdersPage> _fetch(String? uid, int from) async {
-    if (uid == null) return (orders: const <Order>[], hasMore: false);
+    if (uid == null) return (orders: const <Order>[], hasMore: false, moreFailed: false);
     final rows = await ref
         .read(supabaseProvider)
         .from('orders')
@@ -24,19 +25,24 @@ class OrdersNotifier extends AsyncNotifier<OrdersPage> {
         .eq('user_id', uid)
         .order('created_at', ascending: false)
         .range(from, from + ordersPageSize - 1);
-    return (orders: [for (final r in rows) Order.fromJson(r)], hasMore: rows.length == ordersPageSize);
+    return (orders: [for (final r in rows) Order.fromJson(r)], hasMore: rows.length == ordersPageSize, moreFailed: false);
   }
 
   @override
   Future<OrdersPage> build() => _fetch(ref.watch(currentUserIdProvider), 0);
 
-  Future<void> loadMore() async {
+  /// Appends the next page. No-op while loading, at the end, or after a failure unless [retry].
+  Future<void> loadMore({bool retry = false}) async {
     final current = state.value;
-    if (current == null || !current.hasMore || _loadingMore || state.isLoading) return;
+    if (current == null || !current.hasMore || _loadingMore || state.isLoading || (current.moreFailed && !retry)) return;
     _loadingMore = true;
     try {
       final next = await _fetch(ref.read(currentUserIdProvider), current.orders.length);
-      if (ref.mounted) state = AsyncData((orders: [...current.orders, ...next.orders], hasMore: next.hasMore));
+      if (ref.mounted) {
+        state = AsyncData((orders: [...current.orders, ...next.orders], hasMore: next.hasMore, moreFailed: false));
+      }
+    } catch (_) {
+      if (ref.mounted) state = AsyncData((orders: current.orders, hasMore: current.hasMore, moreFailed: true));
     } finally {
       _loadingMore = false;
     }

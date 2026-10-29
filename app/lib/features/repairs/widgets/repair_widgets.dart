@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
@@ -154,11 +153,7 @@ Uri whatsAppUri(String e164, {String? text}) =>
     Uri.https('wa.me', '/${e164.replaceAll('+', '')}', text == null ? null : {'text': text});
 
 Future<void> openUri(BuildContext context, Uri uri) async {
-  var ok = false;
-  try {
-    ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } catch (_) {}
-  if (!ok && context.mounted) showMessage(context, 'Couldn’t open that on this phone.');
+  if (!await launchExternal(uri) && context.mounted) showMessage(context, 'Couldn’t open that on this phone.');
 }
 
 /// "WhatsApp" and "Call store" buttons, from store_settings.store_phone.

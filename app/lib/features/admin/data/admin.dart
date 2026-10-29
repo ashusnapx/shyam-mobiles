@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../catalog/data/catalog.dart' show brandsProvider;
+import 'photos.dart';
 import 'rules.dart';
 import '../../repairs/data/repairs.dart';
 
@@ -17,8 +18,8 @@ SupabaseClient _db(WidgetRef ref) => ref.read(supabaseProvider);
 
 /// `admin_dashboard()`: orders_today, revenue_today_paise, open_orders, low_stock, open_repairs, needs_refund (all ints).
 final adminDashboardProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
-  final json = await ref.watch(supabaseProvider).rpc('admin_dashboard') as Map;
-  return {for (final e in json.entries) e.key as String: (e.value as num).toInt()};
+  final json = await ref.watch(supabaseProvider).rpc<Map<String, dynamic>>('admin_dashboard');
+  return {for (final e in json.entries) e.key: (e.value as num).toInt()};
 });
 
 typedef NeedsAction = ({List<Order> orders, List<RepairBooking> repairs});
@@ -90,7 +91,7 @@ Future<void> updateOrder(
   String? courier,
   String? tracking,
 }) async {
-  await _db(ref).rpc('admin_update_order', params: {
+  await _db(ref).rpc<void>('admin_update_order', params: {
     'p_order_id': orderId,
     'p_status': status.value,
     'p_note': note,
@@ -101,7 +102,7 @@ Future<void> updateOrder(
 }
 
 Future<void> setImeis(WidgetRef ref, String orderId, String itemId, List<String> imeis) async {
-  await _db(ref).rpc('admin_set_imeis', params: {'p_order_item_id': itemId, 'p_imeis': imeis});
+  await _db(ref).rpc<void>('admin_set_imeis', params: {'p_order_item_id': itemId, 'p_imeis': imeis});
   ref.invalidate(adminOrderProvider(orderId));
 }
 
@@ -250,33 +251,43 @@ Future<String> saveProduct(WidgetRef ref, String? id, Map<String, dynamic> field
   return saved;
 }
 
-/// The bucket accepts JPEG, PNG and WebP; read the real type from the file's first bytes.
-(String ext, String mime)? imageTypeOf(Uint8List b) {
-  if (b.length > 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return ('jpg', 'image/jpeg');
-  if (b.length > 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return ('png', 'image/png');
-  if (b.length > 12 && String.fromCharCodes(b.sublist(0, 4)) == 'RIFF' && String.fromCharCodes(b.sublist(8, 12)) == 'WEBP') {
-    return ('webp', 'image/webp');
+/// Compresses [original] (photos.dart) and uploads `<folder>/<millis>.webp` plus `<folder>/<millis>@thumb.webp`.
+/// Returns the full photo's key, the only one the DB stores, and the sizes for the "4.2 MB → 180 KB" message.
+Future<({String path, int before, int after})> _uploadPhoto(StorageFileApi bucket, String folder, Uint8List original) async {
+  final photo = await preparePhoto(original);
+  final path = '$folder/${DateTime.now().millisecondsSinceEpoch}.webp';
+  // Keys are never reused (<millis>.webp), so phones may cache a photo for a year: one download per customer.
+  const webp = FileOptions(contentType: 'image/webp', cacheControl: '31536000');
+  await bucket.uploadBinary(path, photo.full, fileOptions: webp);
+  try {
+    await bucket.uploadBinary(thumbPathFor(path)!, photo.thumb, fileOptions: webp);
+  } catch (_) {
+    await _removeQuietly(bucket, [path]);
+    rethrow;
   }
-  return null;
+  return (path: path, before: photo.originalBytes, after: photo.full.length);
 }
 
-/// Uploads to `<productId>/<millis>.<ext>`, then adds the product_images row (removing the file if that fails).
-Future<void> addProductImage(WidgetRef ref, String productId, Uint8List bytes, int sort) async {
-  final type = imageTypeOf(bytes);
-  if (type == null) throw const FormatException('Use a JPEG, PNG or WebP photo.');
+/// Best effort: an orphaned file is harmless; the error that caused the clean-up is what matters.
+Future<void> _removeQuietly(StorageFileApi bucket, List<String> paths) async {
+  try {
+    await bucket.remove(paths);
+  } catch (_) {}
+}
+
+/// Uploads the photo and its thumb, then adds the product_images row (removing the files if that fails).
+Future<({int before, int after})> addProductImage(WidgetRef ref, String productId, Uint8List original, int sort) async {
   final db = _db(ref);
   final bucket = db.storage.from('product-images');
-  final path = '$productId/${DateTime.now().millisecondsSinceEpoch}.${type.$1}';
-  await bucket.uploadBinary(path, bytes, fileOptions: FileOptions(contentType: type.$2));
+  final up = await _uploadPhoto(bucket, productId, original);
   try {
-    await db.from('product_images').insert({'product_id': productId, 'path': path, 'sort': sort});
+    await db.from('product_images').insert({'product_id': productId, 'path': up.path, 'sort': sort});
   } catch (_) {
-    try {
-      await bucket.remove([path]);
-    } catch (_) {} // best effort; the row error below is what matters
+    await _removeQuietly(bucket, [up.path, thumbPathFor(up.path)!]);
     rethrow;
   }
   _productChanged(ref, productId);
+  return (before: up.before, after: up.after);
 }
 
 /// Removes the photo from the product but keeps the file: past orders still show it via `order_items.image_path`.
@@ -324,27 +335,21 @@ Future<void> saveStorePhotos(WidgetRef ref, List<String> paths) async {
   } catch (_) {} // saved; the screen shows the reload error
 }
 
-/// Uploads to `store/<millis>.<ext>`, then appends it to [current] (removing the file if that fails).
-Future<void> addStorePhoto(WidgetRef ref, List<String> current, Uint8List bytes) async {
-  final type = imageTypeOf(bytes);
-  if (type == null) throw const FormatException('Use a JPEG, PNG or WebP photo.');
+/// Uploads the photo and its thumb to `store/`, then appends it to [current] (removing the files if that fails).
+Future<({int before, int after})> addStorePhoto(WidgetRef ref, List<String> current, Uint8List original) async {
   final bucket = _db(ref).storage.from('product-images');
-  final path = 'store/${DateTime.now().millisecondsSinceEpoch}.${type.$1}';
-  await bucket.uploadBinary(path, bytes, fileOptions: FileOptions(contentType: type.$2));
+  final up = await _uploadPhoto(bucket, 'store', original);
   try {
-    await saveStorePhotos(ref, [...current, path]);
+    await saveStorePhotos(ref, [...current, up.path]);
   } catch (_) {
-    try {
-      await bucket.remove([path]);
-    } catch (_) {} // best effort; the save error below is what matters
+    await _removeQuietly(bucket, [up.path, thumbPathFor(up.path)!]);
     rethrow;
   }
+  return (before: up.before, after: up.after);
 }
 
-/// Unlike product photos, no order points at shop photos, so the file is deleted too.
+/// Unlike product photos, no order points at shop photos, so the file and its thumb are deleted too.
 Future<void> removeStorePhoto(WidgetRef ref, List<String> current, String path) async {
   await saveStorePhotos(ref, [...current]..remove(path));
-  try {
-    await _db(ref).storage.from('product-images').remove([path]);
-  } catch (_) {} // best effort: an orphaned file is harmless
+  await _removeQuietly(_db(ref).storage.from('product-images'), [path, ?thumbPathFor(path)]);
 }

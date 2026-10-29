@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/env.dart';
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/router.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
@@ -16,8 +19,6 @@ import '../../../core/widgets/widgets.dart';
 import '../../account/widgets/policies.dart';
 import '../data/google.dart';
 import '../widgets/dev_login.dart';
-
-final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key, this.from});
@@ -64,9 +65,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
   Future<void> _sendCode() async {
     if (_sending) return;
     final phone = normalizeIndianPhone(_phone.text);
-    final email = _email.text.trim().toLowerCase();
-    if (_usePhone ? phone == null : !_emailPattern.hasMatch(email)) {
-      setState(() => _error = _usePhone ? 'Enter a 10-digit mobile number.' : 'Enter a valid email address.');
+    final email = normalizeEmail(_email.text);
+    if ((_usePhone ? validateMobile(_phone.text) : validateEmail(email)) case final error?) {
+      setState(() => _error = error);
       return;
     }
     setState(() {
@@ -78,12 +79,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
       _usePhone ? await auth.signInWithOtp(phone: phone) : await auth.signInWithOtp(email: email, shouldCreateUser: true);
       if (!mounted) return;
       // The code screen pops with 'phone' or 'email' when the user wants to switch method.
-      context.push<String>(Uri(path: '/sign-in/verify', queryParameters: {
+      unawaited(context.push<String>(Uri(path: '/sign-in/verify', queryParameters: {
         if (_usePhone) 'phone': phone else 'email': email,
         if (widget.from != null) 'from': widget.from,
       }).toString()).then((method) {
         if (mounted && method != null) _tabs.animateTo(method == 'email' ? 1 : 0);
-      });
+      }));
     } catch (e) {
       if (mounted) showMessage(context, friendlyError(e));
     } finally {
@@ -92,6 +93,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
   }
 
   Future<void> _google() async {
+    if (_googleBusy || _sending) return;
     setState(() => _googleBusy = true);
     try {
       await signInWithGoogle(ref.read(supabaseProvider).auth); // the router redirects on success
@@ -119,8 +121,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
             autofillHints: const [AutofillHints.telephoneNumberNational],
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _sendCode(),
-            // Spaces allowed so a pasted "+91 98765 43210" survives; normalizeIndianPhone strips the 91.
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d ]')), LengthLimitingTextInputFormatter(14)],
+            // 10 digits after the fixed +91; a pasted "+91 98765-43210" or "098765 43210" becomes them
+            inputFormatters: const [IndianMobileFormatter()],
             style: t.bodyLarge?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             decoration: InputDecoration(
               hintText: '98765 43210',
@@ -144,6 +146,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
             keyboardType: TextInputType.emailAddress,
             autofillHints: const [AutofillHints.email],
             autocorrect: false,
+            enableSuggestions: false,
+            inputFormatters: emailInput,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _sendCode(),
             decoration: InputDecoration(hintText: 'you@example.com', errorText: _error),

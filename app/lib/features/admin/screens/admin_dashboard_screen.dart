@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -189,35 +191,41 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     const actions = [
       (PhosphorIconsRegular.plus, 'Add product', '/admin/products/new'),
+      (PhosphorIconsRegular.package, 'Catalogue', '/admin/catalogue'),
       (PhosphorIconsRegular.receipt, 'Orders', '/admin/orders'),
       (PhosphorIconsRegular.wrench, 'Repairs', '/admin/repairs'),
       (PhosphorIconsRegular.gearSix, 'Settings', '/admin/settings'),
     ];
     final c = Theme.of(context).colorScheme;
+    Widget tile(IconData icon, String label, String route) => InkWell(
+          borderRadius: BorderRadius.circular(Radii.lg),
+          onTap: () => context.push(route),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.xs),
+            child: Column(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(color: c.primaryContainer, borderRadius: BorderRadius.circular(16)),
+                  child: SizedBox.square(dimension: 52, child: Icon(icon, color: c.onPrimaryContainer)),
+                ),
+                const SizedBox(height: 6),
+                Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelMedium),
+              ],
+            ),
+          ),
+        );
+    // three a row, so "Catalogue" and "Add product" fit on one line at large text
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Space.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          for (final (icon, label, route) in actions)
-            Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(Radii.lg),
-                onTap: () => context.push(route),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: Space.xs),
-                  child: Column(
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(color: c.primaryContainer, borderRadius: BorderRadius.circular(16)),
-                        child: SizedBox.square(dimension: 52, child: Icon(icon, color: c.onPrimaryContainer)),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelMedium),
-                    ],
-                  ),
-                ),
-              ),
+          for (var i = 0; i < actions.length; i += 3)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var j = i; j < i + 3; j++)
+                  Expanded(child: j < actions.length ? tile(actions[j].$1, actions[j].$2, actions[j].$3) : const SizedBox()),
+              ],
             ),
         ],
       ),
@@ -238,7 +246,7 @@ class _NeedsActionState extends ConsumerState<_NeedsAction> {
 
   Future<void> _run(String id, String done, Future<void> Function() write) async {
     setState(() => _hidden.add(id));
-    HapticFeedback.selectionClick();
+    unawaited(HapticFeedback.selectionClick());
     try {
       await write();
       if (mounted) showMessage(context, done);

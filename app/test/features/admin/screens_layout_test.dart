@@ -48,16 +48,16 @@ Order _order(OrderStatus status, {PaymentStatus pay = PaymentStatus.paid}) => Or
 const _brand = Brand(id: 'br1', slug: 'samsung', name: 'Samsung');
 const _category = Category(id: 'c1', slug: 'phones', name: 'Phones', kind: CategoryKind.phone);
 
-final _product = Product(
+const _product = Product(
   id: 'p1',
   slug: 'samsung-galaxy-s25',
   name: 'Samsung Galaxy S25 Ultra 5G',
   brand: _brand,
   category: _category,
   description: 'Flagship.',
-  specs: const [Spec('Display', '6.9 in Dynamic AMOLED 2X, 120 Hz'), Spec('Battery', '5000 mAh')],
-  images: const [ProductPhoto(id: 'im1', path: 'p1/1.jpg')],
-  variants: const [
+  specs: [Spec('Display', '6.9 in Dynamic AMOLED 2X, 120 Hz'), Spec('Battery', '5000 mAh')],
+  images: [ProductPhoto(id: 'im1', path: 'p1/1.jpg')],
+  variants: [
     Variant(
       id: 'v1',
       productId: 'p1',

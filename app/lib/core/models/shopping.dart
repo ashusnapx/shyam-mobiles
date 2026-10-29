@@ -164,7 +164,13 @@ class StoreSettings {
 
   /// Mirrors `place_order`; the server total is the one that's charged.
   int deliveryFeeFor(int subtotalPaise) => subtotalPaise >= freeDeliveryMinPaise ? 0 : deliveryFeePaise;
+
+  /// `place_order`'s COD rule: on the total *including* delivery (subtotal + fee), limit inclusive.
   bool codAllowedFor(int totalPaise) => codEnabled && totalPaise <= codMaxPaise;
+
+  /// How much more to add for free delivery ("Add ₹X more"); 0 when delivery is already free.
+  int freeDeliveryGapFor(int subtotalPaise) =>
+      deliveryFeeFor(subtotalPaise) == 0 ? 0 : freeDeliveryMinPaise - subtotalPaise;
 
   /// Where directions go: the exact pin when staff set one, else the address text.
   String get mapsDestination => storeLat == null || storeLng == null ? storeAddress : '$storeLat,$storeLng';

@@ -121,7 +121,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           action: FilledButton(onPressed: () => context.go('/orders'), child: const Text('View orders')),
         );
       } else {
-        final subtotal = lines.fold<int>(0, (sum, l) => sum + l.lineTotalPaise);
+        final subtotal = cartSubtotalPaise(lines);
         final fee = s.deliveryFeeFor(subtotal);
         final total = subtotal + fee;
         final codReason = codUnavailableReason(s, total);
@@ -287,7 +287,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                       TextButton(
                         onPressed: busy ? null : () => _changeAddress(addresses, address),
-                        child: Text('Change', semanticsLabel: 'Change delivery address'),
+                        child: const Text('Change', semanticsLabel: 'Change delivery address'),
                       ),
                     ],
                   ),

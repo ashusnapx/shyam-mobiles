@@ -25,7 +25,7 @@ class RepairDetailScreen extends ConsumerWidget {
 
   final String bookingId;
 
-  Future<void> _cancel(BuildContext context, WidgetRef ref) async {
+  Future<void> _cancel(BuildContext context) async {
     final ok = await confirmChoice(
       context,
       title: 'Cancel this booking?',
@@ -34,14 +34,18 @@ class RepairDetailScreen extends ConsumerWidget {
       keep: 'Keep booking',
       destructive: true,
     );
-    if (!ok) return;
+    if (!ok || !context.mounted) return;
+    // The container outlives this screen: the lists still refresh if the customer goes back mid-call.
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
-      await cancelRepair(ref.read(supabaseProvider), bookingId);
-      ref.invalidate(repairProvider(bookingId));
-      ref.invalidate(myRepairsProvider);
+      await cancelRepair(container.read(supabaseProvider), bookingId);
       if (context.mounted) showMessage(context, 'Booking cancelled');
     } catch (e) {
       if (context.mounted) showMessage(context, friendlyError(e));
+    } finally {
+      container
+        ..invalidate(repairProvider(bookingId))
+        ..invalidate(myRepairsProvider);
     }
   }
 
@@ -56,7 +60,7 @@ class RepairDetailScreen extends ConsumerWidget {
         loading: Skeletonizer(child: _Body(booking: skeletonBookings.first, onCancel: () {})),
         data: (b) => RefreshIndicator(
           onRefresh: () => ref.refresh(repairProvider(bookingId).future),
-          child: _Body(booking: b, onCancel: () => _cancel(context, ref)),
+          child: _Body(booking: b, onCancel: () => _cancel(context)),
         ),
       ),
     );

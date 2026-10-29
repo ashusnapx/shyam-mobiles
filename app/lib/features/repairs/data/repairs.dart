@@ -64,4 +64,4 @@ Future<String> bookRepair(
   return row['id'] as String;
 }
 
-Future<void> cancelRepair(SupabaseClient db, String id) => db.rpc('cancel_repair', params: {'p_booking_id': id});
+Future<void> cancelRepair(SupabaseClient db, String id) => db.rpc<void>('cancel_repair', params: {'p_booking_id': id});

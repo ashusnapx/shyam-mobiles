@@ -101,7 +101,7 @@ void main() {
     await tester.pump();
     expect(find.text('Gaya · Bihar'), findsNothing);
     expect(find.textContaining('No post office has this pincode'), findsOneWidget);
-    expect(find.byType(ChoiceChip), findsNothing, reason: 'no area chips');
+    expect(find.text('Tap your area'), findsNothing, reason: 'no area chips');
 
     await tester.enterText(_field('Pincode'), '800001');
     await tester.pump(const Duration(milliseconds: 400));

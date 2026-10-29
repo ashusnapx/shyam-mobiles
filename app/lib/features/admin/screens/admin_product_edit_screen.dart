@@ -1,4 +1,5 @@
-import 'package:flutter/services.dart';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,16 +7,31 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/widgets/repair_widgets.dart';
 import '../data/admin.dart';
+import '../data/photos.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
 
 const _gstRates = <num>[0, 5, 12, 18, 28];
+
+// specs is jsonb with no per-field limit (only 20 kB in all); these keep one row readable on a phone
+const _specLabelMax = 40;
+const _specValueMax = 200;
+
+// variant attributes: short enough that "RAM · storage · colour" always fits the 80-character variant name
+const _ramMax = 20, _storageMax = 20, _colorMax = 30;
+
+/// The slug suggested for a product name, cut to the DB's 160 without a trailing dash.
+String slugFor(String name) {
+  final s = slugify(name);
+  return s.length <= MaxLen.slug ? s : s.substring(0, MaxLen.slug).replaceAll(RegExp(r'-+$'), '');
+}
 
 String _pct(num g) => g == g.roundToDouble() ? '${g.toInt()}%' : '$g%';
 
@@ -111,18 +127,23 @@ class _EditorState extends ConsumerState<_Editor> {
   void _moveSpec(int i, int to) => setState(() => _specs.insert(to, _specs.removeAt(i)));
 
   Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
+    if (_busy || !_form.currentState!.validate()) return;
+    final specs = [
+      for (final s in _specs)
+        if (tidy(s.label.text).isNotEmpty) Spec(tidy(s.label.text), tidy(s.value.text)).toJson(),
+    ];
+    // DB: specs ≤ 20 kB; Postgres prints jsonb with a few more spaces than jsonEncode, hence the margin
+    if (utf8.encode(jsonEncode(specs)).length > 19000) {
+      return showMessage(context, 'The specs are too long to save. Shorten or remove some.');
+    }
     setState(() => _busy = true);
     final fields = {
-      'name': _name.text.trim(),
+      'name': tidy(_name.text),
       'slug': _slug.text.trim(),
       'brand_id': _brandId,
       'category_id': _categoryId,
-      'description': _description.text.trim(),
-      'specs': [
-        for (final s in _specs)
-          if (s.label.text.trim().isNotEmpty) Spec(s.label.text.trim(), s.value.text.trim()).toJson(),
-      ],
+      'description': tidy(_description.text, multiline: true),
+      'specs': specs,
       'gst_rate': _gst,
       'is_active': _active,
       'is_featured': _featured,
@@ -159,171 +180,192 @@ class _EditorState extends ConsumerState<_Editor> {
       ),
       body: Form(
         key: _form,
-        child: ListView(
+        // not a ListView: a lazy list drops fields scrolled far away, and Form.validate() would skip them
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, Space.xl),
-          children: [
-            NoteBox(
-              _p == null
-                  ? 'Save the details first. Then you can add photos and variants.'
-                  : 'Details save with the button below. Photos and variants save as soon as you change them.',
-              tone: TagTone.info,
-            ),
-            if (live != null && live.isActive && live.activeVariants.isEmpty) ...[
-              const SizedBox(height: Space.sm),
-              const NoteBox('Customers can’t see this product until it has an active variant.',
-                  icon: PhosphorIconsBold.warning),
-            ],
-            const ListSection('Details'),
-            TextFormField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Name', hintText: 'Start with the brand: Samsung Galaxy S25'),
-              textCapitalization: TextCapitalization.words,
-              maxLength: 120,
-              onChanged: (v) {
-                if (!_slugEdited) _slug.text = slugify(v);
-              },
-              validator: (v) => (v ?? '').trim().length < 2 ? 'Enter at least 2 characters' : null,
-            ),
-            const SizedBox(height: Space.sm),
-            TextFormField(
-              controller: _slug,
-              decoration: const InputDecoration(labelText: 'Slug (web address)', helperText: 'Lowercase letters, numbers and dashes'),
-              autocorrect: false,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9-]'))],
-              onChanged: (_) => _slugEdited = true,
-              validator: (v) => slugPattern.hasMatch(v ?? '') ? null : 'Use a-z, 0-9 and dashes only',
-            ),
-            const SizedBox(height: Space.md),
-            PickerField<String>(
-              label: 'Brand',
-              options: [for (final b in _brands) b.id],
-              labelOf: (id) => _brands.firstWhere((b) => b.id == id).name,
-              initialValue: _brandId,
-              onChanged: (v) => setState(() => _brandId = v),
-              validator: (v) => v == null ? 'Pick a brand' : null,
-              searchHint: 'Search or type a new brand',
-              createLabel: 'Add brand',
-              createName: brandDisplayName,
-              onCreate: (name) async {
-                final b = await createBrand(ref, name);
-                if (mounted && !_brands.any((x) => x.id == b.id)) setState(() => _brands.add(b));
-                return b.id;
-              },
-            ),
-            const SizedBox(height: Space.md),
-            PickerField<String>(
-              label: 'Category',
-              options: [for (final k in widget.categories) k.id],
-              labelOf: (id) => widget.categories.firstWhere((k) => k.id == id).name,
-              initialValue: _categoryId,
-              onChanged: (v) => setState(() => _categoryId = v),
-              validator: (v) => v == null ? 'Pick a category' : null,
-            ),
-            const SizedBox(height: Space.md),
-            TextFormField(
-              controller: _description,
-              decoration: const InputDecoration(labelText: 'Description', alignLabelWithHint: true),
-              minLines: 3,
-              maxLines: 8,
-              maxLength: 5000,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: Space.sm),
-            PickerField<num>(
-              label: 'GST rate',
-              helperText: 'Prices include GST. Phones are 18%.',
-              options: gstOptions,
-              labelOf: _pct,
-              initialValue: _gst,
-              onChanged: (v) => setState(() => _gst = v),
-            ),
-            const SizedBox(height: Space.sm),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Show in the shop'),
-              subtitle: const Text('Off hides it from customers'),
-              value: _active,
-              onChanged: (v) => setState(() => _active = v),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Featured on home'),
-              value: _featured,
-              onChanged: (v) => setState(() => _featured = v),
-            ),
-            ListSection(
-              'Specs',
-              trailing: TextButton.icon(
-                onPressed: () => setState(() => _specs.add(_SpecRow())),
-                icon: const Icon(PhosphorIconsRegular.plus),
-                label: const Text('Add spec'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              NoteBox(
+                _p == null
+                    ? 'Save the details first. Then you can add photos and variants.'
+                    : 'Details save with the button below. Photos and variants save as soon as you change them.',
+                tone: TagTone.info,
               ),
-            ),
-            if (_specs.isEmpty)
-              Text('Add rows like Display · 6.2 in AMOLED.', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-            for (final (i, s) in _specs.indexed)
-              Padding(
-                key: ObjectKey(s),
-                padding: const EdgeInsets.only(bottom: Space.md),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
+              if (live != null && live.isActive && live.activeVariants.isEmpty) ...[
+                const SizedBox(height: Space.sm),
+                const NoteBox('Customers can’t see this product until it has an active variant.',
+                    icon: PhosphorIconsBold.warning),
+              ],
+              const ListSection('Details'),
+              TextFormField(
+                controller: _name,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  hintText: 'Start with the brand: Samsung Galaxy S25',
+                  counter: LengthCounter(_name, MaxLen.productName),
+                ),
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: textInput(MaxLen.productName),
+                textInputAction: TextInputAction.next,
+                onChanged: (v) {
+                  if (!_slugEdited) _slug.text = slugFor(v);
+                },
+                validator: (v) =>
+                    checkText(v, min: 2, max: MaxLen.productName, what: 'the product name', mustHave: hasLetterOrDigit),
+              ),
+              const SizedBox(height: Space.sm),
+              TextFormField(
+                controller: _slug,
+                decoration: const InputDecoration(labelText: 'Slug (web address)', helperText: 'Lowercase letters, numbers and dashes'),
+                autocorrect: false,
+                enableSuggestions: false,
+                keyboardType: TextInputType.url,
+                inputFormatters: slugInput,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => _slugEdited = true,
+                validator: (v) => slugPattern.hasMatch(v ?? '') ? null : 'Use a-z, 0-9 and dashes only',
+              ),
+              const SizedBox(height: Space.md),
+              PickerField<String>(
+                label: 'Brand',
+                options: [for (final b in _brands) b.id],
+                labelOf: (id) => _brands.firstWhere((b) => b.id == id).name,
+                initialValue: _brandId,
+                onChanged: (v) => setState(() => _brandId = v),
+                validator: (v) => v == null ? 'Pick a brand' : null,
+                searchHint: 'Search or type a new brand',
+                createLabel: 'Add brand',
+                createName: brandDisplayName,
+                onCreate: (name) async {
+                  final b = await createBrand(ref, name);
+                  if (mounted && !_brands.any((x) => x.id == b.id)) setState(() => _brands.add(b));
+                  return b.id;
+                },
+              ),
+              const SizedBox(height: Space.md),
+              PickerField<String>(
+                label: 'Category',
+                options: [for (final k in widget.categories) k.id],
+                labelOf: (id) => widget.categories.firstWhere((k) => k.id == id).name,
+                initialValue: _categoryId,
+                onChanged: (v) => setState(() => _categoryId = v),
+                validator: (v) => v == null ? 'Pick a category' : null,
+              ),
+              const SizedBox(height: Space.md),
+              TextFormField(
+                controller: _description,
+                decoration: InputDecoration(
+                  labelText: 'Description',
+                  alignLabelWithHint: true,
+                  counter: LengthCounter(_description, MaxLen.productDescription),
+                ),
+                minLines: 3,
+                maxLines: 8,
+                inputFormatters: textInput(MaxLen.productDescription, multiline: true),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              const SizedBox(height: Space.sm),
+              PickerField<num>(
+                label: 'GST rate',
+                helperText: 'Prices include GST. Phones are 18%.',
+                options: gstOptions,
+                labelOf: _pct,
+                initialValue: _gst,
+                onChanged: (v) => setState(() => _gst = v),
+              ),
+              const SizedBox(height: Space.sm),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Show in the shop'),
+                subtitle: const Text('Off hides it from customers'),
+                value: _active,
+                onChanged: (v) => setState(() => _active = v),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Featured on home'),
+                value: _featured,
+                onChanged: (v) => setState(() => _featured = v),
+              ),
+              ListSection(
+                'Specs',
+                trailing: TextButton.icon(
+                  onPressed: () => setState(() => _specs.add(_SpecRow())),
+                  icon: const Icon(PhosphorIconsRegular.plus),
+                  label: const Text('Add spec'),
+                ),
+              ),
+              if (_specs.isEmpty)
+                Text('Add rows like Display · 6.2 in AMOLED.', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+              for (final (i, s) in _specs.indexed)
+                Padding(
+                  key: ObjectKey(s),
+                  padding: const EdgeInsets.only(bottom: Space.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: s.label,
+                              decoration: InputDecoration(labelText: 'Label ${i + 1}', hintText: 'Display'),
+                              textCapitalization: TextCapitalization.words,
+                              inputFormatters: textInput(_specLabelMax),
+                              textInputAction: TextInputAction.next,
+                              validator: (v) =>
+                                  tidy(v).isEmpty && tidy(s.value.text).isNotEmpty ? 'Add a label' : null,
+                            ),
+                            const SizedBox(height: Space.xs),
+                            TextFormField(
+                              controller: s.value,
+                              decoration: const InputDecoration(labelText: 'Value', hintText: '6.2 in AMOLED, 120 Hz'),
+                              inputFormatters: textInput(_specValueMax),
+                              textInputAction: TextInputAction.next,
+                              validator: (v) =>
+                                  tidy(v).isEmpty && tidy(s.label.text).isNotEmpty ? 'Add a value' : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
                         children: [
-                          TextFormField(
-                            controller: s.label,
-                            decoration: InputDecoration(labelText: 'Label ${i + 1}', hintText: 'Display'),
-                            textCapitalization: TextCapitalization.words,
-                            validator: (v) =>
-                                (v ?? '').trim().isEmpty && s.value.text.trim().isNotEmpty ? 'Add a label' : null,
+                          IconButton(
+                            tooltip: 'Move spec ${i + 1} up',
+                            onPressed: i == 0 ? null : () => _moveSpec(i, i - 1),
+                            icon: const Icon(PhosphorIconsRegular.arrowUp),
                           ),
-                          const SizedBox(height: Space.xs),
-                          TextFormField(
-                            controller: s.value,
-                            decoration: const InputDecoration(labelText: 'Value', hintText: '6.2 in AMOLED, 120 Hz'),
-                            validator: (v) =>
-                                (v ?? '').trim().isEmpty && s.label.text.trim().isNotEmpty ? 'Add a value' : null,
+                          IconButton(
+                            tooltip: 'Move spec ${i + 1} down',
+                            onPressed: i == _specs.length - 1 ? null : () => _moveSpec(i, i + 1),
+                            icon: const Icon(PhosphorIconsRegular.arrowDown),
+                          ),
+                          IconButton(
+                            tooltip: 'Remove spec ${i + 1}',
+                            onPressed: () {
+                              final row = _specs[i];
+                              setState(() => _specs.removeAt(i));
+                              // its fields still hold the controllers until this frame is built
+                              WidgetsBinding.instance.addPostFrameCallback((_) => row.dispose());
+                            },
+                            icon: const Icon(PhosphorIconsRegular.trash),
                           ),
                         ],
                       ),
-                    ),
-                    Column(
-                      children: [
-                        IconButton(
-                          tooltip: 'Move spec ${i + 1} up',
-                          onPressed: i == 0 ? null : () => _moveSpec(i, i - 1),
-                          icon: const Icon(PhosphorIconsRegular.arrowUp),
-                        ),
-                        IconButton(
-                          tooltip: 'Move spec ${i + 1} down',
-                          onPressed: i == _specs.length - 1 ? null : () => _moveSpec(i, i + 1),
-                          icon: const Icon(PhosphorIconsRegular.arrowDown),
-                        ),
-                        IconButton(
-                          tooltip: 'Remove spec ${i + 1}',
-                          onPressed: () {
-                            final row = _specs[i];
-                            setState(() => _specs.removeAt(i));
-                            // its fields still hold the controllers until this frame is built
-                            WidgetsBinding.instance.addPostFrameCallback((_) => row.dispose());
-                          },
-                          icon: const Icon(PhosphorIconsRegular.trash),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            if (live == null) ...[
-              const ListSection('Photos and variants'),
-              Text('Create the product first. Photos and variants come next.',
-                  style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-            ] else ...[
-              _Photos(product: live),
-              _Variants(product: live),
+              if (live == null) ...[
+                const ListSection('Photos and variants'),
+                Text('Create the product first. Photos and variants come next.',
+                    style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+              ] else ...[
+                _Photos(product: live),
+                _Variants(product: live),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -380,17 +422,19 @@ class _PhotosState extends ConsumerState<_Photos> {
     if (source == null) return;
     final XFile? file;
     try {
-      file = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
+      // the original: photos.dart resizes, turns it upright and strips the metadata (image_picker's resize keeps GPS)
+      file = await ImagePicker().pickImage(source: source);
     } catch (_) {
       if (mounted) showMessage(context, 'Couldn’t open the camera or gallery.');
       return;
     }
     if (file == null) return;
     final images = widget.product.images;
-    await _run(
-      () async => addProductImage(ref, widget.product.id, await file!.readAsBytes(), images.isEmpty ? 0 : images.last.sort + 1),
-      'Photo added',
-    );
+    await _run(() async {
+      final saved = await addProductImage(
+          ref, widget.product.id, await readPhoto(file!), images.isEmpty ? 0 : images.last.sort + 1);
+      if (mounted) showMessage(context, 'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}');
+    });
   }
 
   void _move(int i, int to) {
@@ -470,7 +514,7 @@ class _Variants extends StatelessWidget {
 
   final Product product;
 
-  void _open(BuildContext context, Variant? v) => showModalBottomSheet(
+  void _open(BuildContext context, Variant? v) => showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
@@ -598,17 +642,17 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
     super.dispose();
   }
 
-  String get _autoName => variantName([_ram.text, _storage.text, _color.text]);
+  String get _autoName => variantName([tidy(_ram.text), tidy(_storage.text), tidy(_color.text)]);
 
   Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
+    if (_busy || !_form.currentState!.validate()) return;
     final attributes = {...?_v?.attributes}; // keeps any keys this form doesn't edit
     for (final (key, c) in [('ram', _ram), ('storage', _storage), ('color', _color), ('color_hex', _hex)]) {
-      c.text.trim().isEmpty ? attributes.remove(key) : attributes[key] = c.text.trim();
+      tidy(c.text).isEmpty ? attributes.remove(key) : attributes[key] = tidy(c.text);
     }
     final fields = {
       'sku': _sku.text.trim(),
-      'name': _name.text.trim().isEmpty ? _autoName : _name.text.trim(),
+      'name': tidy(_name.text).isEmpty ? _autoName : tidy(_name.text),
       'attributes': attributes,
       'price_paise': parseRupees(_price.text),
       'mrp_paise': parseRupees(_mrp.text),
@@ -641,12 +685,12 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
       title: _v == null ? 'New variant' : 'Edit variant',
       children: [
         Row(children: [
-          Expanded(child: _field(_ram, 'RAM', hint: '8 GB')),
+          Expanded(child: _field(_ram, 'RAM', hint: '8 GB', max: _ramMax)),
           gap,
-          Expanded(child: _field(_storage, 'Storage', hint: '256 GB')),
+          Expanded(child: _field(_storage, 'Storage', hint: '256 GB', max: _storageMax)),
         ]),
         Row(children: [
-          Expanded(child: _field(_color, 'Colour', hint: 'Navy')),
+          Expanded(child: _field(_color, 'Colour', hint: 'Navy', max: _colorMax)),
           gap,
           Expanded(
             child: TextFormField(
@@ -657,6 +701,9 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
                 suffixIcon: hexOk ? Padding(padding: const EdgeInsets.all(12), child: _Swatch(_hex.text.trim())) : null,
               ),
               autocorrect: false,
+              enableSuggestions: false,
+              inputFormatters: const [HexColorFormatter()],
+              textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
               validator: (v) => (v ?? '').trim().isEmpty || hexColorPattern.hasMatch(v!.trim()) ? null : 'Like #1F2B4D',
             ),
@@ -670,29 +717,52 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
             helperText: 'Blank uses RAM · storage · colour',
             hintText: _autoName.isEmpty ? '8 GB · 256 GB · Navy' : _autoName,
           ),
-          maxLength: 80,
-          validator: (v) => (v ?? '').trim().isEmpty && _autoName.isEmpty ? 'Add a name or RAM/storage/colour' : null,
+          inputFormatters: textInput(MaxLen.name),
+          textInputAction: TextInputAction.next,
+          validator: (v) => tidy(v).isEmpty
+              ? (_autoName.isEmpty ? 'Add a name or RAM/storage/colour' : checkText(_autoName, max: MaxLen.name))
+              : checkText(v, max: MaxLen.name),
         ),
-        _field(_sku, 'SKU', hint: 'SAM-S25-8-256-NVY', required: true),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          child: TextFormField(
+            controller: _sku,
+            decoration: const InputDecoration(labelText: 'SKU', hintText: 'SAM-S25-8-256-NVY'),
+            autocorrect: false,
+            enableSuggestions: false,
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: skuInput,
+            textInputAction: TextInputAction.next,
+            validator: (v) => (v ?? '').isEmpty
+                ? 'Enter the SKU'
+                : skuPattern.hasMatch(v!)
+                    ? null
+                    : 'Start with a letter or digit; then letters, digits and . _ / - only',
+          ),
+        ),
         const SizedBox(height: Space.md),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             child: TextFormField(
               controller: _price,
-              decoration: const InputDecoration(labelText: 'Price', prefixText: '₹ '),
+              decoration: const InputDecoration(labelText: 'Price', prefixText: '₹ ', errorMaxLines: 3),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (v) => (parseRupees(v ?? '') ?? 0) > 0 ? null : 'Enter a price above ₹0',
+              inputFormatters: const [RupeesFormatter(maxDigits: 7)],
+              textInputAction: TextInputAction.next,
+              validator: (v) => rupeesError(v, minPaise: 1, maxPaise: maxAmountPaise),
             ),
           ),
           gap,
           Expanded(
             child: TextFormField(
               controller: _mrp,
-              decoration: const InputDecoration(labelText: 'MRP', prefixText: '₹ '),
+              decoration: const InputDecoration(labelText: 'MRP', prefixText: '₹ ', errorMaxLines: 3),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: const [RupeesFormatter(maxDigits: 7)],
+              textInputAction: TextInputAction.next,
               validator: (v) {
-                final mrp = parseRupees(v ?? '');
-                if (mrp == null) return 'Enter the MRP';
+                if (rupeesError(v, minPaise: 1, maxPaise: maxAmountPaise) case final error?) return error;
+                final mrp = parseRupees(v!)!;
                 final price = parseRupees(_price.text);
                 return price != null && mrp < price ? 'Can’t be below ${formatInr(price)}' : null;
               },
@@ -704,8 +774,10 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
           controller: _stock,
           decoration: const InputDecoration(labelText: 'Stock'),
           keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          validator: (v) => int.tryParse(v ?? '') == null ? 'Enter a number' : null,
+          // business cap 99,999 (5 digits), well inside the DB's 0..1,000,000
+          inputFormatters: const [DigitsFormatter(5)],
+          textInputAction: TextInputAction.done,
+          validator: (v) => (v ?? '').isEmpty ? 'Enter the stock (0 if none)' : null,
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -724,13 +796,14 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
     );
   }
 
-  Widget _field(TextEditingController c, String label, {String? hint, bool required = false}) => Padding(
+  Widget _field(TextEditingController c, String label, {required String hint, required int max}) => Padding(
         padding: const EdgeInsets.only(bottom: Space.md),
         child: TextFormField(
           controller: c,
           decoration: InputDecoration(labelText: label, hintText: hint),
+          inputFormatters: textInput(max),
+          textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}), // refreshes the auto name hint
-          validator: required ? (v) => (v ?? '').trim().isEmpty ? 'Enter the $label' : null : null,
         ),
       );
 }

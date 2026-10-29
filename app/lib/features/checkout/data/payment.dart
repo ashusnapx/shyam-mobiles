@@ -215,7 +215,7 @@ class PaymentFlow extends Notifier<PayStage> {
       return (orderId: orderId, payment: method == PaymentMethod.cod ? null : await _pay(orderId));
     } finally {
       state = PayStage.idle;
-      ref.invalidate(cartProvider); // emptied by the server on success; stale stock on OUT_OF_STOCK
+      ref.invalidate(cartProvider); // the server removes the ordered lines on success; stale stock on OUT_OF_STOCK
     }
   }
 

@@ -12,6 +12,9 @@ const _select =
 /// Most of one variant a customer can hold in the cart (DB check allows 1..5).
 int maxQtyFor(Variant v) => math.min(v.stock, 5);
 
+/// Σ price × qty, like `place_order` (which refuses the order while any line isn't purchasable).
+int cartSubtotalPaise(List<CartLine> lines) => lines.fold(0, (sum, l) => sum + l.lineTotalPaise);
+
 final cartProvider = AsyncNotifierProvider<CartNotifier, List<CartLine>>(CartNotifier.new);
 
 final cartCountProvider = Provider<int>(
@@ -39,7 +42,9 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
     if (next <= current) return;
     await _db.from('cart_items').upsert({'user_id': uid, 'variant_id': variant.id, 'qty': next});
     ref.invalidateSelf();
-    await future;
+    try {
+      await future;
+    } catch (_) {} // added; the cart screen shows the reload error with a retry
   }
 
   Future<void> setQty(String variantId, int qty) => _optimistic(
@@ -52,11 +57,17 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
         () => _db.from('cart_items').delete().eq('variant_id', variantId),
       );
 
+  // Quantity taps go to the server one at a time, in tap order. In parallel they can land out of order (3 after
+  // 4), leaving the server cart, which place_order charges, different from the qty and total on screen.
+  Future<void> _writes = Future.value();
+
   Future<void> _optimistic(List<CartLine> Function(List<CartLine>) apply, Future<void> Function() write) async {
     final before = state.value ?? const <CartLine>[];
     state = AsyncData(apply(before));
+    final run = _writes.then((_) => write());
+    _writes = run.then<void>((_) {}, onError: (Object _) {});
     try {
-      await write();
+      await run;
     } catch (_) {
       state = AsyncData(before);
       rethrow;

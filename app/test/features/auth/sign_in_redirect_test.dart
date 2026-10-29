@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -25,7 +27,7 @@ void main() {
       overrides: [currentUserIdProvider.overrideWith((ref) => ref.watch(_uid))],
       child: MaterialApp.router(theme: ThemeData(colorScheme: lightScheme, fontFamily: 'Roboto'), routerConfig: router),
     ));
-    router.push('/sign-in?from=%2Faccount');
+    unawaited(router.push('/sign-in?from=%2Faccount'));
     await tester.pumpAndSettle();
     expect(find.byType(SignInScreen), findsOneWidget);
 

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
@@ -46,7 +47,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   }
 
   Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
+    if (_saving || !_form.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
       await saveFullName(ref, _name.text);
@@ -75,11 +76,12 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             enabled: widget.profile != null,
             textCapitalization: TextCapitalization.words,
             autofillHints: const [AutofillHints.name],
-            maxLength: 80,
-            decoration: const InputDecoration(labelText: 'Full name', counterText: ''),
+            inputFormatters: textInput(MaxLen.name),
+            decoration: const InputDecoration(labelText: 'Full name'),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _save(),
-            validator: (v) => (v ?? '').trim().length > 80 ? 'Keep it under 81 characters.' : null,
+            // blank clears the name; otherwise the profiles check: a letter in any script, ≤80
+            validator: (v) => checkText(v, max: MaxLen.name, mustHave: hasLetter),
           ),
           const SizedBox(height: Space.lg),
           if (phone != null) _ReadOnly(label: 'Mobile number', value: phone),

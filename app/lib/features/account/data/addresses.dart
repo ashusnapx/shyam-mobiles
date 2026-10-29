@@ -31,7 +31,10 @@ class AddressesNotifier extends AsyncNotifier<List<Address>> {
             .single()
         : await _db.from('addresses').update(address.toJson()).eq('id', address.id!).select().single();
     ref.invalidateSelf();
-    await future;
+    // Saved: a failed reload must not look like a failed save, or a second tap inserts a duplicate.
+    try {
+      await future;
+    } catch (_) {} // the list screen shows the reload error with a retry
     return Address.fromJson(row);
   }
 

@@ -52,6 +52,9 @@ dependencies:
   material_ui: ^1.8.0
   geolocator: ^14.1.2
   geocoding: ^5.0.1
+  flutter_image_compress: ^2.5.1
+  connectivity_plus: ^7.3.1
+  device_info_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

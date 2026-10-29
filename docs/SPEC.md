@@ -153,7 +153,8 @@ Bottom nav (shell): **Home · Search · Repairs · Cart · Account**, plus **Adm
 /repairs              my bookings + "Book a repair"; /repairs/new form; /repairs/:id
 /account              profile, addresses, wishlist, store contact, sign out, delete account
 /sign-in              phone | email tabs + Google; /sign-in/verify code entry
-/admin                dashboard; /admin/products(/:id); /admin/orders(/:id); /admin/repairs(/:id)
+/admin                dashboard; /admin/catalogue (every variant: inline and bulk stock/price/visibility edits);
+                      /admin/products(/:id); /admin/orders(/:id); /admin/repairs(/:id); /admin/settings
 ```
 
 Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account redirect to `/sign-in?from=<path>` and come back after login.
@@ -166,6 +167,11 @@ Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account
 - Haptics on add-to-cart and order success. No modal dialogs for success; use inline states or snackbars.
 - The Razorpay sheet is prefilled with the account's phone/email.
 - Copy is short and plain. Errors say what to do next.
+
+## Photos and slow networks
+
+- Admin uploads (products and shop) are straightened, stripped of EXIF/GPS, and stored as WebP: `<folder>/<millis>.webp` (≤1600 px, q80) plus `<folder>/<millis>@thumb.webp` (≤480 px, q70); the DB stores the full path, `thumbPathFor` derives the thumb. Uploads are cached for a year (keys are never reused).
+- Data saver (Account: Auto / On / Off; Auto = low-RAM phone or a measured latency above 800 ms): thumbnails everywhere, full photos on tap, no carousel auto-advance, search pages of 12. Home and store settings are kept on the phone and shown instantly when offline.
 
 ## v1 additions from competitive research (docs/COMPETITIVE.md)
 

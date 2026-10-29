@@ -1,6 +1,6 @@
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/input.dart';
 import '../../../core/theme/tokens.dart';
 
 const otpLength = 6;
@@ -74,10 +74,10 @@ class OtpField extends StatelessWidget {
             autofocus: true,
             keyboardType: TextInputType.number,
             autofillHints: const [AutofillHints.oneTimeCode],
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(otpLength),
-            ],
+            autocorrect: false,
+            enableSuggestions: false,
+            // a pasted SMS ("123456 is your code") keeps just the code
+            inputFormatters: const [DigitsFormatter(otpLength)],
             showCursor: false,
             style: const TextStyle(color: Colors.transparent),
             decoration: const InputDecoration(

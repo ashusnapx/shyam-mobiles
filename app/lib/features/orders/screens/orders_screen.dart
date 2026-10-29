@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
@@ -75,14 +76,7 @@ class OrdersScreen extends ConsumerWidget {
               onRefresh: () => ref.refresh(ordersProvider.future),
               child: NotificationListener<ScrollNotification>(
                 onNotification: (s) {
-                  if (page.hasMore && s.metrics.extentAfter < 400) {
-                    final messenger = ScaffoldMessenger.of(context);
-                    ref.read(ordersProvider.notifier).loadMore().catchError((Object e) {
-                      messenger
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(SnackBar(content: Text(friendlyError(e))));
-                    });
-                  }
+                  if (page.hasMore && s.metrics.extentAfter < 400) unawaited(ref.read(ordersProvider.notifier).loadMore());
                   return false;
                 },
                 child: ListView.separated(
@@ -93,10 +87,18 @@ class OrdersScreen extends ConsumerWidget {
                   separatorBuilder: (_, _) => const SizedBox(height: Space.md),
                   itemBuilder: (_, i) => i < n
                       ? _OrderTile(page.orders[i])
-                      : const Padding(
-                          padding: EdgeInsets.all(Space.lg),
-                          child: Center(child: CircularProgressIndicator(semanticsLabel: 'Loading more orders')),
-                        ),
+                      : page.moreFailed
+                          ? Center(
+                              child: TextButton.icon(
+                                onPressed: () => ref.read(ordersProvider.notifier).loadMore(retry: true),
+                                icon: const Icon(PhosphorIconsRegular.arrowClockwise),
+                                label: const Text('Couldn’t load more. Try again'),
+                              ),
+                            )
+                          : const Padding(
+                              padding: EdgeInsets.all(Space.lg),
+                              child: Center(child: CircularProgressIndicator(semanticsLabel: 'Loading more orders')),
+                            ),
                 ),
               ),
             );

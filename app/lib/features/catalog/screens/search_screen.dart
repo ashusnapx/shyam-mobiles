@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -7,6 +8,8 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
+import '../../../core/input.dart';
+import '../../../core/network.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
@@ -30,10 +33,13 @@ class SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
-  late final _text = TextEditingController(text: widget.query ?? '');
+  // a deep link can carry any ?q=; the field and the query keep the first 100 characters
+  late final _text = TextEditingController(text: _clip(widget.query ?? ''));
   Timer? _debounce;
 
-  late String _q = (widget.query ?? '').trim();
+  late String _q = tidy(_text.text);
+
+  static String _clip(String q) => String.fromCharCodes(q.runes.take(MaxLen.search));
   late String? _category = widget.category;
   late String? _brand = widget.brand;
   int? _maxPrice;
@@ -51,7 +57,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _setQuery(String text) {
     _debounce?.cancel();
-    if (text.trim() != _q) setState(() => _q = text.trim());
+    if (tidy(text) != _q) setState(() => _q = tidy(text));
   }
 
   void _onChanged(String text) {
@@ -102,6 +108,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   controller: _text,
                   autofocus: widget.query == null && widget.category == null && widget.brand == null && widget.sort == null,
                   textInputAction: TextInputAction.search,
+                  inputFormatters: textInput(MaxLen.search),
                   onChanged: _onChanged,
                   onSubmitted: _setQuery,
                   decoration: InputDecoration(
@@ -198,9 +205,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final notifier = ref.read(searchProvider(params).notifier);
+    // data saver: no prefetching; the next page loads once the spinner row is in view, nothing is built off screen
+    final saver = ref.watch(dataSaverProvider) == DataMode.saver;
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.axis == Axis.vertical && n.metrics.extentAfter < 600) notifier.loadMore();
+        if (n.metrics.axis == Axis.vertical && n.metrics.extentAfter < (saver ? 100 : 600)) notifier.loadMore();
         return false;
       },
       child: RefreshIndicator(
@@ -211,6 +220,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           } catch (_) {} // the error view shows it
         },
         child: CustomScrollView(
+          scrollCacheExtent: saver ? const ScrollCacheExtent.pixels(0) : null,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
             SliverToBoxAdapter(

@@ -1,9 +1,9 @@
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
@@ -24,15 +24,24 @@ class AdminOrderScreen extends ConsumerStatefulWidget {
 class _AdminOrderScreenState extends ConsumerState<AdminOrderScreen> {
   bool _busy = false;
 
-  Future<void> _write(String done, Future<void> Function() write) async {
+  /// One action at a time, its dialog or sheet included: a double tap would otherwise open two ship sheets or
+  /// cancel twice (the second cancel adds a second "Cancelled by the store" note to the timeline).
+  Future<void> _once(Future<void> Function() flow) async {
+    if (_busy) return;
     setState(() => _busy = true);
+    try {
+      await flow();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _write(String done, Future<void> Function() write) async {
     try {
       await write();
       if (mounted) showMessage(context, done);
     } catch (e) {
       if (mounted) showMessage(context, adminError(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -106,11 +115,11 @@ class _AdminOrderScreenState extends ConsumerState<AdminOrderScreen> {
                         // refunds are rare and follow money moving elsewhere, so they don't get the primary style
                         child: s == OrderStatus.refunded
                             ? OutlinedButton(
-                                onPressed: _busy ? null : () => _advance(order!, s),
+                                onPressed: _busy ? null : () => _once(() => _advance(order!, s)),
                                 child: Text(_actionLabel(s)),
                               )
                             : FilledButton(
-                                onPressed: _busy ? null : () => _advance(order!, s),
+                                onPressed: _busy ? null : () => _once(() => _advance(order!, s)),
                                 child: Text(_actionLabel(s)),
                               ),
                       ),
@@ -126,8 +135,8 @@ class _AdminOrderScreenState extends ConsumerState<AdminOrderScreen> {
             child: _Body(
               order: o,
               busy: _busy,
-              onCancel: () => _cancel(o),
-              onEditShipping: () => _editShipping(o),
+              onCancel: () => _once(() => _cancel(o)),
+              onEditShipping: () => _once(() => _editShipping(o)),
             ),
           ),
         ),
@@ -325,7 +334,7 @@ class _ItemCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: () => showModalBottomSheet(
+                onPressed: () => showModalBottomSheet<void>(
                   context: context,
                   isScrollControlled: true,
                   useSafeArea: true,
@@ -370,7 +379,7 @@ class _ImeiSheetState extends ConsumerState<_ImeiSheet> {
   }
 
   Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
+    if (_busy || !_form.currentState!.validate()) return;
     final imeis = [for (final f in _fields) f.text];
     setState(() => _error = imeisError(imeis, widget.item.qty));
     if (_error != null) return;
@@ -402,10 +411,17 @@ class _ImeiSheetState extends ConsumerState<_ImeiSheet> {
               padding: const EdgeInsets.only(bottom: Space.sm),
               child: TextFormField(
                 controller: f,
-                decoration: InputDecoration(labelText: _fields.length == 1 ? 'IMEI' : 'IMEI, unit ${i + 1}'),
+                decoration: InputDecoration(
+                  labelText: _fields.length == 1 ? 'IMEI' : 'IMEI, unit ${i + 1}',
+                  counter: LengthCounter(f, 15),
+                ),
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                maxLength: 15,
+                autocorrect: false,
+                enableSuggestions: false,
+                // a pasted box label ("IMEI1: 35-209900-176148-1") keeps the 15 digits
+                inputFormatters: const [DigitsFormatter(15)],
+                textInputAction: i == _fields.length - 1 ? TextInputAction.done : TextInputAction.next,
+                onFieldSubmitted: i == _fields.length - 1 ? (_) => _save() : null,
                 style: const TextStyle(fontFamily: 'monospace', fontFeatures: [FontFeature.tabularFigures()]),
                 validator: (v) => imeiFieldError(v ?? ''),
               ),
@@ -442,8 +458,9 @@ class _CancelDialogState extends State<_CancelDialog> {
   @override
   Widget build(BuildContext context) {
     final o = widget.order;
-    final missing = _reason.text.trim().isEmpty;
+    final missing = tidy(_reason.text).isEmpty;
     return AlertDialog(
+      scrollable: true, // the keyboard and large text can leave little room
       title: Text('Cancel ${o.number}?'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -457,7 +474,8 @@ class _CancelDialogState extends State<_CancelDialog> {
           TextField(
             controller: _reason,
             autofocus: true,
-            maxLength: 200,
+            // order_events.note is ≤500 and the note is "Cancelled by the store: <reason>"
+            inputFormatters: textInput(200),
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               labelText: 'Reason',
@@ -471,7 +489,7 @@ class _CancelDialogState extends State<_CancelDialog> {
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
-          onPressed: () => missing ? setState(() => _tried = true) : Navigator.pop(context, _reason.text.trim()),
+          onPressed: () => missing ? setState(() => _tried = true) : Navigator.pop(context, tidy(_reason.text)),
           style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error, minimumSize: const Size(64, 44)),
           child: const Text('Cancel order'),
         ),

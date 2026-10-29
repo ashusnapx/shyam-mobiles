@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -118,10 +120,10 @@ class HeartButton extends ConsumerWidget {
 
   Future<void> _toggle(BuildContext context, WidgetRef ref) async {
     if (ref.read(currentUserIdProvider) == null) {
-      context.push('/sign-in?from=${Uri.encodeComponent(GoRouterState.of(context).uri.toString())}');
+      unawaited(context.push('/sign-in?from=${Uri.encodeComponent(GoRouterState.of(context).uri.toString())}'));
       return;
     }
-    HapticFeedback.selectionClick();
+    unawaited(HapticFeedback.selectionClick());
     try {
       await ref.read(wishlistProvider.notifier).toggle(productId);
     } catch (e) {

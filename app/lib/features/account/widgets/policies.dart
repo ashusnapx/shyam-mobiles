@@ -23,7 +23,7 @@ Future<void> openPolicy(BuildContext context, String page) async {
     showMessage(context, 'Our policy pages go live before launch.');
     return;
   }
-  final ok = await launchUrl(Uri.parse('$base/$page'), mode: LaunchMode.inAppBrowserView).catchError((_) => false);
+  final ok = await launchExternal(Uri.parse('$base/$page'), mode: LaunchMode.inAppBrowserView);
   if (!ok && context.mounted) showMessage(context, 'Couldn’t open the page. Check your connection and try again.');
 }
 

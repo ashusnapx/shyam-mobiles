@@ -5,13 +5,14 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
+import '../../../core/network.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../auth/data/google.dart';
 import '../widgets/policies.dart';
@@ -44,7 +45,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       keep: 'Keep account',
       destructive: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     setState(() => _deleting = true);
     try {
       await ref.read(supabaseProvider).functions.invoke('delete-account', body: const <String, dynamic>{});
@@ -67,9 +68,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Account')),
-        body: Column(
+        body: const Column(
           children: [
-            const Expanded(
+            Expanded(
               child: SignInPrompt(
                 icon: PhosphorIconsRegular.user,
                 title: 'Sign in to your account',
@@ -77,8 +78,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 from: '/account',
               ),
             ),
-            const Padding(padding: EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm), child: _StoreCard()),
-            const Padding(padding: EdgeInsets.only(bottom: Space.lg), child: PoliciesButton()),
+            _DataSaverRow(),
+            Padding(padding: EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm), child: _StoreCard()),
+            Padding(padding: EdgeInsets.only(bottom: Space.lg), child: PoliciesButton()),
           ],
         ),
       );
@@ -112,6 +114,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             row(PhosphorIconsRegular.heart, 'Wishlist', () => context.push('/wishlist')),
             row(PhosphorIconsRegular.mapPin, 'Addresses', () => context.push('/account/addresses')),
             row(PhosphorIconsRegular.userCircle, 'Profile', () => context.push('/account/profile')),
+            const _DataSaverRow(),
             const SectionHeader('Store'),
             const Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: _StoreCard()),
             const SectionHeader('About & policies'),
@@ -131,6 +134,38 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Auto / On / Off for data-saver mode (core/network.dart), with what Auto is doing right now.
+class _DataSaverRow extends ConsumerWidget {
+  const _DataSaverRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final setting = ref.watch(networkProvider.select((s) => s.setting));
+    final saving = ref.watch(dataSaverProvider) == DataMode.saver;
+    return ListTile(
+      minTileHeight: 56,
+      leading: const Icon(PhosphorIconsRegular.cellSignalLow),
+      title: const Text('Data saver'),
+      subtitle: const Text('Smaller photos and fewer downloads on slow networks and low-memory phones.'),
+      trailing: Text(setting == DataSaverSetting.auto ? 'Auto (${saving ? 'on' : 'off'})' : setting.label),
+      onTap: () async {
+        final picked = await showPickerSheet<DataSaverSetting>(
+          context,
+          title: 'Data saver',
+          options: const [
+            (DataSaverSetting.auto, 'Auto: on when the network is slow or the phone is low on memory'),
+            (DataSaverSetting.on, 'On: always small photos'),
+            (DataSaverSetting.off, 'Off: always full photos'),
+          ],
+          selected: setting,
+        );
+        final choice = picked?.$1;
+        if (choice != null) await ref.read(networkProvider.notifier).setSetting(choice);
+      },
     );
   }
 }
@@ -201,8 +236,7 @@ class _StoreCard extends ConsumerWidget {
   );
 
   Future<void> _open(BuildContext context, Uri uri, String what) async {
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
-    if (!ok && context.mounted) showMessage(context, 'Couldn’t open $what on this phone.');
+    if (!await launchExternal(uri) && context.mounted) showMessage(context, 'Couldn’t open $what on this phone.');
   }
 
   @override

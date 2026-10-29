@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -106,7 +108,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     final router = GoRouter.of(context);
     if (ref.read(currentUserIdProvider) == null) {
       final back = '/product/${widget.slug}?${buy ? 'buy' : 'add'}=${v.id}';
-      router.push('/sign-in?from=${Uri.encodeComponent(back)}');
+      unawaited(router.push('/sign-in?from=${Uri.encodeComponent(back)}'));
       return;
     }
     if (!v.inStock) {
@@ -120,16 +122,16 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       final inCart = lines.where((l) => l.variant.id == v.id).firstOrNull?.qty ?? 0;
       if (inCart >= maxQtyFor(v)) {
         if (buy) {
-          router.push('/checkout');
+          unawaited(router.push('/checkout'));
         } else if (mounted) {
           showMessage(context, 'You already have the most you can buy of this.');
         }
         return;
       }
       await ref.read(cartProvider.notifier).add(v);
-      HapticFeedback.mediumImpact();
+      unawaited(HapticFeedback.mediumImpact());
       if (buy) {
-        router.push('/checkout');
+        unawaited(router.push('/checkout'));
       } else if (mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
@@ -396,7 +398,7 @@ class _GalleryState extends State<_Gallery> {
                 // top padding clears the status bar and the back / heart buttons
                 itemBuilder: (_, i) => Padding(
                   padding: EdgeInsets.fromLTRB(Space.xl, top + 48, Space.xl, Space.xl),
-                  child: Center(child: ProductImage(paths[i], radius: 0)),
+                  child: Center(child: ProductImage(paths[i], radius: 0, full: true)),
                 ),
               ),
             ),
@@ -486,6 +488,15 @@ class _Swatch extends StatelessWidget {
   }
 }
 
+/// Follows "Free delivery". Same rules as `place_order`: free at or above the threshold (inclusive), COD up to
+/// the limit on the total including delivery.
+String deliveryTerms(StoreSettings s) => [
+      s.freeDeliveryMinPaise == 0 || s.deliveryFeePaise == 0
+          ? ' on every order'
+          : ' on orders of ${formatInr(s.freeDeliveryMinPaise)} or more',
+      if (s.codEnabled) ' · Cash on delivery up to ${formatInr(s.codMaxPaise)}',
+    ].join();
+
 class _DeliveryCard extends StatelessWidget {
   const _DeliveryCard(this.s);
 
@@ -494,7 +505,6 @@ class _DeliveryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
-    final allFree = s.freeDeliveryMinPaise == 0 || s.deliveryFeePaise == 0;
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: Space.md),
@@ -506,8 +516,7 @@ class _DeliveryCard extends StatelessWidget {
               child: Text.rich(
                 TextSpan(children: [
                   const TextSpan(text: 'Free delivery', style: TextStyle(fontWeight: FontWeight.w700)),
-                  TextSpan(text: allFree ? ' on every order' : ' on orders above ${formatInr(s.freeDeliveryMinPaise)}'),
-                  if (s.codEnabled) TextSpan(text: ' · Cash on delivery up to ${formatInr(s.codMaxPaise)}'),
+                  TextSpan(text: deliveryTerms(s)),
                 ]),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -534,7 +543,7 @@ class _StoreRows extends StatelessWidget {
       builder: (context) => const _BulkSheet(),
     );
     if (qty == null || !context.mounted) return;
-    await openExternal(context, whatsappUri(settings.storePhone, 'Hi, I’d like your wholesale price for $qty × $item.'),
+    await openExternal(context, whatsappUri(settings.storePhone, 'Hi, I’d like your wholesale price for $qty+ units of $item.'),
         'Couldn’t open WhatsApp.');
   }
 

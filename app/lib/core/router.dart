@@ -10,6 +10,7 @@ import '../features/account/screens/account_screen.dart';
 import '../features/account/screens/address_form_screen.dart';
 import '../features/account/screens/addresses_screen.dart';
 import '../features/account/screens/profile_screen.dart';
+import '../features/admin/screens/admin_catalogue_screen.dart';
 import '../features/admin/screens/admin_dashboard_screen.dart';
 import '../features/admin/screens/admin_order_screen.dart';
 import '../features/admin/screens/admin_orders_screen.dart';
@@ -112,6 +113,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               sub('repairs', (_) => const AdminRepairsScreen(), routes: [
                 sub(':id', (s) => AdminRepairScreen(bookingId: s.pathParameters['id']!)),
               ]),
+              sub('catalogue', (_) => const AdminCatalogueScreen()),
               sub('settings', (_) => const AdminSettingsScreen()),
             ]),
           ]),

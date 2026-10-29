@@ -5,18 +5,29 @@
          Approximate location is enough. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Cleartext is off explicitly: minSdk 24 and Android 7–8.1 default it to on. Debug/profile override it for
+         the local stack. Plugin permissions merged in (checked in the merged manifest): NFC, READ_BASIC_PHONE_STATE,
+         ACCESS_NETWORK_STATE from Razorpay; USE_BIOMETRIC/USE_FINGERPRINT from androidx.biometric (Razorpay /
+         Google Pay). All are install-time "normal" permissions with no prompt, and the Razorpay checkout may call the
+         APIs they guard (a missing one throws SecurityException mid-payment), so they stay. No plugin adds a
+         runtime ("dangerous") permission; location below is ours. -->
     <application
         android:label="Shyam Mobiles"
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Portrait on phones: at 800x360 landscape the keyboard leaves ~150 dp for a form (address, checkout, admin
+             editor), too little to see what you type. Targeting Android 16, the lock is ignored on large screens (sw600dp+), so
+             tablets and unfolded foldables still rotate; the layouts there are wide and tall enough. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:screenOrientation="portrait"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"

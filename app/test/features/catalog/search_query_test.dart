@@ -68,4 +68,16 @@ void main() {
     expect(prefixTsQuery('a & (b | !c):'), 'a:* & b:* & c:*');
     expect(prefixTsQuery(' !&| '), isNull);
   });
+
+  test('PostgREST and tsquery metacharacters never reach the filter; Hindi words stay whole', () async {
+    const nasty = r'''a,b(c).d*e%f_g\h'i"j:k<->l''';
+    final tsquery = prefixTsQuery(nasty)!;
+    expect(tsquery, 'a:* & b:* & c:* & d:* & e:* & f:* & g:* & h:* & i:* & j:*', reason: 'at most 10 words');
+    final qp = await paramsFor(params(q: nasty));
+    expect(qp['search'], 'fts(simple).$tsquery');
+    expect(qp.keys, isNot(contains('or')), reason: 'no or()/ilike filter is ever built from typed text');
+    expect(prefixTsQuery('सैमसंग फ़ोन'), 'सैमसंग:* & फ़ोन:*');
+    expect(prefixTsQuery("'); drop table products; --"), 'drop:* & table:* & products:*');
+    expect(prefixTsQuery('😀🔥'), isNull);
+  });
 }

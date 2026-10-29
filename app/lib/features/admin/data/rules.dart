@@ -34,6 +34,20 @@ int? parseRupees(String input) {
   return paise <= _maxPaise ? paise : null;
 }
 
+/// Business caps on money fields (well inside int4 paise): prices, MRPs, COD and free-delivery limits, quotes.
+const maxAmountPaise = 100000000; // ₹10,00,000
+const maxFeePaise = 1000000; // ₹10,000: the delivery fee
+
+/// Null when [v] is an amount of [minPaise]..[maxPaise]; blank is fine only when [optional].
+String? rupeesError(String? v, {required int maxPaise, int minPaise = 0, bool optional = false}) {
+  if ((v ?? '').trim().isEmpty) return optional ? null : 'Enter an amount.';
+  final paise = parseRupees(v!);
+  if (paise == null) return 'Enter an amount like 499 or 74999.50.';
+  if (paise < minPaise) return minPaise <= 1 ? 'Enter an amount above ₹0.' : 'Enter at least ${formatInr(minPaise)}.';
+  if (paise > maxPaise) return 'Keep it at or under ${formatInr(maxPaise)}.';
+  return null;
+}
+
 /// 7499950 → "74999.50", 7499900 → "74999". For prefilling rupee fields.
 String rupeesText(int paise) =>
     paise % 100 == 0 ? '${paise ~/ 100}' : '${paise ~/ 100}.${(paise % 100).toString().padLeft(2, '0')}';
@@ -81,7 +95,10 @@ String? imeisError(List<String> imeis, int qty) {
 }
 
 /// Same rule as the DB check on products/brands/categories.
-final slugPattern = RegExp(r'^[a-z0-9-]+$');
+final slugPattern = RegExp(r'^[a-z0-9-]{1,160}$');
+
+/// Same rule as the DB check on variants.sku: ASCII, starts with a letter or digit, ≤60.
+final skuPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._/-]{0,59}$');
 
 /// A new brand's display name: spaces tidied and the first letter capitalised ("itel" → "Itel").
 String brandDisplayName(String typed) {

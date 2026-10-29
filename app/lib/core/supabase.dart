@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'env.dart';
 import 'models/models.dart';
+import 'network.dart';
 
 const _secure = FlutterSecureStorage();
 
@@ -38,8 +40,32 @@ Future<void> initSupabase() async {
     url: Env.supabaseUrl,
     publishableKey: Env.supabasePublishableKey,
     authOptions: const FlutterAuthClientOptions(localStorage: _SecureSessionStorage()),
+    httpClient: TimeoutClient(http.Client()),
   );
 }
+
+/// Bounds every Supabase request (REST, RPC, auth, Edge Functions, storage) so a stalled network ends in a
+/// TimeoutException, which screens show as friendlyError with a retry, instead of a spinner forever.
+/// The timeout covers sending the request and getting the response headers, so it also bounds photo uploads.
+/// shortcut: postgrest still retries a failed table read 3 times (1+2+4 s back-off; supabase 2.16 `from()`
+/// ignores PostgrestClientOptions), so a dead network errors after ~70 s at worst; pass the options once it doesn't.
+class TimeoutClient extends http.BaseClient {
+  TimeoutClient(this._inner, {this.timeout = const Duration(seconds: 15)});
+
+  final http.Client _inner;
+  final Duration timeout;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) => _inner.send(request).timeout(timeout);
+
+  @override
+  void close() => _inner.close();
+}
+
+/// The app's ProviderScope retry policy: none. Riverpod 3 otherwise retries a failed provider up to 10 times
+/// (≈40 s of back-off) and keeps it *loading* meanwhile, on top of postgrest's own 3 retries per read, so an
+/// offline screen showed its skeleton for minutes before the error and "Try again". Screens retry by hand.
+Duration? noAutoRetry(int retryCount, Object error) => null;
 
 /// Keeps an autoDispose provider's data for [d] after its last listener leaves, so going back and forth
 /// between screens shows the cached content instead of a fresh skeleton.
@@ -50,6 +76,11 @@ void cacheFor(Ref ref, Duration d) {
 }
 
 String publicImageUrl(String path) => '${Env.supabaseUrl}/storage/v1/object/public/product-images/$path';
+
+/// "p1/1730000000000.webp" → "p1/1730000000000@thumb.webp", the 480 px copy uploaded beside each photo. Null for
+/// JPEG/PNG keys (older uploads never had one). Older WebP uploads have none either: ProductImage falls back on error.
+String? thumbPathFor(String path) =>
+    path.endsWith('.webp') ? '${path.substring(0, path.length - '.webp'.length)}@thumb.webp' : null;
 
 final supabaseProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
 
@@ -69,7 +100,13 @@ final isAdminProvider = FutureProvider<bool>((ref) async {
   return await ref.watch(supabaseProvider).rpc<bool>('is_admin');
 });
 
-final storeSettingsProvider = FutureProvider<StoreSettings>((ref) async {
-  final row = await ref.watch(supabaseProvider).from('store_settings').select().single();
-  return StoreSettings.fromJson(row);
+/// Saved on the phone: a cold start (or no signal) shows the last copy at once and refreshes in the background.
+final storeSettingsProvider = FutureProvider<StoreSettings>((ref) {
+  final db = ref.watch(supabaseProvider);
+  return savedOrFetch(
+    ref,
+    'store_settings',
+    () async => await db.from('store_settings').select().single(),
+    (json) => StoreSettings.fromJson(json! as Map<String, dynamic>),
+  );
 });

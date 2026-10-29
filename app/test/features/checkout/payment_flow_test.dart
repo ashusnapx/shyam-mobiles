@@ -10,9 +10,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FakeApi implements PaymentApi {
   final calls = <String>[];
-  Object? placeError;
-  Object? createError;
-  Object? verifyError;
+  Exception? placeError;
+  Exception? createError;
+  Exception? verifyError;
   Completer<String>? placeGate;
   OrderStatus verifyStatus = OrderStatus.confirmed;
   SheetPaid? verified;
