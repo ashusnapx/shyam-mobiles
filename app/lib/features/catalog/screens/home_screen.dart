@@ -88,9 +88,12 @@ class HomeScreen extends ConsumerWidget {
     }
     return [
       if (d.featured.isNotEmpty)
-        SliverToBoxAdapter(key: const ValueKey('hero'), child: _HeroCarousel(d.featured.take(6).toList(), saver: saver)),
+        SliverToBoxAdapter(
+          key: const ValueKey('hero'),
+          child: _HeroCarousel(d.featured.take(6).toList(), saver: saver).enter(context),
+        ),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryGrid(d.categories)),
-      const SliverToBoxAdapter(key: ValueKey('repair'), child: _RepairCta()),
+      SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairCta().enter(context, index: 4)),
       if (d.accessories.isNotEmpty) ...[
         const SliverToBoxAdapter(key: ValueKey('acc-header'), child: SectionHeader('Accessories under ₹1,500')),
         SliverProductGrid(d.accessories, key: const ValueKey('accessories')),
@@ -308,11 +311,11 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                       opacity: animation,
                       child: SlideTransition(
                         position: Tween(begin: from, end: Offset.zero).animate(animation),
-                        child: child,
+                        child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(animation), child: child),
                       ),
                     );
                   },
-                  child: _Hero(card, key: ValueKey(card.id)),
+                  child: _Hero(card, key: ValueKey(card.id), tone: _index),
                 ),
               ),
             ],
@@ -333,7 +336,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                   width: i == _index ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: i == _index ? c.onSurface : c.outline,
+                    color: i == _index ? heroGradients[i % heroGradients.length][1] : c.outline,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -346,10 +349,11 @@ class _HeroCarouselState extends State<_HeroCarousel> {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero(this.card, {super.key, this.photo = true});
+  const _Hero(this.card, {super.key, this.photo = true, this.tone = 0});
 
   final ProductCard card;
   final bool photo; // false for the invisible sizing copies in data-saver mode: same size, nothing downloaded
+  final int tone; // which of [heroGradients]: slides take them in turn
 
   @override
   Widget build(BuildContext context) {
@@ -361,16 +365,16 @@ class _Hero extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: DecoratedBox(
-          // the hero stays indigo in both themes, so its text is always white
-          decoration: const BoxDecoration(
+          // every gradient is dark enough for white text
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [BrandColors.graphite, Colors.black],
+              colors: heroGradients[tone % heroGradients.length],
             ),
           ),
           child: CustomPaint(
-            painter: const _FeatherPainter(),
+            painter: _FeatherPainter(heroAccents[tone % heroAccents.length]),
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
@@ -420,7 +424,7 @@ class _Hero extends StatelessWidget {
                               label: Text(card.categorySlug == 'smartphones' ? 'View phone' : 'View'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: Colors.white,
-                                foregroundColor: BrandColors.ink,
+                                foregroundColor: heroGradients[tone % heroGradients.length].first,
                                 minimumSize: const Size(0, 40),
                                 padding: const EdgeInsets.symmetric(horizontal: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
@@ -446,7 +450,9 @@ class _Hero extends StatelessWidget {
 
 /// Peacock glow plus feather-eye rings behind the hero, as in the mockup.
 class _FeatherPainter extends CustomPainter {
-  const _FeatherPainter();
+  const _FeatherPainter(this.accent);
+
+  final Color accent;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -455,7 +461,7 @@ class _FeatherPainter extends CustomPainter {
       Offset.zero & size,
       Paint()
         ..shader = RadialGradient(
-          colors: [Colors.white.withValues(alpha: 0.16), Colors.white.withValues(alpha: 0)],
+          colors: [accent.withValues(alpha: 0.34), accent.withValues(alpha: 0)],
         ).createShader(Rect.fromCircle(center: glow, radius: size.width * 0.55)),
     );
     final ring = Paint()
@@ -469,18 +475,20 @@ class _FeatherPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_FeatherPainter oldDelegate) => false;
+  bool shouldRepaint(_FeatherPainter oldDelegate) => oldDelegate.accent != accent;
 }
 
+/// Label, icon and [tileTints] index per category. Tint 1 (saffron) is kept for Repairs.
 const _categoryLooks = {
-  'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile),
-  'keypad-phones': ('Keypad phones', PhosphorIconsRegular.deviceMobileSpeaker),
-  'cases-covers': ('Cases', PhosphorIconsRegular.deviceMobileCamera),
-  'screen-guards': ('Screen guards', PhosphorIconsRegular.shieldCheck),
-  'chargers-cables': ('Chargers', PhosphorIconsRegular.plugCharging),
-  'earbuds-headphones': ('Earbuds', PhosphorIconsRegular.headphones),
-  'power-banks': ('Power banks', PhosphorIconsRegular.batteryCharging),
+  'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile, 0),
+  'keypad-phones': ('Keypad phones', PhosphorIconsRegular.deviceMobileSpeaker, 3),
+  'cases-covers': ('Cases', PhosphorIconsRegular.deviceMobileCamera, 2),
+  'screen-guards': ('Screen guards', PhosphorIconsRegular.shieldCheck, 5),
+  'chargers-cables': ('Chargers', PhosphorIconsRegular.plugCharging, 4),
+  'earbuds-headphones': ('Earbuds', PhosphorIconsRegular.headphones, 6),
+  'power-banks': ('Power banks', PhosphorIconsRegular.batteryCharging, 2),
 };
+const _otherTints = [0, 3, 2, 5, 4, 6]; // categories added later take these in turn
 
 class _CategoryGrid extends StatelessWidget {
   const _CategoryGrid(this.categories);
@@ -489,18 +497,20 @@ class _CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shown = categories.take(6).toList();
     final tiles = [
-      for (final cat in categories.take(6))
+      for (final (i, cat) in shown.indexed)
         _CategoryTile(
           label: _categoryLooks[cat.slug]?.$1 ?? cat.name,
           icon: _categoryLooks[cat.slug]?.$2 ?? PhosphorIconsRegular.tag,
+          tint: tileTints[_categoryLooks[cat.slug]?.$3 ?? _otherTints[i % _otherTints.length]],
           onTap: () => context.go('/search?category=${cat.slug}'),
         ),
       _CategoryTile(
         label: 'Repairs',
         icon: PhosphorIconsRegular.wrench,
+        tint: tileTints[1],
         onTap: () => context.go('/repairs'),
-        accent: true,
       ),
       _CategoryTile(label: 'All', icon: PhosphorIconsRegular.squaresFour, onTap: () => context.go('/search')),
     ];
@@ -511,7 +521,10 @@ class _CategoryGrid extends StatelessWidget {
           for (var i = 0; i < tiles.length; i += 4)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [for (var j = i; j < i + 4; j++) Expanded(child: j < tiles.length ? tiles[j] : const SizedBox())],
+              children: [
+                for (var j = i; j < i + 4; j++)
+                  Expanded(child: j < tiles.length ? tiles[j].enter(context, index: 1 + j % 4 + j ~/ 4) : const SizedBox()),
+              ],
             ),
         ],
       ),
@@ -520,12 +533,12 @@ class _CategoryGrid extends StatelessWidget {
 }
 
 class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.label, required this.icon, required this.onTap, this.accent = false});
+  const _CategoryTile({required this.label, required this.icon, required this.onTap, this.tint});
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  final bool accent; // peacock tile for Repairs
+  final (Color, Color)? tint; // background and icon; null is the neutral All tile
 
   @override
   Widget build(BuildContext context) {
@@ -539,12 +552,12 @@ class _CategoryTile extends StatelessWidget {
           children: [
             DecoratedBox(
               decoration: BoxDecoration(
-                color: accent ? c.secondaryContainer : c.surfaceContainer,
+                color: tint?.$1 ?? c.surfaceContainer,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: SizedBox.square(
                 dimension: 58,
-                child: Icon(icon, size: 26, color: accent ? c.secondary : c.primary),
+                child: Icon(icon, size: 26, color: tint?.$2 ?? c.primary),
               ),
             ),
             const SizedBox(height: 6),
@@ -572,7 +585,7 @@ class _RepairCta extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, 22, Space.lg, 0),
       child: Material(
-        color: c.secondaryContainer,
+        color: BrandColors.cream,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: () => context.push('/repairs/new'),
@@ -583,12 +596,12 @@ class _RepairCta extends StatelessWidget {
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Color.alphaBlend(c.secondary.withValues(alpha: 0.2), c.surface),
+                    color: c.tertiary,
                     borderRadius: BorderRadius.circular(Radii.lg),
                   ),
                   child: SizedBox.square(
                     dimension: 52,
-                    child: Icon(PhosphorIconsRegular.wrench, size: 26, color: c.secondary),
+                    child: Icon(PhosphorIconsRegular.wrench, size: 26, color: c.onTertiary),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -598,18 +611,18 @@ class _RepairCta extends StatelessWidget {
                     children: [
                       Text(
                         'Cracked screen? Weak battery?',
-                        style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: c.onSecondaryContainer),
+                        style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: BrandColors.creamInk),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Pick a slot and walk in. You pay at the store after the inspection.',
-                        style: t.bodySmall?.copyWith(color: c.onSecondaryContainer),
+                        style: t.bodySmall?.copyWith(color: BrandColors.creamInk),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: Space.sm),
-                Icon(PhosphorIconsBold.caretRight, size: 18, color: c.onSecondaryContainer),
+                const Icon(PhosphorIconsBold.caretRight, size: 18, color: BrandColors.creamInk),
               ],
             ),
           ),

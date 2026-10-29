@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -466,7 +467,7 @@ class _BrandMarkPainter extends CustomPainter {
   final bool onDark;
 
   // Same geometry as the logo page and the launcher icon (100-unit box).
-  static final List<(Offset, bool)> _dots = () {
+  static final List<(Offset, _Dot)> _dots = () {
     final feather = Path()
       ..moveTo(50, 14)
       ..cubicTo(69, 29, 76, 50, 71, 67)
@@ -475,15 +476,15 @@ class _BrandMarkPainter extends CustomPainter {
       ..close();
     bool inOval(Offset p, double cx, double cy, double rx, double ry) =>
         ((p.dx - cx) / rx) * ((p.dx - cx) / rx) + ((p.dy - cy) / ry) * ((p.dy - cy) / ry) <= 1;
-    final dots = <(Offset, bool)>[];
+    final dots = <(Offset, _Dot)>[];
     for (var y = 17.0; y <= 82; y += 5.4) {
       for (var x = 25.0; x <= 75; x += 5.4) {
         final p = Offset(x, y);
         if (!feather.contains(p)) continue;
         if (inOval(p, 50, 63, 7, 8.5)) {
-          dots.add((p, true)); // grey core
+          dots.add((p, _Dot.core));
         } else if (!inOval(p, 50, 61, 14.5, 17.5)) {
-          dots.add((p, false));
+          dots.add((p, inOval(p, 50, 61, 20, 23) ? _Dot.ring : _Dot.plain));
         }
       }
     }
@@ -498,9 +499,9 @@ class _BrandMarkPainter extends CustomPainter {
       Paint()..color = onDark ? Colors.white.withValues(alpha: 0.14) : BrandColors.ink,
     );
     final white = Paint()..color = Colors.white;
-    final grey = Paint()..color = BrandColors.mist;
-    for (final (p, core) in _dots) {
-      canvas.drawCircle(p, 2.1, core ? grey : white);
+    final paints = {_Dot.plain: white, _Dot.ring: Paint()..color = BrandColors.gold, _Dot.core: Paint()..color = BrandColors.sky};
+    for (final (p, dot) in _dots) {
+      canvas.drawCircle(p, 2.1, paints[dot]!);
     }
     canvas.drawLine(
       const Offset(50, 84),
@@ -513,6 +514,52 @@ class _BrandMarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BrandMarkPainter old) => old.onDark != onDark;
+}
+
+/// White feather dots, a gold ring around the open eye, and a sky-blue core: a peacock feather.
+enum _Dot { plain, ring, core }
+
+/// Fades and rises into place on first build, [index] beats after the first (a stagger). Skipped when the phone asks
+/// for less motion. The stagger is the effect's own delay: Animate's `delay` is a Timer, which a quick unmount trips.
+extension EnterMotion on Widget {
+  Widget enter(BuildContext context, {int index = 0}) {
+    if (MediaQuery.disableAnimationsOf(context)) return this;
+    final delay = Duration(milliseconds: 55 * index.clamp(0, 8));
+    return animate()
+        .fadeIn(delay: delay, duration: Motion.enter, curve: Curves.easeOutCubic)
+        .slideY(begin: 0.12, end: 0, delay: delay, duration: Motion.enter, curve: Curves.easeOutCubic);
+  }
+}
+
+/// Pops [child] when [trigger] changes (cart count, wishlist heart), not on first build.
+class Bump extends StatefulWidget {
+  const Bump({super.key, required this.trigger, required this.child});
+
+  final Object? trigger;
+  final Widget child;
+
+  @override
+  State<Bump> createState() => _BumpState();
+}
+
+class _BumpState extends State<Bump> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 550), value: 1);
+  late final _scale = _c.drive(Tween(begin: 1.35, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)));
+
+  @override
+  void didUpdateWidget(Bump old) {
+    super.didUpdateWidget(old);
+    if (old.trigger != widget.trigger && !MediaQuery.disableAnimationsOf(context)) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScaleTransition(scale: _scale, child: widget.child);
 }
 
 /// WhatsApp's own glyph in its brand green. Third-party marks keep their native colours, never the app's ink.
@@ -541,7 +588,7 @@ class Tag extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final (bg, fg) = switch (tone) {
-      TagTone.info => (c.primaryContainer, c.onPrimaryContainer),
+      TagTone.info => (BrandColors.peacockMist, BrandColors.peacockInk),
       TagTone.ok => (c.secondaryContainer, c.onSecondaryContainer),
       TagTone.deal => (c.tertiaryContainer, c.onTertiaryContainer),
       TagTone.bad => (c.errorContainer, c.onErrorContainer),

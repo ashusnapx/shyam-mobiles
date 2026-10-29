@@ -220,6 +220,7 @@ void main() {
   testWidgets('featured hero slides to the next product on its own and swipes back', (tester) async {
     final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
+    await tester.pumpAndSettle(); // the sections' entrance
     expect(find.text('Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Featured 1 of 3'), findsOneWidget);
 
@@ -239,6 +240,7 @@ void main() {
     // A long name wraps to two lines; the carousel must still be the same height on every slide.
     final mixed = [cards[0], card('long', 'Samsung Galaxy S25 Ultra Titanium Edition 1 TB', 'Samsung', 129999), cards[1]];
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => (categories: <Category>[], featured: mixed, accessories: <ProductCard>[]))]);
+    await tester.pumpAndSettle(); // the sections' entrance
     final carousel = find.bySemanticsLabel('Featured 1 of 3');
     final categoriesTop = tester.getTopLeft(find.text('All')).dy;
     for (var i = 0; i < 3; i++) {

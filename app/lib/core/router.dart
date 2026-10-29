@@ -35,6 +35,7 @@ import '../features/repairs/screens/repair_form_screen.dart';
 import '../features/repairs/screens/repairs_screen.dart';
 import '../features/wishlist/screens/wishlist_screen.dart';
 import 'supabase.dart';
+import 'widgets/widgets.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -185,15 +186,21 @@ class AppShell extends ConsumerWidget {
         label: 'Repairs',
       ),
       NavigationDestination(
-        icon: Badge(
-          isLabelVisible: cartCount > 0,
-          label: Text('$cartCount'),
-          child: const Icon(PhosphorIconsRegular.shoppingBag),
+        icon: Bump(
+          trigger: cartCount, // pops when something lands in the cart
+          child: Badge(
+            isLabelVisible: cartCount > 0,
+            label: Text('$cartCount'),
+            child: const Icon(PhosphorIconsRegular.shoppingBag),
+          ),
         ),
-        selectedIcon: Badge(
-          isLabelVisible: cartCount > 0,
-          label: Text('$cartCount'),
-          child: const Icon(PhosphorIconsFill.shoppingBag),
+        selectedIcon: Bump(
+          trigger: cartCount,
+          child: Badge(
+            isLabelVisible: cartCount > 0,
+            label: Text('$cartCount'),
+            child: const Icon(PhosphorIconsFill.shoppingBag),
+          ),
         ),
         label: 'Cart',
         tooltip: cartCount > 0 ? 'Cart, $cartCount items' : 'Cart',

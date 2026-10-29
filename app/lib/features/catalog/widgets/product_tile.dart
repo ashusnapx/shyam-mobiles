@@ -97,18 +97,21 @@ class SliverProductGrid extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: Space.lg),
         sliver: SliverList.builder(
           itemCount: (cards.length + 1) ~/ 2,
-          itemBuilder: (_, i) => Padding(
-            key: ValueKey(cards[i * 2].id),
-            padding: const EdgeInsets.only(bottom: Space.lg),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: ProductTile(cards[i * 2])),
-                const SizedBox(width: Space.md),
-                Expanded(child: i * 2 + 1 < cards.length ? ProductTile(cards[i * 2 + 1]) : const SizedBox.shrink()),
-              ],
-            ),
-          ),
+          itemBuilder: (context, i) {
+            final row = Padding(
+              padding: const EdgeInsets.only(bottom: Space.lg),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: ProductTile(cards[i * 2])),
+                  const SizedBox(width: Space.md),
+                  Expanded(child: i * 2 + 1 < cards.length ? ProductTile(cards[i * 2 + 1]) : const SizedBox.shrink()),
+                ],
+              ),
+            );
+            // the first screenful rises in; rows further down just scroll in, so going back up never replays it
+            return KeyedSubtree(key: ValueKey(cards[i * 2].id), child: i < 3 ? row.enter(context, index: i) : row);
+          },
         ),
       );
 }
@@ -142,10 +145,13 @@ class HeartButton extends ConsumerWidget {
         decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
         child: Padding(
           padding: const EdgeInsets.all(Space.sm),
-          child: Icon(
-            saved ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
-            size: 18,
-            color: saved ? c.error : c.onSurface,
+          child: Bump(
+            trigger: saved,
+            child: Icon(
+              saved ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
+              size: 18,
+              color: saved ? c.error : c.onSurface,
+            ),
           ),
         ),
       ),

@@ -82,21 +82,21 @@ class _BookCta extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
       child: DecoratedBox(
-        decoration: BoxDecoration(color: c.secondaryContainer, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: BrandColors.cream, borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(Space.lg + 2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Cracked screen? Weak battery?', style: t.titleMedium?.copyWith(color: c.onSecondaryContainer)),
+              Text('Cracked screen? Weak battery?', style: t.titleMedium?.copyWith(color: BrandColors.creamInk)),
               const SizedBox(height: Space.xs),
               Text(
                 'Pick a slot and walk in. Booking is free.',
-                style: t.bodySmall?.copyWith(color: c.onSecondaryContainer),
+                style: t.bodySmall?.copyWith(color: BrandColors.creamInk),
               ),
               const SizedBox(height: Space.md),
               FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: c.secondary, foregroundColor: c.onSecondary),
+                style: FilledButton.styleFrom(backgroundColor: c.tertiary, foregroundColor: c.onTertiary),
                 onPressed: () => context.push('/repairs/new'),
                 icon: const Icon(PhosphorIconsRegular.wrench),
                 label: const Text('Book a repair'),

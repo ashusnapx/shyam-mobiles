@@ -103,6 +103,8 @@ ThemeData buildTheme(ColorScheme c) {
         (s) => text.labelSmall?.copyWith(color: s.contains(WidgetState.selected) ? c.onSurface : c.onSurfaceVariant),
       ),
     ),
+    // the cart count is good news, not an error: gold, not Material's red
+    badgeTheme: BadgeThemeData(backgroundColor: BrandColors.gold, textColor: BrandColors.goldInk, textStyle: text.labelSmall),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
