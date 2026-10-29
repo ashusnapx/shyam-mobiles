@@ -56,6 +56,24 @@
         ],
         "createdAt": "2026-10-29T06:54:03.990Z",
         "reason": "Claude: each phone frame is a standalone screen; its heading levels mirror the app screen, not the page outline; not shipped"
+      },
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "files": [
+          "docs/logo-ideas.html"
+        ],
+        "createdAt": "2026-10-29T08:28:01.720Z",
+        "reason": "user confirmed: Plus Jakarta Sans is the app UI font approved with the mockup on 2026-10-29"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          "docs/logo-ideas.html"
+        ],
+        "createdAt": "2026-10-29T08:28:01.776Z",
+        "reason": "Claude: 0.08em applies only to the short uppercase card number labels, not body text"
       }
     ]
   }

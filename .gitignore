@@ -10,3 +10,4 @@ supabase/.branches
 supabase/.temp
 supabase/functions/.env
 .impeccable/hook.cache.json
+local.env
