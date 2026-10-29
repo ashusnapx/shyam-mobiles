@@ -217,9 +217,27 @@ void main() {
     expect(find.text('Visit the store'), findsOneWidget);
   });
 
+  testWidgets('featured hero slides to the next product on its own and swipes back', (tester) async {
+    final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
+    await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
+    expect(find.text('Galaxy S25'), findsOneWidget);
+    expect(find.bySemanticsLabel('Featured 1 of 3'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 4600));
+    await tester.pumpAndSettle();
+    expect(find.text('Redmi Note 14 Pro 5G'), findsOneWidget);
+    expect(find.text('Galaxy S25'), findsNothing);
+
+    await tester.fling(find.text('Redmi Note 14 Pro 5G'), const Offset(400, 0), 1200);
+    await tester.pumpAndSettle();
+    expect(find.text('Galaxy S25'), findsOneWidget);
+    expect(find.bySemanticsLabel('Featured 1 of 3'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox()); // dispose, so the carousel's timer is cancelled
+  });
+
   testWidgets('home skeleton renders while loading', (tester) async {
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) => Completer<HomeData>().future)]);
-    expect(find.text('Featured'), findsOneWidget);
+    expect(find.text('FEATURED'), findsOneWidget);
   });
 
   testWidgets('search renders results, chips and count', (tester) async {

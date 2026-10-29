@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -75,15 +77,9 @@ class HomeScreen extends ConsumerWidget {
       ];
     }
     return [
-      if (d.featured.isNotEmpty) SliverToBoxAdapter(key: const ValueKey('hero'), child: _Hero(d.featured.first)),
+      if (d.featured.isNotEmpty)
+        SliverToBoxAdapter(key: const ValueKey('hero'), child: _HeroCarousel(d.featured.take(6).toList())),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryGrid(d.categories)),
-      if (d.featured.length > 1) ...[
-        SliverToBoxAdapter(
-          key: const ValueKey('featured-header'),
-          child: SectionHeader('Featured', actionLabel: 'See all', onAction: () => context.go('/search')),
-        ),
-        SliverToBoxAdapter(key: const ValueKey('featured'), child: _CardRow(d.featured.skip(1).toList())),
-      ],
       const SliverToBoxAdapter(key: ValueKey('repair'), child: _RepairCta()),
       if (d.accessories.isNotEmpty) ...[
         const SliverToBoxAdapter(key: ValueKey('acc-header'), child: SectionHeader('Accessories under ₹1,500')),
@@ -103,8 +99,6 @@ class HomeScreen extends ConsumerWidget {
           for (var i = 0; i < 6; i++)
             Category(id: '$i', slug: 'skeleton-$i', name: 'Category', kind: CategoryKind.accessory),
         ]),
-        const SectionHeader('Featured'),
-        _CardRow(fakeCards(3)),
       ],
     ),
   );
@@ -182,8 +176,129 @@ class _SearchField extends StatelessWidget {
   }
 }
 
+/// Featured products as a hero that slides to the next one every few seconds. Swipe to move; touching it
+/// pauses it. Stays still with reduce-motion or TalkBack on, and while another tab is showing.
+class _HeroCarousel extends StatefulWidget {
+  const _HeroCarousel(this.cards);
+
+  final List<ProductCard> cards;
+
+  @override
+  State<_HeroCarousel> createState() => _HeroCarouselState();
+}
+
+class _HeroCarouselState extends State<_HeroCarousel> {
+  static const _interval = Duration(milliseconds: 4500);
+  int _index = 0;
+  int _direction = 1;
+  Timer? _timer;
+
+  int get _count => widget.cards.length;
+
+  @override
+  void initState() {
+    super.initState();
+    _restart();
+  }
+
+  @override
+  void didUpdateWidget(_HeroCarousel old) {
+    super.didUpdateWidget(old);
+    if (_index >= _count) _index = 0;
+    _restart();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _restart() {
+    _timer?.cancel();
+    if (_count < 2) return;
+    _timer = Timer.periodic(_interval, (_) {
+      if (!mounted) return;
+      final still = MediaQuery.disableAnimationsOf(context) || MediaQuery.accessibleNavigationOf(context);
+      if (!still && TickerMode.valuesOf(context).enabled) _step(1);
+    });
+  }
+
+  void _step(int by) => setState(() {
+        _direction = by;
+        _index = (_index + by + _count) % _count;
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    if (_count == 1) return _Hero(widget.cards.first);
+    final c = Theme.of(context).colorScheme;
+    final card = widget.cards[_index];
+    final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 500);
+    return Column(
+      children: [
+        GestureDetector(
+          onHorizontalDragStart: (_) => _timer?.cancel(),
+          onHorizontalDragEnd: (d) {
+            final v = d.primaryVelocity ?? 0;
+            if (v.abs() > 150) _step(v < 0 ? 1 : -1);
+            _restart();
+          },
+          onHorizontalDragCancel: _restart,
+          child: AnimatedSize(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: duration,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (current, previous) =>
+                  Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
+              transitionBuilder: (child, animation) {
+                final incoming = child.key == ValueKey(card.id);
+                final from = Offset((incoming ? 0.14 : -0.14) * _direction, 0);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween(begin: from, end: Offset.zero).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: _Hero(card, key: ValueKey(card.id)),
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.md),
+        Semantics(
+          label: 'Featured ${_index + 1} of $_count',
+          excludeSemantics: true,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < _count; i++)
+                AnimatedContainer(
+                  duration: duration,
+                  curve: Curves.easeOutCubic,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == _index ? 18 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: i == _index ? c.onSurface : c.outline,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Hero extends StatelessWidget {
-  const _Hero(this.card);
+  const _Hero(this.card, {super.key});
 
   final ProductCard card;
 
@@ -397,29 +512,6 @@ class _CategoryTile extends StatelessWidget {
 }
 
 /// Horizontal strip of fixed-width tiles; a Row (not a ListView) so its height follows the text scale.
-class _CardRow extends StatelessWidget {
-  const _CardRow(this.cards);
-
-  final List<ProductCard> cards;
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final (i, card) in cards.indexed)
-              Padding(
-                key: ValueKey(card.id),
-                padding: EdgeInsets.only(right: i == cards.length - 1 ? 0 : Space.md),
-                child: SizedBox(width: 148, child: ProductTile(card)),
-              ),
-          ],
-        ),
-      );
-}
-
 class _RepairCta extends StatelessWidget {
   const _RepairCta();
 
