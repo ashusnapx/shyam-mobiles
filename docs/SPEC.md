@@ -171,7 +171,7 @@ Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account
 ## Photos and slow networks
 
 - Admin uploads (products and shop) are straightened, stripped of EXIF/GPS, and stored as WebP: `<folder>/<millis>.webp` (≤1600 px, q80) plus `<folder>/<millis>@thumb.webp` (≤480 px, q70); the DB stores the full path, `thumbPathFor` derives the thumb. Uploads are cached for a year (keys are never reused).
-- Data saver (Account: Auto / On / Off; Auto = low-RAM phone or a measured latency above 800 ms): thumbnails everywhere, full photos on tap, no carousel auto-advance, search pages of 12. Home and store settings are kept on the phone and shown instantly when offline.
+- Data saver (automatic, no setting: on for a low-RAM phone, mobile data until measured, or a measured latency above 800 ms): thumbnails everywhere, full photos on tap, no carousel auto-advance, search pages of 12. Home and store settings are kept on the phone and shown instantly when offline.
 
 ## v1 additions from competitive research (docs/COMPETITIVE.md)
 
