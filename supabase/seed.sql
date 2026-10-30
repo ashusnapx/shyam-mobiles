@@ -42,9 +42,6 @@ from (values
   ('vivo-v50', 'vivo V50', 'vivo', 'smartphones',
    'Slim body with ZEISS portrait cameras and a 6000 mAh battery.',
    '[{"label":"Display","value":"6.77-inch AMOLED, 120 Hz"},{"label":"Processor","value":"Snapdragon 7 Gen 3"},{"label":"Camera","value":"50 MP + 50 MP ultra-wide; 50 MP front"},{"label":"Battery","value":"6000 mAh, 90 W"},{"label":"Software","value":"Android 15, Funtouch OS 15"}]', false),
-  ('realme-narzo-80-pro-5g', 'realme Narzo 80 Pro 5G', 'realme', 'smartphones',
-   'Fast charging and a bright display for under twenty thousand.',
-   '[{"label":"Display","value":"6.77-inch AMOLED, 120 Hz"},{"label":"Processor","value":"MediaTek Dimensity 7400"},{"label":"Camera","value":"50 MP + 2 MP; 16 MP front"},{"label":"Battery","value":"6000 mAh, 80 W"},{"label":"Software","value":"Android 15, realme UI 6"}]', false),
   ('motorola-edge-60-fusion', 'Motorola Edge 60 Fusion', 'motorola', 'smartphones',
    'Quad-curved pOLED, Pantone colours and MIL-STD-810H toughness.',
    '[{"label":"Display","value":"6.67-inch pOLED, 120 Hz"},{"label":"Processor","value":"MediaTek Dimensity 7400"},{"label":"Camera","value":"50 MP + 13 MP ultra-wide; 32 MP front"},{"label":"Battery","value":"5500 mAh, 68 W"},{"label":"Software","value":"Android 15"}]', false),
@@ -94,7 +91,6 @@ from (values
   ('xiaomi-redmi-note-14-pro-5g', 'XI-RN14P-8-256-PPL', '8 GB · 256 GB · Phantom Purple', '{"ram":"8 GB","storage":"256 GB","color":"Phantom Purple","color_hex":"#8C7BA8"}', 25999, 30999, 7, 1),
   ('vivo-v50', 'VI-V50-8-128-RSR', '8 GB · 128 GB · Rose Red', '{"ram":"8 GB","storage":"128 GB","color":"Rose Red","color_hex":"#C9566B"}', 34999, 40999, 6, 0),
   ('vivo-v50', 'VI-V50-12-256-TGR', '12 GB · 256 GB · Titanium Grey', '{"ram":"12 GB","storage":"256 GB","color":"Titanium Grey","color_hex":"#7D7F82"}', 38999, 44999, 3, 1),
-  ('realme-narzo-80-pro-5g', 'RM-N80P-8-128-SSV', '8 GB · 128 GB · Speed Silver', '{"ram":"8 GB","storage":"128 GB","color":"Speed Silver","color_hex":"#C7CACE"}', 19999, 22999, 0, 0),
   ('motorola-edge-60-fusion', 'MO-E60F-8-256-AMZ', '8 GB · 256 GB · Pantone Amazonite', '{"ram":"8 GB","storage":"256 GB","color":"Pantone Amazonite","color_hex":"#2F6F68"}', 22999, 25999, 9, 0),
   ('motorola-edge-60-fusion', 'MO-E60F-12-256-SLP', '12 GB · 256 GB · Pantone Slipstream', '{"ram":"12 GB","storage":"256 GB","color":"Pantone Slipstream","color_hex":"#A9B7C6"}', 24999, 27999, 4, 1),
   ('google-pixel-9a', 'GO-P9A-8-256-OBS', '8 GB · 256 GB · Obsidian', '{"ram":"8 GB","storage":"256 GB","color":"Obsidian","color_hex":"#2B2B2D"}', 49999, 49999, 5, 0),
@@ -111,7 +107,7 @@ from (values
 ) v(product, sku, name, attributes, price, mrp, stock, sort)
 join public.products pr on pr.slug = v.product;
 
--- Five products in every category: keypad phones and accessories, with full specs, colours and a mix of stock
+-- More products in every category: keypad phones and accessories, with full specs, colours and a mix of stock
 -- (plenty, low, sold out). Safe to run on a database that already has the rest of the seed.
 insert into public.brands (slug, name) values
   ('itel', 'itel'), ('jio', 'Jio'), ('jbl', 'JBL'), ('portronics', 'Portronics'), ('ambrane', 'Ambrane')
@@ -130,12 +126,6 @@ from (values
   ('lava-a1-josh', 'LAVA A1 Josh', 'lava', 'keypad-phones',
    'Made in India keypad phone with a big battery, number talker in Hindi and English, and a bright torch.',
    '[{"label":"Display","value":"1.77-inch QQVGA"},{"label":"Network","value":"2G, dual SIM"},{"label":"Battery","value":"1000 mAh, up to 6 days standby"},{"label":"Storage","value":"microSD up to 32 GB"},{"label":"Extras","value":"Number talker, call recording, FM radio, torch"},{"label":"Warranty","value":"1 year manufacturer"}]', false),
-  ('itel-magic-x-play', 'itel Magic X Play', 'itel', 'keypad-phones',
-   '4G keypad phone with WhatsApp and YouTube, a 2.4-inch screen and a 1900 mAh battery.',
-   '[{"label":"Display","value":"2.4-inch QVGA"},{"label":"Network","value":"4G VoLTE, dual SIM"},{"label":"Camera","value":"0.3 MP rear"},{"label":"Battery","value":"1900 mAh"},{"label":"Storage","value":"48 MB RAM, 128 MB; microSD up to 64 GB"},{"label":"Extras","value":"WhatsApp, YouTube, hotspot, FM radio"},{"label":"Warranty","value":"1 year manufacturer"}]', false),
-  ('jio-bharat-b1-4g', 'Jio Bharat B1 4G', 'jio', 'keypad-phones',
-   'Jio’s 4G phone with JioPay UPI, JioCinema and JioSaavn built in. Works with a Jio SIM.',
-   '[{"label":"Display","value":"2.4-inch QVGA"},{"label":"Network","value":"4G VoLTE, Jio SIM only"},{"label":"Camera","value":"0.3 MP rear"},{"label":"Battery","value":"2000 mAh, removable"},{"label":"Storage","value":"microSD up to 128 GB"},{"label":"Extras","value":"JioPay UPI, JioCinema, JioSaavn, FM radio"},{"label":"Warranty","value":"1 year manufacturer"}]', false),
   -- cases & covers
   ('apple-iphone-16-silicone-case-magsafe', 'Apple iPhone 16 Silicone Case with MagSafe', 'apple', 'cases-covers',
    'Apple’s own silky silicone case with a soft microfibre lining. MagSafe chargers snap on through it.',
@@ -153,12 +143,6 @@ from (values
   ('spigen-glastr-ez-fit-iphone-16', 'Spigen GlasTR EZ Fit Screen Guard for iPhone 16 (2 pack)', 'spigen', 'screen-guards',
    'Bubble-free tempered glass that lines itself up with the EZ Fit tray in seconds.',
    '[{"label":"Fits","value":"iPhone 16"},{"label":"In the box","value":"2 guards, EZ Fit installer, cleaning kit"},{"label":"Hardness","value":"9H"},{"label":"Thickness","value":"0.33 mm"}]', false),
-  ('spigen-glastr-slim-pixel-9a', 'Spigen GlasTR Slim Screen Guard for Pixel 9a (2 pack)', 'spigen', 'screen-guards',
-   'Case-friendly tempered glass that keeps the in-display fingerprint sensor working.',
-   '[{"label":"Fits","value":"Pixel 9a"},{"label":"In the box","value":"2 guards, alignment kit"},{"label":"Hardness","value":"9H"},{"label":"Fingerprint sensor","value":"Supported"}]', false),
-  ('spigen-neo-flex-oneplus-13', 'Spigen Neo Flex Film for OnePlus 13 (2 pack)', 'spigen', 'screen-guards',
-   'Self-healing film that follows the curved edges of the OnePlus 13, where glass can lift.',
-   '[{"label":"Fits","value":"OnePlus 13"},{"label":"In the box","value":"2 films, spray solution, squeegee"},{"label":"Type","value":"TPU film, self-healing"},{"label":"Edges","value":"Full curved coverage"}]', false),
   ('spigen-optik-lens-protector-iphone-16', 'Spigen Optik Camera Lens Protector for iPhone 16 (2 pack)', 'spigen', 'screen-guards',
    'Tempered glass for the camera bump, so scratches never reach your photos.',
    '[{"label":"Fits","value":"iPhone 16"},{"label":"In the box","value":"2 lens protectors, EZ Fit tray"},{"label":"Hardness","value":"9H"},{"label":"Flash","value":"Cut-out, no glare"}]', false),
@@ -172,9 +156,6 @@ from (values
   ('anker-322-usb-c-cable-1-8m', 'Anker 322 USB-C to USB-C Cable (1.8 m, 60 W)', 'anker', 'chargers-cables',
    'Braided 1.8 m cable that fast-charges phones and laptops up to 60 W.',
    '[{"label":"Length","value":"1.8 m"},{"label":"Power","value":"Up to 60 W"},{"label":"Data","value":"USB 2.0, 480 Mbps"},{"label":"Build","value":"Double-braided nylon, 10,000+ bend lifespan"},{"label":"Warranty","value":"18 months Anker"}]', false),
-  ('portronics-konnect-l-type-c-to-lightning', 'Portronics Konnect L Type-C to Lightning Cable (1.2 m)', 'portronics', 'chargers-cables',
-   'Fast-charge an iPhone from any USB-C charger with this 20 W braided cable.',
-   '[{"label":"Length","value":"1.2 m"},{"label":"Power","value":"Up to 20 W PD"},{"label":"Connectors","value":"USB-C to Lightning"},{"label":"Build","value":"Nylon braided"},{"label":"Warranty","value":"6 months Portronics"}]', false),
   -- earbuds & headphones
   ('oneplus-nord-buds-3-pro', 'OnePlus Nord Buds 3 Pro', 'oneplus', 'earbuds-headphones',
    'Up to 49 dB noise cancellation, 44 hours with the case, and a 10-minute charge for 11 hours.',
@@ -192,9 +173,6 @@ from (values
   ('xiaomi-20000mah-33w-power-bank-4i', 'Xiaomi 20000 mAh 33W Power Bank 4i', 'xiaomi', 'power-banks',
    'Charges a phone about four times, and the phone and the bank fast-charge over USB-C.',
    '[{"label":"Capacity","value":"20000 mAh"},{"label":"Output","value":"33 W max, 2 x USB-A + 1 x USB-C"},{"label":"Input","value":"USB-C, 27 W"},{"label":"Weight","value":"434 g"},{"label":"Warranty","value":"6 months Xiaomi"}]', false),
-  ('ambrane-stylo-pro-10000mah', 'Ambrane Stylo Pro 10000 mAh Power Bank', 'ambrane', 'power-banks',
-   'Slim, light everyday power bank with 20 W fast charging, made in India.',
-   '[{"label":"Capacity","value":"10000 mAh"},{"label":"Output","value":"20 W PD, 1 x USB-C + 2 x USB-A"},{"label":"Input","value":"USB-C or micro-USB"},{"label":"Weight","value":"230 g"},{"label":"Warranty","value":"180 days Ambrane"}]', false),
   ('anker-621-maggo-5000mah', 'Anker 621 MagGo Magnetic Battery (5000 mAh)', 'anker', 'power-banks',
    'Snaps onto the back of a MagSafe iPhone and charges it wirelessly, no cable needed.',
    '[{"label":"Capacity","value":"5000 mAh"},{"label":"Output","value":"7.5 W magnetic wireless"},{"label":"Input","value":"USB-C, 12 W"},{"label":"Works with","value":"iPhone 12 and later"},{"label":"Warranty","value":"18 months Anker"}]', false),
@@ -215,9 +193,6 @@ from (values
   ('nokia-110-4g-2024', 'NK-110-4G-BLU', 'Blue', '{"color":"Blue","color_hex":"#3B6EA5"}', 2399, 2799, 3, 1),
   ('lava-a1-josh', 'LV-A1J-BLK', 'Black Blue', '{"color":"Black Blue","color_hex":"#1F2A3A"}', 1049, 1349, 35, 0),
   ('lava-a1-josh', 'LV-A1J-BRS', 'Black Red', '{"color":"Black Red","color_hex":"#5A1F24"}', 1049, 1349, 0, 1),
-  ('itel-magic-x-play', 'IT-MXP-BLK', 'Black', '{"color":"Black","color_hex":"#1C1C1C"}', 1999, 2499, 9, 0),
-  ('itel-magic-x-play', 'IT-MXP-LBL', 'Light Blue', '{"color":"Light Blue","color_hex":"#9CC3E6"}', 1999, 2499, 2, 1),
-  ('jio-bharat-b1-4g', 'JIO-B1-BLK', 'Black', '{"color":"Black","color_hex":"#202020"}', 1299, 1299, 25, 0),
   ('apple-iphone-16-silicone-case-magsafe', 'APL-SC-IP16-DNM', 'Denim', '{"color":"Denim","color_hex":"#4C6A8E"}', 4900, 4900, 4, 0),
   ('apple-iphone-16-silicone-case-magsafe', 'APL-SC-IP16-BLK', 'Black', '{"color":"Black","color_hex":"#2B2B2B"}', 4900, 4900, 6, 1),
   ('apple-iphone-16-silicone-case-magsafe', 'APL-SC-IP16-PLM', 'Plum', '{"color":"Plum","color_hex":"#7A4A6B"}', 4900, 4900, 0, 2),
@@ -226,15 +201,12 @@ from (values
   ('spigen-liquid-air-pixel-9a', 'SP-LA-P9A-MBK', 'Matte Black', '{"color":"Matte Black","color_hex":"#222222"}', 1199, 2499, 11, 0),
   ('oneplus-13-sandstone-magnetic-case', 'OP-13-SSC-BLK', 'Sandstone Black', '{"color":"Sandstone Black","color_hex":"#2A2A2A"}', 1499, 1999, 7, 0),
   ('spigen-glastr-ez-fit-iphone-16', 'SP-GEZ-IP16-2PK', '2 pack', '{}', 1499, 3199, 22, 0),
-  ('spigen-glastr-slim-pixel-9a', 'SP-GLS-P9A-2PK', '2 pack', '{}', 999, 2199, 16, 0),
-  ('spigen-neo-flex-oneplus-13', 'SP-NF-OP13-2PK', '2 pack', '{}', 1099, 2299, 1, 0),
   ('spigen-optik-lens-protector-iphone-16', 'SP-OPT-IP16-2PK', '2 pack', '{}', 899, 1799, 19, 0),
   ('samsung-25w-super-fast-charger', 'SAM-TA25-BLK', 'Black', '{"color":"Black","color_hex":"#1F1F1F"}', 1149, 1699, 24, 0),
   ('samsung-25w-super-fast-charger', 'SAM-TA25-WHT', 'White', '{"color":"White","color_hex":"#F4F4F4"}', 1149, 1699, 8, 1),
   ('apple-20w-usb-c-power-adapter', 'APL-20W-WHT', 'White', '{"color":"White","color_hex":"#F7F7F7"}', 1599, 1900, 15, 0),
   ('anker-322-usb-c-cable-1-8m', 'AN-322-CC18-BLK', 'Black', '{"color":"Black","color_hex":"#1E1E1E"}', 699, 1299, 30, 0),
   ('anker-322-usb-c-cable-1-8m', 'AN-322-CC18-WHT', 'White', '{"color":"White","color_hex":"#F2F2F2"}', 699, 1299, 12, 1),
-  ('portronics-konnect-l-type-c-to-lightning', 'PT-KL-CL12-GRY', 'Grey', '{"color":"Grey","color_hex":"#7A7D80"}', 349, 899, 45, 0),
   ('oneplus-nord-buds-3-pro', 'OP-NB3P-SJD', 'Soft Jade', '{"color":"Soft Jade","color_hex":"#9FC5B5"}', 2799, 3299, 10, 0),
   ('oneplus-nord-buds-3-pro', 'OP-NB3P-SBK', 'Starry Black', '{"color":"Starry Black","color_hex":"#1D1F24"}', 2799, 3299, 6, 1),
   ('apple-airpods-4', 'APL-APD4-WHT', 'White', '{"color":"White","color_hex":"#F5F5F5"}', 12900, 12900, 3, 0),
@@ -245,8 +217,6 @@ from (values
   ('boat-rockerz-450', 'BT-RZ450-AQB', 'Aqua Blue', '{"color":"Aqua Blue","color_hex":"#2E8FB8"}', 1499, 3990, 7, 1),
   ('xiaomi-20000mah-33w-power-bank-4i', 'XI-PB4I-20K-BLK', 'Black', '{"color":"Black","color_hex":"#1F1F1F"}', 2199, 3999, 13, 0),
   ('xiaomi-20000mah-33w-power-bank-4i', 'XI-PB4I-20K-WHT', 'White', '{"color":"White","color_hex":"#F3F3F3"}', 2199, 3999, 2, 1),
-  ('ambrane-stylo-pro-10000mah', 'AM-STP-10K-BLK', 'Black', '{"color":"Black","color_hex":"#202020"}', 799, 1999, 28, 0),
-  ('ambrane-stylo-pro-10000mah', 'AM-STP-10K-BLU', 'Blue', '{"color":"Blue","color_hex":"#2C4F8C"}', 799, 1999, 9, 1),
   ('anker-621-maggo-5000mah', 'AN-621-MG5K-WHT', 'Ice White', '{"color":"Ice White","color_hex":"#F0F2F4"}', 2999, 4999, 5, 0),
   ('samsung-10000mah-25w-battery-pack', 'SAM-EBP10-BEG', 'Beige', '{"color":"Beige","color_hex":"#D9CBB3"}', 1999, 2999, 0, 0)
 ) v(product, sku, name, attributes, price, mrp, stock, sort)

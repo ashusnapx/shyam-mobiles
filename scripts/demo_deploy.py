@@ -131,7 +131,11 @@ class Deploy:
         fixes = ("update public.variants set sku = 'AN-NANO20-BLK', name = 'Black', "
                  "attributes = '{\"color\":\"Black\",\"color_hex\":\"#1F1F1F\"}' where sku = 'AN-NANO20-WHT';\n"
                  "update public.variants set sku = 'SAM-EBP10-BEG', name = 'Beige', "
-                 "attributes = '{\"color\":\"Beige\",\"color_hex\":\"#D9CBB3\"}' where sku = 'SAM-EBP10-GRY';\n")
+                 "attributes = '{\"color\":\"Beige\",\"color_hex\":\"#D9CBB3\"}' where sku = 'SAM-EBP10-GRY';\n"
+                 # products dropped from the sample catalogue because no official photos exist
+                 "delete from public.products where slug in ('ambrane-stylo-pro-10000mah', 'itel-magic-x-play', "
+                 "'jio-bharat-b1-4g', 'portronics-konnect-l-type-c-to-lightning', 'realme-narzo-80-pro-5g', "
+                 "'spigen-glastr-slim-pixel-9a', 'spigen-neo-flex-oneplus-13');\n")
         self.query(products + '\n' + offers + '\n' + fixes)
         print('  done')
 
