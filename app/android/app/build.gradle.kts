@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 // Upload key for Play: android/key.properties (gitignored; Codemagic writes it from its keystore secrets) with
@@ -12,7 +13,7 @@ val keystoreProperties = Properties().apply {
 // base64-encoded, as the dart-defines property. It becomes the App Link host in the manifest; without one the app
 // claims a host that can't exist (.invalid), so no link opens it by mistake.
 val linkHost = (project.findProperty("dart-defines") as String?).orEmpty().split(",")
-    .map { String(java.util.Base64.getDecoder().decode(it)) }
+    .map { String(Base64.getDecoder().decode(it)) } // `java.util` here would mean the Gradle `java` extension
     .firstOrNull { it.startsWith("LINK_HOST=") }?.substringAfter("=")
     ?.takeIf { Regex("^[a-z0-9.-]+$").matches(it) } ?: "links.invalid"
 
