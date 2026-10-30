@@ -35,6 +35,9 @@ class FakeRailsApi implements RailsApi {
 
   @override
   Future<List<ProductCard>> cards(List<String> ids) async => [for (final c in all) if (ids.contains(c.id)) c];
+
+  @override
+  Future<List<ProductCard>> latest() async => all;
 }
 
 void main() {

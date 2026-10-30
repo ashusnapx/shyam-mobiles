@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'core/router.dart';
 import 'core/theme/theme.dart';
+import 'features/notifications/widgets/notification_widgets.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -34,7 +35,11 @@ class App extends ConsumerWidget {
               ),
               enableSwitchAnimation: true,
             ),
-            child: MediaQuery.withClampedTextScaling(maxScaleFactor: 1.3, child: child!),
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              // the newest notification slides in over every screen
+              child: NotificationBannerHost(router: ref.watch(routerProvider), child: child!),
+            ),
           ),
         ),
       );

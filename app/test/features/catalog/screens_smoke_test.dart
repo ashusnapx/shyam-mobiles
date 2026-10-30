@@ -222,7 +222,7 @@ void main() {
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
     await tester.pumpAndSettle(); // the sections' entrance
     expect(find.text('Galaxy S25').hitTestable(), findsOneWidget);
-    expect(find.bySemanticsLabel('Featured 1 of 3'), findsOneWidget);
+    expect(find.bySemanticsLabel('Slide 1 of 3'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 4600));
     await tester.pumpAndSettle();
@@ -232,7 +232,7 @@ void main() {
     await tester.fling(find.text('Redmi Note 14 Pro 5G').hitTestable(), const Offset(400, 0), 1200);
     await tester.pumpAndSettle();
     expect(find.text('Galaxy S25').hitTestable(), findsOneWidget);
-    expect(find.bySemanticsLabel('Featured 1 of 3'), findsOneWidget);
+    expect(find.bySemanticsLabel('Slide 1 of 3'), findsOneWidget);
     await tester.pumpWidget(const SizedBox()); // dispose, so the carousel's timer is cancelled
   });
 
@@ -240,13 +240,13 @@ void main() {
     final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Next featured'));
+    await tester.tap(find.byTooltip('Next slide'));
     await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('Featured 2 of 3'), findsOneWidget);
-    await tester.tap(find.byTooltip('Previous featured'));
-    await tester.tap(find.byTooltip('Previous featured'));
+    expect(find.bySemanticsLabel('Slide 2 of 3'), findsOneWidget);
+    await tester.tap(find.byTooltip('Previous slide'));
+    await tester.tap(find.byTooltip('Previous slide'));
     await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('Featured 3 of 3'), findsOneWidget, reason: 'wraps around');
+    expect(find.bySemanticsLabel('Slide 3 of 3'), findsOneWidget, reason: 'wraps around');
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -255,13 +255,13 @@ void main() {
     final mixed = [cards[0], card('long', 'Samsung Galaxy S25 Ultra Titanium Edition 1 TB', 'Samsung', 129999), cards[1]];
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => (categories: <Category>[], featured: mixed, accessories: <ProductCard>[]))]);
     await tester.pumpAndSettle(); // the sections' entrance
-    final carousel = find.bySemanticsLabel('Featured 1 of 3');
+    final carousel = find.bySemanticsLabel('Slide 1 of 3');
     final categoriesTop = tester.getTopLeft(find.text('All')).dy;
     for (var i = 0; i < 3; i++) {
       await tester.pump(const Duration(milliseconds: 4600));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text('All')).dy, categoriesTop, reason: 'slide ${i + 1} moved the content below');
-      expect(find.bySemanticsLabel('Featured ${(i + 1) % 3 + 1} of 3'), findsOneWidget);
+      expect(find.bySemanticsLabel('Slide ${(i + 1) % 3 + 1} of 3'), findsOneWidget);
     }
     expect(carousel, findsOneWidget); // three slides wrap back to the first
     await tester.pumpWidget(const SizedBox());

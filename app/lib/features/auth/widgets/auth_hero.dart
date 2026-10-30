@@ -5,9 +5,10 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 
-/// The sign-in and code screens' hero: the home card's deep peacock, drifting slowly through the three hero tones
-/// (a 12 s cycle; still with reduced motion and on low-RAM phones), feather rings, and the colour mark, whose dots
-/// ripple out once. [compact] folds it to a bar while typing; white text passes AA on every tone.
+/// The sign-in and code screens' hero: the home card's deep peacock, drifting once through the three hero tones and
+/// back (12 s, then it rests: no endless repaint on a cheap phone; still with reduced motion and on low-RAM phones),
+/// feather rings, and the colour mark, whose dots ripple out once. [compact] folds it to a bar while typing; white
+/// text passes AA on every tone.
 class AuthHero extends ConsumerStatefulWidget {
   const AuthHero({super.key, required this.compact, required this.leading, this.overlap = 26});
 
@@ -21,13 +22,14 @@ class AuthHero extends ConsumerStatefulWidget {
 
 class _AuthHeroState extends ConsumerState<AuthHero> with SingleTickerProviderStateMixin {
   late final _drift = AnimationController(vsync: this, duration: const Duration(seconds: 12));
+  bool _started = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final moving = !MediaQuery.disableAnimationsOf(context) && ref.read(richMotionProvider);
-    if (moving && !_drift.isAnimating) _drift.repeat();
-    if (!moving) _drift.value = 0;
+    if (_started) return;
+    _started = true;
+    if (!MediaQuery.disableAnimationsOf(context) && ref.read(richMotionProvider)) _drift.forward();
   }
 
   @override
@@ -77,30 +79,36 @@ class _AuthHeroState extends ConsumerState<AuthHero> with SingleTickerProviderSt
       ],
     );
     final duration = still ? Duration.zero : Motion.normal;
-    return CustomPaint(
-      painter: _DriftPainter(_drift),
-      // the drift repaints only the gradient: the rings and text sit on their own layer
-      child: RepaintBoundary(
-        child: CustomPaint(
-          painter: const _RipplePainter(),
-          child: AnimatedPadding(
-            duration: duration,
-            curve: Curves.easeOutCubic,
-            padding: EdgeInsets.fromLTRB(
-              Space.xl,
-              MediaQuery.paddingOf(context).top + Space.xs,
-              Space.xl,
-              (widget.compact ? Space.md : Space.xxl) + widget.overlap,
-            ),
-            child: AnimatedSize(
+    // never taller than the space above the keyboard: while it slides up, the folding hero clips instead of
+    // pushing the form off the screen
+    final room = MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: room),
+      child: CustomPaint(
+        painter: _DriftPainter(_drift),
+        // the drift repaints only the gradient: the rings and text sit on their own layer
+        child: RepaintBoundary(
+          child: CustomPaint(
+            painter: const _RipplePainter(),
+            child: AnimatedPadding(
               duration: duration,
               curve: Curves.easeOutCubic,
-              alignment: Alignment.topLeft,
-              child: AnimatedSwitcher(
-                duration: still ? Duration.zero : Motion.fast,
-                layoutBuilder: (current, previous) =>
-                    Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
-                child: widget.compact ? bar : full,
+              padding: EdgeInsets.fromLTRB(
+                Space.xl,
+                MediaQuery.paddingOf(context).top + Space.xs,
+                Space.xl,
+                (widget.compact ? Space.md : Space.xxl) + widget.overlap,
+              ),
+              child: AnimatedSize(
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topLeft,
+                child: AnimatedSwitcher(
+                  duration: still ? Duration.zero : Motion.fast,
+                  layoutBuilder: (current, previous) =>
+                      Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
+                  child: widget.compact ? bar : full,
+                ),
               ),
             ),
           ),
@@ -167,11 +175,8 @@ class _RipplePainter extends CustomPainter {
 
 /// The hero's round translucent button (Close, Back).
 Widget heroButton({required String tooltip, required IconData icon, required VoidCallback onPressed}) => IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.14),
-        foregroundColor: Colors.white,
-      ),
-      icon: Icon(icon, size: 20),
-    );
+  tooltip: tooltip,
+  onPressed: onPressed,
+  style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.14), foregroundColor: Colors.white),
+  icon: Icon(icon, size: 20),
+);

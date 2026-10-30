@@ -15,6 +15,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../auth/data/google.dart';
 import '../../feedback/data/feedback.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
+import '../../notifications/data/notifications.dart';
 import '../widgets/policies.dart';
 import '../data/profile.dart';
 
@@ -128,6 +129,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             ),
             const SizedBox(height: Space.sm),
             row(PhosphorIconsRegular.package, 'My orders', () => context.push('/orders')),
+            row(PhosphorIconsRegular.bell, 'Notifications', () => context.push('/notifications'),
+                subtitle: switch (ref.watch(unreadCountProvider)) { 0 => null, final n => '$n unread' }),
             row(PhosphorIconsRegular.heart, 'Wishlist', () => context.push('/wishlist')),
             row(PhosphorIconsRegular.sealPercent, 'Offers & coupons', () => context.push('/offers')),
             if (ref.watch(storeSettingsProvider).value case final s? when s.referralEnabled)

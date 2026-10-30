@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from launch import ROOT, SHA256, Launch, assetlinks, fill_site, key_fingerprints, parse_env, prod_config  # noqa: E402
+from launch import (ROOT, SHA256, Launch, assetlinks, fcm_service_account, fill_site, key_fingerprints,  # noqa: E402
+                    parse_env, prod_config, push_vault_sql)
 
 CONFIG = (ROOT / 'supabase/config.toml').read_text()
 BASE = {'SUPABASE_PROJECT_REF': 'abcdefghijklmnopqrst'}
@@ -86,6 +87,38 @@ class ShareLinks(unittest.TestCase):
         launch = Launch({'PLAY_SIGNING_SHA256': 'not-a-key'}, dry=True)
         launch.site()
         self.assertTrue(any('PLAY_SIGNING_SHA256 should look like' in s for s in launch.skipped))
+
+
+KEY = {'type': 'service_account', 'project_id': 'shyam-mobiles', 'client_email': 'push@shyam-mobiles.iam.gserviceaccount.com',
+       'private_key': '-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n'}
+
+
+class Push(unittest.TestCase):
+    def test_service_account_pasted_or_as_a_file_becomes_one_line(self):
+        pasted = fcm_service_account(json.dumps(KEY, indent=2))
+        self.assertNotIn('\n', pasted.replace('\\n', ''))  # one line for the secrets file; the key keeps its \n escapes
+        self.assertEqual(json.loads(pasted), KEY)
+        with tempfile.NamedTemporaryFile('w', suffix='.json') as f:
+            json.dump(KEY, f)
+            f.flush()
+            self.assertEqual(fcm_service_account(f.name), pasted)
+        with self.assertRaises(ValueError):
+            fcm_service_account('{"project_id": "x"}')  # the google-services.json or web config, not the key
+
+    def test_vault_sql_points_the_database_at_send_push(self):
+        sql = push_vault_sql('abcdefghijklmnopqrst', 'S' * 43)
+        self.assertIn("'https://abcdefghijklmnopqrst.supabase.co/functions/v1/send-push', 'push_url'", sql)
+        self.assertIn("vault.update_secret(id, '" + 'S' * 43 + "') from vault.secrets where name = 'push_secret'", sql)
+        with self.assertRaises(ValueError):
+            push_vault_sql("x'; drop table orders; --", 'S' * 43)
+
+    def test_dry_run_sets_both_push_secrets_and_waits_for_the_app_keys(self):
+        launch = Launch({**BASE, 'FCM_SERVICE_ACCOUNT': json.dumps(KEY)}, dry=True)
+        launch.secrets()
+        self.assertIsNotNone(launch.push_secret)
+        launch.push()
+        self.assertTrue(any('FIREBASE_* keys' in s for s in launch.skipped))
+        self.assertFalse(any(s.startswith('push: phone notifications need') for s in launch.skipped))
 
 
 if __name__ == '__main__':

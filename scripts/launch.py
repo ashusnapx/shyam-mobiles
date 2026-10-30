@@ -9,8 +9,9 @@ keys arrive. Steps, in order (pick some with --only schema,auth):
 
   link       link the Supabase CLI to the production project
   schema     apply new migrations (never the seed: production keeps its own data)
-  secrets    Edge Function secrets: Razorpay, MSG91, and a fresh Send SMS hook secret
+  secrets    Edge Function secrets: Razorpay, MSG91, FCM, and fresh Send SMS hook and push secrets
   functions  deploy every Edge Function
+  push       phone notifications: tell the database where send-push is and its secret (Vault)
   auth       auth settings: sign-in hook, 6-digit codes, code emails, Resend SMTP, Google, MSG91 SMS hook
   cleanup    remove the test-login domain from production
   app        write app/env/prod.json, the app's build settings
@@ -34,7 +35,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-STEPS = ['link', 'schema', 'secrets', 'functions', 'auth', 'cleanup', 'app', 'signing', 'site', 'build']
+STEPS = ['link', 'schema', 'secrets', 'functions', 'push', 'auth', 'cleanup', 'app', 'signing', 'site', 'build']
 TEST_DOMAIN = 'shyammobiles.test'
 PACKAGE = 'com.shyammobiles.app'
 KEYSTORE = ROOT / 'app/android/upload-keystore.jks'
@@ -60,6 +61,26 @@ def parse_env(text):
             v = v[1:-1]
         out[k.strip()] = v
     return out
+
+
+def fcm_service_account(value):
+    """FCM_SERVICE_ACCOUNT as one line of JSON: the key file's JSON pasted as is, or the path to the .json file."""
+    text = value if value.lstrip().startswith('{') else Path(value).expanduser().read_text()
+    key = json.loads(text)
+    missing = [k for k in ['project_id', 'client_email', 'private_key'] if not key.get(k)]
+    if missing:
+        raise ValueError(f'FCM_SERVICE_ACCOUNT has no {", ".join(missing)}: use the service account key file')
+    return json.dumps(key, separators=(',', ':'))
+
+
+def push_vault_sql(ref, secret):
+    """SQL that stores send-push's URL and shared secret in Vault, where private.push_notification reads them."""
+    if not re.fullmatch(r'[a-z0-9]{20}', ref) or not re.fullmatch(r'[A-Za-z0-9_-]{32,}', secret):
+        raise ValueError('unexpected project ref or push secret')
+    values = {'push_url': f'https://{ref}.supabase.co/functions/v1/send-push', 'push_secret': secret}
+    return 'do $$ begin\n' + ''.join(
+        f"  perform vault.update_secret(id, '{v}') from vault.secrets where name = '{k}';\n"
+        f"  if not found then perform vault.create_secret('{v}', '{k}'); end if;\n" for k, v in values.items()) + 'end $$;\n'
 
 
 def _set_in_section(text, section, key, value):
@@ -140,6 +161,7 @@ class Launch:
         self.env, self.dry = env, dry
         self.cli = os.environ.get('SUPABASE_CLI') or shutil.which('supabase-go') or 'supabase'
         self.hook_secret = None
+        self.push_secret = None
         self.upload_sha256 = None
         self.skipped = []
 
@@ -190,6 +212,13 @@ class Launch:
                           SEND_SMS_HOOK_SECRET=self.hook_secret)
         else:
             self.skip('secrets', 'phone codes need MSG91_AUTH_KEY and MSG91_TEMPLATE_ID')
+        if self.has('FCM_SERVICE_ACCOUNT'):
+            # a new secret every run; the push step hands the same one to the database in this run
+            self.push_secret = rand.token_urlsafe(32)
+            values.update(FCM_SERVICE_ACCOUNT=fcm_service_account(self.env['FCM_SERVICE_ACCOUNT']),
+                          PUSH_SECRET=self.push_secret)
+        else:
+            self.skip('secrets', 'phone notifications stay off until FCM_SERVICE_ACCOUNT is in')
         if not values:
             return
         print(f'  (setting {", ".join(values)})')
@@ -205,6 +234,22 @@ class Launch:
 
     def functions(self):
         self.run([self.cli, 'functions', 'deploy', '--use-api', '--project-ref', self.env['SUPABASE_PROJECT_REF']])
+
+    def push(self):
+        if self.push_secret is None:
+            return self.skip('push', 'phone notifications need FCM_SERVICE_ACCOUNT (and the secrets step in the same run)')
+        if not self.has('FIREBASE_API_KEY', 'FIREBASE_APP_ID', 'FIREBASE_MESSAGING_SENDER_ID', 'FIREBASE_PROJECT_ID'):
+            self.skip('push', 'the app build needs the FIREBASE_* keys too, or phones never register for notifications')
+        sql = push_vault_sql(self.env['SUPABASE_PROJECT_REF'], self.push_secret)
+        if self.dry:
+            return print(f'  $ {self.cli} db query --linked -f <temp file: Vault push_url, push_secret>')
+        fd, path = tempfile.mkstemp(suffix='.sql')
+        try:
+            with os.fdopen(fd, 'w') as f:
+                f.write(sql)
+            self.run([self.cli, 'db', 'query', '--linked', '--agent', 'no', '-f', path], env=self.db_env)
+        finally:
+            os.unlink(path)
 
     def auth(self):
         if not self.has('RESEND_API_KEY', 'SMTP_SENDER_EMAIL'):
@@ -231,11 +276,11 @@ class Launch:
 
     def app(self):
         keys = ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'RAZORPAY_KEY_ID', 'GOOGLE_WEB_CLIENT_ID', 'POLICIES_URL',
-                'LINK_HOST']
+                'LINK_HOST', 'FIREBASE_API_KEY', 'FIREBASE_APP_ID', 'FIREBASE_MESSAGING_SENDER_ID', 'FIREBASE_PROJECT_ID']
         values = {k: self.env.get(k, '') for k in keys}
         path = ROOT / 'app/env/prod.json'
         print(f'  writing {path.relative_to(ROOT)} ({", ".join(k for k in keys if values[k])})')
-        for k in ['RAZORPAY_KEY_ID', 'GOOGLE_WEB_CLIENT_ID', 'POLICIES_URL', 'LINK_HOST']:
+        for k in ['RAZORPAY_KEY_ID', 'GOOGLE_WEB_CLIENT_ID', 'POLICIES_URL', 'LINK_HOST', 'FIREBASE_APP_ID']:
             if not values[k]:
                 self.skip('app', f'{k} is empty, so that part of the app stays off in this build')
         if self.dry:
@@ -334,6 +379,8 @@ def main():
         sys.exit(f'unknown steps: {", ".join(unknown)}')
     if 'auth' in steps and 'secrets' not in steps and env.get('MSG91_AUTH_KEY'):
         steps.insert(steps.index('auth'), 'secrets')  # the SMS hook secret must reach the function and Auth together
+    if 'push' in steps and 'secrets' not in steps and env.get('FCM_SERVICE_ACCOUNT'):
+        steps.insert(steps.index('push'), 'secrets')  # the push secret must reach send-push and the database together
     missing = [k for k in ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_PROJECT_REF', 'SUPABASE_DB_PASSWORD']
                if not env.get(k)]
     if missing:

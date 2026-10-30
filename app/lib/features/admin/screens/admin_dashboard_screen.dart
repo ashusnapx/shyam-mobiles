@@ -16,6 +16,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../repairs/data/booking_days.dart';
 import '../../repairs/widgets/repair_widgets.dart';
 import '../../feedback/data/feedback.dart';
+import '../../notifications/widgets/notification_widgets.dart';
 import '../data/admin.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
@@ -38,20 +39,28 @@ class AdminDashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: Space.xl),
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.md),
-                    child: Column(
+                    padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.sm, Space.md),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          DateFormat('EEEE, d MMMM').format(istNow()),
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat('EEEE, d MMMM').format(istNow()),
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
                               ),
+                              Semantics(
+                                header: true,
+                                child: Text('Today at the shop', style: Theme.of(context).textTheme.displaySmall),
+                              ),
+                            ],
+                          ),
                         ),
-                        Semantics(
-                          header: true,
-                          child: Text('Today at the shop', style: Theme.of(context).textTheme.displaySmall),
-                        ),
+                        const NotificationBell(), // new orders, bookings, quote answers, feedback, low stock
                       ],
                     ),
                   ),

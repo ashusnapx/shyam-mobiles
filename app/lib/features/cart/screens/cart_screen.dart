@@ -52,6 +52,15 @@ class CartScreen extends ConsumerWidget {
       );
     }
     final cart = ref.watch(cartProvider);
+    // the cart drops lines the shop hid: say so once (takeRemoved empties), after this frame
+    if (cart.hasValue) {
+      final names = ref.read(cartProvider.notifier).takeRemoved();
+      if (names.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) showMessage(context, removedNotice(names));
+        });
+      }
+    }
     final count = ref.watch(cartCountProvider);
     final lines = cart.value ?? const <CartLine>[];
     final t = Theme.of(context).textTheme;

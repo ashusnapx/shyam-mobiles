@@ -35,6 +35,7 @@ import '../features/checkout/screens/checkout_screen.dart';
 import '../features/offers/screens/offers_screen.dart';
 import '../features/offers/screens/refer_screen.dart';
 import '../features/orders/screens/order_detail_screen.dart';
+import '../features/notifications/screens/notifications_screen.dart';
 import '../features/orders/screens/orders_screen.dart';
 import '../features/repairs/screens/repair_detail_screen.dart';
 import '../features/repairs/screens/repair_form_screen.dart';
@@ -49,7 +50,7 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Signed-out users hitting these go to /sign-in and come back after. Tab roots
 /// (/cart, /repairs, /account) stay open and show a SignInPrompt instead.
-const _authOnly = ['/checkout', '/orders', '/wishlist', '/admin', '/repairs/', '/account/'];
+const _authOnly = ['/checkout', '/orders', '/wishlist', '/admin', '/repairs/', '/account/', '/notifications'];
 
 /// Only same-app paths, so `from` can't bounce the user to another host.
 String? safeReturnPath(String? from) =>
@@ -142,7 +143,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 sub(':id', (s) => AdminBannerEditScreen(bannerId: s.pathParameters['id'])),
               ]),
               sub('settings', (_) => const AdminSettingsScreen()),
-              sub('feedback', (_) => const AdminFeedbackScreen(), routes: [
+              sub('feedback', (s) => AdminFeedbackScreen(productId: s.uri.queryParameters['product']), routes: [
                 sub(':id', (s) => AdminFeedbackDetailScreen(feedbackId: s.pathParameters['id']!)),
               ]),
             ]),
@@ -160,6 +161,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         GoRoute(path: ':id', builder: (_, s) => OrderDetailScreen(orderId: s.pathParameters['id']!)),
       ]),
       GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen()),
+      GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(
         path: '/sign-in',
         builder: (_, s) => SignInScreen(from: s.uri.queryParameters['from']),

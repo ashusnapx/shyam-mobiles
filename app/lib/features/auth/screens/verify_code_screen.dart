@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -11,6 +12,7 @@ import '../../../core/format.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../widgets/auth_hero.dart';
 import '../widgets/otp_field.dart';
 
 /// Matches `max_frequency` for SMS and email in supabase/config.toml; asking sooner is rejected.
@@ -134,7 +136,18 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
 
     final mm = _secondsLeft ~/ 60, ss = (_secondsLeft % 60).toString().padLeft(2, '0');
     return Scaffold(
-      appBar: AppBar(),
+      // the sign-in hero, folded to its bar
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(68),
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light,
+          child: AuthHero(
+            compact: true,
+            overlap: 0,
+            leading: heroButton(tooltip: 'Back', icon: PhosphorIconsRegular.arrowLeft, onPressed: _back),
+          ),
+        ),
+      ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(Space.xl, Space.sm, Space.xl, Space.xl + MediaQuery.paddingOf(context).bottom),
         children: [

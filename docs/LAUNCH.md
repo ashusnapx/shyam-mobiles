@@ -17,6 +17,7 @@ template, with where to get each key, is in the chat of 2026-10-29 and below).
 | `ANDROID_KEYSTORE_PASSWORD` | the Play upload key, `key.properties`, and the SHA-1 for Google's Android client |
 | `LINK_HOST` (where `site/` is published, e.g. `shyammobiles.in`) | share links `https://<LINK_HOST>/open?p=…&ref=…` in the app, and the App Link the build claims |
 | `PLAY_SIGNING_SHA256` (Play Console > Setup > App signing, after the first upload) | share links open copies installed from Play, not only the sideloaded `.apk` |
+| `FCM_SERVICE_ACCOUNT` + `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_PROJECT_ID` | phone notifications (paste these to turn them on; see below). Without them the app still shows every notification inside the app |
 | business details | policy pages filled into `build/site/`, ready to publish |
 
 Outputs: `app/env/prod.json` (app build settings), `app/android/upload-keystore.jks` + `key.properties` (back
@@ -34,4 +35,12 @@ After the first run:
   (most hosts drop the `.html`; GitHub Pages also needs an empty `.nojekyll` to publish `.well-known/`). Without the
   app, the page sends people to Play with the link as the install referrer, so the app opens it on first launch.
   Rebuild the app after setting `LINK_HOST`: the manifest's App Link host comes from `env/prod.json`.
+- Phone notifications: in the Firebase console make a project, add an Android app with package
+  `com.shyammobiles.app` (skip the google-services.json download: the app reads the keys from its build settings), then
+  paste into `.env.local`: from Project settings > General > Your apps, the app's `apiKey` → `FIREBASE_API_KEY`,
+  `appId` → `FIREBASE_APP_ID`, `messagingSenderId` → `FIREBASE_MESSAGING_SENDER_ID`, `projectId` →
+  `FIREBASE_PROJECT_ID`; from Project settings > Service accounts > Generate new private key, the downloaded file's path
+  (or its JSON on one line) → `FCM_SERVICE_ACCOUNT`. Run `python3 scripts/launch.py --only secrets,functions,push,app,build`:
+  send-push gets the key and a fresh shared secret, the database (Vault) learns where send-push is, and the new build
+  asks for notification permission after the first order or repair booking. Keep the key file private.
 - Not keys: Supabase Pro, the Play developer account, real products, a courier and the delivery fee.

@@ -108,7 +108,7 @@ class FeedbackEntry {
 
 const _select = '*, order:orders(number, address), repair:repair_bookings(number, contact_phone), product:products(name)';
 
-typedef FeedbackFilter = ({FeedbackStatus? status, FeedbackKind? kind});
+typedef FeedbackFilter = ({FeedbackStatus? status, FeedbackKind? kind, String? productId});
 
 /// Feedback reads and writes; a provider so tests can swap it.
 class FeedbackApi {
@@ -153,6 +153,7 @@ class FeedbackApi {
     var q = _db.from('feedback').select(_select);
     if (f.status != null) q = q.eq('status', f.status!.value);
     if (f.kind != null) q = q.eq('kind', f.kind!.name);
+    if (f.productId != null) q = q.eq('product_id', f.productId!);
     final rows = await q.order('created_at', ascending: false).order('id').range(from, from + size - 1);
     return [for (final r in rows) FeedbackEntry.fromJson(r)];
   }
@@ -171,6 +172,15 @@ class FeedbackApi {
   }
 
   Future<int> newCount() async => (await _db.from('feedback').select('id').eq('status', 'new').count(CountOption.exact)).count;
+
+  /// Staff: reports about one product listing (kind product), any status.
+  Future<int> listingReports(String productId) async => (await _db
+          .from('feedback')
+          .select('id')
+          .eq('kind', FeedbackKind.product.name)
+          .eq('product_id', productId)
+          .count(CountOption.exact))
+      .count;
 }
 
 final feedbackApiProvider = Provider<FeedbackApi>((ref) => FeedbackApi(ref.watch(supabaseProvider)));
@@ -200,6 +210,10 @@ class AdminFeedback extends PagedNotifier<FeedbackEntry> {
 
 final adminFeedbackEntryProvider =
     FutureProvider.autoDispose.family<FeedbackEntry, String>((ref, id) => ref.watch(feedbackApiProvider).entry(id));
+
+/// For the admin product editor's "Reports about this listing".
+final listingReportsProvider = FutureProvider.autoDispose
+    .family<int, String>((ref, productId) => ref.watch(feedbackApiProvider).listingReports(productId));
 
 /// For the dashboard tile.
 final feedbackNewCountProvider = FutureProvider.autoDispose<int>((ref) => ref.watch(feedbackApiProvider).newCount());

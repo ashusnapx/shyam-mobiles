@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/deep_links.dart';
 import 'core/network.dart';
+import 'core/push.dart';
 import 'core/supabase.dart';
 import 'features/offers/data/offers.dart' show bannersProvider;
 
@@ -24,4 +25,5 @@ Future<void> main() async {
     ..invalidate(bannersProvider));
   // a friend's code from a shared link (or a Play install from one) waits for sign-in, then applies once
   unawaited(container.read(pendingReferralProvider.notifier).followInstallReferrer());
+  unawaited(startPush(container)); // phone notifications, only when the build has the FIREBASE_* keys
 }

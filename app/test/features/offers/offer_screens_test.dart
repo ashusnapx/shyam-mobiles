@@ -164,7 +164,7 @@ void main() {
     expect(_container(tester).read(couponCodeProvider), isNull);
   });
 
-  testWidgets('home: running banners under the hero open their app route; a bad link never shows', (tester) async {
+  testWidgets('home: running banners lead the carousel and open their app route; a bad link never shows', (tester) async {
     PromoBanner banner(String id, String title, String link, {int tone = 0}) =>
         PromoBanner(id: id, title: title, subtitle: 'Flat ₹500 off every smartphone till Sunday', ctaLabel: 'Use code DIWALI500', link: link, tone: tone, startsAt: DateTime(2026));
     await pumpScreen(tester, const HomeScreen(), routes: ['/offers'], overrides: [
@@ -178,14 +178,19 @@ void main() {
         banner('b2', 'Repairs in an hour', '/repairs', tone: 2),
         banner('b3', 'Bad link', 'https://example.com'),
         PromoBanner(id: 'b4', title: 'Paused', link: '/offers', startsAt: DateTime(2026), isActive: false),
-      ])),
+        PromoBanner(id: 'b5', title: 'Diwali code banner', link: '/offers/${diwali.id}', startsAt: DateTime(2026), promotionId: diwali.id),
+        PromoBanner(id: 'b6', title: 'Used-up code banner', link: '/offers', startsAt: DateTime(2026), promotionId: 'gone'),
+      ], offers: [diwali])),
     ]);
     await tester.pumpAndSettle();
-    expect(find.text('Diwali dhamaka on every phone in the shop'), findsOneWidget);
-    expect(find.text('Repairs in an hour'), findsOneWidget);
+    // every slide is also laid out invisibly (one height for all), so a slide's text can show up twice
+    expect(find.text('Diwali dhamaka on every phone in the shop').hitTestable(), findsOneWidget, reason: 'banners first');
+    expect(find.text('Repairs in an hour'), findsWidgets);
     expect(find.text('Bad link'), findsNothing);
     expect(find.text('Paused'), findsNothing, reason: 'staff see every row; home shows running ones only');
-    await tester.tap(find.text('Diwali dhamaka on every phone in the shop'));
+    expect(find.text('Diwali code banner'), findsWidgets, reason: 'its offer is still open to this customer');
+    expect(find.text('Used-up code banner'), findsNothing, reason: 'available_offers no longer lists its offer');
+    await tester.tap(find.text('Diwali dhamaka on every phone in the shop').hitTestable());
     await tester.pumpAndSettle();
     expect(find.text('Page /offers'), findsOneWidget);
   });
@@ -243,6 +248,8 @@ void main() {
     await pumpScreen(tester, const ReferScreen(), overrides: [offersApiProvider.overrideWithValue(api)]);
     await tester.pumpAndSettle();
     expect(find.text('Give ₹200, get ₹200'), findsOneWidget);
+    expect(find.textContaining('order of theirs of ₹1,999 or more is delivered'), findsOneWidget);
+    await scrollTo(tester, find.textContaining('up to 10 rewards a month'));
     expect(find.text('ASHA2026'), findsOneWidget);
     await scrollTo(tester, find.text('Friends joined'));
     expect(find.bySemanticsLabel('Friends joined: 3'), findsOneWidget);

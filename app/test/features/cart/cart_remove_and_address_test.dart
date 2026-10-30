@@ -38,6 +38,17 @@ class _Cart extends CartNotifier {
   Future<void> add(Variant variant, {int qty = 1}) async => calls.add('add ${variant.id} $qty');
 }
 
+class _DroppedCart extends _Cart {
+  var _said = false;
+
+  @override
+  List<String?> takeRemoved() {
+    if (_said) return const [];
+    _said = true;
+    return const ['Galaxy M35'];
+  }
+}
+
 const _home = Address(id: 'a1', name: 'Asha Verma', phone: '+919876543210', line1: 'Ward 4', city: 'Waidhan', state: 'Madhya Pradesh', pincode: '486886', isDefault: true);
 const _shop = Address(id: 'a2', name: 'Ravi Gupta', phone: '+919812345678', line1: 'Main Road', city: 'Singrauli', state: 'Madhya Pradesh', pincode: '486889');
 
@@ -108,6 +119,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ravi Gupta'), findsOneWidget, reason: 'checkout delivers where the cart said');
     expect(find.text('Asha Verma'), findsNothing);
+  });
+
+  testWidgets('a line the shop hid and the cart dropped is named once', (tester) async {
+    await pumpScreen(tester, const CartScreen(), overrides: [
+      cartProvider.overrideWith(_DroppedCart.new),
+      addressesProvider.overrideWith(() => _Addresses(const [_home])),
+      offersApiProvider.overrideWithValue(FakeOffersApi()),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('Galaxy M35 is no longer available and was removed from your cart.'), findsOneWidget);
   });
 
   testWidgets('no saved address: the cart asks for one', (tester) async {

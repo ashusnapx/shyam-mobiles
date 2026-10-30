@@ -948,6 +948,37 @@ def lifecycle(staff: Actor, alice: Actor, bob: Actor, addrs: dict, functions: bo
     check("bob cannot read alice's timeline", bob.get(f'repair_events?booking_id=eq.{rid2}').body == [])
 
 
+def notification_checks(staff: Actor, alice: Actor, bob: Actor, a_order: str) -> None:
+    section('notifications')
+    mine = alice.get(f'notifications?order_id=eq.{a_order}&select=id,kind,link,read_at')
+    check('placing COD tells the customer, linking to the order',
+          mine.status == 200 and [(n['kind'], n['link']) for n in mine.body] == [('order_confirmed', f'/orders/{a_order}')], mine)
+    staff_new = staff.get(f'notifications?order_id=eq.{a_order}&kind=eq.staff_new_order&user_id=eq.{staff.uid}')
+    check('... and staff, linking to the admin order',
+          staff_new.status == 200 and [n['link'] for n in staff_new.body] == [f'/admin/orders/{a_order}'], staff_new)
+    check('nobody reads anyone else\'s', bob.get(f'notifications?order_id=eq.{a_order}').body == [])
+    check('staff don\'t read customers\' either', staff.get(f'notifications?user_id=eq.{alice.uid}').body == [])
+    check('signed out: none', denied(ANON.get('notifications')))
+    forged = alice.post('notifications', {'user_id': alice.uid, 'kind': 'coupon', 'title': 'Free phone'})
+    check('clients can\'t write one', denied(forged), forged)
+    nid = mine.body[0]['id']
+    check('... or change one', denied(alice.patch(f'notifications?id=eq.{nid}', {'title': 'x'})))
+    before = alice.rpc('unread_notifications').body
+    bob.rpc('mark_notifications_read', {'p_ids': [nid]})
+    check('marking someone else\'s read does nothing', alice.rpc('unread_notifications').body == before)
+    alice.rpc('mark_notifications_read', {'p_ids': [nid]})
+    check('marking your own read', alice.rpc('unread_notifications').body == before - 1)
+    alice.rpc('mark_notifications_read', {})
+    check('mark all read', alice.rpc('unread_notifications').body == 0)
+    check('a bad phone token is refused', code(alice.rpc('register_device', {'p_token': 'x'})) == 'BAD_REQUEST')
+    token = f'e2e{RUN}AAAAAAAAAAAAAAAAAAAA:APA91b'
+    check('register a phone', alice.rpc('register_device', {'p_token': token}).status in (200, 204)
+          and [t['token'] for t in alice.get('device_tokens').body] == [token])
+    bob.rpc('register_device', {'p_token': token})
+    check('the next account on that phone takes it over', alice.get('device_tokens').body == []
+          and len(bob.get('device_tokens').body) == 1)
+
+
 def offers_checks(staff: Actor, alice: Actor, bob: Actor, carol: Actor, dave: Actor, addrs: dict, functions: bool) -> None:
     section('offers: coupons, one-use race, rate limit, discounted payments')
     tag = f'E2E{RUN.upper()}'
@@ -1288,8 +1319,13 @@ def audit_numbers() -> None:
     check('no variant stock below zero', r.body == [], r)
 
 
+STARTED: list[str] = []  # when the run began: the staff notifications it caused are removed in cleanup
+
+
 def cleanup(staff, settings, paths) -> None:
     section('cleanup')
+    if STARTED:  # low stock, feedback… about this run's data, in the dev admin's inbox
+        SVC.delete(f'notifications?user_id=eq.{staff.uid}&created_at=gte.{STARTED[0]}')
     if ORDERS:
         SVC.delete(f'orders?id=in.({",".join(ORDERS)})')
     SVC.delete(f'promotions?code=like.E2E{RUN.upper()}*')
@@ -1314,6 +1350,7 @@ def cleanup(staff, settings, paths) -> None:
 def main() -> None:
     print(f'run e2e-{RUN} against {API}')
     staff = sign_in(DEV['DEV_ADMIN_EMAIL'], DEV['DEV_ADMIN_PASSWORD'], 'staff')
+    STARTED.append(time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
     settings = SVC.one('store_settings?select=*')
     paths = []
     try:
@@ -1337,6 +1374,7 @@ def main() -> None:
         money_checks(staff, alice, bob, carol, dave, addrs)
         functions = function_checks(staff, alice, bob, addrs)
         lifecycle(staff, alice, bob, addrs, functions)
+        notification_checks(staff, alice, bob, a_order)
         offers_checks(staff, alice, bob, carol, dave, addrs, functions)
         caps_checks(staff, alice, addrs['alice'])
         input_checks(staff, alice, addrs['alice'])

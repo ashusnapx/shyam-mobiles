@@ -15,21 +15,28 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../offers/data/offers.dart';
+import '../../notifications/widgets/notification_widgets.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/catalog.dart';
+import '../data/rails.dart';
 import '../widgets/product_rail.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/store_links.dart';
 import '../widgets/store_photos.dart';
 
+/// Products first: a pinned bar (brand, call, search), one carousel of offers and featured products, a row of
+/// categories, a one-line repair strip, then rails of products and a grid; the shop's card last.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
+
+  static const _slides = 6; // banners first, then featured products
 
   Future<void> _refresh(BuildContext context, WidgetRef ref) async {
     ref.invalidate(categoriesProvider);
     ref.invalidate(storeSettingsProvider);
     ref.invalidate(bannersProvider);
     ref.invalidate(availableOffersProvider); // which offer banners still apply
+    ref.invalidate(latestProvider);
     try {
       ref.invalidate(homeProvider);
       await ref.read(homeProvider.future);
@@ -51,19 +58,19 @@ class HomeScreen extends ConsumerWidget {
       ref.invalidate(storeSettingsProvider);
     });
     return Scaffold(
-      // the hero grows a touch while the page is pulled down
+      // the carousel grows a touch while the page is pulled down
       body: OverscrollScope(
         child: SafeArea(
           bottom: false,
           child: RefreshIndicator(
+            edgeOffset: _TopBar.height, // the spinner comes out under the pinned bar
             onRefresh: () => _refresh(context, ref),
             child: CustomScrollView(
               slivers: [
-                SliverToBoxAdapter(key: const ValueKey('header'), child: _Header(settings)),
-                const SliverToBoxAdapter(key: ValueKey('search'), child: _SearchField()),
+                SliverPersistentHeader(key: const ValueKey('top'), pinned: true, delegate: _TopBar(settings)),
                 if (offline && home.hasValue) const SliverToBoxAdapter(key: ValueKey('offline'), child: _OfflineBanner()),
                 ...switch (home) {
-                  AsyncValue(value: final d?) => _sections(context, d, settings, saver: saver),
+                  AsyncValue(value: final d?) => _sections(context, ref, d, settings, saver: saver),
                   AsyncValue(:final error?) => [
                       SliverFillRemaining(
                         key: const ValueKey('error'),
@@ -81,7 +88,8 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  List<Widget> _sections(BuildContext context, HomeData d, StoreSettings? settings, {required bool saver}) {
+  List<Widget> _sections(BuildContext context, WidgetRef ref, HomeData d, StoreSettings? settings,
+      {required bool saver}) {
     if (d.categories.isEmpty && d.featured.isEmpty && d.accessories.isEmpty) {
       return const [
         SliverFillRemaining(
@@ -95,74 +103,144 @@ class HomeScreen extends ConsumerWidget {
         ),
       ];
     }
+    final banners = ref.watch(homeBannersProvider).take(_slides).toList();
+    final slides = <_Slide>[
+      for (final b in banners)
+        (key: 'banner ${b.id}', build: (_, _) => PromoBannerCard(b, onTap: () => openAppLink(context, b.link))),
+      for (final card in d.featured.take(_slides - banners.length))
+        (key: 'product ${card.id}', build: (tone, photo) => _ProductSlide(card, tone: tone, photo: photo)),
+    ];
+    final phoneSlugs = {for (final c in d.categories) if (c.kind == CategoryKind.phone) c.slug};
+    final phones = [for (final c in d.featured) if (phoneSlugs.contains(c.categorySlug)) c];
     return [
-      if (d.featured.isNotEmpty)
+      if (slides.isNotEmpty)
         SliverToBoxAdapter(
           key: const ValueKey('hero'),
-          child: PullScale(child: _HeroCarousel(d.featured.take(6).toList(), saver: saver)).enter(context),
+          child: PullScale(child: _HeroCarousel(slides, saver: saver)).enter(context),
         ),
-      SliverToBoxAdapter(key: const ValueKey('banners'), child: const BannerStrip().enter(context, index: 1)),
-      SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryGrid(d.categories)),
+      SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryRow(d.categories).enter(context, index: 1)),
+      SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairStrip().enter(context, index: 2)),
+      if (d.accessories.isNotEmpty)
+        SliverToBoxAdapter(
+          key: const ValueKey('deals'),
+          child: ProductRail(
+            title: 'Deals under ₹1,500',
+            value: AsyncData(d.accessories),
+            onSeeAll: () => context.go('/search?sort=price_asc'),
+          ).enter(context, index: 3),
+        ),
+      if (phones.isNotEmpty)
+        SliverToBoxAdapter(
+          key: const ValueKey('phones'),
+          child: RevealOnScroll(
+            child: ProductRail(
+              title: 'Featured phones',
+              value: AsyncData(phones),
+              onSeeAll: () => context.go('/search?category=${phones.first.categorySlug}'),
+            ),
+          ),
+        ),
       const SliverToBoxAdapter(key: ValueKey('recent'), child: RevealOnScroll(child: RecentlyViewedRail())),
-      SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairCta().enter(context, index: 4)),
-      if (d.accessories.isNotEmpty) ...[
-        const SliverToBoxAdapter(
-          key: ValueKey('acc-header'),
-          child: RevealOnScroll(child: SectionHeader('Accessories under ₹1,500')),
-        ),
-        SliverProductGrid(d.accessories, key: const ValueKey('accessories')),
-      ],
+      ..._moreGrid(context, ref),
       if (settings != null) SliverToBoxAdapter(key: const ValueKey('store'), child: _StoreCard(settings)),
       const SliverPadding(key: ValueKey('end'), padding: EdgeInsets.only(bottom: Space.xl)),
     ];
   }
 
+  /// "More to explore": the newest products as the two-column grid. Hidden while loading, empty or failing.
+  List<Widget> _moreGrid(BuildContext context, WidgetRef ref) {
+    final more = ref.watch(latestProvider).value ?? const <ProductCard>[];
+    if (more.isEmpty) return const [];
+    return [
+      SliverToBoxAdapter(
+        key: const ValueKey('more-header'),
+        child: RevealOnScroll(
+          child: RailHeader('More to explore', onSeeAll: () => context.go('/search?sort=newest')),
+        ),
+      ),
+      SliverProductGrid(more, key: const ValueKey('more')),
+    ];
+  }
+
   static final _skeleton = Skeletonizer(
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Hero(fakeCards(1).first),
-        _CategoryGrid([
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          child: _ProductSlide(fakeCards(1).first),
+        ),
+        const SizedBox(height: 48), // the carousel's controls
+        _CategoryRow([
           for (var i = 0; i < 6; i++)
             Category(id: '$i', slug: 'skeleton-$i', name: 'Category', kind: CategoryKind.accessory),
         ]),
+        const _RepairStrip(),
+        ProductRail(title: 'Deals under ₹1,500', value: AsyncData(fakeCards(3))),
       ],
     ),
   );
 }
 
-class _Header extends StatelessWidget {
-  const _Header(this.settings);
+/// The pinned top: brand, the bell's slot and Call (56 dp), then the search field that opens Search (56 dp).
+class _TopBar extends SliverPersistentHeaderDelegate {
+  const _TopBar(this.settings);
+
+  static const height = 112.0;
 
   final StoreSettings? settings;
 
   @override
-  Widget build(BuildContext context) {
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  bool shouldRebuild(_TopBar old) => old.settings != settings;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final s = settings;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.sm, 0),
-      child: Row(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: c.surface,
+        // a hairline once products scroll under it
+        border: Border(bottom: BorderSide(color: shrinkOffset > 0 ? c.outlineVariant : c.surface)),
+      ),
+      child: Column(
         children: [
-          const BrandMark(),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 22, height: 1)),
-                Text('Phones · Accessories · Repairs', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-              ],
+          SizedBox(
+            height: 56,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.xs, 0),
+              child: Row(
+                children: [
+                  const BrandMark(size: 32),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Shyam Mobiles',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.displaySmall?.copyWith(fontSize: 22, height: 1),
+                    ),
+                  ),
+                  const NotificationBell(), // left of Call; nothing when signed out
+                  IconButton(
+                    tooltip: 'Call the store',
+                    icon: const Icon(PhosphorIconsRegular.phone),
+                    onPressed: s == null
+                        ? null
+                        : () => openExternal(context, Uri(scheme: 'tel', path: s.storePhone), 'Couldn’t open the dialer.'),
+                  ),
+                ],
+              ),
             ),
           ),
-          IconButton(
-            tooltip: 'Call the store',
-            icon: const Icon(PhosphorIconsRegular.phone),
-            onPressed: s == null
-                ? null
-                : () => openExternal(context, Uri(scheme: 'tel', path: s.storePhone), 'Couldn’t open the dialer.'),
-          ),
+          const _SearchField(),
         ],
       ),
     );
@@ -204,22 +282,24 @@ class _SearchField extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final hint = Theme.of(context).textTheme.bodyMedium?.copyWith(color: c.onSurfaceVariant);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 14),
+      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
       child: Material(
         color: c.surfaceContainer,
         borderRadius: BorderRadius.circular(Radii.md),
         child: InkWell(
           onTap: () => context.go('/search'),
           borderRadius: BorderRadius.circular(Radii.md),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
+          child: SizedBox(
+            height: 48,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.sm),
+              padding: const EdgeInsets.symmetric(horizontal: Space.lg),
               child: Row(
                 children: [
                   Icon(PhosphorIconsRegular.magnifyingGlass, size: 20, color: c.onSurfaceVariant),
                   const SizedBox(width: 10),
-                  Expanded(child: Text('Search phones, cases, chargers…', style: hint)),
+                  Expanded(
+                    child: Text('Search phones, cases, chargers…', maxLines: 1, overflow: TextOverflow.ellipsis, style: hint),
+                  ),
                 ],
               ),
             ),
@@ -230,13 +310,17 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// Featured products as a hero that slides to the next one every few seconds. Swipe to move; touching it
-/// pauses it. Stays still with reduce-motion or TalkBack on, in data-saver mode, and while another tab is showing.
-class _HeroCarousel extends StatefulWidget {
-  const _HeroCarousel(this.cards, {required this.saver});
+/// One carousel slide: an offer banner or a featured product; [build] gets its tone and whether to load its photo.
+typedef _Slide = ({String key, Widget Function(int tone, bool photo) build});
 
-  final List<ProductCard> cards;
-  final bool saver; // no auto-advance, and only the shown card loads its photo
+/// Offers and featured products in one carousel that moves on every few seconds. Previous / Next and the dots as
+/// well as the swipe (nothing is swipe-only); touching it pauses it. Stays still with reduce-motion or TalkBack on,
+/// in data-saver mode, and while another tab is showing.
+class _HeroCarousel extends StatefulWidget {
+  const _HeroCarousel(this.slides, {required this.saver});
+
+  final List<_Slide> slides;
+  final bool saver; // no auto-advance, and only the shown slide loads its photo
 
   @override
   State<_HeroCarousel> createState() => _HeroCarouselState();
@@ -244,11 +328,17 @@ class _HeroCarousel extends StatefulWidget {
 
 class _HeroCarouselState extends State<_HeroCarousel> {
   static const _interval = Duration(milliseconds: 4500);
+  // a short row under the slide: full width for a thumb, less height than a toolbar
+  static final _controlStyle = IconButton.styleFrom(
+    minimumSize: const Size(48, 32),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    padding: EdgeInsets.zero,
+  );
   int _index = 0;
   int _direction = 1;
   Timer? _timer;
 
-  int get _count => widget.cards.length;
+  int get _count => widget.slides.length;
 
   @override
   void initState() {
@@ -279,192 +369,196 @@ class _HeroCarouselState extends State<_HeroCarousel> {
     });
   }
 
-  void _step(int by) => setState(() {
-        _direction = by;
-        _index = (_index + by + _count) % _count;
-      });
+  void _step(int by) => _go((_index + by + _count) % _count, by);
+
+  void _go(int i, [int? direction]) {
+    setState(() {
+      _direction = direction ?? (i >= _index ? 1 : -1);
+      _index = i;
+    });
+    _restart();
+  }
+
+  Widget _slide(int i, {bool photo = true}) =>
+      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.lg), child: widget.slides[i].build(i, photo));
 
   @override
   Widget build(BuildContext context) {
-    if (_count == 1) return _Hero(widget.cards.first);
+    if (_count == 1) return Padding(padding: const EdgeInsets.only(top: Space.xs), child: _slide(0));
     final c = Theme.of(context).colorScheme;
-    final card = widget.cards[_index];
+    final key = widget.slides[_index].key;
     final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 500);
-    return Column(
-      children: [
-        GestureDetector(
-          onHorizontalDragStart: (_) => _timer?.cancel(),
-          onHorizontalDragEnd: (d) {
-            final v = d.primaryVelocity ?? 0;
-            if (v.abs() > 150) _step(v < 0 ? 1 : -1);
-            _restart();
-          },
-          onHorizontalDragCancel: _restart,
-          // Every card is laid out invisibly so the carousel takes the tallest one's height and each card fills
-          // it: all featured cards are the same size and nothing below jumps when it slides.
-          child: Stack(
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.xs),
+      child: Column(
+        children: [
+          GestureDetector(
+            onHorizontalDragStart: (_) => _timer?.cancel(),
+            onHorizontalDragEnd: (d) {
+              final v = d.primaryVelocity ?? 0;
+              if (v.abs() > 150) {
+                _step(v < 0 ? 1 : -1);
+              } else {
+                _restart();
+              }
+            },
+            onHorizontalDragCancel: _restart,
+            // Every slide is laid out invisibly so the carousel takes the tallest one's height and each slide fills
+            // it: all slides are the same size and nothing below jumps when it moves on.
+            child: Stack(
+              children: [
+                for (var i = 0; i < _count; i++)
+                  Visibility(
+                    visible: false,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: _slide(i, photo: !widget.saver),
+                  ),
+                Positioned.fill(
+                  child: AnimatedSwitcher(
+                    duration: duration,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),
+                    transitionBuilder: (child, animation) {
+                      final incoming = child.key == ValueKey(key);
+                      final from = Offset((incoming ? 0.14 : -0.14) * _direction, 0);
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween(begin: from, end: Offset.zero).animate(animation),
+                          child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(animation), child: child),
+                        ),
+                      );
+                    },
+                    child: KeyedSubtree(key: ValueKey(key), child: _slide(_index)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (final c in widget.cards)
-                Visibility(
-                  visible: false,
-                  maintainSize: true,
-                  maintainAnimation: true,
-                  maintainState: true,
-                  child: _Hero(c, photo: !widget.saver),
-                ),
-              Positioned.fill(
-                child: AnimatedSwitcher(
-                  duration: duration,
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),
-                  transitionBuilder: (child, animation) {
-                    final incoming = child.key == ValueKey(card.id);
-                    final from = Offset((incoming ? 0.14 : -0.14) * _direction, 0);
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween(begin: from, end: Offset.zero).animate(animation),
-                        child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(animation), child: child),
+              IconButton(
+                tooltip: 'Previous slide',
+                style: _controlStyle,
+                icon: const Icon(PhosphorIconsBold.caretLeft, size: 18),
+                onPressed: () => _step(-1),
+              ),
+              // the dots jump straight to a slide; Previous / Next carry the screen-reader label
+              Semantics(
+                label: 'Slide ${_index + 1} of $_count',
+                excludeSemantics: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < _count; i++)
+                      InkResponse(
+                        onTap: () => _go(i),
+                        radius: 16,
+                        child: SizedBox(
+                          width: 26,
+                          height: 32,
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: duration,
+                              curve: Curves.easeOutCubic,
+                              width: i == _index ? 18 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: i == _index ? heroGradients[i % heroGradients.length][1] : c.outline,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                  child: _Hero(card, key: ValueKey(card.id), tone: _index),
+                  ],
                 ),
+              ),
+              IconButton(
+                tooltip: 'Next slide',
+                style: _controlStyle,
+                icon: const Icon(PhosphorIconsBold.caretRight, size: 18),
+                onPressed: () => _step(1),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: Space.xs),
-        // buttons as well as the swipe: no action is gesture-only
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              tooltip: 'Previous featured',
-              icon: const Icon(PhosphorIconsBold.caretLeft, size: 18),
-              onPressed: () {
-                _step(-1);
-                _restart();
-              },
-            ),
-            Semantics(
-              label: 'Featured ${_index + 1} of $_count',
-              excludeSemantics: true,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < _count; i++)
-                    AnimatedContainer(
-                      duration: duration,
-                      curve: Curves.easeOutCubic,
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: i == _index ? 18 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: i == _index ? heroGradients[i % heroGradients.length][1] : c.outline,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            IconButton(
-              tooltip: 'Next featured',
-              icon: const Icon(PhosphorIconsBold.caretRight, size: 18),
-              onPressed: () {
-                _step(1);
-                _restart();
-              },
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _Hero extends StatelessWidget {
-  const _Hero(this.card, {super.key, this.photo = true, this.tone = 0});
+/// A featured product on a [heroGradients] tone, matching the offer banners beside it; the whole card opens it.
+class _ProductSlide extends StatelessWidget {
+  const _ProductSlide(this.card, {this.photo = true, this.tone = 0});
 
   final ProductCard card;
   final bool photo; // false for the invisible sizing copies in data-saver mode: same size, nothing downloaded
-  final int tone; // which of [heroGradients]: slides take them in turn
+  final int tone;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final colors = heroGradients[tone % heroGradients.length];
     final off = discountPercent(card.minPricePaise, card.mrpPaise);
-    void open() => context.push('/product/${card.slug}');
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, 0),
+    return Pressable(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         child: DecoratedBox(
           // every gradient is dark enough for white text
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: heroGradients[tone % heroGradients.length],
-            ),
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
           ),
           child: CustomPaint(
             painter: _FeatherPainter(heroAccents[tone % heroAccents.length]),
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
-                onTap: open,
+                onTap: () => context.push('/product/${card.slug}'),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(14),
                   child: Row(
                     children: [
                       Expanded(
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center, // shorter cards sit centred at the carousel's height
+                          mainAxisAlignment: MainAxisAlignment.center, // shorter slides sit centred at the carousel's height
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'FEATURED',
-                              style: t.labelSmall?.copyWith(color: Colors.white70, letterSpacing: 1.3),
-                            ),
-                            const SizedBox(height: Space.sm),
+                            Text('FEATURED', style: t.labelSmall?.copyWith(color: Colors.white70, letterSpacing: 1.3)),
+                            const SizedBox(height: 2),
                             Semantics(
                               header: true,
                               child: Text(
                                 shortName(card.name, card.brandName),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: t.displayMedium?.copyWith(color: Colors.white),
+                                style: t.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
                               ),
                             ),
-                            const SizedBox(height: Space.sm),
-                            Text.rich(
-                              TextSpan(
-                                children: [
-                                  const TextSpan(text: 'From '),
-                                  TextSpan(
-                                    text: formatInr(card.minPricePaise),
-                                    style: const TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                  if (off > 0) TextSpan(text: '  ·  $off% off MRP'),
-                                ],
-                              ),
-                              style: t.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                            const SizedBox(height: 2),
+                            Text(
+                              ['From ${formatInr(card.minPricePaise)}', if (off > 0) '$off% off MRP'].join('  ·  '),
+                              style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                             ),
-                            const SizedBox(height: 14),
-                            FilledButton.icon(
-                              onPressed: open,
-                              iconAlignment: IconAlignment.end,
-                              icon: const Icon(PhosphorIconsBold.arrowRight, size: 16),
-                              label: Text(card.categorySlug == 'smartphones' ? 'View phone' : 'View'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: heroGradients[tone % heroGradients.length].first,
-                                minimumSize: const Size(0, 40),
-                                padding: const EdgeInsets.symmetric(horizontal: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
-                                textStyle: t.labelMedium,
+                            const SizedBox(height: 10),
+                            // looks like the banners' white button; the whole card is the tap target
+                            DecoratedBox(
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 5),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  spacing: Space.xs,
+                                  children: [
+                                    Text(card.categorySlug == 'smartphones' ? 'View phone' : 'View',
+                                        style: t.labelMedium?.copyWith(color: colors.first)),
+                                    Icon(PhosphorIconsBold.arrowRight, size: 14, color: colors.first),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -472,11 +566,12 @@ class _Hero extends StatelessWidget {
                       ),
                       const SizedBox(width: Space.md),
                       SizedBox(
-                        width: 108,
+                        width: 84,
                         // drifts a little slower than the page; the card clips it
                         child: Parallax(
                           rate: 0.12,
-                          child: ProductImage(photo ? card.coverPath : null, aspectRatio: 0.8, padding: Space.sm),
+                          child: ProductImage(photo ? card.coverPath : null, radius: Radii.md, padding: Space.xs,
+                              color: Theme.of(context).colorScheme.surface),
                         ),
                       ),
                     ],
@@ -521,28 +616,30 @@ class _FeatherPainter extends CustomPainter {
   bool shouldRepaint(_FeatherPainter oldDelegate) => oldDelegate.accent != accent;
 }
 
-/// Label, icon and [tileTints] index per category. Tint 1 (saffron) is kept for Repairs.
+/// Short one-line label, icon and [tileTints] index per category. Tint 1 (saffron) is kept for Repairs.
 const _categoryLooks = {
   'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile, 0),
-  'keypad-phones': ('Keypad phones', PhosphorIconsRegular.deviceMobileSpeaker, 3),
+  'keypad-phones': ('Keypad', PhosphorIconsRegular.deviceMobileSpeaker, 3),
   'cases-covers': ('Cases', PhosphorIconsRegular.deviceMobileCamera, 2),
-  'screen-guards': ('Screen guards', PhosphorIconsRegular.shieldCheck, 5),
+  'screen-guards': ('Guards', PhosphorIconsRegular.shieldCheck, 5),
   'chargers-cables': ('Chargers', PhosphorIconsRegular.plugCharging, 4),
   'earbuds-headphones': ('Earbuds', PhosphorIconsRegular.headphones, 6),
-  'power-banks': ('Power banks', PhosphorIconsRegular.batteryCharging, 2),
+  'power-banks': ('Power bank', PhosphorIconsRegular.batteryCharging, 2),
 };
 const _otherTints = [0, 3, 2, 5, 4, 6]; // categories added later take these in turn
 
-class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid(this.categories);
+/// One row of round category tiles that scrolls sideways (the next tile peeks out), with All first and See all last,
+/// so every category is a tap away without a swipe.
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow(this.categories);
 
   final List<Category> categories;
 
   @override
   Widget build(BuildContext context) {
-    final shown = categories.take(6).toList();
     final tiles = [
-      for (final (i, cat) in shown.indexed)
+      _CategoryTile(label: 'All', icon: PhosphorIconsRegular.squaresFour, onTap: () => context.go('/search')),
+      for (final (i, cat) in categories.indexed)
         _CategoryTile(
           label: _categoryLooks[cat.slug]?.$1 ?? cat.name,
           icon: _categoryLooks[cat.slug]?.$2 ?? PhosphorIconsRegular.tag,
@@ -555,21 +652,14 @@ class _CategoryGrid extends StatelessWidget {
         tint: tileTints[1],
         onTap: () => context.go('/repairs'),
       ),
-      _CategoryTile(label: 'All', icon: PhosphorIconsRegular.squaresFour, onTap: () => context.go('/search')),
+      _CategoryTile(label: 'See all', icon: PhosphorIconsRegular.arrowRight, onTap: () => context.go('/search')),
     ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.md, 18, Space.md, 0),
-      child: Column(
-        children: [
-          for (var i = 0; i < tiles.length; i += 4)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var j = i; j < i + 4; j++)
-                  Expanded(child: j < tiles.length ? tiles[j].enter(context, index: 1 + j % 4 + j ~/ 4) : const SizedBox()),
-              ],
-            ),
-        ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [for (final t in tiles) SizedBox(width: 72, child: t)],
       ),
     );
   }
@@ -581,94 +671,79 @@ class _CategoryTile extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  final (Color, Color)? tint; // background and icon; null is the neutral All tile
+  final (Color, Color)? tint; // background and icon; null is the neutral All / See all tile
 
   @override
-  Widget build(BuildContext context) => Pressable(child: _tile(context));
-
-  Widget _tile(BuildContext context) {
+  Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Space.xs + 2),
-        child: Column(
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: tint?.$1 ?? c.surfaceContainer,
-                borderRadius: BorderRadius.circular(18),
+    return Pressable(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Space.xs),
+          child: Column(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(color: tint?.$1 ?? c.surfaceContainer, shape: BoxShape.circle),
+                child: SizedBox.square(dimension: 44, child: Icon(icon, size: 20, color: tint?.$2 ?? c.primary)),
               ),
-              child: SizedBox.square(
-                dimension: 58,
-                child: Icon(icon, size: 26, color: tint?.$2 ?? c.primary),
+              const SizedBox(height: Space.xs),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall,
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 11.5, height: 1.2),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Horizontal strip of fixed-width tiles; a Row (not a ListView) so its height follows the text scale.
-class _RepairCta extends StatelessWidget {
-  const _RepairCta();
+/// One slim line (48 dp) to book a repair: saffron on cream, like the Repairs tile.
+class _RepairStrip extends StatelessWidget {
+  const _RepairStrip();
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final c = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, 22, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.lg, 10, Space.lg, 0),
       child: Material(
         color: BrandColors.cream,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: () => context.push('/repairs/new'),
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: c.tertiary,
-                    borderRadius: BorderRadius.circular(Radii.lg),
+          borderRadius: BorderRadius.circular(14),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: Space.xs),
+              child: Row(
+                children: [
+                  const Icon(PhosphorIconsFill.wrench, size: 20, color: BrandColors.saffron),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text.rich(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      const TextSpan(children: [
+                        TextSpan(text: 'Screen or battery trouble? '),
+                        TextSpan(
+                          text: 'Book a repair',
+                          style: TextStyle(color: BrandColors.saffron, fontWeight: FontWeight.w800),
+                        ),
+                      ]),
+                      style: t.bodySmall?.copyWith(color: BrandColors.creamInk, fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  child: SizedBox.square(
-                    dimension: 52,
-                    child: Icon(PhosphorIconsRegular.wrench, size: 26, color: c.onTertiary),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Cracked screen? Weak battery?',
-                        style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: BrandColors.creamInk),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Pick a slot and walk in. You pay at the store after the inspection.',
-                        style: t.bodySmall?.copyWith(color: BrandColors.creamInk),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: Space.sm),
-                const Icon(PhosphorIconsBold.caretRight, size: 18, color: BrandColors.creamInk),
-              ],
+                  const Icon(PhosphorIconsBold.arrowRight, size: 16, color: BrandColors.saffron),
+                ],
+              ),
             ),
           ),
         ),

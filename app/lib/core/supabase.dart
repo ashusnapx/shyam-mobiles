@@ -55,8 +55,16 @@ class TimeoutClient extends http.BaseClient {
   final http.Client _inner;
   final Duration timeout;
 
+  /// Told about every write once the server has answered it (notifications check for news right after the user acts:
+  /// lib/features/notifications/data/notifications.dart).
+  static void Function(Uri url)? onWrite;
+
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) => _inner.send(request).timeout(timeout);
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request).timeout(timeout);
+    if (request.method != 'GET' && request.method != 'HEAD') onWrite?.call(request.url);
+    return response;
+  }
 
   @override
   void close() => _inner.close();

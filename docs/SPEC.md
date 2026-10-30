@@ -8,8 +8,9 @@ Android app for Shyam Mobiles, a phone shop. iOS comes later from the same Flutt
 
 - Customers: browse and search new phones and accessories, wishlist, cart, checkout (Razorpay or cash on delivery), track orders, book repairs.
 - Staff: the same app shows an **Admin** tab when the signed-in user is in `admins`. Admins manage products/stock/images, move orders through fulfilment (with IMEIs), and handle repair bookings.
+- Both: a notification for every step of an order, payment, repair, coupon and (staff) feedback and stock, in the app and, once Firebase keys are in, on the phone (see **Notifications**).
 
-Not in v1 (on purpose): guest cart, reviews, store pickup, courier API, push notifications, GST invoice PDF, Hindi UI, refurbished phones. The schema leaves room for each.
+Not in v1 (on purpose): guest cart, reviews, store pickup, courier API, GST invoice PDF, Hindi UI, refurbished phones. The schema leaves room for each.
 
 ## Stack
 
@@ -65,6 +66,7 @@ Exact DDL: `supabase/migrations/20261028000000_schema.sql`. Summary:
 - `payment_events(razorpay_event_id unique, type, payload)`: webhook audit + idempotency.
 - `repair_bookings(number 'RP100001', user_id, device_brand, device_model, issue, description, preferred_date, slot, contact_phone, status, quote_paise, quote_status, quote_decided_at, admin_note)`: a customer has at most 3 open (not completed/cancelled) bookings (`REPAIR_LIMIT`); staff booking walk-ins are exempt. `quote_status`: `none` (no quote; exactly when `quote_paise` is null), `pending` (waiting for the customer), `approved`, `declined`; `quote_decided_at` is when the customer (or staff for them) answered. `admin_note` is legacy (copied into `repair_events`; no longer written).
 - `repair_events(booking_id, status, quote_status, quote_paise, note, created_at)`: the repair timeline, shown to the customer and staff. A status change has `quote_status` null; a quote event (sent, approved, declined) has both `quote_status` and the amount; `note` is staff's note or the customer's decline reason. Written only by the RPCs and the booking insert trigger.
+- `notifications(user_id, kind, title ≤ 80, body ≤ 300, link (app route), order_id, repair_id, read_at, created_at)` and `device_tokens(token pk, user_id, platform, updated_at)`: see **Notifications**.
 - `store_settings` (single row): `delivery_fee_paise`, `free_delivery_min_paise`, `cod_enabled`, `cod_max_paise`, `store_phone`, `store_address`, `store_lat`/`store_lng` (the shop's map pin, both or neither; directions go to it, else to the address), `store_maps_url` (https, ≤500: the shop's Google Maps listing, linked to as "Photos, reviews & hours on Google Maps"; seeded with the `?cid=` link of "Shyam Mobile Center"), `store_photos text[]` (≤8 object keys `store/<millis>.<ext>` in the `product-images` bucket, in display order), `store_hours`, `repair_note`, `returns_policy` (placeholder text the owner must edit before launch).
 
 ### Input rules (enforced in the database; app limits are only a convenience)
@@ -115,6 +117,9 @@ Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code 
 | `mark_payment_failed(p_order_id uuid) → void` | service_role only | From the `payment.failed` webhook: `pending → failed`, order stays payable until expiry. |
 | `mark_order_refunded(p_razorpay_payment_id text) → void` | service_role only | From the `refund.processed` webhook (full refunds only): `payment_status = refunded`. |
 | `expire_unpaid_orders() → int` | `pg_cron`, every 5 min | Cancels `pending_payment` orders past `reserved_until`, restocks. |
+| `unread_notifications() → int` | authenticated | The caller's unread count (the bell). |
+| `mark_notifications_read(p_ids uuid[] default null) → void` | authenticated | Sets `read_at` on those of the caller's notifications (null: all of them). Someone else's ids are ignored. |
+| `register_device(p_token text) → void` | authenticated | Saves this phone's FCM token for the caller (20–1000 of `[A-Za-z0-9_:-]`, else `BAD_REQUEST`; signed out: `FORBIDDEN`). A token another account had moves to the caller; each user keeps their newest 10. |
 | `quote_order`, `available_offers`, `offers_for_product`, `offer_products`, `my_referral`, `apply_referral_code`, `admin_save_promotion`, `admin_promotions` | see Offers → RPCs | |
 
 ## Edge Functions (`supabase/functions/*`)
@@ -128,7 +133,9 @@ All are `POST`. User functions keep the platform `verify_jwt` check and verify t
 | `razorpay-webhook` | none (`verify_jwt = false`), HMAC instead | Handles `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`. Verifies `x-razorpay-signature` over the raw body (401 if bad), dedupes on `x-razorpay-event-id` via `payment_events`, checks amount = order total. `refund.processed` counts as full only when the event's payment has `amount_refunded ≥ amount`; anything else (a partial refund, missing totals) is left for staff. Returns 200 on duplicates, unknown events/orders and business refusals; 500 only on infrastructure errors (Razorpay retries). |
 | `delete-account` | user JWT | `{}` → 204. Returns 409 `ACTIVE_ORDERS` if any order is not delivered/cancelled/refunded, any cancelled order is still owed a refund (`payment_status = paid`), or any repair is not completed/cancelled. Otherwise deletes the auth user (cascades the profile, cart, wishlist, addresses; orders keep `user_id = null`). |
 
-Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (+ the built-in `SUPABASE_URL`, `SUPABASE_SECRET_KEYS`, `SUPABASE_JWKS`, read by `@supabase/server`).
+| `send-push` | none (`verify_jwt = false`), `x-push-secret` = `PUSH_SECRET` instead | Called by the database (pg_net) for each new notification of a user with a phone: `{id, kind, title, body, link, tokens[≤20]}` → `{sent, failed, removed}`. One FCM HTTP v1 message per token (notification title/body, data `{link, kind, id}`), with a service-account access token cached for its hour. A 404 from FCM (app gone) deletes that token. Without `FCM_SERVICE_ACCOUNT` it sends nothing and logs that push is off (200 `{sent: 0, off: true}`). 401 bad secret, 400 bad body. |
+
+Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `FCM_SERVICE_ACCOUNT` (the Firebase service-account key JSON) and `PUSH_SECRET` (+ the built-in `SUPABASE_URL`, `SUPABASE_SECRET_KEYS`, `SUPABASE_JWKS`, read by `@supabase/server`).
 
 ## App structure (`app/`)
 
@@ -136,7 +143,9 @@ Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (+ 
 lib/
   main.dart, app.dart
   core/
-    env.dart            String.fromEnvironment: SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, RAZORPAY_KEY_ID, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, POLICIES_URL, LINK_HOST
+    env.dart            String.fromEnvironment: SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, RAZORPAY_KEY_ID, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, POLICIES_URL, LINK_HOST,
+                        FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_PROJECT_ID (all four, or push stays off)
+    push.dart           phone notifications (FCM) behind those keys
     supabase.dart       init with secure session storage; `supabaseProvider`
     router.dart         go_router, auth + admin redirects, bottom-nav shell
     theme/              tokens + ThemeData (light + dark)
@@ -163,6 +172,7 @@ Bottom nav (shell): **Home · Search · Repairs · Cart · Account**, plus **Adm
 /checkout             address select/add, payment method, summary, place order → Razorpay sheet
 /checkout/result/:orderId   success / pending / failed with retry
 /orders, /orders/:id  list + detail with timeline, cancel
+/notifications        signed in: everything that happened, Today / Yesterday / Earlier; the bell on Home and the admin dashboard
 /repairs              my bookings + "Book a repair"; /repairs/new form; /repairs/:id
 /account              profile, addresses, wishlist, offers, store contact, sign out, delete account; /account/refer
 /sign-in              phone | email tabs + Google; /sign-in/verify code entry
@@ -172,7 +182,7 @@ Bottom nav (shell): **Home · Search · Repairs · Cart · Account**, plus **Adm
 ```
 
 Lists that grow load a page at a time as you scroll (`lib/core/paging.dart`: `range` pages, a spinner row, "Couldn't
-load more. Try again", pull-to-refresh starts over): orders, wishlist, an offer's products, and in admin the orders,
+load more. Try again", pull-to-refresh starts over): orders, notifications, wishlist, an offer's products, and in admin the orders,
 products and the catalogue (50 a page through `admin_catalogue`, totals from its summary).
 
 Share links: `https://<LINK_HOST>/open?p=<slug>|o=<offer id>&ref=<code>` (product page, offer detail, Refer & earn
@@ -329,6 +339,64 @@ and for staff `INVALID_PROMOTION` and `CODE_TAKEN`.
   (CRUD, order, schedule, image). Promotion editor: type, value, code (or Generate), public/hidden, applies to (whole
   order, or any mix of products, categories, brands, groups), min order, cap, dates, limits, first order, online only,
   show banner. Settings: referral section.
+
+## Notifications
+
+Migration `20261030000400_notifications.sql`. Database triggers write every notification, so an RPC, a webhook or the
+expiry job can't forget one; nobody inserts from a client.
+
+- `notifications`: `kind` (`^[a-z_]{2,40}$`, picks the app's icon and colour), `title` 1..80, `body` ≤ 300 (one line;
+  longer copy is cut with …), `link` an app route (`/orders/…`, `/repairs/…`, `/offers…`, `/product/…`,
+  `/admin/orders/…`, `/admin/repairs/…`, `/admin/feedback/…`, `/admin/products/…`, `/admin/catalogue…`; always the
+  specific screen), `order_id`/`repair_id` (on delete cascade), `read_at`, `created_at`. RLS: people read, delete and
+  update their own; the only column they can change is `read_at`. A nightly `pg_cron` job (`notifications-cleanup`,
+  03:30) deletes notifications older than 90 days and phone tokens unused for 270.
+- Who: the customer the order, repair or coupon belongs to; "staff" means one row for each admin in `admins` except
+  whoever did it (staff marking packed tells no staff). Copy formats money in SQL as the app does
+  (`private.inr`: ₹1,29,999).
+
+| Event | Customer gets (kind: title) | Staff get |
+|---|---|---|
+| COD order placed | `order_confirmed`: SM1042 is confirmed (amount, cash on delivery) | `staff_new_order`: New order SM1042 (amount · payment · items · town) |
+| Online order placed | `order_awaiting_payment`: Finish paying for SM1042 (15-minute hold) | nothing until paid |
+| Payment fails (`mark_payment_failed`) | `payment_failed`: Payment failed for SM1042 (try again before the hold ends) | |
+| Payment lands (`mark_order_paid`, also reviving an expired order) | `payment_received`: Payment received for SM1042 | `staff_order_paid`: Paid order SM1042 (summary) |
+| Payment lands on a cancelled order | `order_late_payment`: We got your payment for SM1042 (refund coming) | `staff_refund_needed`: Refund ₹X for SM1042 |
+| Hold expires (`expire_unpaid_orders`) | `order_expired`: SM1042 was cancelled | |
+| Packed / shipped / delivered | `order_packed` · `order_shipped` (courier and tracking) · `order_delivered` (tap to rate) | |
+| Courier or tracking changed later (packed/shipped/delivered) | `order_tracking`: Tracking updated for SM1042 (a note sent with it joins the same notification) | |
+| Staff note on the timeline | `order_update`: Update on SM1042 (the note) | |
+| Customer cancels | `order_cancelled`: You cancelled SM1042 (refund promise if paid) | `staff_refund_needed` if paid, else `staff_order_cancelled`: SM1042 cancelled by the customer (stock is back); nothing for an unpaid online order |
+| Shop cancels | `order_cancelled`: SM1042 was cancelled by the shop (the note) | other staff: `staff_refund_needed` if paid |
+| Refund (webhook, delivered → refunded, or staff closing a needs-refund) | `order_refunded`: Refund of ₹X for SM1042 (the timeline's refund note) | |
+| Repair booked (customer, or a walk-in by staff) | `repair_booked`: Repair booked for your Galaxy A56 (issue, date, slot) | `staff_new_repair`: New repair RP1001: Samsung Galaxy A56 |
+| Confirmed / work started / ready / completed | `repair_confirmed` (date and slot) · `repair_started` · `repair_ready` (what to pay) · `repair_completed` (tap to rate) | |
+| Quote sent or changed | `repair_quote`: ₹200 quote for your Galaxy A56 screen: approve to start (…to continue, mid-repair) | |
+| Quote agreed at the counter (`p_approved`) | `repair_quote_agreed` | |
+| Customer approves / declines the quote | | `staff_quote_approved` · `staff_quote_declined` (with the reason) |
+| Customer cancels a repair | (their own action: nothing) | `staff_repair_cancelled` |
+| Shop cancels a repair | `repair_cancelled` (the reason) | |
+| Staff note on a repair | `repair_update` (the note) | |
+| Referral: friend's welcome gift / referrer's reward / any personal coupon | `referral_welcome` · `referral_reward` · `coupon` (code, minimum, last day; links to the offer) | |
+| Feedback sent or re-rated | | `staff_feedback`: New rating: 5 stars for order SM1042, or `staff_feedback_low`: Low rating: 2 stars for … (1–2 stars); links to `/admin/feedback/<id>` |
+| A sale takes a live variant to ≤ 3 / to 0 | | `staff_low_stock` / `staff_out_of_stock`, once per crossing; staff stock edits don't count |
+
+**Live in the app.** Polling, not Realtime (the local stack runs without it to save RAM; a Realtime subscription could
+replace the timer): `unread_notifications` every 45 s while the app is in front, on resume, and right after any write
+the app sends (`TimeoutClient.onWrite`). A rise slides the newest one in at the top for about 5 s (one at a time,
+tappable, with View and a close button; no slide when the phone asks for less motion; it stays for screen-reader
+users) and refreshes the screen it's about. `/notifications`: paged, grouped Today / Yesterday / Earlier, icon tinted
+by meaning (emerald done, gold needs you or a deal, peacock news, red failed or cancelled), unread rows bold with a
+dot; tap marks read and opens the link; Mark all read; a delete button on every row and swipe to delete.
+
+**Push (off until configured).** `device_tokens` (own rows readable and deletable; written only by `register_device`).
+An AFTER INSERT trigger on `notifications` posts the row and the user's tokens to `send-push` with pg_net, only when
+Vault holds `push_url` and `push_secret` (set by `scripts/launch.py --only secrets,functions,push`); pg_net sends after
+commit, and any error is logged and swallowed, so a push never fails the order or repair behind it. The app uses
+Firebase only when built with all four `FIREBASE_*` defines (no google-services.json, no Gradle plugin). Then: after
+the first order or repair booking a short explainer offers phone notifications once, before Android 13's prompt; the
+token is registered after sign-in and on refresh, dropped at sign-out; a push in the foreground shows in the same
+banner, and tapping one opens its link.
 
 ## Environments and setup
 

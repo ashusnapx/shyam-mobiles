@@ -12,6 +12,12 @@ abstract final class Env {
   /// Host of shared links (`https://<host>/open?…`, served by site/open.html), e.g. shyammobiles.in. The Android
   /// build claims it as an App Link (build.gradle.kts reads the same key). Empty: shares carry no link.
   static const linkHost = String.fromEnvironment('LINK_HOST');
+  /// The Firebase Android app (console > Project settings > Your apps), for phone notifications (lib/core/push.dart).
+  /// Any of them empty: the app never touches Firebase and shows notifications only inside the app.
+  static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
+  static const firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
+  static const firebaseMessagingSenderId = String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
+  static const firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
 
   /// Dev-only one-tap sign-in to local test accounts (see scripts/dev_setup.py). Compile-time false in
   /// release (kReleaseMode is a const), so the buttons are tree-shaken. The credentials are gated the same

@@ -29,7 +29,7 @@ create index notifications_repair_idx on public.notifications (repair_id) where 
 
 -- One row per phone: whoever signed in last on it gets its pushes (register_device moves the token).
 create table public.device_tokens (
-  token text primary key check (token ~ '^[A-Za-z0-9_:-]{20,1000}$'), -- an FCM registration token
+  token text primary key check (char_length(token) between 20 and 1000 and token ~ '^[A-Za-z0-9_:-]+$'), -- an FCM token
   user_id uuid not null references auth.users on delete cascade,
   platform text not null default 'android' check (platform in ('android', 'ios')),
   updated_at timestamptz not null default now()
@@ -181,7 +181,9 @@ begin
   -- this RPC call already told the customer (payment, refund, tracking): its note joins that notification
   update public.notifications n
   set body = case when v_note is null then n.body
-                  when n.kind = 'order_tracking' then private.clip(n.body || ' ' || v_note, 300)
+                  -- admin_update_order's own "Courier and tracking updated: …" note repeats the number: no need
+                  when n.kind = 'order_tracking' and strpos(v_note, coalesce(o.tracking_number, o.courier, '')) = 0
+                    then private.clip(n.body || ' ' || v_note, 300)
                   when n.kind = 'order_refunded' then private.clip(v_note, 300) -- "Refunded in cash at the store"
                   else n.body end
   where n.order_id = o.id and n.user_id = o.user_id and n.created_at = statement_timestamp();
@@ -276,7 +278,7 @@ begin
   elsif new.quote_status = 'declined' then
     perform private.notify_staff('staff_quote_declined', 'Quote declined for ' || b.number,
       v_amount || ' for the ' || b.device_brand || ' ' || v_what || '. '
-        || coalesce('Reason: ' || v_note, 'No reason given.') || ' Quote again or cancel it.', v_staff, null, b.id);
+        || coalesce('Reason: “' || v_note || '”.', 'No reason given.') || ' Quote again or cancel it.', v_staff, null, b.id);
   elsif v_prev is null then -- booked (a walk-in may start confirmed)
     perform private.notify(b.user_id, 'repair_booked', 'Repair booked for your ' || b.device_model,
       concat_ws(' ', private.issue_words(b.issue) || ' · ' || private.repair_when(b) || '.',
@@ -322,14 +324,14 @@ for each row execute function private.notify_repair_event();
 create function private.notify_personal_coupon() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_off text := case new.kind when 'flat' then private.inr(new.value) || ' off'
-    when 'percent' then new.value || '% off' else 'Free delivery' end;
+  v_value text := case new.kind when 'flat' then private.inr(new.value) when 'percent' then new.value || '%'
+    else 'free delivery' end;
 begin
   if new.user_id is null or tg_op = 'UPDATE' and new.user_id is not distinct from old.user_id then return null; end if;
   perform private.notify(new.user_id,
     case when new.code like 'REWARD%' then 'referral_reward' when new.code like 'FRIEND%' then 'referral_welcome' else 'coupon' end,
-    case when new.code like 'REWARD%' then 'You earned ' || v_off || ' for referring a friend'
-         when new.code like 'FRIEND%' then 'Your welcome gift: ' || v_off || ' your first order'
+    case when new.code like 'REWARD%' then 'You earned a ' || v_value || ' coupon for referring a friend'
+         when new.code like 'FRIEND%' then 'Your welcome gift: ' || v_value || ' off your first order'
          else 'A coupon just for you: ' || new.title end,
     'Use code ' || new.code
       || case when new.min_subtotal_paise > 0 then ' on an order of ' || private.inr(new.min_subtotal_paise) || ' or more' else '' end
@@ -444,7 +446,9 @@ declare
   v_uid uuid := auth.uid();
 begin
   if v_uid is null then raise exception 'FORBIDDEN'; end if;
-  if p_token is null or p_token !~ '^[A-Za-z0-9_:-]{20,1000}$' then raise exception 'BAD_REQUEST'; end if;
+  if p_token is null or char_length(p_token) not between 20 and 1000 or p_token !~ '^[A-Za-z0-9_:-]+$' then
+    raise exception 'BAD_REQUEST';
+  end if;
   insert into public.device_tokens (token, user_id) values (p_token, v_uid)
   on conflict (token) do update set user_id = excluded.user_id, updated_at = now();
   delete from public.device_tokens where token in (

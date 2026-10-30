@@ -46,7 +46,7 @@ final homeProvider = FutureProvider<HomeData>((ref) {
           .lte('min_price_paise', 150000)
           .order('min_price_paise', ascending: true)
           .order('id', ascending: true)
-          .limit(4),
+          .limit(10), // Home's "Deals under ₹1,500" rail
     ).wait;
     return {'categories': categories, 'featured': featured, 'accessories': accessories};
   }, homeFromJson);

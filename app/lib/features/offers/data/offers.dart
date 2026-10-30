@@ -127,6 +127,18 @@ final bannersProvider = FutureProvider<List<PromoBanner>>((ref) async {
   ];
 });
 
+/// Home's banner slides: running now and linking somewhere real ([bannersProvider]); an offer's banner only while
+/// this customer can still use the offer (available_offers leaves out ended, used-up and spent first-order ones,
+/// which would open "This offer has ended").
+final homeBannersProvider = Provider.autoDispose<List<PromoBanner>>((ref) {
+  final now = DateTime.now();
+  final open = {...?ref.watch(availableOffersProvider).value?.map((o) => o.id)};
+  return [
+    for (final b in ref.watch(bannersProvider).value ?? const <PromoBanner>[])
+      if (b.runningAt(now) && (b.promotionId == null || open.contains(b.promotionId))) b,
+  ];
+});
+
 final myReferralProvider = FutureProvider.autoDispose<Referral>((ref) {
   ref.watch(currentUserIdProvider);
   return ref.watch(offersApiProvider).myReferral();

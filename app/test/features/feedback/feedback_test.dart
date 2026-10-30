@@ -47,7 +47,15 @@ class _Api implements FeedbackApi {
 
   @override
   Future<List<FeedbackEntry>> inbox(FeedbackFilter f, int from, int size) async =>
-      rows.where((r) => f.status == null || r.status == f.status).skip(from).take(size).toList();
+      rows
+          .where((r) => (f.status == null || r.status == f.status) && (f.productId == null || r.productId == f.productId))
+          .skip(from)
+          .take(size)
+          .toList();
+
+  @override
+  Future<int> listingReports(String productId) async =>
+      rows.where((r) => r.kind == FeedbackKind.product && r.productId == productId).length;
 
   @override
   Future<FeedbackEntry> entry(String id) async => rows.firstWhere((r) => r.id == id);
@@ -233,11 +241,41 @@ void main() {
     expect(find.bySemanticsLabel('New feedback, 2'), findsOneWidget);
   });
 
+  testWidgets('a listing’s reports: the editor row counts them and opens the inbox filtered to that product', (tester) async {
+    final report = FeedbackEntry(
+      id: 'f9',
+      kind: FeedbackKind.product,
+      status: FeedbackStatus.seen,
+      message: 'Wrong price on the 256 GB',
+      productId: 'p1',
+      productName: 'Samsung Galaxy A15',
+      createdAt: DateTime(2026, 10, 29),
+    );
+    final api = _Api()..rows = [_entry('f1'), report];
+    await pumpScreen(tester, const Scaffold(body: ListingReportsRow(productId: 'p1')), routes: ['/admin/feedback'], overrides: [
+      feedbackApiProvider.overrideWithValue(api),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('Reports about this listing'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.text('Reports about this listing'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page /admin/feedback?product=p1'), findsOneWidget);
+
+    await pumpScreen(tester, const AdminFeedbackScreen(productId: 'p1'), overrides: [feedbackApiProvider.overrideWithValue(api)]);
+    await tester.pumpAndSettle();
+    expect(find.text('Wrong price on the 256 GB'), findsOneWidget, reason: 'seen ones too: all statuses');
+    expect(find.text('The case came scratched.'), findsNothing);
+    await tester.tap(find.byTooltip('Show feedback about everything'));
+    await tester.pumpAndSettle();
+    expect(find.text('The case came scratched.'), findsOneWidget);
+  });
+
   test('the inbox pages like every list', () async {
     final api = _Api()..rows = [for (var i = 0; i < 45; i++) _entry('f$i')];
     final c = ProviderContainer(retry: noAutoRetry, overrides: [feedbackApiProvider.overrideWithValue(api)]);
     addTearDown(c.dispose);
-    const all = (status: null, kind: null);
+    const all = (status: null, kind: null, productId: null);
     c.listen(adminFeedbackProvider(all), (_, _) {});
     final first = await c.read(adminFeedbackProvider(all).future);
     expect((first.items.length, first.hasMore), (30, true));

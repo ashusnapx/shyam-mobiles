@@ -445,3 +445,8 @@ verify_jwt = false
 # scripts/launch.py points production's hook at it.
 [functions.send-sms]
 verify_jwt = false
+
+# The database calls it for each new notification (pg_net), with the shared PUSH_SECRET instead of a JWT.
+# Off until scripts/launch.py sets FCM_SERVICE_ACCOUNT and PUSH_SECRET (and the matching Vault entries).
+[functions.send-push]
+verify_jwt = false

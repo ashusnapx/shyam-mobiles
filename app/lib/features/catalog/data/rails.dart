@@ -48,6 +48,12 @@ class RailsApi {
     return closestByPrice([for (final r in [...above, ...below]) ProductCard.fromJson(r)], pricePaise);
   }
 
+  /// The newest products, for Home's "More to explore" grid.
+  Future<List<ProductCard>> latest() async {
+    final rows = await _db.from('product_cards').select(cardColumns).order('created_at').order('id').limit(10);
+    return [for (final r in rows) ProductCard.fromJson(r)];
+  }
+
   Future<List<ProductCard>> cards(List<String> ids) async {
     final rows = await _db.from('product_cards').select(cardColumns).inFilter('id', ids);
     return [for (final r in rows) ProductCard.fromJson(r)];
@@ -80,6 +86,11 @@ final similarProvider = FutureProvider.autoDispose.family<List<ProductCard>, Str
   final prices = [for (final v in p?.activeVariants ?? const <Variant>[]) v.pricePaise];
   if (p == null || prices.isEmpty) return const [];
   return ref.watch(railsApiProvider).similar(p.category.slug, prices.reduce(math.min), p.id);
+});
+
+final latestProvider = FutureProvider.autoDispose<List<ProductCard>>((ref) {
+  cacheFor(ref, const Duration(minutes: 5));
+  return ref.watch(railsApiProvider).latest();
 });
 
 const _recentKey = 'recently_viewed';

@@ -404,7 +404,7 @@ class PromoBannerCard extends StatelessWidget {
             child: InkWell(
               onTap: onTap,
               child: Padding(
-                padding: const EdgeInsets.all(Space.lg),
+                padding: const EdgeInsets.all(14), // compact: it's a slide in Home's carousel
                 child: Row(
                   children: [
                     Expanded(
@@ -421,17 +421,17 @@ class PromoBannerCard extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               banner.subtitle,
-                              maxLines: 3,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                             ),
                           ],
-                          const SizedBox(height: Space.md),
-                          // looks like the hero's white button; the whole card is the tap target
+                          const SizedBox(height: 10),
+                          // looks like the product slides' white button; the whole card is the tap target
                           DecoratedBox(
                             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 7),
+                              padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 5),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 spacing: Space.xs,
@@ -450,7 +450,7 @@ class PromoBannerCard extends StatelessWidget {
                     if (banner.imagePath != null) ...[
                       const SizedBox(width: Space.md),
                       SizedBox(
-                        width: 84,
+                        width: 76,
                         child: ProductImage(banner.imagePath, radius: Radii.md, padding: 0, fit: BoxFit.cover),
                       ),
                     ],
@@ -460,33 +460,6 @@ class PromoBannerCard extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Running banners under the featured carousel, one under another (nothing hides behind a sideways swipe).
-/// Nothing at all while loading or on error: banners are extras.
-class BannerStrip extends ConsumerWidget {
-  const BannerStrip({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
-    // an offer's banner shows only while this customer can still use the offer: available_offers leaves out
-    // ended, used-up and (once they've ordered) first-order-only ones, which would open "This offer has ended"
-    final open = {...?ref.watch(availableOffersProvider).value?.map((o) => o.id)};
-    final banners = [
-      for (final b in ref.watch(bannersProvider).value ?? const <PromoBanner>[])
-        if (b.runningAt(now) && (b.promotionId == null || open.contains(b.promotionId))) b,
-    ];
-    if (banners.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.md,
-        children: [for (final b in banners) PromoBannerCard(b, onTap: () => openAppLink(context, b.link))],
       ),
     );
   }

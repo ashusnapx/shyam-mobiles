@@ -9,6 +9,21 @@ import '../../../core/supabase.dart';
 const _select =
     'qty, variant_id, variant:variants(*, product:products(id, slug, name, is_active, images:product_images(path, sort)))';
 
+/// "Galaxy A15 is no longer available and was removed from your cart." for [CartNotifier.takeRemoved]'s names.
+String removedNotice(List<String?> names) {
+  final known = names.nonNulls.toSet().toList();
+  final unknown = names.length - names.nonNulls.length;
+  if (known.isEmpty) {
+    return unknown == 1
+        ? 'An item in your cart is no longer available and was removed.'
+        : '$unknown items in your cart are no longer available and were removed.';
+  }
+  final list = known.length == 1 ? known.first : '${known.take(known.length - 1).join(', ')} and ${known.last}';
+  final more = unknown == 0 ? '' : ' (and $unknown more)';
+  return '$list$more ${known.length + unknown == 1 ? 'is' : 'are'} no longer available and '
+      '${known.length + unknown == 1 ? 'was' : 'were'} removed from your cart.';
+}
+
 /// Most of one variant a customer can hold in the cart (DB check allows 1..5).
 int maxQtyFor(Variant v) => math.min(v.stock, 5);
 
@@ -24,14 +39,28 @@ final cartCountProvider = Provider<int>(
 class CartNotifier extends AsyncNotifier<List<CartLine>> {
   SupabaseClient get _db => ref.read(supabaseProvider);
 
+  final _removed = <String?>[]; // names of lines dropped below, until the cart screen has said so
+
+  /// Lines dropped because the shop hid their item, since the last call, so each is said once. A name is null
+  /// when this phone never loaded the line (RLS hides a hidden item's name too).
+  List<String?> takeRemoved() {
+    final names = [..._removed];
+    _removed.clear();
+    return names;
+  }
+
   @override
   Future<List<CartLine>> build() async {
     if (ref.watch(currentUserIdProvider) == null) return const [];
+    final known = {for (final l in state.value ?? const <CartLine>[]) l.variant.id: l.productName};
     final rows = await _db.from('cart_items').select(_select).order('created_at');
     // A line whose item the shop hid comes back without its variant (RLS), yet place_order would still refuse the
     // cart over it, and the customer couldn't see it to remove it: drop it from the cart.
     final hidden = [for (final r in rows) if (r['variant'] == null) r['variant_id'] as String];
-    if (hidden.isNotEmpty) await _db.from('cart_items').delete().inFilter('variant_id', hidden);
+    if (hidden.isNotEmpty) {
+      await _db.from('cart_items').delete().inFilter('variant_id', hidden);
+      _removed.addAll([for (final id in hidden) known[id]]);
+    }
     return [for (final r in rows) if (r['variant'] != null) CartLine.fromJson(r)];
   }
 

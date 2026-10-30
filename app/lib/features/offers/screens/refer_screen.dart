@@ -55,6 +55,12 @@ class ReferScreen extends ConsumerWidget {
   }
 }
 
+/// The monthly reward cap, said plainly: past it, a friend still gets their discount but no reward is made.
+String _capNote(int cap) => cap <= 0
+    ? ''
+    : ' You can earn up to $cap reward${cap == 1 ? '' : 's'} a month. Friends who join after that still get their '
+        'discount, but no reward is added for you.';
+
 class _Body extends StatelessWidget {
   const _Body({required this.referral, this.monthlyCap});
 
@@ -137,13 +143,8 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: Space.sm),
         Text(
-          [
-            'Your coupon is for an order of ${formatInr(r.minOrderPaise)} or more and lasts 90 days. It shows up in '
-                'Offers & coupons.',
-            if (monthlyCap case final cap? when cap > 0)
-              'You can earn up to $cap reward${cap == 1 ? '' : 's'} a month. Friends who join after that still get '
-                  'their discount, but no reward is added for you.',
-          ].join(' '),
+          'Your coupon is for an order of ${formatInr(r.minOrderPaise)} or more and lasts 90 days. It shows up in '
+          'Offers & coupons.${_capNote(monthlyCap ?? 0)}',
           style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
         ),
         if (r.canEnterCode) const _FriendCode(),

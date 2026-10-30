@@ -109,7 +109,8 @@ class PullScale extends ConsumerWidget {
   }
 }
 
-/// Rises in the first time it scrolls into view, once. Already on screen at first: just shown.
+/// Rises in the first time it scrolls into view, once. Already on screen at first: just shown. For a child of a
+/// SliverToBoxAdapter (built up front, laid out as it nears the screen); a lazily built list item just shows.
 class RevealOnScroll extends StatefulWidget {
   const RevealOnScroll({super.key, required this.child});
 
@@ -126,6 +127,7 @@ class _RevealOnScrollState extends State<RevealOnScroll> with SingleTickerProvid
   late final _curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
   ScrollPosition? _position;
   bool _started = false;
+  bool _queued = false;
 
   @override
   void didChangeDependencies() {
@@ -143,14 +145,22 @@ class _RevealOnScrollState extends State<RevealOnScroll> with SingleTickerProvid
 
   bool _inView() {
     final box = context.findRenderObject() as RenderBox?;
-    return box == null || !box.attached || box.localToGlobal(Offset.zero).dy < MediaQuery.sizeOf(context).height - 24;
+    if (box == null || !box.attached) return true;
+    if (!box.hasSize) return false; // a sliver past the cache extent isn't laid out yet: well below the fold
+    return box.localToGlobal(Offset.zero).dy < MediaQuery.sizeOf(context).height - 24;
   }
 
+  /// Measured after the frame the scroll lays out, not mid-scroll (it may not be laid out yet).
   void _check() {
-    if (!mounted || !_inView()) return;
-    _position?.removeListener(_check);
-    _position = null;
-    _c.forward();
+    if (_queued) return;
+    _queued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _queued = false;
+      if (!mounted || _position == null || !_inView()) return;
+      _position!.removeListener(_check);
+      _position = null;
+      _c.forward();
+    });
   }
 
   @override

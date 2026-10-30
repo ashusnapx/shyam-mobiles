@@ -43,15 +43,18 @@ class OtpField extends StatelessWidget {
                         duration: Motion.fast,
                         height: 56,
                         alignment: Alignment.center,
+                        // the box being typed into is peacock, like the sign-in tabs
                         decoration: BoxDecoration(
-                          color: c.surfaceContainer,
+                          color: !hasError && focusNode.hasFocus && i == code.length.clamp(0, otpLength - 1)
+                              ? BrandColors.peacockMist
+                              : c.surfaceContainer,
                           borderRadius: BorderRadius.circular(Radii.md),
                           border: Border.all(
                             width: 1.5,
                             color: hasError
                                 ? c.error
                                 : focusNode.hasFocus && i == code.length.clamp(0, otpLength - 1)
-                                    ? c.primary
+                                    ? BrandColors.peacock
                                     : c.surfaceContainer,
                           ),
                         ),

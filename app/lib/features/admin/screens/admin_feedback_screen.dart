@@ -17,33 +17,37 @@ import '../widgets/admin_widgets.dart';
 const _statusFilters = {'new': 'New', 'seen': 'Seen', 'resolved': 'Resolved', 'all': 'All'};
 
 TagTone feedbackTone(FeedbackStatus s) => switch (s) {
-      FeedbackStatus.unread => TagTone.deal,
-      FeedbackStatus.seen => TagTone.info,
-      FeedbackStatus.resolved => TagTone.ok,
-    };
+  FeedbackStatus.unread => TagTone.deal,
+  FeedbackStatus.seen => TagTone.info,
+  FeedbackStatus.resolved => TagTone.ok,
+};
 
 /// "Asha Verma · +91 98765 43210", else the order or repair number, else "A customer".
 String feedbackFrom(FeedbackEntry e) => [
-      e.customerName ?? e.orderNumber ?? e.repairNumber ?? 'A customer',
-      if (e.customerPhone case final p?) displayPhone(p),
-    ].join(' · ');
+  e.customerName ?? e.orderNumber ?? e.repairNumber ?? 'A customer',
+  if (e.customerPhone case final p?) displayPhone(p),
+].join(' · ');
 
 void _feedbackChanged(WidgetRef ref, String id) {
   ref.invalidate(adminFeedbackProvider);
+  ref.invalidate(listingReportsProvider);
   ref.invalidate(adminFeedbackEntryProvider(id));
   ref.invalidate(feedbackNewCountProvider);
 }
 
-/// Staff inbox: newest first, a page at a time, by status and kind.
+/// Staff inbox: newest first, a page at a time, by status and kind; `?product=<id>` shows one listing's reports.
 class AdminFeedbackScreen extends ConsumerStatefulWidget {
-  const AdminFeedbackScreen({super.key});
+  const AdminFeedbackScreen({super.key, this.productId});
+
+  final String? productId;
 
   @override
   ConsumerState<AdminFeedbackScreen> createState() => _AdminFeedbackScreenState();
 }
 
 class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
-  String _status = 'new';
+  late String? _productId = widget.productId;
+  late String _status = _productId == null ? 'new' : 'all'; // a listing's reports: all of them, read or not
   FeedbackKind? _kind;
 
   @override
@@ -51,6 +55,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
     final provider = adminFeedbackProvider((
       status: _status == 'all' ? null : FeedbackStatus.parse(_status),
       kind: _kind,
+      productId: _productId,
     ));
     return AdminGate(
       child: Scaffold(
@@ -60,21 +65,30 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
             ChipBar(options: _statusFilters, selected: _status, onSelected: (s) => setState(() => _status = s)),
             Padding(
               padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, Space.sm),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: PickerChip(
-                  label: _kind?.label ?? 'Any kind',
-                  selected: _kind != null,
-                  onTap: () async {
-                    final picked = await showPickerSheet<FeedbackKind>(
-                      context,
-                      title: 'Kind',
-                      options: [(null, 'Any kind'), for (final k in FeedbackKind.values) (k, k.label)],
-                      selected: _kind,
-                    );
-                    if (picked != null && mounted) setState(() => _kind = picked.$1);
-                  },
-                ),
+              child: Wrap(
+                spacing: Space.sm,
+                runSpacing: Space.xs,
+                children: [
+                  if (_productId != null)
+                    InputChip(
+                      label: const Text('One listing'),
+                      onDeleted: () => setState(() => _productId = null),
+                      deleteButtonTooltipMessage: 'Show feedback about everything',
+                    ),
+                  PickerChip(
+                    label: _kind?.label ?? 'Any kind',
+                    selected: _kind != null,
+                    onTap: () async {
+                      final picked = await showPickerSheet<FeedbackKind>(
+                        context,
+                        title: 'Kind',
+                        options: [(null, 'Any kind'), for (final k in FeedbackKind.values) (k, k.label)],
+                        selected: _kind,
+                      );
+                      if (picked != null && mounted) setState(() => _kind = picked.$1);
+                    },
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -129,7 +143,9 @@ class _Row extends StatelessWidget {
     return InkWell(
       onTap: () => context.push('/admin/feedback/${e.id}'),
       child: DecoratedBox(
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.outlineVariant))),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: c.outlineVariant)),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
           child: Column(
@@ -150,7 +166,10 @@ class _Row extends StatelessWidget {
                 Text(firstLine, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodyMedium),
               ],
               const SizedBox(height: 2),
-              Text('${feedbackFrom(e)} · ${formatDateTime(e.createdAt)}', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+              Text(
+                '${feedbackFrom(e)} · ${formatDateTime(e.createdAt)}',
+                style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
+              ),
             ],
           ),
         ),
@@ -201,16 +220,13 @@ class _DetailState extends ConsumerState<_Detail> {
     super.initState();
     if (widget.entry.status == FeedbackStatus.unread) {
       // seen once it's opened; quietly, a failure just leaves it new
-      ref.read(feedbackApiProvider).update(widget.entry.id, status: FeedbackStatus.seen).then(
-            (_) {
-              if (mounted) {
-                ref
-                  ..invalidate(adminFeedbackProvider)
-                  ..invalidate(feedbackNewCountProvider);
-              }
-            },
-            onError: (Object _) {},
-          );
+      ref.read(feedbackApiProvider).update(widget.entry.id, status: FeedbackStatus.seen).then((_) {
+        if (mounted) {
+          ref
+            ..invalidate(adminFeedbackProvider)
+            ..invalidate(feedbackNewCountProvider);
+        }
+      }, onError: (Object _) {});
     }
   }
 
@@ -307,11 +323,41 @@ class _DetailState extends ConsumerState<_Detail> {
           onPressed: _busy
               ? null
               : () => resolved
-                  ? _save('Opened again', status: FeedbackStatus.seen)
-                  : _save('Marked resolved', status: FeedbackStatus.resolved, note: tidy(_note.text, multiline: true)),
+                    ? _save('Opened again', status: FeedbackStatus.seen)
+                    : _save(
+                        'Marked resolved',
+                        status: FeedbackStatus.resolved,
+                        note: tidy(_note.text, multiline: true),
+                      ),
           child: Text(resolved ? 'Open it again' : 'Mark resolved'),
         ),
       ],
+    );
+  }
+}
+
+/// "Reports about this listing · 3" on the admin product editor; opens the inbox filtered to this product.
+class ListingReportsRow extends ConsumerWidget {
+  const ListingReportsRow({super.key, required this.productId});
+
+  final String productId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final n = ref.watch(listingReportsProvider(productId)).value;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(PhosphorIconsRegular.flag),
+      title: const Text('Reports about this listing'),
+      subtitle: Text(
+        n == null
+            ? 'Problems customers reported on the product page'
+            : n == 0
+            ? 'None so far'
+            : '$n',
+      ),
+      trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
+      onTap: () => context.push('/admin/feedback?product=$productId'),
     );
   }
 }

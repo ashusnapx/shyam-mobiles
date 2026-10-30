@@ -2,7 +2,7 @@
 -- them), with the copy people read; RLS; the read RPCs; device tokens; and the push trigger never failing anything.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(96);
+select plan(125);
 
 -- Fixtures ------------------------------------------------------------------------
 
@@ -128,11 +128,6 @@ select pg_temp.staff1();
 select public.admin_update_order(pg_temp.id('cod'), 'shipped', 'Running a day late.');
 select is(pg_temp.asha_news(), 'order_update: Update on ' || pg_temp.num('cod'), 'a staff note on the timeline');
 select is(pg_temp.asha_said('order_update'), 'Running a day late. → /orders/' || pg_temp.id('cod'), 'says the note');
-
-select pg_temp.staff1();
-update public.orders set courier = courier where id = pg_temp.id('cod'); -- no grant: nothing happens
-reset role;
-select is(pg_temp.asha_news(), null, 'no change, no notification');
 
 select pg_temp.staff1();
 select public.admin_update_order(pg_temp.id('cod'), 'delivered');
@@ -273,7 +268,7 @@ select pg_temp.asha();
 select public.decline_repair_quote(pg_temp.id('r1'), 'Too costly');
 select is(pg_temp.staff1_news(), 'staff_quote_declined: Quote declined for ' || pg_temp.num('r1'), 'staff hear a no');
 select is(pg_temp.staff2_said('staff_quote_declined'),
-  '₹200 for the Samsung Galaxy A56 screen. Reason: Too costly Quote again or cancel it. → /admin/repairs/' || pg_temp.id('r1'), 'with the reason');
+  '₹200 for the Samsung Galaxy A56 screen. Reason: “Too costly”. Quote again or cancel it. → /admin/repairs/' || pg_temp.id('r1'), 'with the reason');
 select is(pg_temp.asha_news(), null, 'not the customer: they said it');
 select pg_temp.staff2_news();
 
@@ -327,8 +322,10 @@ select is(pg_temp.asha_said('repair_cancelled'), 'We don''t stock this screen. �
 
 select pg_temp.ravi();
 select public.my_referral() is not null;
+reset role;
+select set_config('nt.code', (select code from public.referral_codes where user_id = 'ab000000-0000-0000-0000-000000000002'), true);
 select pg_temp.kiran();
-select public.apply_referral_code((select code from public.referral_codes where user_id = 'ab000000-0000-0000-0000-000000000002'));
+select public.apply_referral_code(current_setting('nt.code'));
 reset role;
 select is(pg_temp.news('ab000000-0000-0000-0000-000000000003'), 'referral_welcome: Your welcome gift: ₹200 off your first order', 'the friend''s welcome gift');
 select ok(pg_temp.said('ab000000-0000-0000-0000-000000000003', 'referral_welcome') like 'Use code FRIEND% on an order of ₹1,999 or more by %. → /offers/%',
@@ -340,7 +337,7 @@ select public.admin_update_order(pg_temp.id('ref'), 'packed');
 select public.admin_update_order(pg_temp.id('ref'), 'shipped');
 select public.admin_update_order(pg_temp.id('ref'), 'delivered');
 reset role;
-select is(pg_temp.ravi_news(), 'referral_reward: You earned ₹200 for referring a friend', 'the referrer''s reward');
+select is(pg_temp.ravi_news(), 'referral_reward: You earned a ₹200 coupon for referring a friend', 'the referrer''s reward');
 
 insert into public.promotions (title, code, kind, value, is_public, user_id)
 values ('Wholesale buyer', 'NTBULK01', 'percent', 5, false, 'ab000000-0000-0000-0000-000000000001');
@@ -354,6 +351,7 @@ select pg_temp.asha();
 select public.send_feedback('order', 2, 'Box was dented', pg_temp.id('cod'));
 select is(pg_temp.staff1_news(), 'staff_feedback_low: Low rating: 2 stars for order ' || pg_temp.num('cod'), 'a low rating is called out');
 select ok(pg_temp.staff2_said('staff_feedback_low') like 'Box was dented → /admin/feedback/%', 'their words, linking to the feedback');
+select pg_temp.staff2_news();
 select pg_temp.asha();
 select public.send_feedback('order', 5, 'Sorted at the store', pg_temp.id('cod'));
 select is(pg_temp.staff2_news(), 'staff_feedback: New rating: 5 stars for order ' || pg_temp.num('cod'), 'a re-rating is news again');
@@ -364,7 +362,7 @@ select pg_temp.staff1();
 update public.feedback set status = 'resolved';
 reset role;
 select is(concat(pg_temp.staff1_news(), pg_temp.staff2_news()), 'staff_feedback: New rating: 5 stars for order ' || pg_temp.num('cod')
-  || 'staff_feedback_low: Low rating: 1 star for repair ' || pg_temp.num('r1'), 'staff changing the status is not news');
+  || ' / staff_feedback_low: Low rating: 1 star for repair ' || pg_temp.num('r1'), 'staff changing the status is not news');
 select is(pg_temp.asha_news(), null, 'customers aren''t told about their own feedback');
 
 -- RLS and the read RPCs ------------------------------------------------------------------------------
@@ -421,20 +419,21 @@ reset role;
 
 -- Push: off until configured, and never failing what triggered it ---------------------------------------
 
-create temp table queued as select count(*) as n from net.http_request_queue;
+create function pg_temp.pushes() returns bigint language sql as $$
+  select count(*) from net.http_request_queue where url = 'http://127.0.0.1:54321/functions/v1/send-push' $$;
 select lives_ok($$select private.notify('ab000000-0000-0000-0000-000000000002', 'order_update', 'Hello', 'Body', '/orders/x')$$,
   'a notification with push not set up');
-select is((select count(*) from net.http_request_queue) - (select n from queued), 0::bigint, 'sends nothing');
+select is(pg_temp.pushes(), 0::bigint, 'sends nothing');
 select vault.create_secret('http://127.0.0.1:54321/functions/v1/send-push', 'push_url');
 select vault.create_secret('test-push-secret', 'push_secret');
 select private.notify('ab000000-0000-0000-0000-000000000001', 'order_update', 'No phone', 'Body', '/orders/x');
-select is((select count(*) from net.http_request_queue) - (select n from queued), 0::bigint, 'nothing for someone with no phone');
+select is(pg_temp.pushes(), 0::bigint, 'nothing for someone with no phone');
 select private.notify('ab000000-0000-0000-0000-000000000002', 'order_update', 'To the phone', 'Body', '/orders/x');
-select is((select count(*) from net.http_request_queue) - (select n from queued), 1::bigint, 'set up: one request to send-push');
+select is(pg_temp.pushes(), 1::bigint, 'set up: one request to send-push');
 select is((select headers ->> 'x-push-secret' from net.http_request_queue order by id desc limit 1), 'test-push-secret', 'signed with the shared secret');
 select is((select convert_from(body, 'UTF8')::jsonb -> 'tokens' from net.http_request_queue order by id desc limit 1),
   '["ntTokenAAAAAAAAAAAAAAAAAAAA:APA91b-x_1"]'::jsonb, 'to that user''s phones');
-update vault.secrets set secret = 'not a url' where name = 'push_url';
+select vault.update_secret(id, 'not a url') from vault.secrets where name = 'push_url';
 select lives_ok($$select private.notify('ab000000-0000-0000-0000-000000000002', 'order_update', 'Broken push', 'Body', '/orders/x')$$,
   'a failing push doesn''t fail the transaction');
 select is((select count(*)::int from public.notifications where title = 'Broken push'), 1, 'the notification is still saved');

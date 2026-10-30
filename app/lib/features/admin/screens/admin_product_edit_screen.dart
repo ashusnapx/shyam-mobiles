@@ -16,6 +16,7 @@ import '../data/admin.dart';
 import '../data/photos.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
+import 'admin_feedback_screen.dart' show ListingReportsRow;
 
 const _gstRates = <num>[0, 5, 12, 18, 28];
 
@@ -196,6 +197,7 @@ class _EditorState extends ConsumerState<_Editor> {
                 const NoteBox('Customers can’t see this product until it has an active variant.',
                     icon: PhosphorIconsBold.warning),
               ],
+              if (live != null) ListingReportsRow(productId: live.id),
               const ListSection('Details'),
               TextFormField(
                 controller: _name,
