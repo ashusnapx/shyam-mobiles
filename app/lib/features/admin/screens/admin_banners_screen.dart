@@ -17,7 +17,7 @@ import '../data/photos.dart';
 import '../widgets/admin_widgets.dart';
 import 'admin_offers_screen.dart' show statusTone;
 
-const toneNames = ['Peacock', 'Marigold', 'Emerald']; // heroGradients, in order
+const toneNames = ['Peacock', 'Marigold', 'Emerald', 'Plum', 'Indigo', 'Rose']; // heroGradients, in order
 
 void _bannersChanged(WidgetRef ref) {
   ref.invalidate(adminBannersProvider);
