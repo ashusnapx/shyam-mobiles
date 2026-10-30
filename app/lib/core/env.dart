@@ -22,8 +22,10 @@ abstract final class Env {
   /// Dev-only one-tap sign-in to local test accounts (see scripts/dev_setup.py). Compile-time false in
   /// release (kReleaseMode is a const), so the buttons are tree-shaken. The credentials are gated the same
   /// way: a release build made with env/dev.json by mistake still holds '' instead of the test passwords.
-  /// test/core/release_safety_test.dart pins both.
-  static const devLogin = bool.fromEnvironment('DEV_LOGIN') && !kReleaseMode;
+  /// The one exception is a demo build that also sets DEMO_BUILD=true (a release APK to hand a tester, pointing
+  /// at a test backend); Play builds never set it. test/core/release_safety_test.dart pins all of this.
+  static const demoBuild = bool.fromEnvironment('DEMO_BUILD');
+  static const devLogin = bool.fromEnvironment('DEV_LOGIN') && (!kReleaseMode || demoBuild);
   static const devCustomerEmail = devLogin ? String.fromEnvironment('DEV_CUSTOMER_EMAIL') : '';
   static const devCustomerPassword = devLogin ? String.fromEnvironment('DEV_CUSTOMER_PASSWORD') : '';
   static const devAdminEmail = devLogin ? String.fromEnvironment('DEV_ADMIN_EMAIL') : '';

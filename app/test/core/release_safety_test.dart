@@ -16,8 +16,11 @@ Iterable<File> _files(String dir, bool Function(String path) keep) => Directory(
 void main() {
   test('dev sign-in is compiled out of release builds, credentials included', () {
     final env = _read('lib/core/env.dart');
-    // kReleaseMode is a const, so in release devLogin is the constant false and everything behind it is tree-shaken.
-    expect(env, contains("static const devLogin = bool.fromEnvironment('DEV_LOGIN') && !kReleaseMode;"));
+    // kReleaseMode is a const, so in release devLogin is the constant false and everything behind it is tree-shaken,
+    // unless the build is explicitly a demo build (DEMO_BUILD=true), which Play builds never are.
+    expect(env, contains("static const devLogin = bool.fromEnvironment('DEV_LOGIN') && (!kReleaseMode || demoBuild);"));
+    expect(env, contains("static const demoBuild = bool.fromEnvironment('DEMO_BUILD');"));
+    expect(Env.demoBuild, isFalse);
     for (final key in ['DEV_CUSTOMER_EMAIL', 'DEV_CUSTOMER_PASSWORD', 'DEV_ADMIN_EMAIL', 'DEV_ADMIN_PASSWORD']) {
       expect(env, contains("devLogin ? String.fromEnvironment('$key') : ''"), reason: key);
     }
