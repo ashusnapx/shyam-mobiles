@@ -196,6 +196,8 @@ class _OrderBody extends StatelessWidget {
                   TotalsRows(
                     subtotalPaise: o.subtotalPaise,
                     deliveryFeePaise: o.deliveryFeePaise,
+                    discountPaise: o.discountPaise,
+                    discountLabel: o.couponCode,
                     totalPaise: o.totalPaise,
                   ),
                 ],

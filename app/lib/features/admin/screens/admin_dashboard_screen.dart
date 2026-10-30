@@ -194,6 +194,9 @@ class _QuickActions extends StatelessWidget {
       (PhosphorIconsRegular.package, 'Catalogue', '/admin/catalogue'),
       (PhosphorIconsRegular.receipt, 'Orders', '/admin/orders'),
       (PhosphorIconsRegular.wrench, 'Repairs', '/admin/repairs'),
+      (PhosphorIconsRegular.sealPercent, 'Offers', '/admin/offers'),
+      (PhosphorIconsRegular.stack, 'Groups', '/admin/groups'),
+      (PhosphorIconsRegular.flagBanner, 'Banners', '/admin/banners'),
       (PhosphorIconsRegular.gearSix, 'Settings', '/admin/settings'),
     ];
     final c = Theme.of(context).colorScheme;

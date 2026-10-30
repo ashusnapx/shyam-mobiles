@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../catalog/widgets/product_tile.dart';
@@ -30,8 +31,8 @@ class WishlistScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (cards) {
-          final saved = cards.where((c) => ids.contains(c.id)).toList();
+        data: (page) {
+          final saved = page.items.where((c) => ids.contains(c.id)).toList();
           if (saved.isEmpty) {
             return EmptyState(
               icon: PhosphorIconsRegular.heart,
@@ -50,11 +51,24 @@ class WishlistScreen extends ConsumerWidget {
                 await ref.read(wishlistCardsProvider.future);
               } catch (_) {} // the error view shows it
             },
-            child: CustomScrollView(
-              slivers: [
-                const SliverPadding(key: ValueKey('top'), padding: EdgeInsets.only(top: Space.sm)),
-                SliverProductGrid(saved, key: const ValueKey('grid')),
-              ],
+            child: LoadMoreListener(
+              hasMore: page.hasMore,
+              onMore: ref.read(wishlistCardsProvider.notifier).loadMore,
+              child: CustomScrollView(
+                slivers: [
+                  const SliverPadding(key: ValueKey('top'), padding: EdgeInsets.only(top: Space.sm)),
+                  SliverProductGrid(saved, key: const ValueKey('grid')),
+                  if (page.hasMore)
+                    SliverToBoxAdapter(
+                      key: const ValueKey('more'),
+                      child: PagedFooter(
+                        failed: page.moreFailed,
+                        onRetry: () => ref.read(wishlistCardsProvider.notifier).loadMore(retry: true),
+                        what: 'more saved items',
+                      ),
+                    ),
+                ],
+              ),
             ),
           );
         },

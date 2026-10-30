@@ -25,8 +25,8 @@ class FakeApi implements PaymentApi {
   };
 
   @override
-  Future<String> placeOrder(String addressId, PaymentMethod method) async {
-    calls.add('place $addressId ${method.value}');
+  Future<String> placeOrder(String addressId, PaymentMethod method, {String? couponCode}) async {
+    calls.add('place $addressId ${method.value}${couponCode == null ? '' : ' $couponCode'}');
     if (placeGate != null) return placeGate!.future;
     if (placeError != null) throw placeError!;
     return 'order-1';

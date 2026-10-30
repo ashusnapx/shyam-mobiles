@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../catalog/data/catalog.dart';
 
@@ -60,11 +61,32 @@ class WishlistNotifier extends AsyncNotifier<Set<String>> {
   }
 }
 
-/// Cards for the wishlist screen, in wishlist order. Inactive products drop out (not in `product_cards`).
-final wishlistCardsProvider = FutureProvider.autoDispose<List<ProductCard>>((ref) async {
-  final ids = await ref.watch(wishlistProvider.future);
-  if (ids.isEmpty) return const [];
-  final rows = await ref.watch(supabaseProvider).from('product_cards').select(cardColumns).inFilter('id', [...ids]);
-  final byId = {for (final r in rows) r['id'] as String: ProductCard.fromJson(r)};
-  return [for (final id in ids) ?byId[id]];
-});
+/// Cards for the wishlist screen, in wishlist order, a page of saved ids at a time. Inactive products drop out (not
+/// in `product_cards`), so a page can come back short: whether there's more goes by the ids, not the rows.
+final wishlistCardsProvider =
+    AsyncNotifierProvider.autoDispose<WishlistCardsNotifier, Paged<ProductCard>>(WishlistCardsNotifier.new);
+
+class WishlistCardsNotifier extends PagedNotifier<ProductCard> {
+  List<String> _ids = const [];
+
+  @override
+  Object idOf(ProductCard c) => c.id;
+
+  @override
+  bool hasMoreAfter(int from, List<ProductCard> rows) => from + pageSize < _ids.length;
+
+  @override
+  Future<Paged<ProductCard>> build() async {
+    _ids = [...await ref.watch(wishlistProvider.future)];
+    return super.build();
+  }
+
+  @override
+  Future<List<ProductCard>> fetch(int from, int size) async {
+    final ids = _ids.skip(from).take(size).toList();
+    if (ids.isEmpty) return const [];
+    final rows = await ref.read(supabaseProvider).from('product_cards').select(cardColumns).inFilter('id', ids);
+    final byId = {for (final r in rows) r['id'] as String: ProductCard.fromJson(r)};
+    return [for (final id in ids) ?byId[id]];
+  }
+}

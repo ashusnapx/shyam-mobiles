@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors.dart';
+import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
@@ -12,6 +14,8 @@ import '../../../core/widgets/widgets.dart';
 
 /// Copy for admin write errors; falls back to the shared mapping.
 String adminError(Object e) => switch (e) {
+      PostgrestException(code: '23505', :final message) when message.contains('collections') =>
+        'Another group already has this short name. Change it and save again.',
       PostgrestException(code: '23505', :final message) when message.contains('slug') =>
         'Another product already uses this slug. Change it and save again.',
       PostgrestException(code: '23505', :final message) when message.contains('sku') =>
@@ -204,4 +208,103 @@ class SheetForm extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Gallery or camera, then the original file: photos.dart resizes it, turns it upright and strips the metadata
+/// (image_picker's own resize keeps GPS). Null when cancelled, or when nothing could open (with a message).
+Future<XFile?> pickPhoto(BuildContext context) async {
+  final source = await showModalBottomSheet<ImageSource>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(PhosphorIconsRegular.image),
+            title: const Text('Choose from gallery'),
+            onTap: () => Navigator.pop(context, ImageSource.gallery),
+          ),
+          ListTile(
+            leading: const Icon(PhosphorIconsRegular.camera),
+            title: const Text('Take a photo'),
+            onTap: () => Navigator.pop(context, ImageSource.camera),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (source == null) return null;
+  try {
+    return await ImagePicker().pickImage(source: source);
+  } catch (_) {
+    if (context.mounted) showMessage(context, 'Couldn’t open the camera or gallery.');
+    return null;
+  }
+}
+
+/// A date and time from the system pickers (nothing to type), shown as "30 Oct 2026, 6:00 pm". With [clearable]
+/// a cross empties it, and [emptyText] says what empty means ("No end date").
+class DateTimeField extends FormField<DateTime> {
+  DateTimeField({
+    super.key,
+    required String label,
+    required ValueChanged<DateTime?> onChanged,
+    super.initialValue,
+    super.validator,
+    bool clearable = false,
+    String emptyText = '',
+    String? helperText,
+  }) : super(
+          builder: (field) {
+            final value = field.value;
+            Future<void> open() async {
+              final now = DateTime.now();
+              final start = value ?? now;
+              final first = DateTime(start.isBefore(now) ? start.year : now.year - 1);
+              final day = await showDatePicker(
+                context: field.context,
+                initialDate: start,
+                firstDate: first,
+                lastDate: DateTime(now.year + 3, 12, 31),
+              );
+              if (day == null || !field.mounted) return;
+              final time = await showTimePicker(context: field.context, initialTime: TimeOfDay.fromDateTime(start));
+              if (time == null || !field.mounted) return;
+              final picked = DateTime(day.year, day.month, day.day, time.hour, time.minute);
+              field.didChange(picked);
+              onChanged(picked);
+            }
+
+            return Semantics(
+              button: true,
+              label: '$label, ${value == null ? emptyText : formatDateTime(value)}',
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: open,
+                borderRadius: BorderRadius.circular(Radii.md),
+                child: InputDecorator(
+                  isEmpty: value == null && emptyText.isEmpty,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    helperText: helperText,
+                    helperMaxLines: 3,
+                    errorText: field.errorText,
+                    errorMaxLines: 2,
+                    suffixIcon: clearable && value != null
+                        ? IconButton(
+                            tooltip: 'Clear $label',
+                            icon: const Icon(PhosphorIconsRegular.xCircle, size: 20),
+                            onPressed: () {
+                              field.didChange(null);
+                              onChanged(null);
+                            },
+                          )
+                        : const Icon(PhosphorIconsRegular.calendarBlank, size: 18),
+                  ),
+                  child: Text(value == null ? emptyText : formatDateTime(value)),
+                ),
+              ),
+            );
+          },
+        );
 }

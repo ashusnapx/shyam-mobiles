@@ -14,8 +14,11 @@ import 'package:shyam_mobiles/features/account/data/addresses.dart';
 import 'package:shyam_mobiles/features/cart/data/cart.dart';
 import 'package:shyam_mobiles/features/cart/screens/cart_screen.dart';
 import 'package:shyam_mobiles/features/checkout/screens/checkout_screen.dart';
+import 'package:shyam_mobiles/features/offers/data/offers.dart';
 import 'package:shyam_mobiles/features/orders/data/orders.dart';
 import 'package:shyam_mobiles/features/orders/screens/order_detail_screen.dart';
+
+import '../offers/fakes.dart';
 
 /// [unit] repeated and cut to exactly [n] code points, the way Postgres counts.
 String _fill(String unit, int n) => String.fromCharCodes((unit * n).runes.take(n));
@@ -72,7 +75,9 @@ final _order = Order(
   paymentStatus: PaymentStatus.pending,
   subtotalPaise: 999999500,
   deliveryFeePaise: 0,
-  totalPaise: 999999500,
+  discountPaise: 100000000,
+  couponCode: 'ABCDEFGHIJKLMNOPQRST', // the longest code
+  totalPaise: 899999500,
   address: _address,
   createdAt: DateTime(2026, 10, 27, 18, 42),
   courier: _fill('Delhivery Express Surface ', 60),
@@ -119,6 +124,7 @@ Future<void> _pump(WidgetTester tester, Widget screen) async {
       cartProvider.overrideWith(_Cart.new),
       addressesProvider.overrideWith(_Addresses.new),
       storeSettingsProvider.overrideWith((ref) async => _settings),
+      offersApiProvider.overrideWithValue(FakeOffersApi(offers: [diwali, festiveSale])),
       orderProvider('o1').overrideWith((ref) async => _order),
     ],
     child: MaterialApp.router(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -5,6 +7,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/input.dart';
+import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/widgets/repair_widgets.dart';
@@ -20,12 +23,20 @@ class AdminProductsScreen extends ConsumerStatefulWidget {
 
 class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
   String _query = '';
+  Timer? _debounce; // one search per pause in typing, not per letter
   // The route passes no params; the dashboard's low-stock tile adds ?stock=low.
   late bool _lowOnly = GoRouterState.of(context).uri.queryParameters['stock'] == 'low';
 
   @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final value = ref.watch(adminProductsProvider);
+    final provider = adminProductPagesProvider((query: _query, lowOnly: _lowOnly));
+    final value = ref.watch(provider);
     return AdminGate(
       child: Scaffold(
         appBar: AppBar(title: const Text('Products')),
@@ -45,7 +56,10 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                 ),
                 textInputAction: TextInputAction.search,
                 inputFormatters: textInput(MaxLen.search),
-                onChanged: (q) => setState(() => _query = tidy(q).toLowerCase()),
+                onChanged: (q) {
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 300), () => setState(() => _query = tidy(q)));
+                },
               ),
             ),
             ChipBar(
@@ -55,18 +69,13 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
             ),
             const SizedBox(height: Space.sm),
             Expanded(
-              child: AsyncBody<List<AdminProductRow>>(
+              child: AsyncBody<Paged<AdminProductRow>>(
                 value: value,
-                onRetry: () => ref.invalidate(adminProductsProvider),
+                onRetry: () => ref.invalidate(provider),
                 loading: Skeletonizer(child: _Rows(rows: _skeleton)),
-                data: (all) {
-                  // shortcut: filters in memory; fine for a single shop's catalogue (hundreds), move to the
-                  // `search` tsvector + paging if it grows into thousands.
-                  final rows = all
-                      .where((p) => !_lowOnly || p.lowStock)
-                      .where((p) => _query.isEmpty || '${p.name} ${p.brandName}'.toLowerCase().contains(_query))
-                      .toList();
-                  if (all.isEmpty) {
+                data: (page) {
+                  final rows = page.items;
+                  if (rows.isEmpty && _query.isEmpty && !_lowOnly) {
                     return EmptyState(
                       icon: PhosphorIconsRegular.deviceMobile,
                       title: 'No products yet',
@@ -85,8 +94,21 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                     );
                   }
                   return RefreshIndicator(
-                    onRefresh: () => ref.refresh(adminProductsProvider.future),
-                    child: _Rows(rows: rows),
+                    onRefresh: () => ref.refresh(provider.future),
+                    child: LoadMoreListener(
+                      hasMore: page.hasMore,
+                      onMore: ref.read(provider.notifier).loadMore,
+                      child: _Rows(
+                        rows: rows,
+                        footer: page.hasMore
+                            ? PagedFooter(
+                                failed: page.moreFailed,
+                                onRetry: () => ref.read(provider.notifier).loadMore(retry: true),
+                                what: 'more products',
+                              )
+                            : null,
+                      ),
+                    ),
                   );
                 },
               ),
@@ -99,9 +121,10 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
 }
 
 class _Rows extends StatelessWidget {
-  const _Rows({required this.rows});
+  const _Rows({required this.rows, this.footer});
 
   final List<AdminProductRow> rows;
+  final Widget? footer; // the next page's spinner or retry
 
   @override
   Widget build(BuildContext context) {
@@ -110,9 +133,10 @@ class _Rows extends StatelessWidget {
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 96 + MediaQuery.paddingOf(context).bottom), // clear of the FAB
-      itemCount: rows.length,
+      itemCount: rows.length + (footer == null ? 0 : 1),
       separatorBuilder: (_, _) => const Divider(),
       itemBuilder: (context, i) {
+        if (i == rows.length) return footer!;
         final p = rows[i];
         final stock = p.activeVariants == 0
             ? 'No active variants'

@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -399,40 +398,12 @@ class _PhotosState extends ConsumerState<_Photos> {
   }
 
   Future<void> _add() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(PhosphorIconsRegular.image),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsRegular.camera),
-              title: const Text('Take a photo'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null) return;
-    final XFile? file;
-    try {
-      // the original: photos.dart resizes, turns it upright and strips the metadata (image_picker's resize keeps GPS)
-      file = await ImagePicker().pickImage(source: source);
-    } catch (_) {
-      if (mounted) showMessage(context, 'Couldn’t open the camera or gallery.');
-      return;
-    }
+    final file = await pickPhoto(context);
     if (file == null) return;
     final images = widget.product.images;
     await _run(() async {
       final saved = await addProductImage(
-          ref, widget.product.id, await readPhoto(file!), images.isEmpty ? 0 : images.last.sort + 1);
+          ref, widget.product.id, await readPhoto(file), images.isEmpty ? 0 : images.last.sort + 1);
       if (mounted) showMessage(context, 'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}');
     });
   }

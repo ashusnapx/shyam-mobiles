@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -58,11 +57,16 @@ class _FormState extends ConsumerState<_Form> {
   late final _repairNote = TextEditingController(text: _s.repairNote);
   late final _returns = TextEditingController(text: _s.returnsPolicy);
   late bool _cod = _s.codEnabled;
+  late bool _referral = _s.referralEnabled;
+  late final _friend = TextEditingController(text: rupeesText(_s.referralFriendPaise));
+  late final _reward = TextEditingController(text: rupeesText(_s.referralRewardPaise));
+  late final _referralMin = TextEditingController(text: rupeesText(_s.referralMinOrderPaise));
+  late final _referralCap = TextEditingController(text: '${_s.referralMonthlyCap}');
   bool _busy = false;
 
   @override
   void dispose() {
-    for (final c in [_fee, _freeMin, _codMax, _phone, _address, _pin, _hours, _repairNote, _returns]) {
+    for (final c in [_fee, _freeMin, _codMax, _phone, _address, _pin, _hours, _repairNote, _returns, _friend, _reward, _referralMin, _referralCap]) {
       c.dispose();
     }
     super.dispose();
@@ -91,6 +95,11 @@ class _FormState extends ConsumerState<_Form> {
           storeHours: tidy(_hours.text),
           repairNote: tidy(_repairNote.text, multiline: true),
           returnsPolicy: tidy(_returns.text, multiline: true),
+          referralEnabled: _referral,
+          referralFriendPaise: parseRupees(_friend.text)!,
+          referralRewardPaise: parseRupees(_reward.text)!,
+          referralMinOrderPaise: parseRupees(_referralMin.text)!,
+          referralMonthlyCap: int.parse(_referralCap.text),
         ),
       );
       if (mounted) showMessage(context, 'Settings saved');
@@ -103,6 +112,8 @@ class _FormState extends ConsumerState<_Form> {
 
   String? _feeError(String? v) => rupeesError(v, maxPaise: maxFeePaise);
   String? _limitError(String? v) => rupeesError(v, maxPaise: maxAmountPaise);
+  // the friend's and the referrer's coupons are flat offers, which are at least ₹1
+  String? _couponError(String? v) => rupeesError(v, minPaise: 100, maxPaise: maxFeePaise);
 
   Widget _gap() => const SizedBox(height: Space.md);
 
@@ -164,6 +175,54 @@ class _FormState extends ConsumerState<_Form> {
                 inputFormatters: const [RupeesFormatter(maxDigits: 7)],
                 textInputAction: TextInputAction.next,
                 validator: _limitError,
+              ),
+              const ListSection('Refer & earn'),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Run Refer & earn'),
+                subtitle: const Text('Customers share a code. The friend gets money off their first order, and the '
+                    'customer gets a coupon once it’s delivered.'),
+                value: _referral,
+                onChanged: (v) => setState(() => _referral = v),
+              ),
+              TextFormField(
+                controller: _friend,
+                enabled: _referral,
+                decoration: const InputDecoration(labelText: 'Friend gets', prefixText: '₹ ', helperText: 'Off their first order'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [RupeesFormatter(maxDigits: 5)],
+                textInputAction: TextInputAction.next,
+                validator: _couponError,
+              ),
+              _gap(),
+              TextFormField(
+                controller: _reward,
+                enabled: _referral,
+                decoration: const InputDecoration(labelText: 'Customer gets', prefixText: '₹ ', helperText: 'A coupon when the friend’s order is delivered'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [RupeesFormatter(maxDigits: 5)],
+                textInputAction: TextInputAction.next,
+                validator: _couponError,
+              ),
+              _gap(),
+              TextFormField(
+                controller: _referralMin,
+                enabled: _referral,
+                decoration: const InputDecoration(labelText: 'Minimum order', prefixText: '₹ ', helperText: 'For both coupons'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [RupeesFormatter(maxDigits: 7)],
+                textInputAction: TextInputAction.next,
+                validator: _limitError,
+              ),
+              _gap(),
+              TextFormField(
+                controller: _referralCap,
+                enabled: _referral,
+                decoration: const InputDecoration(labelText: 'Rewards per customer a month', helperText: 'Stops one person farming codes'),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [DigitsFormatter(3)],
+                textInputAction: TextInputAction.next,
+                validator: (v) => int.tryParse(v ?? '') == null ? 'Enter a number, 0 or more.' : null,
               ),
               const ListSection('Store'),
               TextFormField(
@@ -298,40 +357,11 @@ class _ShopPhotosState extends ConsumerState<_ShopPhotos> {
     }
   }
 
-  // shortcut: same picker sheet as the product photos (admin_product_edit_screen.dart); share it if a third use appears.
   Future<void> _add() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(PhosphorIconsRegular.image),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsRegular.camera),
-              title: const Text('Take a photo'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null) return;
-    final XFile? file;
-    try {
-      // the original: photos.dart resizes, turns it upright and strips the metadata (image_picker's resize keeps GPS)
-      file = await ImagePicker().pickImage(source: source);
-    } catch (_) {
-      if (mounted) showMessage(context, 'Couldn’t open the camera or gallery.');
-      return;
-    }
+    final file = await pickPhoto(context);
     if (file == null) return;
     await _run(() async {
-      final saved = await addStorePhoto(ref, _photos, await readPhoto(file!));
+      final saved = await addStorePhoto(ref, _photos, await readPhoto(file));
       if (mounted) {
         showMessage(context, 'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}. Customers see it now.');
       }

@@ -13,11 +13,13 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../cart/data/cart.dart';
+import '../../offers/data/offers.dart';
 
 /// Server calls on the money path. The client never sends an amount: the server prices everything.
 abstract interface class PaymentApi {
-  /// `place_order` RPC → order id. Throws PostgrestException with a bare code (CART_EMPTY, OUT_OF_STOCK, ...).
-  Future<String> placeOrder(String addressId, PaymentMethod method);
+  /// `place_order` RPC → order id. Throws PostgrestException with a bare code (CART_EMPTY, OUT_OF_STOCK, a
+  /// COUPON_* refusal of [couponCode], ...).
+  Future<String> placeOrder(String addressId, PaymentMethod method, {String? couponCode});
 
   /// `create-payment` → `{key_id, razorpay_order_id, amount, currency, order_number}`.
   Future<Map<String, dynamic>> createPayment(String orderId);
@@ -32,8 +34,12 @@ class SupabasePaymentApi implements PaymentApi {
   final SupabaseClient _db;
 
   @override
-  Future<String> placeOrder(String addressId, PaymentMethod method) async =>
-      await _db.rpc<String>('place_order', params: {'p_address_id': addressId, 'p_payment_method': method.value});
+  Future<String> placeOrder(String addressId, PaymentMethod method, {String? couponCode}) async =>
+      await _db.rpc<String>('place_order', params: {
+        'p_address_id': addressId,
+        'p_payment_method': method.value,
+        'p_coupon_code': couponCode,
+      });
 
   @override
   Future<Map<String, dynamic>> createPayment(String orderId) async {
@@ -207,11 +213,12 @@ class PaymentFlow extends Notifier<PayStage> {
 
   /// Places the order and, for online payment, takes it. Null if a flow is already running.
   /// `place_order` errors are rethrown (no order exists); anything later is reported in `payment`.
-  Future<({String orderId, PayResult? payment})?> checkout(String addressId, PaymentMethod method) async {
+  Future<({String orderId, PayResult? payment})?> checkout(String addressId, PaymentMethod method, {String? couponCode}) async {
     if (state != PayStage.idle) return null;
     state = PayStage.placing;
     try {
-      final orderId = await _api.placeOrder(addressId, method);
+      final orderId = await _api.placeOrder(addressId, method, couponCode: couponCode);
+      ref.read(couponCodeProvider.notifier).set(null); // used up by this order
       return (orderId: orderId, payment: method == PaymentMethod.cod ? null : await _pay(orderId));
     } finally {
       state = PayStage.idle;

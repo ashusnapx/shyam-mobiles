@@ -61,6 +61,9 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
   // 4), leaving the server cart, which place_order charges, different from the qty and total on screen.
   Future<void> _writes = Future.value();
 
+  /// Completes once the queued quantity writes have reached the server (the quote waits for it).
+  Future<void> get settled => _writes;
+
   Future<void> _optimistic(List<CartLine> Function(List<CartLine>) apply, Future<void> Function() write) async {
     final before = state.value ?? const <CartLine>[];
     state = AsyncData(apply(before));

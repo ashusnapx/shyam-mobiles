@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../catalog/data/catalog.dart' show brandsProvider;
 import 'photos.dart';
@@ -52,18 +53,32 @@ final orderFilters = {
   'needs_refund': 'Needs refund',
 };
 
-// shortcut: newest 100 only, no paging; add range() paging when a filter regularly passes 100.
-final adminOrdersProvider = FutureProvider.autoDispose.family<List<Order>, String>((ref, filter) async {
-  var q = ref.watch(supabaseProvider).from('orders').select('*, items:order_items(*)');
-  q = switch (filter) {
-    'all' => q,
-    'open' => q.inFilter('status', ['confirmed', 'packed', 'shipped']),
-    'needs_refund' => q.eq('status', 'cancelled').eq('payment_status', 'paid'),
-    _ => q.eq('status', filter),
-  };
-  final rows = await q.order('created_at', ascending: false).limit(100);
-  return [for (final r in rows) Order.fromJson(r)];
-});
+/// Newest first, a page at a time.
+final adminOrdersProvider =
+    AsyncNotifierProvider.autoDispose.family<AdminOrdersNotifier, Paged<Order>, String>(AdminOrdersNotifier.new);
+
+class AdminOrdersNotifier extends PagedNotifier<Order> {
+  AdminOrdersNotifier(this.filter);
+
+  final String filter;
+
+  @override
+  Object idOf(Order o) => o.id;
+
+  @override
+  Future<List<Order>> fetch(int from, int size) async {
+    var q = ref.read(supabaseProvider).from('orders').select('*, items:order_items(*)');
+    q = switch (filter) {
+      'all' => q,
+      'open' => q.inFilter('status', ['confirmed', 'packed', 'shipped']),
+      'needs_refund' => q.eq('status', 'cancelled').eq('payment_status', 'paid'),
+      _ => q.eq('status', filter),
+    };
+    // id breaks created_at ties, so no order repeats or goes missing between pages
+    final rows = await q.order('created_at', ascending: false).order('id').range(from, from + size - 1);
+    return [for (final r in rows) Order.fromJson(r)];
+  }
+}
 
 final adminOrderProvider = FutureProvider.autoDispose.family<Order, String>((ref, id) async {
   final row = await ref
@@ -151,9 +166,11 @@ class AdminProductRow {
     required this.activeVariants,
     required this.stock,
     required this.lowStock,
+    this.slug = '',
   });
 
   final String id;
+  final String slug;
   final String name;
   final String brandName;
   final String categoryName;
@@ -170,6 +187,7 @@ class AdminProductRow {
     final images = [...j['images'] as List]..sort((a, b) => (a['sort'] as int).compareTo(b['sort'] as int));
     return AdminProductRow(
       id: j['id'],
+      slug: j['slug'] ?? '',
       name: j['name'],
       brandName: j['brand']['name'],
       categoryName: j['category']['name'],
@@ -183,17 +201,44 @@ class AdminProductRow {
   }
 }
 
+const _productColumns = 'id, slug, name, is_active, is_featured, brand:brands(name), category:categories(name), '
+    'images:product_images(path, sort), variants(stock, is_active)';
+
+/// Every product, for the pickers in the offer, group and banner editors (they search the whole list).
+/// shortcut: PostgREST's max_rows (1000) caps it; page the pickers through search if the shop passes 1000 products.
 final adminProductsProvider = FutureProvider.autoDispose<List<AdminProductRow>>((ref) async {
-  final rows = await ref
-      .watch(supabaseProvider)
-      .from('products')
-      .select(
-        'id, name, is_active, is_featured, brand:brands(name), category:categories(name), '
-        'images:product_images(path, sort), variants(stock, is_active)',
-      )
-      .order('name');
+  final rows = await ref.watch(supabaseProvider).from('products').select(_productColumns).order('name', ascending: true).order('id');
   return [for (final r in rows) AdminProductRow.fromJson(r)];
 });
+
+typedef ProductListView = ({String query, bool lowOnly});
+
+/// The Products screen, a page at a time: name search and the low-stock filter run on the server.
+final adminProductPagesProvider = AsyncNotifierProvider.autoDispose
+    .family<AdminProductPages, Paged<AdminProductRow>, ProductListView>(AdminProductPages.new);
+
+class AdminProductPages extends PagedNotifier<AdminProductRow> {
+  AdminProductPages(this.view);
+
+  final ProductListView view;
+
+  @override
+  Object idOf(AdminProductRow p) => p.id;
+
+  @override
+  Future<List<AdminProductRow>> fetch(int from, int size) async {
+    // "low" embeds the variants a second time, inner-joined and filtered, so only products with a low active
+    // variant come back while `variants` still lists them all for the stock count (admin_dashboard's rule)
+    var q = ref
+        .read(supabaseProvider)
+        .from('products')
+        .select(view.lowOnly ? '$_productColumns, low:variants!inner(id)' : _productColumns);
+    if (view.query.isNotEmpty) q = q.ilike('name', '%${view.query}%');
+    if (view.lowOnly) q = q.eq('is_active', true).eq('low.is_active', true).lte('low.stock', 3);
+    final rows = await q.order('name', ascending: true).order('id').range(from, from + size - 1);
+    return [for (final r in rows) AdminProductRow.fromJson(r)];
+  }
+}
 
 final adminProductProvider = FutureProvider.autoDispose.family<Product, String>((ref, id) async {
   final row = await ref
@@ -237,6 +282,7 @@ final adminCategoriesProvider = FutureProvider.autoDispose<List<Category>>((ref)
 void _productChanged(WidgetRef ref, String productId) {
   ref.invalidate(adminProductProvider(productId));
   ref.invalidate(adminProductsProvider);
+  ref.invalidate(adminProductPagesProvider);
   ref.invalidate(adminDashboardProvider); // low stock
 }
 
@@ -353,3 +399,13 @@ Future<void> removeStorePhoto(WidgetRef ref, List<String> current, String path) 
   await saveStorePhotos(ref, [...current]..remove(path));
   await _removeQuietly(_db(ref).storage.from('product-images'), [path, ?thumbPathFor(path)]);
 }
+
+// Banners ---------------------------------------------------------------------
+
+/// Uploads a banner photo and its thumb to `banners/`; returns the key for `banners.image_path`.
+Future<String> uploadBannerImage(WidgetRef ref, Uint8List original) async =>
+    (await _uploadPhoto(_db(ref).storage.from('product-images'), 'banners', original)).path;
+
+/// No order points at banner photos, so a replaced or removed one is deleted with its thumb.
+Future<void> deleteBannerImage(WidgetRef ref, String path) =>
+    _removeQuietly(_db(ref).storage.from('product-images'), [path, ?thumbPathFor(path)]);

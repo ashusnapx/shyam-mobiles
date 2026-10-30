@@ -147,19 +147,25 @@ Run config: `flutter run --dart-define-from-file=env/dev.json` (`env/*.json` is 
 Bottom nav (shell): **Home · Search · Repairs · Cart · Account**, plus **Admin** as a sixth tab only for admins.
 
 ```
-/                     home: categories, featured products, repair CTA
+/                     home: featured carousel, offer banners, categories, repair CTA
 /search?q=&category=&brand=&sort=   listing + filters (also used for category pages)
 /product/:slug        gallery, variant picker, price/MRP/discount, stock, specs, add to cart, buy now
-/cart                 lines, qty stepper, totals preview, checkout CTA
+/cart                 lines, qty stepper, coupon, quote_order totals, checkout CTA
+/offers, /offers/:id  offers & coupons (public); one offer: terms, code, time left, its products
 /checkout             address select/add, payment method, summary, place order → Razorpay sheet
 /checkout/result/:orderId   success / pending / failed with retry
 /orders, /orders/:id  list + detail with timeline, cancel
 /repairs              my bookings + "Book a repair"; /repairs/new form; /repairs/:id
-/account              profile, addresses, wishlist, store contact, sign out, delete account
+/account              profile, addresses, wishlist, offers, store contact, sign out, delete account; /account/refer
 /sign-in              phone | email tabs + Google; /sign-in/verify code entry
 /admin                dashboard; /admin/catalogue (every variant: inline and bulk stock/price/visibility edits);
-                      /admin/products(/:id); /admin/orders(/:id); /admin/repairs(/:id); /admin/settings
+                      /admin/products(/:id); /admin/orders(/:id); /admin/repairs(/:id); /admin/settings;
+                      /admin/offers (/new?copy=<id>, /:id); /admin/groups(/new, /:id); /admin/banners(/new, /:id)
 ```
+
+Lists that grow load a page at a time as you scroll (`lib/core/paging.dart`: `range` pages, a spinner row, "Couldn't
+load more. Try again", pull-to-refresh starts over): orders, wishlist, an offer's products, and in admin the orders,
+products and the catalogue (50 a page through `admin_catalogue`, totals from its summary).
 
 Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account redirect to `/sign-in?from=<path>` and come back after login.
 

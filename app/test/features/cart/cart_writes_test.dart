@@ -123,12 +123,12 @@ void main() {
       await s.db.dispose();
     });
     final first = await s.container.read(ordersProvider.future);
-    expect((first.orders.length, first.hasMore, first.moreFailed), (ordersPageSize, true, false));
+    expect((first.items.length, first.hasMore, first.moreFailed), (ordersPageSize, true, false));
 
     final notifier = s.container.read(ordersProvider.notifier);
     await notifier.loadMore(); // fails: no throw, the list stays and paging pauses
     var page = s.container.read(ordersProvider).value!;
-    expect((page.orders.length, page.hasMore, page.moreFailed), (ordersPageSize, true, true));
+    expect((page.items.length, page.hasMore, page.moreFailed), (ordersPageSize, true, true));
 
     final calls = ranges.length;
     await notifier.loadMore(); // scrolling doesn't hammer the server while failed
@@ -136,7 +136,7 @@ void main() {
 
     await notifier.loadMore(retry: true);
     page = s.container.read(ordersProvider).value!;
-    expect((page.orders.length, page.hasMore, page.moreFailed), (ordersPageSize + 3, false, false));
+    expect((page.items.length, page.hasMore, page.moreFailed), (ordersPageSize + 3, false, false));
   });
 
   test('address: a saved row is returned even when the list reload fails (no duplicate on a second tap)', () async {

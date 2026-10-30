@@ -14,6 +14,8 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
+import '../../offers/data/offers.dart';
+import '../../offers/widgets/offer_widgets.dart';
 import '../data/catalog.dart';
 import '../data/variant_options.dart';
 import '../widgets/product_tile.dart';
@@ -279,6 +281,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               PriceTag(pricePaise: v.pricePaise, mrpPaise: v.mrpPaise, large: true),
               const SizedBox(height: 2),
               Text('Inclusive of all taxes · EMI options at checkout', style: muted),
+              if (p.id.isNotEmpty) _OfferChips(productId: p.id),
               if (memories.isNotEmpty) ...[
                 label('Memory & storage'),
                 Wrap(
@@ -288,13 +291,16 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     for (final o in memories)
                       ChoiceChip(
                         showCheckmark: false,
+                        // selected = solid ink with white text, as everywhere else (the theme's chip style)
                         selected: memoryOf(v) == o.label,
-                        selectedColor: c.primaryContainer,
                         label: Text.rich(TextSpan(text: o.label, children: [
                           if (o.deltaPaise > 0)
                             TextSpan(
                               text: '  +${formatInr(o.deltaPaise)}',
-                              style: TextStyle(color: c.onSurfaceVariant, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                color: memoryOf(v) == o.label ? c.onPrimary.withValues(alpha: 0.8) : c.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                         ])),
                         onSelected: o.available ? (_) => pick(memory: o.label) : null,
@@ -362,6 +368,41 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// One gold chip per running offer that covers this product (`offers_for_product`); tap for its terms.
+class _OfferChips extends ConsumerWidget {
+  const _OfferChips({required this.productId});
+
+  final String productId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).colorScheme;
+    final offers = ref.watch(productOffersProvider(productId)).value ?? const <Offer>[];
+    if (offers.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.md),
+      child: Wrap(
+        spacing: Space.sm,
+        runSpacing: Space.xs,
+        children: [
+          for (final o in offers)
+            ActionChip(
+              avatar: Icon(PhosphorIconsFill.sealPercent, size: 16, color: c.onTertiaryContainer),
+              label: Text(
+                o.code == null ? '${offerHeadline(o)} · ${o.title}' : '${offerHeadline(o)} with ${o.code}',
+                overflow: TextOverflow.ellipsis,
+              ),
+              labelStyle: TextStyle(color: c.onTertiaryContainer, fontWeight: FontWeight.w700),
+              backgroundColor: c.tertiaryContainer,
+              side: BorderSide.none,
+              onPressed: () => context.push('/offers/${o.id}'),
+            ),
+        ],
+      ),
     );
   }
 }

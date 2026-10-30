@@ -35,6 +35,30 @@ Future<(T?,)?> showPickerSheet<T>(
       ),
     );
 
+/// [showPickerSheet] for several values: rows tick and untick, Done returns the ticked set. Null when dismissed.
+Future<Set<T>?> showMultiPickerSheet<T>(
+  BuildContext context, {
+  required String title,
+  required List<(T, String)> options,
+  Set<T> selected = const {},
+  String? searchHint,
+}) =>
+    showModalBottomSheet<Set<T>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _PickerSheet<T>(
+        title: title,
+        options: options,
+        selected: null,
+        multi: selected,
+        searchHint: searchHint,
+        onCreate: null,
+        createLabel: '',
+        createName: null,
+      ),
+    );
+
 class _PickerSheet<T> extends StatefulWidget {
   const _PickerSheet({
     required this.title,
@@ -44,11 +68,13 @@ class _PickerSheet<T> extends StatefulWidget {
     required this.onCreate,
     required this.createLabel,
     required this.createName,
+    this.multi,
   });
 
   final String title;
   final List<(T?, String)> options;
   final T? selected;
+  final Set<T>? multi; // non-null: several can be ticked
   final String? searchHint;
   final Future<T?> Function(String name)? onCreate;
   final String createLabel;
@@ -61,6 +87,15 @@ class _PickerSheet<T> extends StatefulWidget {
 class _PickerSheetState<T> extends State<_PickerSheet<T>> {
   final _query = TextEditingController();
   bool _creating = false;
+  late final Set<T>? _ticked = widget.multi == null ? null : {...widget.multi!};
+
+  bool _isSelected(T? value) => _ticked?.contains(value) ?? value == widget.selected;
+
+  void _pick(T? value) {
+    final ticked = _ticked;
+    if (ticked == null) return Navigator.pop(context, (value,));
+    setState(() => ticked.contains(value) ? ticked.remove(value) : ticked.add(value as T));
+  }
 
   bool get _searchable => widget.options.length > 7 || widget.onCreate != null;
 
@@ -100,8 +135,14 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
-              child: Semantics(header: true, child: Text(widget.title, style: t.titleLarge)),
+              padding: EdgeInsets.fromLTRB(Space.lg, 0, _ticked == null ? Space.lg : Space.sm, Space.sm),
+              child: Row(
+                children: [
+                  Expanded(child: Semantics(header: true, child: Text(widget.title, style: t.titleLarge))),
+                  if (_ticked case final ticked?)
+                    FilledButton(onPressed: () => Navigator.pop(context, ticked), child: Text('Done (${ticked.length})')),
+                ],
+              ),
             ),
             if (_searchable)
               Padding(
@@ -114,7 +155,7 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) {
                     if (shown.length == 1) {
-                      Navigator.pop(context, (shown.first.$1,));
+                      _pick(shown.first.$1);
                     } else if (canCreate && !_creating) {
                       _create();
                     }
@@ -141,10 +182,10 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
                     ListTile(
                       minTileHeight: 52,
                       title: Text(label),
-                      selected: value == widget.selected,
+                      selected: _isSelected(value),
                       selectedColor: c.onSurface,
-                      trailing: value == widget.selected ? const Icon(PhosphorIconsBold.check, size: 18) : null,
-                      onTap: () => Navigator.pop(context, (value,)),
+                      trailing: _isSelected(value) ? const Icon(PhosphorIconsBold.check, size: 18) : null,
+                      onTap: () => _pick(value),
                     ),
                   if (shown.isEmpty && !canCreate)
                     Padding(
@@ -222,6 +263,62 @@ class PickerField<T> extends FormField<T> {
                     suffixIcon: const Icon(PhosphorIconsRegular.caretDown, size: 18),
                   ),
                   child: Text(value == null ? '' : labelOf(value), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ),
+            );
+          },
+        );
+}
+
+/// Form field that opens [showMultiPickerSheet]: shows what's ticked ("Samsung, Apple +2 more").
+class MultiPickerField<T> extends FormField<Set<T>> {
+  MultiPickerField({
+    super.key,
+    required String label,
+    required List<T> options,
+    required String Function(T value) labelOf,
+    required ValueChanged<Set<T>> onChanged,
+    required Set<T> super.initialValue,
+    super.validator,
+    String? helperText,
+    String? searchHint,
+  }) : super(
+          builder: (field) {
+            final value = field.value ?? const {};
+            Future<void> open() async {
+              final picked = await showMultiPickerSheet<T>(
+                field.context,
+                title: label,
+                options: [for (final o in options) (o, labelOf(o))],
+                selected: value,
+                searchHint: searchHint,
+              );
+              if (picked == null) return;
+              field.didChange(picked);
+              if (field.hasError) field.validate(); // a fixed field drops its error
+              onChanged(picked);
+            }
+
+            final names = value.map(labelOf).toList();
+            final summary = names.length <= 2 ? names.join(', ') : '${names.take(2).join(', ')} +${names.length - 2} more';
+            return Semantics(
+              button: true,
+              label: value.isEmpty ? label : '$label, ${names.join(', ')}',
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: open,
+                borderRadius: BorderRadius.circular(Radii.md),
+                child: InputDecorator(
+                  isEmpty: value.isEmpty,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    helperText: helperText,
+                    helperMaxLines: 3,
+                    errorText: field.errorText,
+                    errorMaxLines: 3,
+                    suffixIcon: const Icon(PhosphorIconsRegular.caretDown, size: 18),
+                  ),
+                  child: Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
               ),
             );

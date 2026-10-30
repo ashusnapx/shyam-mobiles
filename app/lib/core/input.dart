@@ -200,10 +200,12 @@ class DigitsFormatter extends TextInputFormatter {
   }
 }
 
-/// ASCII codes: each character kept only if [keep] matches it, a space becomes a dash, A–Z lowercased if [lower].
-TextInputFormatter _code(RegExp keep, {bool lower = false}) => TextInputFormatter.withFunction(
+/// ASCII codes: each character kept only if [keep] matches it, a space becomes a dash, letters lowercased if
+/// [lower] or uppercased if [upper], other scripts' digits made 0–9.
+TextInputFormatter _code(RegExp keep, {bool lower = false, bool upper = false}) => TextInputFormatter.withFunction(
       (_, v) => _rewrite(v, (u) {
-        final c = u == ' ' ? '-' : lower ? u.toLowerCase() : u;
+        final d = String.fromCharCode(_ascii(u.codeUnitAt(0)));
+        final c = d == ' ' ? '-' : lower ? d.toLowerCase() : upper ? d.toUpperCase() : d;
         return keep.hasMatch(c) ? c : '';
       }),
     );
@@ -213,6 +215,16 @@ final skuInput = [_code(RegExp(r'^[A-Za-z0-9._/-]$')), const CodePointLimit(MaxL
 
 /// Slug field: a–z, 0–9 and dashes, ≤160. Capitals are lowercased and spaces become dashes as you type.
 final slugInput = [_code(RegExp(r'^[a-z0-9-]$'), lower: true), const CodePointLimit(MaxLen.slug)];
+
+/// Coupon and referral codes: A–Z and 0–9 only, uppercased as you type ("diwali 10" → "DIWALI10"), ≤20.
+final couponCodeInput = [_code(RegExp(r'^[A-Z0-9]$'), upper: true), const CodePointLimit(20)];
+
+/// Null for a code of [min]..[max] capitals and digits: `promotions.code` is 4–20, referral codes 6–10.
+String? validateCode(String? v, {int min = 4, int max = 20}) {
+  final s = (v ?? '').trim();
+  if (s.isEmpty) return 'Enter a code.';
+  return RegExp('^[A-Z0-9]{$min,$max}\$').hasMatch(s) ? null : 'Codes are $min to $max letters and numbers.';
+}
 
 // Indian mobile ----------------------------------------------------------------
 

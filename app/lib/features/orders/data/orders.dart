@@ -2,50 +2,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../cart/data/cart.dart';
 
 const ordersPageSize = 20;
 
-/// [moreFailed]: the last next-page load failed; paging pauses until a retry (no endless spinner).
-typedef OrdersPage = ({List<Order> orders, bool hasMore, bool moreFailed});
-
 /// The signed-in user's orders, newest first. Filtered by user_id: RLS also lets admins read everyone's.
-final ordersProvider = AsyncNotifierProvider.autoDispose<OrdersNotifier, OrdersPage>(OrdersNotifier.new);
+final ordersProvider = AsyncNotifierProvider.autoDispose<OrdersNotifier, Paged<Order>>(OrdersNotifier.new);
 
-class OrdersNotifier extends AsyncNotifier<OrdersPage> {
-  bool _loadingMore = false;
+class OrdersNotifier extends PagedNotifier<Order> {
+  @override
+  int get pageSize => ordersPageSize;
 
-  Future<OrdersPage> _fetch(String? uid, int from) async {
-    if (uid == null) return (orders: const <Order>[], hasMore: false, moreFailed: false);
+  @override
+  Object idOf(Order o) => o.id;
+
+  @override
+  Future<Paged<Order>> build() {
+    ref.watch(currentUserIdProvider);
+    return super.build();
+  }
+
+  @override
+  Future<List<Order>> fetch(int from, int size) async {
+    final uid = ref.read(currentUserIdProvider);
+    if (uid == null) return const [];
     final rows = await ref
         .read(supabaseProvider)
         .from('orders')
         .select('*, items:order_items(*)')
         .eq('user_id', uid)
         .order('created_at', ascending: false)
-        .range(from, from + ordersPageSize - 1);
-    return (orders: [for (final r in rows) Order.fromJson(r)], hasMore: rows.length == ordersPageSize, moreFailed: false);
-  }
-
-  @override
-  Future<OrdersPage> build() => _fetch(ref.watch(currentUserIdProvider), 0);
-
-  /// Appends the next page. No-op while loading, at the end, or after a failure unless [retry].
-  Future<void> loadMore({bool retry = false}) async {
-    final current = state.value;
-    if (current == null || !current.hasMore || _loadingMore || state.isLoading || (current.moreFailed && !retry)) return;
-    _loadingMore = true;
-    try {
-      final next = await _fetch(ref.read(currentUserIdProvider), current.orders.length);
-      if (ref.mounted) {
-        state = AsyncData((orders: [...current.orders, ...next.orders], hasMore: next.hasMore, moreFailed: false));
-      }
-    } catch (_) {
-      if (ref.mounted) state = AsyncData((orders: current.orders, hasMore: current.hasMore, moreFailed: true));
-    } finally {
-      _loadingMore = false;
-    }
+        .range(from, from + size - 1);
+    return [for (final r in rows) Order.fromJson(r)];
   }
 }
 

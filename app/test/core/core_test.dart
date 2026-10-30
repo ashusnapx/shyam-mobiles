@@ -48,12 +48,17 @@ void main() {
       'store_lat': 24.0670269, 'store_lng': 82.6307508, 'store_maps_url': 'https://maps.google.com/?cid=3396347197360889573',
       'store_photos': ['store/1.jpg', 'store/2.webp'],
       'store_hours': '10 am – 9 pm', 'repair_note': 'x', 'returns_policy': 'y',
+      'referral_enabled': true, 'referral_friend_paise': 15000, 'referral_reward_paise': 25000,
+      'referral_min_order_paise': 99900, 'referral_monthly_cap': 5,
     };
 
     test('JSON round trip keeps the pin, link and photo order', () {
       final s = StoreSettings.fromJson(json);
       expect(s.storePhotos, ['store/1.jpg', 'store/2.webp']);
       expect(s.toJson(), json);
+      // a copy saved on the phone before referrals existed still loads, with them off
+      final old = StoreSettings.fromJson({...json}..removeWhere((k, _) => k.startsWith('referral_')));
+      expect((old.referralEnabled, old.referralFriendPaise, old.referralMonthlyCap), (false, 20000, 10));
     });
 
     test('directions and the Maps link use the pin, else the address', () {

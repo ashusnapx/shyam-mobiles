@@ -201,6 +201,8 @@ class _Body extends StatelessWidget {
               ),
               InfoRow('Placed', formatDateTime(o.createdAt)),
               InfoRow('Subtotal', formatInr(o.subtotalPaise)),
+              if (o.discountPaise > 0)
+                InfoRow(o.couponCode == null ? 'Discount' : 'Discount · ${o.couponCode}', '−${formatInr(o.discountPaise)}'),
               InfoRow('Delivery', o.deliveryFeePaise == 0 ? 'Free' : formatInr(o.deliveryFeePaise)),
               InfoRow('Total', formatInr(o.totalPaise), strong: true),
             ],

@@ -127,6 +127,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             const SizedBox(height: Space.sm),
             row(PhosphorIconsRegular.package, 'My orders', () => context.push('/orders')),
             row(PhosphorIconsRegular.heart, 'Wishlist', () => context.push('/wishlist')),
+            row(PhosphorIconsRegular.sealPercent, 'Offers & coupons', () => context.push('/offers')),
+            if (ref.watch(storeSettingsProvider).value case final s? when s.referralEnabled)
+              row(PhosphorIconsRegular.gift, 'Refer & earn', () => context.push('/account/refer'),
+                  subtitle: 'Give ${formatInr(s.referralFriendPaise)}, get ${formatInr(s.referralRewardPaise)}'),
             row(PhosphorIconsRegular.mapPin, 'Addresses', () => context.push('/account/addresses')),
             row(PhosphorIconsRegular.userCircle, 'Profile', () => context.push('/account/profile')),
             const SectionHeader('Store'),

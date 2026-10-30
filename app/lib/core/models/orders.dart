@@ -106,6 +106,8 @@ class Order {
     required this.totalPaise,
     required this.address,
     required this.createdAt,
+    this.discountPaise = 0,
+    this.couponCode,
     this.userId,
     this.razorpayOrderId,
     this.courier,
@@ -123,6 +125,8 @@ class Order {
   final PaymentStatus paymentStatus;
   final int subtotalPaise;
   final int deliveryFeePaise;
+  final int discountPaise;
+  final String? couponCode; // the code typed at checkout; null for an automatic sale or no offer
   final int totalPaise;
   final Address address; // snapshot; its id is null
   final String? razorpayOrderId;
@@ -152,6 +156,8 @@ class Order {
         paymentStatus: PaymentStatus.parse(j['payment_status']),
         subtotalPaise: j['subtotal_paise'],
         deliveryFeePaise: j['delivery_fee_paise'],
+        discountPaise: j['discount_paise'] ?? 0,
+        couponCode: j['coupon_code'],
         totalPaise: j['total_paise'],
         address: Address.fromJson(Map<String, dynamic>.from(j['address'])),
         razorpayOrderId: j['razorpay_order_id'],

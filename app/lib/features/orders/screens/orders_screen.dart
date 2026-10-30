@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +6,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../checkout/screens/widgets.dart';
@@ -63,7 +62,7 @@ class OrdersScreen extends ConsumerWidget {
             ),
           ),
           data: (page) {
-            if (page.orders.isEmpty) {
+            if (page.items.isEmpty) {
               return EmptyState(
                 icon: PhosphorIconsRegular.package,
                 title: 'No orders yet',
@@ -71,14 +70,12 @@ class OrdersScreen extends ConsumerWidget {
                 action: FilledButton(onPressed: () => context.go('/'), child: const Text('Start shopping')),
               );
             }
-            final n = page.orders.length;
+            final n = page.items.length;
             return RefreshIndicator(
               onRefresh: () => ref.refresh(ordersProvider.future),
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (s) {
-                  if (page.hasMore && s.metrics.extentAfter < 400) unawaited(ref.read(ordersProvider.notifier).loadMore());
-                  return false;
-                },
+              child: LoadMoreListener(
+                hasMore: page.hasMore,
+                onMore: ref.read(ordersProvider.notifier).loadMore,
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
                   // edge-to-edge: keep the last order clear of the system nav bar
@@ -86,19 +83,12 @@ class OrdersScreen extends ConsumerWidget {
                   itemCount: n + (page.hasMore ? 1 : 0),
                   separatorBuilder: (_, _) => const SizedBox(height: Space.md),
                   itemBuilder: (_, i) => i < n
-                      ? _OrderTile(page.orders[i])
-                      : page.moreFailed
-                          ? Center(
-                              child: TextButton.icon(
-                                onPressed: () => ref.read(ordersProvider.notifier).loadMore(retry: true),
-                                icon: const Icon(PhosphorIconsRegular.arrowClockwise),
-                                label: const Text('Couldn’t load more. Try again'),
-                              ),
-                            )
-                          : const Padding(
-                              padding: EdgeInsets.all(Space.lg),
-                              child: Center(child: CircularProgressIndicator(semanticsLabel: 'Loading more orders')),
-                            ),
+                      ? _OrderTile(page.items[i])
+                      : PagedFooter(
+                          failed: page.moreFailed,
+                          onRetry: () => ref.read(ordersProvider.notifier).loadMore(retry: true),
+                          what: 'more orders',
+                        ),
                 ),
               ),
             );

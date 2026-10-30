@@ -27,18 +27,23 @@ Future<void> _loadRoboto() async {
 }
 
 /// Pumps [screen] at 360x800 dp with large text (≈1.3x of the real font), light theme only, no network.
+/// [routes] are stand-in pages the screen can navigate to (each shows its path).
 Future<void> pumpScreen(
   WidgetTester tester,
   Widget screen, {
   List<Override> overrides = const [],
   bool dark = false,
   StoreSettings store = testSettings,
+  List<String> routes = const [],
 }) async {
   await tester.runAsync(_loadRoboto);
   tester.view.physicalSize = const Size(360 * 3, 800 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
-  final router = GoRouter(routes: [GoRoute(path: '/', builder: (_, _) => screen)]);
+  final router = GoRouter(routes: [
+    GoRoute(path: '/', builder: (_, _) => screen),
+    for (final r in routes) GoRoute(path: r, builder: (_, s) => Scaffold(body: Text('Page ${s.uri}'))),
+  ]);
   await tester.pumpWidget(
     ProviderScope(
       key: UniqueKey(), // fresh container when a test pumps a second screen with other overrides

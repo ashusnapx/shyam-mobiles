@@ -14,13 +14,16 @@ import '../../../core/widgets/widgets.dart';
 import '../../account/data/addresses.dart';
 import '../../cart/data/cart.dart';
 import '../../cart/screens/cart_screen.dart' show placeholderCartLine;
+import '../../offers/data/offers.dart';
+import '../../offers/widgets/offer_widgets.dart';
 import '../data/payment.dart';
 import 'widgets.dart';
 
-/// Sticky checkout button: its label and whether it can be tapped.
+/// Sticky checkout button: its label and whether it can be tapped. [totalPaise] is the server's quote, null
+/// until it arrives.
 ({String label, bool enabled}) checkoutButton({
   required PaymentMethod method,
-  required int totalPaise,
+  required int? totalPaise,
   required bool hasAddress,
   required bool cartOk,
   PayStage stage = PayStage.idle,
@@ -28,6 +31,7 @@ import 'widgets.dart';
   if (stage != PayStage.idle) return (label: stage.label, enabled: false);
   if (!cartOk) return (label: 'Fix your cart to continue', enabled: false);
   if (!hasAddress) return (label: 'Add an address to continue', enabled: false);
+  if (totalPaise == null) return (label: 'Getting your total…', enabled: false);
   final amount = formatInr(totalPaise);
   return (label: method == PaymentMethod.cod ? 'Place order · $amount' : 'Pay $amount', enabled: true);
 }
@@ -52,6 +56,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Address? _picked; // null: the default (first) address
   PaymentMethod _method = PaymentMethod.razorpay;
   bool _showItems = false;
+  Quote? _lastQuote; // shown dimmed while a change of payment method re-prices
 
   Address? _addressFrom(List<Address> list) => _picked == null
       ? list.firstOrNull
@@ -75,7 +80,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (picked == _addNew) await _addAddress();
   }
 
-  Future<void> _submit(String addressId, PaymentMethod method) async {
+  Future<void> _submit(String addressId, PaymentMethod method, String? couponCode) async {
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
     void say(String m) => messenger
@@ -84,11 +89,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final ({String orderId, PayResult? payment})? r;
     try {
-      r = await ref.read(paymentFlowProvider.notifier).checkout(addressId, method);
+      r = await ref.read(paymentFlowProvider.notifier).checkout(addressId, method, couponCode: couponCode);
     } catch (e) {
       // place_order failed, so no order exists. The cart has been refetched and shows what changed.
       say(friendlyError(e));
       if (!mounted) return;
+      if (e is PostgrestException && e.message.startsWith('COUPON_')) {
+        ref.invalidate(quoteProvider);
+        ref.invalidate(availableOffersProvider);
+      }
       if (e is PostgrestException && e.message == 'COD_UNAVAILABLE') ref.invalidate(storeSettingsProvider);
       if (e is PostgrestException && e.message == 'ADDRESS_NOT_FOUND') {
         ref.invalidate(addressesProvider);
@@ -109,6 +118,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final settings = ref.watch(storeSettingsProvider);
     final stage = ref.watch(paymentFlowProvider);
     final busy = stage != PayStage.idle;
+    final quote = ref.watch(quoteProvider(_method));
+    if (quote.value != null) _lastQuote = quote.value;
 
     Widget body;
     Widget? bar;
@@ -121,35 +132,39 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           action: FilledButton(onPressed: () => context.go('/orders'), child: const Text('View orders')),
         );
       } else {
-        final subtotal = cartSubtotalPaise(lines);
-        final fee = s.deliveryFeeFor(subtotal);
-        final total = subtotal + fee;
-        final codReason = codUnavailableReason(s, total);
+        final q = quote.value; // priced for the method picked, so an online-only code shows only with online pay
+        final codReason = q == null ? null : codUnavailableReason(s, q.totalPaise);
+        if (codReason != null && _method == PaymentMethod.cod) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _method = PaymentMethod.razorpay); // re-price for online payment
+          });
+        }
         final method = codReason == null ? _method : PaymentMethod.razorpay;
         final address = _addressFrom(list);
         final cartOk = lines.every((l) => l.purchasable);
         final button = checkoutButton(
           method: method,
-          totalPaise: total,
+          totalPaise: method == _method ? q?.totalPaise : null,
           hasAddress: address != null,
           cartOk: cartOk,
           stage: stage,
         );
+        final code = q?.couponError == null ? ref.watch(couponCodeProvider) : null;
         body = _content(
           lines: lines,
           addresses: list,
           address: address,
           method: method,
           codReason: codReason,
-          subtotal: subtotal,
-          fee: fee,
+          quote: _lastQuote,
+          quoteState: quote,
           cartOk: cartOk,
           busy: busy,
         );
         bar = _PayBar(
           label: button.label,
           busy: busy,
-          onPressed: button.enabled ? () => _submit(address!.id!, method) : null,
+          onPressed: button.enabled ? () => _submit(address!.id!, method, code) : null,
         );
       }
     } else if ([cart, addresses, settings].where((v) => v.hasError).firstOrNull case final failed?) {
@@ -175,8 +190,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ),
           method: PaymentMethod.razorpay,
           codReason: null,
-          subtotal: 14999800,
-          fee: 0,
+          quote: const Quote(subtotalPaise: 14999800, deliveryFeePaise: 0, discountPaise: 0, totalPaise: 14999800),
+          quoteState: const AsyncLoading(),
           cartOk: true,
           busy: false,
         ),
@@ -199,8 +214,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     required Address? address,
     required PaymentMethod method,
     required String? codReason,
-    required int subtotal,
-    required int fee,
+    required Quote? quote,
+    required AsyncValue<Quote> quoteState,
     required bool cartOk,
     required bool busy,
   }) {
@@ -428,10 +443,33 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                 ),
                 const SizedBox(height: Space.xs),
-                TotalsRows(subtotalPaise: subtotal, deliveryFeePaise: fee, totalPaise: subtotal + fee, totalLabel: 'To pay'),
+                if (quote != null)
+                  AnimatedOpacity(
+                    opacity: quoteState.isLoading ? 0.5 : 1,
+                    duration: Motion.fast,
+                    child: TotalsRows(
+                      subtotalPaise: quote.subtotalPaise,
+                      deliveryFeePaise: quote.deliveryFeePaise,
+                      discountPaise: quote.discountPaise,
+                      discountLabel: quote.discountLabel,
+                      totalPaise: quote.totalPaise,
+                      totalLabel: 'To pay',
+                    ),
+                  )
+                else if (quoteState.error case final e?)
+                  Row(children: [
+                    Expanded(child: Text(friendlyError(e), style: t.bodyMedium)),
+                    TextButton(onPressed: () => ref.invalidate(quoteProvider), child: const Text('Retry')),
+                  ])
+                else
+                  const Skeletonizer(child: TotalsRows(subtotalPaise: 7739700, deliveryFeePaise: 0, totalPaise: 7739700)),
               ],
             ),
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: Space.sm),
+          child: CouponRow(quote: quote, method: method, enabled: !busy),
         ),
         if (method == PaymentMethod.razorpay)
           Padding(

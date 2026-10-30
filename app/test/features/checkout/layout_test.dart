@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
+import 'package:shyam_mobiles/core/paging.dart';
 import 'package:shyam_mobiles/core/supabase.dart';
 import 'package:shyam_mobiles/core/theme/tokens.dart';
 import 'package:shyam_mobiles/features/account/data/addresses.dart';
@@ -16,9 +17,12 @@ import 'package:shyam_mobiles/features/cart/data/cart.dart';
 import 'package:shyam_mobiles/features/cart/screens/cart_screen.dart';
 import 'package:shyam_mobiles/features/checkout/screens/checkout_result_screen.dart';
 import 'package:shyam_mobiles/features/checkout/screens/checkout_screen.dart';
+import 'package:shyam_mobiles/features/offers/data/offers.dart';
 import 'package:shyam_mobiles/features/orders/data/orders.dart';
 import 'package:shyam_mobiles/features/orders/screens/order_detail_screen.dart';
 import 'package:shyam_mobiles/features/orders/screens/orders_screen.dart';
+
+import '../offers/fakes.dart';
 
 const _settings = StoreSettings(
   deliveryFeePaise: 4900,
@@ -110,8 +114,8 @@ class _Addresses extends AddressesNotifier {
 
 class _Orders extends OrdersNotifier {
   @override
-  Future<OrdersPage> build() async => (
-        orders: [_order(OrderStatus.shipped), _order(OrderStatus.pendingPayment, pay: PaymentStatus.pending)],
+  Future<Paged<Order>> build() async => (
+        items: [_order(OrderStatus.shipped), _order(OrderStatus.pendingPayment, pay: PaymentStatus.pending)],
         hasMore: false,
         moreFailed: false,
       );
@@ -134,6 +138,7 @@ Future<void> _pump(WidgetTester tester, Widget screen, {required Brightness brig
       cartProvider.overrideWith(() => _Cart(_lines)),
       addressesProvider.overrideWith(_Addresses.new),
       storeSettingsProvider.overrideWith((ref) async => _settings),
+      offersApiProvider.overrideWithValue(FakeOffersApi(offers: [diwali, festiveSale])),
       ordersProvider.overrideWith(_Orders.new),
       for (final o in orders ?? const <Order>[]) orderProvider(o.id).overrideWith((ref) async => o),
     ],
@@ -162,7 +167,15 @@ void main() {
       expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull, reason: 'blocked lines');
       final bottom = tester.getBottomLeft(find.byType(FilledButton)).dy;
       expect(bottom, lessThanOrEqualTo(800 - 48), reason: 'sticky bar clears the nav bar');
-      for (final text in ['Only 2 left', 'Only 1 left', 'No longer available', 'No platform, COD or packing fees']) {
+      for (final text in [
+        'Only 2 left',
+        'Only 1 left',
+        'No longer available',
+        'Diwali dhamaka on phones applied',
+        'Discount · Diwali dhamaka on phones',
+        '−₹1,500',
+        'No platform, COD or packing fees',
+      ]) {
         await tester.scrollUntilVisible(find.text(text), 200, scrollable: find.byType(Scrollable).first);
       }
     });

@@ -12,6 +12,8 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../checkout/screens/widgets.dart';
+import '../../offers/data/offers.dart';
+import '../../offers/widgets/offer_widgets.dart';
 import '../data/cart.dart';
 
 /// Tag under a cart line. `blocking` matches `!CartLine.purchasable`: checkout waits until it's fixed.
@@ -117,11 +119,13 @@ class _CartList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    final settings = ref.watch(storeSettingsProvider);
-    final subtotal = cartSubtotalPaise(lines);
+    final settings = ref.watch(storeSettingsProvider).value;
+    final quote = ref.watch(quoteProvider(null));
+    final q = quote.value;
     return RefreshIndicator(
       onRefresh: () {
         ref.invalidate(storeSettingsProvider);
+        ref.invalidate(availableOffersProvider);
         return ref.refresh(cartProvider.future);
       },
       child: ListView(
@@ -157,45 +161,56 @@ class _CartList extends ConsumerWidget {
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg + 2, Space.lg, 0),
+            child: CouponRow(quote: q),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
-                child: settings.when(
-                  skipLoadingOnRefresh: true,
-                  loading: () => const Skeletonizer(
-                    child: TotalsRows(subtotalPaise: 7739700, deliveryFeePaise: 0, totalPaise: 7739700),
-                  ),
-                  error: (e, _) => Row(children: [
-                    Expanded(child: Text('Couldn’t load delivery fee.', style: t.bodyMedium)),
-                    TextButton(onPressed: () => ref.invalidate(storeSettingsProvider), child: const Text('Retry')),
-                  ]),
-                  data: (s) {
-                    final fee = s.deliveryFeeFor(subtotal);
-                    final gap = s.freeDeliveryGapFor(subtotal);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TotalsRows(subtotalPaise: subtotal, deliveryFeePaise: fee, totalPaise: subtotal + fee),
-                        if (gap > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(top: Space.sm),
-                            child: Row(
-                              children: [
-                                Icon(PhosphorIconsRegular.truck, size: 16, color: c.secondary),
-                                const SizedBox(width: Space.sm),
-                                Expanded(
-                                  child: Text(
-                                    'Add ${formatInr(gap)} more for free delivery',
-                                    style: t.bodySmall?.copyWith(color: c.secondary, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ],
-                            ),
+                // the server's numbers; dimmed while it re-prices a change
+                child: switch (quote) {
+                  AsyncValue(value: final q?) => AnimatedOpacity(
+                      opacity: quote.isLoading ? 0.5 : 1,
+                      duration: Motion.fast,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TotalsRows(
+                            subtotalPaise: q.subtotalPaise,
+                            deliveryFeePaise: q.deliveryFeePaise,
+                            discountPaise: q.discountPaise,
+                            discountLabel: q.discountLabel,
+                            totalPaise: q.totalPaise,
                           ),
-                      ],
-                    );
-                  },
-                ),
+                          if (settings != null && q.deliveryFeePaise > 0)
+                            if (settings.freeDeliveryGapFor(q.subtotalPaise - q.discountPaise) case final gap when gap > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: Space.sm),
+                                child: Row(
+                                  children: [
+                                    Icon(PhosphorIconsRegular.truck, size: 16, color: c.secondary),
+                                    const SizedBox(width: Space.sm),
+                                    Expanded(
+                                      child: Text(
+                                        'Add ${formatInr(gap)} more for free delivery',
+                                        style: t.bodySmall?.copyWith(color: c.secondary, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                        ],
+                      ),
+                    ),
+                  AsyncValue(:final error?) => Row(children: [
+                      Expanded(child: Text(friendlyError(error), style: t.bodyMedium)),
+                      TextButton(onPressed: () => ref.invalidate(quoteProvider), child: const Text('Retry')),
+                    ]),
+                  _ => const Skeletonizer(
+                      child: TotalsRows(subtotalPaise: 7739700, deliveryFeePaise: 0, totalPaise: 7739700),
+                    ),
+                },
               ),
             ),
           ),
@@ -296,10 +311,8 @@ class _CheckoutBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = Theme.of(context).colorScheme;
-    final settings = ref.watch(storeSettingsProvider).value;
     final blocked = lines.any((l) => !l.purchasable);
-    final subtotal = cartSubtotalPaise(lines);
-    final total = settings == null ? null : subtotal + settings.deliveryFeeFor(subtotal);
+    final total = ref.watch(quoteProvider(null)).value?.totalPaise;
     return DecoratedBox(
       decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.outlineVariant))),
       child: SafeArea(

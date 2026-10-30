@@ -303,7 +303,7 @@ void main() {
 
   testWidgets('wishlist shows saved cards', (tester) async {
     await pump(tester, '/wishlist', userId: 'u1', overrides: [
-      wishlistCardsProvider.overrideWith((ref) async => [cards[0], cards[3]]),
+      wishlistCardsProvider.overrideWithBuild((ref, _) async => (items: [cards[0], cards[3]], hasMore: false, moreFailed: false)),
     ]);
     expect(find.text('Galaxy S25'), findsOneWidget);
     expect(find.byTooltip('Remove from wishlist'), findsNWidgets(2));

@@ -3,11 +3,13 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import 'admin.dart';
 
-// Admin → Catalogue: every variant on one screen, with quick and bulk edits. Staff write variants/products
-// directly (RLS "admin write"); hiding is the only removal, nothing is deleted.
+// Admin → Catalogue: every variant, 50 at a time from `admin_catalogue` (search, filters, sort and totals run on
+// the server), with quick and bulk edits on the loaded rows. Staff write variants/products directly (RLS "admin
+// write"); hiding is the only removal, nothing is deleted.
 
 const lowStockMax = 3; // same rule as admin_dashboard's low_stock
 const maxStock = 99999;
@@ -70,61 +72,45 @@ class CatalogueRow {
         updatedAt: DateTime.now(),
         coverPath: coverPath,
       );
+
+  /// One `admin_catalogue` row.
+  factory CatalogueRow.fromJson(Map<String, dynamic> j) => CatalogueRow(
+        variantId: j['variant_id'],
+        productId: j['product_id'],
+        productName: j['product_name'],
+        variantName: j['variant_name'],
+        sku: j['sku'],
+        pricePaise: j['price_paise'],
+        mrpPaise: j['mrp_paise'],
+        stock: j['stock'],
+        variantActive: j['variant_active'],
+        productActive: j['product_active'],
+        featured: j['featured'],
+        categoryId: j['category_id'],
+        brandId: j['brand_id'],
+        updatedAt: DateTime.parse(j['updated_at']),
+        coverPath: j['cover_path'],
+      );
 }
 
-const catalogueColumns = 'id, name, is_active, is_featured, category_id, brand_id, updated_at, '
-    'images:product_images(path, sort), '
-    'variants(id, sku, name, price_paise, mrp_paise, stock, is_active, updated_at)';
-
-/// Flattens `products.select(catalogueColumns)` into one row per variant.
-List<CatalogueRow> catalogueRowsFrom(List<Map<String, dynamic>> products) => [
-      for (final p in products)
-        for (final v in [for (final v in p['variants'] as List) v as Map<String, dynamic>])
-          CatalogueRow(
-            variantId: v['id'],
-            productId: p['id'],
-            productName: p['name'],
-            variantName: v['name'],
-            sku: v['sku'],
-            pricePaise: v['price_paise'],
-            mrpPaise: v['mrp_paise'],
-            stock: v['stock'],
-            variantActive: v['is_active'],
-            productActive: p['is_active'],
-            featured: p['is_featured'],
-            categoryId: p['category_id'],
-            brandId: p['brand_id'],
-            updatedAt: [DateTime.parse(v['updated_at']), DateTime.parse(p['updated_at'])].reduce((a, b) => a.isAfter(b) ? a : b),
-            coverPath: coverOf(p['images'] as List),
-          ),
-    ];
-
-/// The first photo by sort, as the product_cards view picks it.
-String? coverOf(List<dynamic> images) {
-  final sorted = [for (final i in images) i as Map<String, dynamic>]
-    ..sort((a, b) => (a['sort'] as int).compareTo(b['sort'] as int));
-  return sorted.isEmpty ? null : sorted.first['path'] as String;
-}
 
 // Summary -----------------------------------------------------------------------
 
-typedef CatalogueSummary = ({int skus, int units, int valueAtPricePaise, int valueAtMrpPaise, int low, int out});
+/// Totals over every row the search and filters match (not just the loaded ones), and [total] SKUs in the shop.
+/// Low is 1–3 left; out is 0.
+typedef CatalogueSummary = ({int skus, int units, int valueAtPricePaise, int valueAtMrpPaise, int low, int out, int total});
 
-/// Totals for the rows on screen. Low is 1–3 left; out is 0 (each row counts in at most one).
-CatalogueSummary summarize(Iterable<CatalogueRow> rows) {
-  var skus = 0, units = 0, atPrice = 0, atMrp = 0, low = 0, out = 0;
-  for (final r in rows) {
-    skus++;
-    units += r.stock;
-    atPrice += r.pricePaise * r.stock;
-    atMrp += r.mrpPaise * r.stock;
-    if (r.stock == 0) {
-      out++;
-    } else if (r.stock <= lowStockMax) {
-      low++;
-    }
-  }
-  return (skus: skus, units: units, valueAtPricePaise: atPrice, valueAtMrpPaise: atMrp, low: low, out: out);
+CatalogueSummary catalogueSummaryFromJson(Map<String, dynamic> j) {
+  int n(String k) => (j[k] as num).toInt(); // the stock values are bigint sums
+  return (
+    skus: n('skus'),
+    units: n('units'),
+    valueAtPricePaise: n('value_at_price_paise'),
+    valueAtMrpPaise: n('value_at_mrp_paise'),
+    low: n('low'),
+    out: n('out'),
+    total: n('total_skus'),
+  );
 }
 
 // Filter and sort ---------------------------------------------------------------
@@ -175,40 +161,6 @@ const allRows = (
   sort: CatalogueSort.name,
 );
 
-/// Search matches the product name, variant name or SKU, ignoring case. Ties sort by name.
-List<CatalogueRow> applyView(List<CatalogueRow> rows, CatalogueView v) {
-  final q = v.query.trim().toLowerCase();
-  final shown = rows
-      .where((r) =>
-          (q.isEmpty || '${r.productName} ${r.variantName} ${r.sku}'.toLowerCase().contains(q)) &&
-          (v.categoryId == null || r.categoryId == v.categoryId) &&
-          (v.brandId == null || r.brandId == v.brandId) &&
-          switch (v.stock) {
-            StockFilter.all => true,
-            StockFilter.low => r.stock > 0 && r.stock <= lowStockMax,
-            StockFilter.out => r.stock == 0,
-          } &&
-          switch (v.visibility) {
-            VisibilityFilter.all => true,
-            VisibilityFilter.shown => r.visible,
-            VisibilityFilter.hidden => !r.visible,
-          })
-      .toList();
-  int byName(CatalogueRow a, CatalogueRow b) {
-    final p = a.productName.toLowerCase().compareTo(b.productName.toLowerCase());
-    return p != 0 ? p : a.variantName.toLowerCase().compareTo(b.variantName.toLowerCase());
-  }
-
-  int then(int c, CatalogueRow a, CatalogueRow b) => c != 0 ? c : byName(a, b);
-  shown.sort(switch (v.sort) {
-    CatalogueSort.name => byName,
-    CatalogueSort.stock => (a, b) => then(a.stock.compareTo(b.stock), a, b),
-    CatalogueSort.price => (a, b) => then(a.pricePaise.compareTo(b.pricePaise), a, b),
-    CatalogueSort.updated => (a, b) => then(b.updatedAt.compareTo(a.updatedAt), a, b),
-  });
-  return shown;
-}
-
 // Bulk maths --------------------------------------------------------------------
 
 /// Bulk price change by [amount] percent or whole rupees (negative lowers). Integer maths only, rounded half up
@@ -234,51 +186,72 @@ typedef RowChange = ({CatalogueRow before, CatalogueRow after});
 
 // Data --------------------------------------------------------------------------
 
-/// PostgREST's `max_rows` in supabase/config.toml; the hosted project has the same default.
-const catalogueRowCap = 1000;
+/// `admin_catalogue`: a page of rows for a view, with the totals on the first page. A provider so tests can swap it.
+class CatalogueApi {
+  const CatalogueApi(this._db);
 
-/// Every row, one page at a time: a single request stops silently at [catalogueRowCap], which would drop products
-/// from the list and from the stock totals. A product added mid-load can repeat across pages, so ids are deduped.
-Future<List<Map<String, dynamic>>> fetchAllPages(
-  Future<List<Map<String, dynamic>>> Function(int from, int to) page, {
-  int size = catalogueRowCap,
-}) async {
-  final byId = <Object?, Map<String, dynamic>>{};
-  for (var from = 0;; from += size) {
-    final rows = await page(from, from + size - 1);
-    for (final r in rows) {
-      byId[r['id']] = r;
-    }
-    if (rows.length < size) return [...byId.values];
-  }
+  final SupabaseClient _db;
+
+  Future<Map<String, dynamic>> page(CatalogueView v, int offset, int limit) async =>
+      await _db.rpc<Map<String, dynamic>>('admin_catalogue', params: {
+        'p_query': v.query,
+        'p_category_id': v.categoryId,
+        'p_brand_id': v.brandId,
+        'p_stock': v.stock.name,
+        'p_visibility': v.visibility.name,
+        'p_sort': v.sort.name,
+        'p_offset': offset,
+        'p_limit': limit,
+      });
 }
+
+final catalogueApiProvider = Provider<CatalogueApi>((ref) => CatalogueApi(ref.watch(supabaseProvider)));
+
+/// The totals card for a view. Its own one-row request, so an edit can refresh the totals without reloading pages.
+final catalogueSummaryProvider = FutureProvider.autoDispose.family<CatalogueSummary, CatalogueView>((ref, v) async {
+  cacheFor(ref, const Duration(minutes: 2));
+  final j = await ref.watch(catalogueApiProvider).page(v, 0, 1);
+  return catalogueSummaryFromJson(j['summary'] as Map<String, dynamic>);
+});
 
 /// The row changed since this screen loaded it (an order sold one, another phone edited it), so nothing was written.
 class StaleRowException implements Exception {
   const StaleRowException();
 }
 
-final catalogueProvider = AsyncNotifierProvider.autoDispose<CatalogueNotifier, List<CatalogueRow>>(CatalogueNotifier.new);
+/// The loaded pages of one view (search, filters, sort): a new view starts again at page 1.
+final catalogueProvider =
+    AsyncNotifierProvider.autoDispose.family<CatalogueNotifier, Paged<CatalogueRow>, CatalogueView>(CatalogueNotifier.new);
 
-class CatalogueNotifier extends AsyncNotifier<List<CatalogueRow>> {
+class CatalogueNotifier extends PagedNotifier<CatalogueRow> {
+  CatalogueNotifier(this.view);
+
+  final CatalogueView view;
+
   @override
-  Future<List<CatalogueRow>> build() async {
+  int get pageSize => 50;
+
+  @override
+  Object idOf(CatalogueRow r) => r.variantId;
+
+  @override
+  Future<Paged<CatalogueRow>> build() {
     cacheFor(ref, const Duration(minutes: 2)); // writes still in flight finish after the screen closes
-    final db = ref.watch(supabaseProvider);
-    // name alone isn't unique: id keeps the order stable from page to page
-    final products = await fetchAllPages(
-        (from, to) => db.from('products').select(catalogueColumns).order('name').order('id').range(from, to));
-    return catalogueRowsFrom(products);
+    return super.build();
   }
 
-  CatalogueRow? row(String variantId) => state.value?.where((r) => r.variantId == variantId).firstOrNull;
+  @override
+  Future<List<CatalogueRow>> fetch(int from, int size) async {
+    final j = await ref.read(catalogueApiProvider).page(view, from, size);
+    return [for (final r in j['rows'] as List) CatalogueRow.fromJson(r as Map<String, dynamic>)];
+  }
+
+  CatalogueRow? row(String variantId) => state.value?.items.where((r) => r.variantId == variantId).firstOrNull;
 
   /// Swaps rows in by variant id, so an edit or its rollback touches only its own rows.
   void _put(Iterable<CatalogueRow> rows) {
-    final cur = state.value;
-    if (!ref.mounted || cur == null) return;
     final byId = {for (final r in rows) r.variantId: r};
-    state = AsyncData([for (final r in cur) byId[r.variantId] ?? r]);
+    replaceItems((items) => [for (final r in items) byId[r.variantId] ?? r]);
   }
 
   /// Shows [after] at once and writes; on failure puts the rows back. A stale row also reloads the list (not on
@@ -298,7 +271,9 @@ class CatalogueNotifier extends AsyncNotifier<List<CatalogueRow>> {
 
   void _changed() {
     if (!ref.mounted) return;
+    ref.invalidate(catalogueSummaryProvider); // stock and values moved
     ref.invalidate(adminProductsProvider);
+    ref.invalidate(adminProductPagesProvider);
     ref.invalidate(adminProductProvider);
     ref.invalidate(adminDashboardProvider); // low stock
   }
@@ -346,7 +321,7 @@ class CatalogueNotifier extends AsyncNotifier<List<CatalogueRow>> {
   Future<void> setFeatured(List<CatalogueRow> rows, bool featured) {
     final db = ref.read(supabaseProvider);
     final ids = {for (final r in rows) r.productId};
-    final affected = [...?state.value?.where((r) => ids.contains(r.productId))];
+    final affected = [...?state.value?.items.where((r) => ids.contains(r.productId))];
     return _optimistic(affected, [for (final r in affected) r.copyWith(featured: featured)],
         () => _updateIn(db, 'products', {'is_featured': featured}, [...ids]));
   }

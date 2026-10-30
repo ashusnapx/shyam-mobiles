@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'format.dart';
+
 const _codes = {
   'CART_EMPTY': 'Your cart is empty.',
   'ADDRESS_NOT_FOUND': 'Pick a delivery address.',
@@ -26,7 +28,39 @@ const _codes = {
   'PAYMENT_MISMATCH': 'That payment doesn’t match this order. If money was taken, it will be refunded.',
   'INTERNAL': fallbackError,
   'UNAUTHORIZED': 'Your session has ended. Sign in again to continue.',
+  'COUPON_NOT_FOUND': 'That code isn’t valid. Check the spelling and try again.',
+  'COUPON_NOT_STARTED': 'That offer hasn’t started yet. Try again when it begins.',
+  'COUPON_EXPIRED': 'That code has expired. See Offers for what’s on now.',
+  'COUPON_USED_UP': 'That offer has run out. See Offers for what’s on now.',
+  'COUPON_LIMIT_REACHED': 'You’ve already used this code as many times as it allows.',
+  'COUPON_MIN_ORDER': 'Your cart is below this code’s minimum. Add a little more to use it.',
+  'COUPON_NOT_APPLICABLE': 'This code doesn’t lower this order’s total. Check what it covers in Offers.',
+  'COUPON_FIRST_ORDER': 'This code is only for your first order.',
+  'COUPON_ONLINE_ONLY': 'This code works only when you pay online.',
+  'COUPON_RATE_LIMIT': 'Too many wrong codes. Wait 10 minutes and try again.',
+  'REFERRAL_OFF': 'Refer & earn isn’t running right now.',
+  'REFERRAL_INVALID': 'That code isn’t valid. Check it with your friend.',
+  'REFERRAL_SELF': 'That’s your own code. Share it with a friend instead.',
+  'REFERRAL_USED': 'You’ve already used a friend’s code.',
+  'REFERRAL_TOO_LATE': 'Friend codes are for new customers, before their first order.',
+  'CODE_TAKEN': 'Another offer already uses this code. Pick a different one, or tap Generate.',
+  'INVALID_PROMOTION': 'Something in this offer isn’t allowed. Check the amount, dates and products.',
 };
+
+// admin_save_promotion's INVALID_PROMOTION names the broken rule in `details`.
+const _promotionRules = {
+  'promotions_value_check': 'Check the amount: 1 to 90 percent, or at least ₹1 off.',
+  'promotions_window_check': 'The end has to be after the start.',
+  'promotions_banner_check': 'Only listed shop offers can have a banner, not hidden or personal codes.',
+  'items needs a target': 'Pick at least one product, category, brand or group.',
+  'unknown target': 'Something you picked was deleted. Pick the products again.',
+};
+
+/// Copy for a coupon refusal: `quote_order`'s `coupon_error`, or the code `place_order` raised. With
+/// [minPaise] (the raise's detail, or the listed offer's minimum) the minimum-order copy names the amount.
+String couponError(String code, {int? minPaise}) => code == 'COUPON_MIN_ORDER' && minPaise != null
+    ? 'This code needs a cart of ${formatInr(minPaise)} or more. Add a little more to use it.'
+    : _codes[code] ?? 'That code can’t be used on this order.';
 
 const fallbackError = 'Something went wrong. Try again.';
 const _offline = 'You’re offline. Check your connection and try again.';
@@ -75,7 +109,9 @@ bool isSessionError(Object e) => switch (e) {
 String friendlyError(Object e) {
   if (isSessionError(e)) return _codes['UNAUTHORIZED']!;
   switch (e) {
-    case PostgrestException(:final message, :final code):
+    case PostgrestException(:final message, :final code, :final details):
+      if (message.startsWith('COUPON_')) return couponError(message, minPaise: int.tryParse('${details ?? ''}'));
+      if (message == 'INVALID_PROMOTION' && _promotionRules[details] != null) return _promotionRules[details]!;
       if (_codes[message] case final copy?) return copy;
       if (code == '42501') return _codes['FORBIDDEN']!;
       if (_notFoundCodes.contains(code)) return _codes['NOT_FOUND']!;

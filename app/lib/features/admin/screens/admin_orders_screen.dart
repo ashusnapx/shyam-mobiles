@@ -6,6 +6,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/widgets/repair_widgets.dart';
@@ -49,25 +50,42 @@ class _OrderList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = adminOrdersProvider(filter);
-    return AsyncBody<List<Order>>(
+    return AsyncBody<Paged<Order>>(
       value: ref.watch(provider),
       onRetry: () => ref.invalidate(provider),
       loading: Skeletonizer(child: _Rows(orders: _skeleton)),
-      data: (orders) => orders.isEmpty
+      data: (page) => page.items.isEmpty
           ? EmptyState(
               icon: PhosphorIconsRegular.receipt,
               title: 'No orders here',
               message: filter == 'all' ? 'Orders show up here as soon as customers place them.' : 'Try another filter.',
             )
-          : RefreshIndicator(onRefresh: () => ref.refresh(provider.future), child: _Rows(orders: orders)),
+          : RefreshIndicator(
+              onRefresh: () => ref.refresh(provider.future),
+              child: LoadMoreListener(
+                hasMore: page.hasMore,
+                onMore: ref.read(provider.notifier).loadMore,
+                child: _Rows(
+                  orders: page.items,
+                  footer: page.hasMore
+                      ? PagedFooter(
+                          failed: page.moreFailed,
+                          onRetry: () => ref.read(provider.notifier).loadMore(retry: true),
+                          what: 'more orders',
+                        )
+                      : null,
+                ),
+              ),
+            ),
     );
   }
 }
 
 class _Rows extends StatelessWidget {
-  const _Rows({required this.orders});
+  const _Rows({required this.orders, this.footer});
 
   final List<Order> orders;
+  final Widget? footer; // the next page's spinner or retry
 
   @override
   Widget build(BuildContext context) {
@@ -76,9 +94,10 @@ class _Rows extends StatelessWidget {
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: Space.xl + MediaQuery.paddingOf(context).bottom),
-      itemCount: orders.length,
+      itemCount: orders.length + (footer == null ? 0 : 1),
       separatorBuilder: (_, _) => const Divider(),
       itemBuilder: (context, i) {
+        if (i == orders.length) return footer!;
         final o = orders[i];
         return InkWell(
           onTap: () => context.push('/admin/orders/${o.id}'),

@@ -13,6 +13,8 @@ import '../../../core/network.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../offers/data/offers.dart';
+import '../../offers/widgets/offer_widgets.dart';
 import '../data/catalog.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/store_links.dart';
@@ -24,6 +26,7 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _refresh(BuildContext context, WidgetRef ref) async {
     ref.invalidate(categoriesProvider);
     ref.invalidate(storeSettingsProvider);
+    ref.invalidate(bannersProvider);
     try {
       ref.invalidate(homeProvider);
       await ref.read(homeProvider.future);
@@ -92,6 +95,7 @@ class HomeScreen extends ConsumerWidget {
           key: const ValueKey('hero'),
           child: _HeroCarousel(d.featured.take(6).toList(), saver: saver).enter(context),
         ),
+      SliverToBoxAdapter(key: const ValueKey('banners'), child: const BannerStrip().enter(context, index: 1)),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryGrid(d.categories)),
       SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairCta().enter(context, index: 4)),
       if (d.accessories.isNotEmpty) ...[

@@ -146,6 +146,11 @@ class StoreSettings {
     this.storeHours = '',
     required this.repairNote,
     this.returnsPolicy = '',
+    this.referralEnabled = false,
+    this.referralFriendPaise = 20000,
+    this.referralRewardPaise = 20000,
+    this.referralMinOrderPaise = 199900,
+    this.referralMonthlyCap = 10,
   });
 
   final int deliveryFeePaise;
@@ -161,6 +166,11 @@ class StoreSettings {
   final String storeHours;
   final String repairNote;
   final String returnsPolicy;
+  final bool referralEnabled; // Refer & earn: the friend's welcome coupon and the referrer's reward
+  final int referralFriendPaise;
+  final int referralRewardPaise;
+  final int referralMinOrderPaise;
+  final int referralMonthlyCap; // rewards per referrer per IST month
 
   /// Mirrors `place_order`; the server total is the one that's charged.
   int deliveryFeeFor(int subtotalPaise) => subtotalPaise >= freeDeliveryMinPaise ? 0 : deliveryFeePaise;
@@ -196,6 +206,12 @@ class StoreSettings {
         storeHours: j['store_hours'],
         repairNote: j['repair_note'],
         returnsPolicy: j['returns_policy'],
+        // defaults for copies saved on the phone before referrals existed
+        referralEnabled: j['referral_enabled'] ?? false,
+        referralFriendPaise: j['referral_friend_paise'] ?? 20000,
+        referralRewardPaise: j['referral_reward_paise'] ?? 20000,
+        referralMinOrderPaise: j['referral_min_order_paise'] ?? 199900,
+        referralMonthlyCap: j['referral_monthly_cap'] ?? 10,
       );
 
   Map<String, dynamic> toJson() => {
@@ -212,6 +228,11 @@ class StoreSettings {
         'store_hours': storeHours,
         'repair_note': repairNote,
         'returns_policy': returnsPolicy,
+        'referral_enabled': referralEnabled,
+        'referral_friend_paise': referralFriendPaise,
+        'referral_reward_paise': referralRewardPaise,
+        'referral_min_order_paise': referralMinOrderPaise,
+        'referral_monthly_cap': referralMonthlyCap,
       };
 }
 

@@ -8,6 +8,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/format.dart';
 import '../../../core/input.dart';
+import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
@@ -62,12 +63,17 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   final _sending = <String>{}; // rows with a write on the way
 
   final _search = TextEditingController();
+  Timer? _debounce; // the server searches once typing pauses, not on every letter
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _search.dispose();
     super.dispose();
   }
+
+  /// The loaded pages of the current view; edits go through it.
+  CatalogueNotifier get _notifier => ref.read(catalogueProvider(_view).notifier);
 
   CatalogueView get _view => (
         query: _query,
@@ -86,17 +92,24 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
         _selected.clear();
       });
 
+  // A new view is a new list from page 1, so a selection made in the old one is dropped.
   void _clearFilters() => setState(() {
         _categoryId = _brandId = null;
         _stock = StockFilter.all;
         _visibility = VisibilityFilter.all;
+        _selected.clear();
       });
 
   void _toggle(String id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
 
   Future<void> _pick<T>(String title, List<(T?, String)> options, T? current, void Function(T?) apply) async {
     final picked = await showPickerSheet<T>(context, title: title, options: options, selected: current);
-    if (picked != null && mounted) setState(() => apply(picked.$1));
+    if (picked != null && mounted) {
+      setState(() {
+        apply(picked.$1);
+        _selected.clear();
+      });
+    }
   }
 
   // Quick edits -----------------------------------------------------------------
@@ -109,7 +122,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   /// One stock write per row at a time; taps made while it's on the way go out together in the next one.
   Future<void> _sendStock(String id) async {
     if (!_sending.add(id)) return;
-    final notifier = ref.read(catalogueProvider.notifier);
+    final notifier = _notifier;
     try {
       while (true) {
         final want = _want[id], row = notifier.row(id);
@@ -127,7 +140,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   Future<void> _typeStock(CatalogueRow r) async {
     final n = await _askNumber(context, title: 'Stock of ${r.sku}', label: 'Units in stock', min: 0, max: maxStock, initial: r.stock);
     if (n == null || n == r.stock || !mounted) return;
-    await _write(() => ref.read(catalogueProvider.notifier).setStock(r, n));
+    await _write(() => _notifier.setStock(r, n));
   }
 
   Future<void> _editPrice(CatalogueRow r) async {
@@ -138,14 +151,14 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
       builder: (_) => _PriceSheet(row: r),
     );
     if (p == null || !mounted || (p.$1 == r.pricePaise && p.$2 == r.mrpPaise)) return;
-    await _write(() => ref.read(catalogueProvider.notifier).setPrice(r, p.$1, p.$2));
+    await _write(() => _notifier.setPrice(r, p.$1, p.$2));
   }
 
   /// One tap, so it offers Undo: the eye sits next to the price button and a slip hides the variant at once.
   Future<void> _toggleVisible(CatalogueRow r) async {
     final key = 'visible:${r.variantId}';
     if (!_sending.add(key)) return; // a tap is already on the way
-    final notifier = ref.read(catalogueProvider.notifier);
+    final notifier = _notifier;
     try {
       await notifier.setVisible([r], !r.variantActive);
       if (!mounted) return;
@@ -192,7 +205,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   }
 
   Future<void> _runBulk(BulkAction action, List<CatalogueRow> rows) async {
-    final notifier = ref.read(catalogueProvider.notifier);
+    final notifier = _notifier;
     final products = {for (final r in rows) r.productId}.length;
     final productsLabel = '$products product${products == 1 ? '' : 's'}';
     Future<void> flag(String title, String message, String verb, Future<void> Function() write, String done) async {
@@ -307,10 +320,11 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final value = ref.watch(catalogueProvider);
+    final value = ref.watch(catalogueProvider(_view));
+    final summary = ref.watch(catalogueSummaryProvider(_view));
     final categories = ref.watch(adminCategoriesProvider).value ?? const [];
     final brands = ref.watch(adminBrandsProvider).value ?? const [];
-    final all = value.value ?? const <CatalogueRow>[];
+    final all = value.value?.items ?? const <CatalogueRow>[];
     final selectedRows = [for (final r in all) if (_selected.contains(r.variantId)) r];
     return AdminGate(
       child: PopScope(
@@ -327,9 +341,9 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
             actions: [
               if (_selecting)
                 IconButton(
-                  tooltip: 'Select all shown',
+                  tooltip: 'Select all loaded',
                   icon: const Icon(PhosphorIconsRegular.selectionAll),
-                  onPressed: () => setState(() => _selected.addAll([for (final r in applyView(all, _view)) r.variantId])),
+                  onPressed: () => setState(() => _selected.addAll([for (final r in all) r.variantId])),
                 )
               else
                 IconButton(
@@ -357,14 +371,27 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                             tooltip: 'Clear search',
                             icon: const Icon(PhosphorIconsRegular.xCircle),
                             onPressed: () => setState(() {
+                              _debounce?.cancel();
                               _search.clear();
                               _query = '';
+                              _selected.clear();
                             }),
                           ),
                   ),
                   textInputAction: TextInputAction.search,
                   inputFormatters: textInput(MaxLen.search),
-                  onChanged: (q) => setState(() => _query = tidy(q)),
+                  onChanged: (q) {
+                    setState(() {}); // the clear button
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 300), () {
+                      if (mounted && tidy(q) != _query) {
+                        setState(() {
+                          _query = tidy(q);
+                          _selected.clear();
+                        });
+                      }
+                    });
+                  },
                 ),
               ),
               SingleChildScrollView(
@@ -415,12 +442,15 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
               ),
               const SizedBox(height: Space.sm),
               Expanded(
-                child: AsyncBody<List<CatalogueRow>>(
+                child: AsyncBody<Paged<CatalogueRow>>(
                   value: value,
-                  onRetry: () => ref.invalidate(catalogueProvider),
-                  loading: Skeletonizer(child: _list(_skeleton, total: _skeleton.length, interactive: false)),
-                  data: (all) {
-                    if (all.isEmpty) {
+                  onRetry: () => ref
+                    ..invalidate(catalogueProvider)
+                    ..invalidate(catalogueSummaryProvider),
+                  loading: Skeletonizer(child: _list(_skeleton, summary: const AsyncLoading(), interactive: false)),
+                  data: (page) {
+                    final rows = page.items;
+                    if (rows.isEmpty && !_filtered && _query.isEmpty) {
                       return EmptyState(
                         icon: PhosphorIconsRegular.package,
                         title: 'No products yet',
@@ -431,9 +461,11 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                         ),
                       );
                     }
-                    final rows = applyView(all, _view);
                     return RefreshIndicator(
-                      onRefresh: () => ref.refresh(catalogueProvider.future),
+                      onRefresh: () {
+                        ref.invalidate(catalogueSummaryProvider(_view));
+                        return ref.refresh(catalogueProvider(_view).future);
+                      },
                       child: rows.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
@@ -449,7 +481,21 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                                 ),
                               ],
                             )
-                          : _list(rows, total: all.length),
+                          : LoadMoreListener(
+                              hasMore: page.hasMore,
+                              onMore: _notifier.loadMore,
+                              child: _list(
+                                rows,
+                                summary: summary,
+                                footer: page.hasMore
+                                    ? PagedFooter(
+                                        failed: page.moreFailed,
+                                        onRetry: () => _notifier.loadMore(retry: true),
+                                        what: 'more variants',
+                                      )
+                                    : null,
+                              ),
+                            ),
                     );
                   },
                 ),
@@ -461,13 +507,23 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
     );
   }
 
-  Widget _list(List<CatalogueRow> rows, {required int total, bool interactive = true}) => ListView.builder(
+  Widget _list(List<CatalogueRow> rows, {required AsyncValue<CatalogueSummary> summary, Widget? footer, bool interactive = true}) =>
+      ListView.builder(
+        key: PageStorageKey(_view), // a new search or filter starts at the top, not at the old list's offset
         physics: const AlwaysScrollableScrollPhysics(),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.only(bottom: Space.xl + MediaQuery.paddingOf(context).bottom),
-        itemCount: rows.length + 1,
+        itemCount: rows.length + 1 + (footer == null ? 0 : 1),
         itemBuilder: (context, i) {
-          if (i == 0) return CatalogueSummaryCard(summarize(rows), total: total);
+          if (i == 0) {
+            // the server's totals over every matching row; quietly absent if they fail (the rows still work)
+            return switch (summary) {
+              AsyncValue(value: final s?) => CatalogueSummaryCard(s),
+              AsyncValue(hasError: true) => const SizedBox.shrink(),
+              _ => const Skeletonizer(child: CatalogueSummaryCard(_skeletonSummary)),
+            };
+          }
+          if (i > rows.length) return footer!;
           final r = rows[i - 1];
           return CatalogueTile(
             key: ValueKey(r.variantId),
@@ -481,7 +537,12 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                     ? () => _toggle(r.variantId)
                     : () async {
                         await context.push('/admin/products/${r.productId}');
-                        if (mounted) ref.invalidate(catalogueProvider); // the editor may have changed it
+                        if (mounted) {
+                          // the editor may have changed it
+                          ref
+                            ..invalidate(catalogueProvider)
+                            ..invalidate(catalogueSummaryProvider);
+                        }
                       },
             onLongPress: !interactive || _selecting
                 ? null
@@ -500,12 +561,12 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
 
 String _rowsLabel(int n) => '$n variant${n == 1 ? '' : 's'}';
 
-/// SKUs, units, stock value and low/out counts for the rows shown; says so when a search or filter hides some.
+/// SKUs, units, stock value and low/out counts for every row the search and filters match (from the server, not
+/// just the loaded pages); says so when they hide some.
 class CatalogueSummaryCard extends StatelessWidget {
-  const CatalogueSummaryCard(this.s, {super.key, required this.total});
+  const CatalogueSummaryCard(this.s, {super.key});
 
   final CatalogueSummary s;
-  final int total; // variants in the whole catalogue
 
   @override
   Widget build(BuildContext context) {
@@ -537,8 +598,8 @@ class CatalogueSummaryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (s.skus < total) ...[
-                Text('Showing ${s.skus} of ${_rowsLabel(total)}', style: t.labelMedium?.copyWith(color: c.onSurfaceVariant)),
+              if (s.skus < s.total) ...[
+                Text('Showing ${s.skus} of ${_rowsLabel(s.total)}', style: t.labelMedium?.copyWith(color: c.onSurfaceVariant)),
                 gap,
               ],
               Row(spacing: Space.md, children: [stat('SKUs', '${s.skus}'), stat('Units in stock', '${s.units}')]),
@@ -1098,6 +1159,9 @@ class _PriceSheetState extends State<_PriceSheet> {
     );
   }
 }
+
+const CatalogueSummary _skeletonSummary =
+    (skus: 120, units: 1450, valueAtPricePaise: 48200000, valueAtMrpPaise: 52000000, low: 4, out: 2, total: 120);
 
 final _skeleton = [
   for (var i = 0; i < 5; i++)

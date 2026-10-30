@@ -96,6 +96,60 @@ void main() {
     expect(find.text('Pick a brand'), findsOneWidget);
   });
 
+  testWidgets('multi-select: rows tick and untick, Done returns the set, dismissing changes nothing', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final changes = <Set<String>>[];
+    final form = GlobalKey<FormState>();
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(colorScheme: lightScheme, fontFamily: 'Roboto'),
+      builder: (context, child) =>
+          MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.3)), child: child!),
+      home: Scaffold(
+        body: Form(
+          key: form,
+          child: MultiPickerField<String>(
+            label: 'Brands',
+            options: _brands,
+            labelOf: (b) => b,
+            initialValue: const {'Apple'},
+            onChanged: changes.add,
+            validator: (v) => v!.isEmpty ? 'Pick one' : null,
+          ),
+        ),
+      ),
+    ));
+    expect(find.text('Apple'), findsOneWidget);
+
+    await tester.tap(find.byType(MultiPickerField<String>));
+    await tester.pumpAndSettle();
+    expect(find.text('Done (1)'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'sam');
+    await tester.pump();
+    await tester.tap(find.text('Samsung'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    await tester.tap(find.text('Apple').last); // untick
+    await tester.tap(find.text('Nokia'));
+    await tester.pump();
+    expect(find.text('Done (2)'), findsOneWidget);
+    await tester.tap(find.text('Done (2)'));
+    await tester.pumpAndSettle();
+    expect(changes, [{'Samsung', 'Nokia'}]);
+    expect(find.text('Samsung, Nokia'), findsOneWidget);
+    expect(form.currentState!.validate(), isTrue);
+
+    await tester.tap(find.byType(MultiPickerField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vivo'));
+    await tester.tapAt(const Offset(180, 20)); // the scrim: dismissed
+    await tester.pumpAndSettle();
+    expect(changes, hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a long list fits a small screen with large text', (tester) async {
     await _pump(tester, options: [for (var i = 0; i < 40; i++) 'State number $i with a long name']);
     await tester.tap(find.byType(PickerField<String>));

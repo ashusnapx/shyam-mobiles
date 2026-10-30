@@ -115,9 +115,11 @@ void main() {
 
     testWidgets('orders list ($theme)', (tester) async {
       await pumpScreen(tester, const AdminOrdersScreen(status: 'open'), dark: dark, overrides: [
-        adminOrdersProvider.overrideWith((ref, f) => [_order(OrderStatus.shipped), _order(OrderStatus.cancelled)]),
+        adminOrdersProvider.overrideWithBuild(
+            (ref, _) => (items: [_order(OrderStatus.shipped), _order(OrderStatus.cancelled)], hasMore: true, moreFailed: true)),
       ]);
       expect(find.text('SM100031'), findsNWidgets(2));
+      expect(find.text('Couldn’t load more. Try again'), findsOneWidget, reason: 'a failed next page offers a retry');
     });
 
     testWidgets('repairs list and detail ($theme)', (tester) async {
@@ -135,7 +137,7 @@ void main() {
 
     testWidgets('products list and editor ($theme)', (tester) async {
       await pumpScreen(tester, const AdminProductsScreen(), dark: dark, overrides: [
-        adminProductsProvider.overrideWithValue(const AsyncData([
+        adminProductPagesProvider.overrideWithBuild((ref, _) => (items: const [
           AdminProductRow(
             id: 'p1',
             name: 'Samsung Galaxy S25 Ultra 5G',
@@ -148,7 +150,7 @@ void main() {
             stock: 2,
             lowStock: true,
           ),
-        ])),
+        ], hasMore: false, moreFailed: false)),
       ]);
       expect(find.text('Hidden'), findsOneWidget);
       await pumpScreen(tester, const AdminProductEditScreen(productId: 'p1'), dark: dark, overrides: [
