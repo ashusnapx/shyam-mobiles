@@ -384,6 +384,14 @@ class _Photos extends ConsumerStatefulWidget {
 
 class _PhotosState extends ConsumerState<_Photos> {
   bool _busy = false;
+  int _failures = 0;
+
+  /// The variants' colours (and any a photo still names): a photo can show one of them, or every colour.
+  List<String> get _colors => {
+        for (final v in widget.product.variants)
+          if (v.color case final c? when c.isNotEmpty) c,
+        for (final img in widget.product.images) ?img.color,
+      }.toList();
 
   Future<void> _run(Future<void> Function() write, [String? done]) async {
     setState(() => _busy = true);
@@ -391,6 +399,7 @@ class _PhotosState extends ConsumerState<_Photos> {
       await write();
       if (mounted && done != null) showMessage(context, done);
     } catch (e) {
+      _failures++;
       if (mounted) showMessage(context, adminError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -398,12 +407,22 @@ class _PhotosState extends ConsumerState<_Photos> {
   }
 
   Future<void> _add() async {
+    String? color;
+    if (_colors.isNotEmpty) {
+      final picked = await showPickerSheet<String>(
+        context,
+        title: 'Photo of which colour?',
+        options: [(null, 'Any colour'), for (final c in _colors) (c, c)],
+      );
+      if (picked == null || !mounted) return;
+      color = picked.$1;
+    }
     final file = await pickPhoto(context);
     if (file == null) return;
     final images = widget.product.images;
     await _run(() async {
       final saved = await addProductImage(
-          ref, widget.product.id, await readPhoto(file), images.isEmpty ? 0 : images.last.sort + 1);
+          ref, widget.product.id, await readPhoto(file), images.isEmpty ? 0 : images.last.sort + 1, color: color);
       if (mounted) showMessage(context, 'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}');
     });
   }
@@ -431,6 +450,7 @@ class _PhotosState extends ConsumerState<_Photos> {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final images = widget.product.images;
+    final colors = _colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -450,26 +470,43 @@ class _PhotosState extends ConsumerState<_Photos> {
           Padding(
             key: ValueKey(img.id),
             padding: const EdgeInsets.only(bottom: Space.sm),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(width: 64, child: ProductImage(img.path, radius: Radii.md, padding: Space.xs)),
-                const SizedBox(width: Space.md),
-                Expanded(child: Text(i == 0 ? 'Cover photo' : 'Photo ${i + 1}', style: t.bodyMedium)),
-                IconButton(
-                  tooltip: 'Move photo ${i + 1} up',
-                  onPressed: _busy || i == 0 ? null : () => _move(i, i - 1),
-                  icon: const Icon(PhosphorIconsRegular.arrowUp),
+                Row(
+                  children: [
+                    SizedBox(width: 64, child: ProductImage(img.path, radius: Radii.md, padding: Space.xs)),
+                    const SizedBox(width: Space.md),
+                    Expanded(child: Text(i == 0 ? 'Cover photo' : 'Photo ${i + 1}', style: t.bodyMedium)),
+                    IconButton(
+                      tooltip: 'Move photo ${i + 1} up',
+                      onPressed: _busy || i == 0 ? null : () => _move(i, i - 1),
+                      icon: const Icon(PhosphorIconsRegular.arrowUp),
+                    ),
+                    IconButton(
+                      tooltip: 'Move photo ${i + 1} down',
+                      onPressed: _busy || i == images.length - 1 ? null : () => _move(i, i + 1),
+                      icon: const Icon(PhosphorIconsRegular.arrowDown),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete photo ${i + 1}',
+                      onPressed: _busy ? null : () => _delete(img),
+                      icon: const Icon(PhosphorIconsRegular.trash),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  tooltip: 'Move photo ${i + 1} down',
-                  onPressed: _busy || i == images.length - 1 ? null : () => _move(i, i + 1),
-                  icon: const Icon(PhosphorIconsRegular.arrowDown),
-                ),
-                IconButton(
-                  tooltip: 'Delete photo ${i + 1}',
-                  onPressed: _busy ? null : () => _delete(img),
-                  icon: const Icon(PhosphorIconsRegular.trash),
-                ),
+                if (colors.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 64 + Space.md, top: Space.xs),
+                    child: PickerField<String>(
+                      key: ValueKey('${img.color}/$_failures'), // back to what's saved after a refused write
+                      label: 'Colour',
+                      options: ['', ...colors],
+                      labelOf: (c) => c.isEmpty ? 'Any colour' : c,
+                      initialValue: img.color ?? '',
+                      onChanged: (c) => _run(() => setImageColor(ref, widget.product.id, img, c.isEmpty ? null : c)),
+                    ),
+                  ),
               ],
             ),
           ),

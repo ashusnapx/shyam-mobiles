@@ -4,9 +4,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import '../../../core/env.dart';
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
+import '../../../core/links.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
@@ -14,10 +16,10 @@ import '../../catalog/widgets/store_links.dart';
 import '../data/offers.dart';
 import '../widgets/offer_widgets.dart';
 
-/// The WhatsApp message a customer forwards: the code and what the friend gets. No contact is picked here.
-Uri referralShareUri(Referral r) => Uri.https('wa.me', '/', {
-      'text': 'I shop for phones at Shyam Mobiles. Use my code ${r.code} in the Shyam Mobiles app for '
-          '${formatInr(r.friendPaise)} off your first order of ${formatInr(r.minOrderPaise)} or more.',
+/// The WhatsApp message a customer forwards: the code, what the friend gets, and the link that carries the code into
+/// the app (the same text as the Share button). No contact is picked here.
+Uri referralShareUri(Referral r, {String host = Env.linkHost}) => Uri.https('wa.me', '/', {
+      'text': shareText('I shop for phones at Shyam Mobiles.', link: shareLink(code: r.code, host: host), referral: r),
     });
 
 const _placeholder = Referral(enabled: true, code: 'ABCD1234', friendPaise: 20000, rewardPaise: 20000, minOrderPaise: 199900);
@@ -29,7 +31,9 @@ class ReferScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final referral = ref.watch(myReferralProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Refer & earn')),
+      appBar: AppBar(title: const Text('Refer & earn'), actions: [
+        if (referral.value?.enabled ?? false) const ShareButton(what: 'I shop for phones at Shyam Mobiles.'),
+      ]),
       body: AsyncBody<Referral>(
         value: referral,
         onRetry: () => ref.invalidate(myReferralProvider),

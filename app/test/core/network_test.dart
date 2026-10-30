@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -145,19 +146,17 @@ void main() {
   group('ProductImage in data-saver mode', () {
     Future<void> pump(WidgetTester tester, DataMode mode, String path) => tester.pumpWidget(ProviderScope(
           overrides: [dataSaverProvider.overrideWithValue(mode)],
-          child: MaterialApp(home: Scaffold(body: SizedBox(width: 300, child: ProductImage(path, full: true)))),
+          child: MaterialApp(home: Scaffold(body: SizedBox(width: 300, child: ProductImage(path)))),
         ));
+    String url(WidgetTester tester) => tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage).first).imageUrl;
 
-    testWidgets('the gallery offers the full photo only in saver mode, and only for photos with a thumb', (tester) async {
+    testWidgets('loads the thumb only in saver mode, and only for photos that have one', (tester) async {
       await pump(tester, DataMode.full, 'p1/100.webp');
-      expect(find.text('Tap for full photo'), findsNothing);
-      await pump(tester, DataMode.saver, 'p1/1.jpg'); // no thumb exists: the full photo, no button
-      expect(find.text('Tap for full photo'), findsNothing);
+      expect(url(tester), endsWith('/p1/100.webp'));
+      await pump(tester, DataMode.saver, 'p1/1.jpg'); // no thumb exists: the full photo
+      expect(url(tester), endsWith('/p1/1.jpg'));
       await pump(tester, DataMode.saver, 'p1/101.webp');
-      expect(find.text('Tap for full photo'), findsOneWidget);
-      await tester.tap(find.text('Tap for full photo'));
-      await tester.pump();
-      expect(find.text('Tap for full photo'), findsNothing);
+      expect(url(tester), endsWith('/p1/101@thumb.webp'));
     });
   });
 }

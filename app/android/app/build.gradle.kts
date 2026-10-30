@@ -8,6 +8,14 @@ val keystoreProperties = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// LINK_HOST from the build's --dart-define-from-file (env/prod.json, env/dev.json): Flutter hands Gradle every define,
+// base64-encoded, as the dart-defines property. It becomes the App Link host in the manifest; without one the app
+// claims a host that can't exist (.invalid), so no link opens it by mistake.
+val linkHost = (project.findProperty("dart-defines") as String?).orEmpty().split(",")
+    .map { String(java.util.Base64.getDecoder().decode(it)) }
+    .firstOrNull { it.startsWith("LINK_HOST=") }?.substringAfter("=")
+    ?.takeIf { Regex("^[a-z0-9.-]+$").matches(it) } ?: "links.invalid"
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -37,6 +45,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["linkHost"] = linkHost
     }
 
     signingConfigs {

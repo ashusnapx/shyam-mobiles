@@ -92,6 +92,15 @@
         ],
         "createdAt": "2026-10-29T13:13:46.154303Z",
         "reason": "sanctioned exception: the 8-11px text is inside a non-interactive phone mock drawn at ~0.8x of a 360 dp screen (the app itself uses 11px+ via its theme); page copy outside the mock is 13-14px+"
+      },
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "files": [
+          "site/open.html"
+        ],
+        "createdAt": "2026-10-30T12:52:01.610454Z",
+        "reason": "sanctioned exception: Plus Jakarta Sans is the app's body face (user approved the mockup typography 2026-10-29); the share-link page matches the app and the other policy pages"
       }
     ]
   }

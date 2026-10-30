@@ -218,6 +218,49 @@ enum RepairIssue {
   static RepairIssue parse(String v) => values.firstWhere((s) => s.value == v);
 }
 
+/// The customer's answer to a repair quote (`repair_bookings.quote_status`). `none`: no quote yet.
+enum RepairQuoteStatus {
+  none('none'),
+  pending('pending'),
+  approved('approved'),
+  declined('declined');
+
+  const RepairQuoteStatus(this.value);
+  final String value;
+
+  static RepairQuoteStatus parse(String v) => values.firstWhere((s) => s.value == v);
+}
+
+/// A `repair_events` row: a status change, a quote sent/approved/declined ([quoteStatus] and [quotePaise] set), or a
+/// note (same status as the event before it).
+class RepairEvent {
+  const RepairEvent({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+    this.quoteStatus,
+    this.quotePaise,
+    this.note,
+  });
+
+  final int id;
+  final RepairStatus status; // the booking's status after this event
+  final RepairQuoteStatus? quoteStatus;
+  final int? quotePaise;
+  final String? note; // staff's note, or the customer's decline reason
+  final DateTime createdAt;
+
+  factory RepairEvent.fromJson(Map<String, dynamic> j) => RepairEvent(
+        id: j['id'],
+        status: RepairStatus.parse(j['status']),
+        quoteStatus: j['quote_status'] == null ? null : RepairQuoteStatus.parse(j['quote_status']),
+        quotePaise: j['quote_paise'],
+        note: j['note'],
+        createdAt: DateTime.parse(j['created_at']),
+      );
+}
+
+/// Loaded by `repair_bookings.select('*, events:repair_events(*)')`; `events` is empty when not embedded.
 class RepairBooking {
   const RepairBooking({
     required this.id,
@@ -233,7 +276,10 @@ class RepairBooking {
     this.userId,
     this.description = '',
     this.quotePaise,
+    this.quoteStatus = RepairQuoteStatus.none,
+    this.quoteDecidedAt,
     this.adminNote,
+    this.events = const [],
   });
 
   final String id;
@@ -248,10 +294,18 @@ class RepairBooking {
   final String contactPhone;
   final RepairStatus status;
   final int? quotePaise;
-  final String? adminNote;
+  final RepairQuoteStatus quoteStatus;
+  final DateTime? quoteDecidedAt;
+  final String? adminNote; // legacy: notes now live in [events]
   final DateTime createdAt;
+  final List<RepairEvent> events; // oldest first
 
   bool get canCancel => status == RepairStatus.requested || status == RepairStatus.confirmed;
+
+  /// The customer can approve or decline (approve_repair_quote: pending, booking still open).
+  bool get awaitingApproval => quoteStatus == RepairQuoteStatus.pending && status.isOpen;
+
+  bool get quoteDeclined => quoteStatus == RepairQuoteStatus.declined && status.isOpen;
 
   factory RepairBooking.fromJson(Map<String, dynamic> j) => RepairBooking(
         id: j['id'],
@@ -266,7 +320,12 @@ class RepairBooking {
         contactPhone: j['contact_phone'],
         status: RepairStatus.parse(j['status']),
         quotePaise: j['quote_paise'],
+        quoteStatus: RepairQuoteStatus.parse(j['quote_status'] ?? 'none'),
+        quoteDecidedAt: j['quote_decided_at'] == null ? null : DateTime.parse(j['quote_decided_at']),
         adminNote: j['admin_note'],
         createdAt: DateTime.parse(j['created_at']),
+        // by id: one statement can write two events with the same time (a walk-in booked with a quote)
+        events: [for (final e in (j['events'] as List? ?? const [])) RepairEvent.fromJson(e)]
+          ..sort((a, b) => a.id.compareTo(b.id)),
       );
 }

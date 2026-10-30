@@ -9,15 +9,20 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
+import '../../../core/links.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
+import '../../feedback/widgets/feedback_widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/catalog.dart';
+import '../data/rails.dart';
 import '../data/variant_options.dart';
+import '../widgets/gallery.dart';
+import '../widgets/product_rail.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/store_links.dart';
 
@@ -80,6 +85,15 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
   bool _busy = false;
   bool _readRoute = false;
   ({bool buy, String variantId})? _resume; // add/buy to finish after the sign-in round trip
+
+  @override
+  void initState() {
+    super.initState();
+    // for Home's "Recently viewed"
+    ref.listenManual(productProvider(widget.slug), (_, next) {
+      if (next.value case final p?) ref.read(recentlyViewedProvider.notifier).add(p.id);
+    }, fireImmediately: true);
+  }
 
   @override
   void didChangeDependencies() {
@@ -174,7 +188,17 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           icon: const Icon(PhosphorIconsRegular.arrowLeft, size: 20),
           onPressed: () => context.canPop() ? context.pop() : context.go('/'),
         ),
-        actions: [if (product != null) HeartButton(product.id), const SizedBox(width: Space.xs)],
+        actions: [
+          if (product != null) ...[
+            ShareButton(
+              what: '${product.name}${variant == null ? '' : ' · ${formatInr(variant.pricePaise)}'} at Shyam Mobiles',
+              product: product.slug,
+              style: IconButton.styleFrom(backgroundColor: c.surface),
+            ),
+            HeartButton(product.id),
+          ],
+          const SizedBox(width: Space.xs),
+        ],
       ),
       body: switch (async) {
         AsyncValue(value: final p?) when variant != null => _details(p, variants, variant),
@@ -253,7 +277,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        _Gallery(key: ValueKey(p.id), paths: [for (final i in p.images) i.path]),
+        ProductGallery(paths: [for (final i in photosFor(p.images, colorOf(v))) i.path]),
         Padding(
           padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, Space.xl),
           child: Column(
@@ -364,9 +388,11 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     ),
                   ),
               ],
+              if (p.id.isNotEmpty) ReportListingLink(productId: p.id),
             ],
           ),
         ),
+        if (p.id.isNotEmpty) ProductRails(product: p),
       ],
     );
   }
@@ -402,71 +428,6 @@ class _OfferChips extends ConsumerWidget {
               onPressed: () => context.push('/offers/${o.id}'),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _Gallery extends StatefulWidget {
-  const _Gallery({super.key, required this.paths});
-
-  final List<String> paths;
-
-  @override
-  State<_Gallery> createState() => _GalleryState();
-}
-
-class _GalleryState extends State<_Gallery> {
-  int _page = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final top = MediaQuery.paddingOf(context).top;
-    final paths = widget.paths.isEmpty ? const <String?>[null] : widget.paths;
-    return ColoredBox(
-      color: c.surfaceContainer,
-      child: SizedBox(
-        height: 300 + top,
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            Semantics(
-              label: paths.length > 1 ? 'Photo ${_page + 1} of ${paths.length}' : 'Product photo',
-              child: PageView.builder(
-                itemCount: paths.length,
-                onPageChanged: (i) => setState(() => _page = i),
-                // top padding clears the status bar and the back / heart buttons
-                itemBuilder: (_, i) => Padding(
-                  padding: EdgeInsets.fromLTRB(Space.xl, top + 48, Space.xl, Space.xl),
-                  child: Center(child: ProductImage(paths[i], radius: 0, full: true)),
-                ),
-              ),
-            ),
-            if (paths.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: ExcludeSemantics(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 6,
-                    children: [
-                      for (var i = 0; i < paths.length; i++)
-                        AnimatedContainer(
-                          duration: Motion.fast,
-                          width: i == _page ? 18 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: i == _page ? c.primary : c.outline,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

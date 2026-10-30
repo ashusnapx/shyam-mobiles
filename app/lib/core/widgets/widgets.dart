@@ -16,7 +16,7 @@ import '../supabase.dart';
 import '../theme/tokens.dart';
 
 /// Product photo from the `product-images` bucket on a soft tinted well, with an icon when there's no photo.
-/// In data-saver mode it loads the 480 px thumb; [full] (the product gallery) adds a "Tap for full photo" button.
+/// In data-saver mode it loads the 480 px thumb (the gallery's full-screen viewer loads the full photo).
 class ProductImage extends StatelessWidget {
   const ProductImage(
     this.path, {
@@ -25,7 +25,7 @@ class ProductImage extends StatelessWidget {
     this.radius = Radii.lg,
     this.padding = Space.md,
     this.fit = BoxFit.contain,
-    this.full = false,
+    this.color,
   });
 
   final String? path;
@@ -33,7 +33,7 @@ class ProductImage extends StatelessWidget {
   final double radius;
   final double padding;
   final BoxFit fit; // cover for shop photos; clip the parent to round its corners
-  final bool full;
+  final Color? color; // the well; the product gallery is white
 
   @override
   Widget build(BuildContext context) {
@@ -44,12 +44,12 @@ class ProductImage extends StatelessWidget {
     return AspectRatio(
       aspectRatio: aspectRatio,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(radius)),
+        decoration: BoxDecoration(color: color ?? c.surfaceContainer, borderRadius: BorderRadius.circular(radius)),
         child: path == null
             ? fallback
             : Padding(
                 padding: EdgeInsets.all(padding),
-                child: _NetworkPhoto(path!, fit: fit, full: full, fallback: fallback),
+                child: _NetworkPhoto(path!, fit: fit, fallback: fallback),
               ),
       ),
     );
@@ -59,67 +59,34 @@ class ProductImage extends StatelessWidget {
 /// Photos whose thumb failed to load (uploaded before thumbs existed): straight to the full photo next time.
 final _noThumb = <String>{};
 
-class _NetworkPhoto extends ConsumerStatefulWidget {
-  const _NetworkPhoto(this.path, {required this.fit, required this.full, required this.fallback});
+class _NetworkPhoto extends ConsumerWidget {
+  const _NetworkPhoto(this.path, {required this.fit, required this.fallback});
 
   final String path;
   final BoxFit fit;
-  final bool full;
   final Widget fallback;
 
   @override
-  ConsumerState<_NetworkPhoto> createState() => _NetworkPhotoState();
-}
-
-class _NetworkPhotoState extends ConsumerState<_NetworkPhoto> {
-  bool _wantFull = false; // tapped "Tap for full photo"
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final saver = ref.watch(dataSaverProvider) == DataMode.saver;
-    final path = widget.path;
     final thumb = _noThumb.contains(path) ? null : thumbPathFor(path);
     final still = MediaQuery.disableAnimationsOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return LayoutBuilder(builder: (context, box) {
       // Decode at display size, not the 1600px upload, to keep lists smooth on mid-range phones; saver caps it at 1.5x.
       final width = box.maxWidth.isFinite ? (box.maxWidth * (saver ? min(dpr, 1.5) : dpr)).round() : null;
-      Widget image(String p, {Widget? placeholder, Widget Function()? onError}) => CachedNetworkImage(
+      Widget image(String p, {Widget Function()? onError}) => CachedNetworkImage(
             imageUrl: publicImageUrl(p),
-            fit: widget.fit,
+            fit: fit,
             fadeInDuration: still ? Duration.zero : Motion.normal,
             memCacheWidth: width,
-            placeholder: placeholder == null ? null : (_, _) => placeholder,
-            errorWidget: (_, _, _) => onError?.call() ?? widget.fallback,
+            errorWidget: (_, _, _) => onError?.call() ?? fallback,
           );
       if (!saver || thumb == null) return image(path);
-      // the thumb stays up while the full photo loads
-      if (_wantFull) return image(path, placeholder: image(thumb));
-      final shown = image(thumb, onError: () {
-        // no thumb: show the full photo, and drop the "Tap for full photo" button on the next frame
-        if (_noThumb.add(path)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() {});
-          });
-        }
+      return image(thumb, onError: () {
+        _noThumb.add(path); // no thumb: the full photo now and from the next build on
         return image(path);
       });
-      if (!widget.full) return shown;
-      return Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          Positioned.fill(child: shown),
-          FilledButton.tonalIcon(
-            onPressed: () => setState(() => _wantFull = true),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: Space.md),
-              textStyle: Theme.of(context).textTheme.labelMedium,
-            ),
-            icon: const Icon(PhosphorIconsRegular.arrowsOut, size: 16),
-            label: const Text('Tap for full photo'),
-          ),
-        ],
-      );
     });
   }
 }
@@ -315,12 +282,13 @@ class _DelayedRevealState extends State<_DelayedReveal> {
 }
 
 class QtyStepper extends StatelessWidget {
-  const QtyStepper({super.key, required this.value, required this.onChanged, this.min = 1, this.max = 5});
+  const QtyStepper({super.key, required this.value, required this.onChanged, this.min = 1, this.max = 5, this.onRemove});
 
   final int value;
   final int min;
   final int max;
   final ValueChanged<int> onChanged;
+  final VoidCallback? onRemove; // set: at [min] the minus becomes a bin that removes the line
 
   @override
   Widget build(BuildContext context) {
@@ -333,11 +301,18 @@ class QtyStepper extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            tooltip: 'Decrease quantity',
-            onPressed: value > min ? () => onChanged(value - 1) : null,
-            icon: const Icon(PhosphorIconsRegular.minus, size: 18),
-          ),
+          if (value <= min && onRemove != null)
+            IconButton(
+              tooltip: 'Remove',
+              onPressed: onRemove,
+              icon: const Icon(PhosphorIconsRegular.trash, size: 18),
+            )
+          else
+            IconButton(
+              tooltip: 'Decrease quantity',
+              onPressed: value > min ? () => onChanged(value - 1) : null,
+              icon: const Icon(PhosphorIconsRegular.minus, size: 18),
+            ),
           Semantics(
             label: 'Quantity $value',
             excludeSemantics: true,

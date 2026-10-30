@@ -38,6 +38,7 @@ const _codes = {
   'COUPON_FIRST_ORDER': 'This code is only for your first order.',
   'COUPON_ONLINE_ONLY': 'This code works only when you pay online.',
   'COUPON_RATE_LIMIT': 'Too many wrong codes. Wait 10 minutes and try again.',
+  'COUPON_BETTER_OFFER': 'A sale already saves you more on this order, so we’re using it. Keep the code for another order.',
   'REFERRAL_OFF': 'Refer & earn isn’t running right now.',
   'REFERRAL_INVALID': 'That code isn’t valid. Check it with your friend.',
   'REFERRAL_SELF': 'That’s your own code. Share it with a friend instead.',
@@ -45,6 +46,7 @@ const _codes = {
   'REFERRAL_TOO_LATE': 'Friend codes are for new customers, before their first order.',
   'CODE_TAKEN': 'Another offer already uses this code. Pick a different one, or tap Generate.',
   'INVALID_PROMOTION': 'Something in this offer isn’t allowed. Check the amount, dates and products.',
+  'FEEDBACK_LIMIT': 'That’s all the feedback we can take from you today. Thank you! Try again tomorrow, or call the shop.',
 };
 
 // admin_save_promotion's INVALID_PROMOTION names the broken rule in `details`.

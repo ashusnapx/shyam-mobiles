@@ -246,9 +246,11 @@ void main() {
     expect(find.text('ASHA2026'), findsOneWidget);
     await scrollTo(tester, find.text('Friends joined'));
     expect(find.bySemanticsLabel('Friends joined: 3'), findsOneWidget);
-    final share = referralShareUri(api.referral!);
+    final share = referralShareUri(api.referral!, host: 'shyammobiles.example');
     expect((share.scheme, share.host, share.path), ('https', 'wa.me', '/'));
     expect(share.queryParameters['text'], contains('ASHA2026'));
+    expect(share.queryParameters['text'], endsWith('https://shyammobiles.example/open?ref=ASHA2026')); // the link last
+    expect(referralShareUri(api.referral!, host: '').queryParameters['text'], contains('Google Play')); // no host yet
 
     await scrollTo(tester, find.text('Have a friend’s code?'));
     api.referralError = const PostgrestException(message: 'REFERRAL_SELF', code: 'P0001');

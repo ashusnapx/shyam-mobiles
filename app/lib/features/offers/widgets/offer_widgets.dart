@@ -167,7 +167,9 @@ class CouponRow extends ConsumerWidget {
 
   Future<void> _open(BuildContext context) async {
     final q = await showCouponSheet(context, method: method);
-    if (q != null && context.mounted) showMessage(context, appliedMessage(q));
+    if (q != null && context.mounted) {
+      showMessage(context, q.couponError == 'COUPON_BETTER_OFFER' ? couponError(q.couponError!) : appliedMessage(q));
+    }
   }
 
   @override
@@ -251,11 +253,12 @@ class _CouponSheetState extends ConsumerState<CouponSheet> {
     try {
       final q = await ref.read(offersApiProvider).quote(code: code, method: widget.method);
       if (!mounted) return;
-      if (q.couponError case final e?) {
+      if (q.couponError case final e? when e != 'COUPON_BETTER_OFFER') {
         setState(() => _error = couponError(e, minPaise: int.tryParse(q.couponErrorDetail ?? '')));
         return;
       }
-      ref.read(couponCodeProvider.notifier).set(code);
+      // a running sale beats this code: keep the sale and leave the code unused for another order
+      ref.read(couponCodeProvider.notifier).set(q.couponError == null ? code : null);
       Navigator.pop(context, q);
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
@@ -449,8 +452,8 @@ class PromoBannerCard extends StatelessWidget {
   }
 }
 
-/// Running banners under the featured carousel. One fills the width; more scroll sideways with the next one
-/// peeking in. Nothing at all while loading or on error: banners are extras.
+/// Running banners under the featured carousel, one under another (nothing hides behind a sideways swipe).
+/// Nothing at all while loading or on error: banners are extras.
 class BannerStrip extends ConsumerWidget {
   const BannerStrip({super.key});
 
@@ -458,18 +461,12 @@ class BannerStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final banners = ref.watch(bannersProvider).value ?? const <PromoBanner>[];
     if (banners.isEmpty) return const SizedBox.shrink();
-    Widget card(PromoBanner b) => PromoBannerCard(b, onTap: () => openAppLink(context, b.link));
-    if (banners.length == 1) {
-      return Padding(padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0), child: card(banners.first));
-    }
-    final width = MediaQuery.sizeOf(context).width - Space.lg * 2 - 28;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: Space.md,
-        children: [for (final b in banners) SizedBox(width: width, child: card(b))],
+        children: [for (final b in banners) PromoBannerCard(b, onTap: () => openAppLink(context, b.link))],
       ),
     );
   }

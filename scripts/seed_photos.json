@@ -1,0 +1,418 @@
+{
+  "google-pixel-9a": [
+    {
+      "url": "https://lh3.googleusercontent.com/3DLA6nVrA4os2TRvCvTtVopY_T-lpndYYabD_DSnbcK2qmLIsWlwHXmGbzw2vFjCEfU2_t5v6qZgfl0YJnecPmgxFvBo04F0EYZC=w1600",
+      "color": "Obsidian"
+    },
+    {
+      "url": "https://lh3.googleusercontent.com/D2eerP_wSbPY4yiQRqaQ5WZtwwJtBzvAnspg-HoGRlIFuB9SiXj7wSm6jz-TLwy-uTu3NEjTQ-_yxcQ7LwSNDuznWU-sLHX3hA=w1600",
+      "color": "Obsidian"
+    },
+    {
+      "url": "https://lh3.googleusercontent.com/T0QVc-GjdBongYGDzRV0B2InSZLwbeyU2INjjKGrgAssEzwNs8tx_VsDY1qGTAq3Lgnt-4fW1vVsF3i4o5THBHHsi_uAYOUQfkA=w1600",
+      "color": "Porcelain"
+    },
+    {
+      "url": "https://lh3.googleusercontent.com/aR0ZC-Qt4nvCFovhU0yKI_xbiyAmx0ey7DjKyOpzeXeVUZo35P-GXLlNF6cpCL93edei-HYiwYKx4KprBioDWi_QIK-8Du9bWQ=w1600",
+      "color": "Porcelain"
+    }
+  ],
+  "motorola-edge-60-fusion": [
+    {
+      "url": "https://motorolain.vteximg.com.br/arquivos/ids/160110/moto-milos-ecom-render-01-amazonite-.png.png",
+      "color": "Pantone Amazonite"
+    },
+    {
+      "url": "https://motorolain.vteximg.com.br/arquivos/ids/160111/moto-milos-ecom-render-02-amazonite-.png.png",
+      "color": "Pantone Amazonite"
+    },
+    {
+      "url": "https://motorolain.vteximg.com.br/arquivos/ids/160070/moto-milos-ecom-render-01-slipstream-.png.png",
+      "color": "Pantone Slipstream"
+    },
+    {
+      "url": "https://motorolain.vteximg.com.br/arquivos/ids/160071/moto-milos-ecom-render-03-slipstream-.png.png",
+      "color": "Pantone Slipstream"
+    }
+  ],
+  "boat-airdopes-141": [
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0057/8938/4802/files/AD141-FI_Black01.png",
+      "color": "Bold Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0057/8938/4802/files/AD141-FI_White01.png",
+      "color": "Pure White"
+    }
+  ],
+  "boat-rockerz-450": [
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0057/8938/4802/products/7499af44-9d7a-489c-80f0-51f7799289e4.png",
+      "color": "Luscious Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0057/8938/4802/products/ae22e3a6-9590-401a-94f6-d8ecf42b4932.png",
+      "color": "Aqua Blue"
+    }
+  ],
+  "spigen-ultra-hybrid-iphone-16": [
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/title_web_iphone_16_pro_ultra_hybrid_cc_01_1d553b75-3197-47a2-9aab-86bd08bb2906.jpg",
+      "color": "Crystal Clear"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_iphone_16_pro_ultra_hybrid_cc_01_4a107b89-b10b-49c4-95eb-8546421d2167.jpg",
+      "color": "Crystal Clear"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/title_web_iphone_16_pro_ultra_hybrid_blk_01_2da4c1f1-bfe2-465c-af6c-26610cc1380c.jpg",
+      "color": "Matte Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_iphone_16_pro_ultra_hybrid_blk_01_80396830-ee7a-483c-bbec-9ad706ea2cbf.jpg",
+      "color": "Matte Black"
+    }
+  ],
+  "spigen-tough-armor-galaxy-s25": [
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/title_web_sp54e_tougharmor_black_01.jpg",
+      "color": "Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_sp54e_tougharmor_black_01.jpg",
+      "color": "Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/title_web_sp54e_tougharmor_gunmetal_01_36c05fda-756f-45aa-bc42-2d6f5e18c298.jpg",
+      "color": "Gunmetal"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_sp54e_tougharmor_gunmetal_01_fcfc4679-a7c8-40d8-9f4a-f0b32f088953.jpg",
+      "color": "Gunmetal"
+    }
+  ],
+  "spigen-liquid-air-pixel-9a": [
+    "https://cdn.shopify.com/s/files/1/0808/0067/files/title_web_pixel9a_liquidair_blk_01.jpg",
+    "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_pixel9a_liquidair_blk_01.jpg"
+  ],
+  "spigen-glastr-ez-fit-iphone-16": [
+    "https://cdn.shopify.com/s/files/1/0808/0067/files/title_web_iphone16_16plus_glastr_ezfit_cc_01_469a3062-5ff1-4906-aa64-35a22d1b9e3b.jpg",
+    "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_iphone16_16plus_glastr_ezfit_cc_02_5ea8c653-ebfe-4436-acec-838c27cb8ae1.jpg"
+  ],
+  "spigen-glastr-galaxy-s25": [
+    "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_sp64e_glastr_ezfit_02.jpg",
+    "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_sp64e_glastr_ezfit_01.jpg"
+  ],
+  "spigen-optik-lens-protector-iphone-16": [
+    "https://cdn.shopify.com/s/files/1/0808/0067/files/detail_web_iphone16_16plus_glastr_ezfit_optikpro_blk_01_726dad61-5d11-421a-ba7a-da2b55a8e4ea.jpg"
+  ],
+  "anker-322-usb-c-cable-1-8m": [
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0831/7042/7131/files/A81F6011_TD01_V1.jpg",
+      "color": "Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0831/7042/7131/files/A81F6021_TD01_V1.jpg",
+      "color": "White"
+    }
+  ],
+  "anker-621-maggo-5000mah": [
+    "https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A1610022_TD01_V1_499b056f-04f3-4e9e-a4b1-491a315b2319.png"
+  ],
+  "anker-nano-20w-usb-c-charger": [
+    "https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A2637116_TD01_V1_1e30e3ad-4e1f-495f-abde-9246b1e1ea78.png"
+  ],
+  "anker-powercore-10000": [
+    "https://cdn.shopify.com/s/files/1/0595/4034/0926/products/A1263011.jpg"
+  ],
+  "apple-iphone-16": [
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-black-select-202409?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Black"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-black-select-202409_AV2?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Black"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-ultramarine-select-202409?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Ultramarine"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-ultramarine-select-202409_AV2?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Ultramarine"
+    }
+  ],
+  "apple-iphone-15": [
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-black-select-202309?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Black"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-black-select-202309_AV2?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Black"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-blue-select-202309?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Blue"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-15-blue-select-202309_AV2?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Blue"
+    }
+  ],
+  "apple-iphone-16-silicone-case-magsafe": [
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MYY13?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Black"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MYY13_AV1?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Black"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MYY23?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Denim"
+    },
+    {
+      "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MYY23_AV1?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+      "color": "Denim"
+    }
+  ],
+  "apple-20w-usb-c-power-adapter": [
+    "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MUVR3?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+    "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MUVR3_AV1?wid=1600&hei=1600&fmt=jpeg&qlt=90"
+  ],
+  "samsung-galaxy-s25": [
+    {
+      "url": "https://images.samsung.com/in/smartphones/galaxy-s25/buy/product_color_navy_PC.png",
+      "color": "Navy"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/uk/2501/gallery/uk-galaxy-s25-s931-534000-sm-s931bdbdeub-544938716?$1300_1038_PNG$",
+      "color": "Navy"
+    },
+    {
+      "url": "https://images.samsung.com/in/smartphones/galaxy-s25/buy/product_color_icyBlue_PC.png",
+      "color": "Icyblue"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/uk/2501/gallery/uk-galaxy-s25-s931-534000-sm-s931blbdeub-544939689?$1300_1038_PNG$",
+      "color": "Icyblue"
+    }
+  ],
+  "samsung-25w-super-fast-charger": [
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/in/ep-t2510xbngin/gallery/in-25w-power-adapter-ep-t2510-ep-t2510xbngin-549980236?$1300_1038_PNG$",
+      "color": "Black"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/in/ep-t2510xbngin/gallery/in-25w-power-adapter-ep-t2510-ep-t2510xbngin-549980240?$1300_1038_PNG$",
+      "color": "Black"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/in/ep-t2510xwngin/gallery/in-25w-power-adapter-ep-t2510-ep-t2510xwngin-549980255?$1300_1038_PNG$",
+      "color": "White"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/in/ep-t2510xwngin/gallery/in-25w-power-adapter-ep-t2510-ep-t2510xwngin-549980261?$1300_1038_PNG$",
+      "color": "White"
+    }
+  ],
+  "samsung-10000mah-25w-battery-pack": [
+    "https://images.samsung.com/is/image/samsung/p6pim/in/eb-p3400xungin/gallery/in-10ah-battery-pack-eb-p3400-eb-p3400xungin-536180561?$1300_1038_PNG$",
+    "https://images.samsung.com/is/image/samsung/p6pim/in/eb-p3400xungin/gallery/in-10ah-battery-pack-eb-p3400-eb-p3400xungin-536180562?$1300_1038_PNG$"
+  ],
+  "samsung-galaxy-a56-5g": [
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/latin_en/sm-a566ezkcgto/gallery/latin-en-galaxy-a56-5g-sm-a566-sm-a566ezkcgto-545595163?$1300_1038_PNG$",
+      "color": "Awesome Graphite"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/latin_en/sm-a566ezkcgto/gallery/latin-en-galaxy-a56-5g-sm-a566-sm-a566ezkcgto-545595160?$1300_1038_PNG$",
+      "color": "Awesome Graphite"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/latin_en/sm-a566ezgcgto/gallery/latin-en-galaxy-a56-5g-sm-a566-sm-a566ezgcgto-545595048?$1300_1038_PNG$",
+      "color": "Awesome Olive"
+    },
+    {
+      "url": "https://images.samsung.com/is/image/samsung/p6pim/latin_en/sm-a566ezgcgto/gallery/latin-en-galaxy-a56-5g-sm-a566-sm-a566ezgcgto-545595045?$1300_1038_PNG$",
+      "color": "Awesome Olive"
+    }
+  ],
+  "apple-airpods-4": [
+    "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/airpods-4-hero-select-202409?wid=1600&hei=1600&fmt=jpeg&qlt=90",
+    "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/airpods-4-202409-gallery-1?wid=1600&hei=1600&fmt=jpeg&qlt=90"
+  ],
+  "oneplus-13": [
+    {
+      "url": "https://image01-in.oneplus.net/media/202412/17/052a246708df8233d079b3502aeeb327.png",
+      "color": "Midnight Ocean"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202412/17/abe7a0e4a65883c7ce866b96e4745039.png",
+      "color": "Midnight Ocean"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202412/17/0c0b713df5d1f8f99b52956a17182bfc.png",
+      "color": "Black Eclipse"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202412/17/0f8dc177feea7c7a75e941208f69bcb3.png",
+      "color": "Black Eclipse"
+    }
+  ],
+  "oneplus-nord-5": [
+    {
+      "url": "https://image01-in.oneplus.net/media/202506/27/c90b7e8798916adaac336ce9279f4741.png",
+      "color": "Marble Sands"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202507/02/08457a0583cec478374d3bcfa84ab210.png",
+      "color": "Marble Sands"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202506/27/cd96b8c5d2b7d10034ef5fa5d9beafb5.png",
+      "color": "Phantom Grey"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202507/14/d0c525214fa07df6199e1494a5d8db5d.png",
+      "color": "Phantom Grey"
+    }
+  ],
+  "oneplus-nord-buds-3-pro": [
+    {
+      "url": "https://image01-in.oneplus.net/media/202407/10/b5626e8b0599e41c9f57e8fd889f78ca.png",
+      "color": "Starry Black"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202407/10/2adf669cf9518dde91d4ee93a7d1dc3f.png",
+      "color": "Starry Black"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202407/10/de9a2dafdf4c2184fbb7bd9b696166c0.png",
+      "color": "Soft Jade"
+    },
+    {
+      "url": "https://image01-in.oneplus.net/media/202407/10/f95a5d14824446e7270647f96856098f.png",
+      "color": "Soft Jade"
+    }
+  ],
+  "oneplus-13-sandstone-magnetic-case": [
+    "https://image01-in.oneplus.net/media/202503/18/368b38a34792d6911a69d99cfb1fe372.png",
+    "https://image01-in.oneplus.net/media/202503/18/4bb2d1cc3d79064088b850f8e5f1db86.png"
+  ],
+  "nothing-phone-3a": [
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0586/3270/0077/files/Arc1352x1352-Black-Frontback_51c4ed78-fb0a-4956-883d-e9994425a253.png",
+      "color": "Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0586/3270/0077/files/Arc1352x1352-Black-Back_c5c702d2-8ee3-45a5-8f3d-f06e17f21d5e.png",
+      "color": "Black"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0586/3270/0077/files/Arc1352x1352-White-Frontback_4bf64fc6-ec1e-4f28-806b-f8fb9f5ef393.png",
+      "color": "White"
+    },
+    {
+      "url": "https://cdn.shopify.com/s/files/1/0586/3270/0077/files/Arc1352x1352-White-Back_0a52e1df-83e1-42fb-9261-d0c46aab07d2.png",
+      "color": "White"
+    }
+  ],
+  "xiaomi-redmi-note-14-pro-5g": [
+    {
+      "url": "https://i03.appmifile.com/554_item_in/09/12/2024/62494a7f99233f5bc780985b0c5b35c5.png",
+      "color": "Phantom Purple"
+    },
+    {
+      "url": "https://i02.appmifile.com/mi-com-product/fly-birds/redmi-note-14-pro-5g/pc/4e7a2e5f66abe04c4ac91c9cf4f56f60.png",
+      "color": "Phantom Purple"
+    },
+    {
+      "url": "https://i02.appmifile.com/mi-com-product/fly-birds/redmi-note-14-pro-5g/pc/8b536defc4efc8b77aa42a558a1ce643.png",
+      "color": "Titan Black"
+    }
+  ],
+  "xiaomi-20000mah-33w-power-bank-4i": [
+    {
+      "url": "https://i03.appmifile.com/383_item_in/27/08/2024/87b45b5b33d5bb4618d784096a811334.png",
+      "color": "Black"
+    }
+  ],
+  "vivo-v50": [
+    {
+      "url": "https://exstatic-in.vivo.com/Oz84QB3Wo0uns8j1/in/1739430660187/f1f3cb876ce7b4e0a065a12697b0f325.png",
+      "color": "Rose Red"
+    },
+    {
+      "url": "https://exstatic-in.vivo.com/Oz84QB3Wo0uns8j1/in/1739430660193/3e5a37605f1a3e607d0400c68788e095.png",
+      "color": "Rose Red"
+    },
+    {
+      "url": "https://exstatic-in.vivo.com/Oz84QB3Wo0uns8j1/in/1739430601603/90a0a3ed56243528fe85ce7dc69586a8.png",
+      "color": "Titanium Grey"
+    },
+    {
+      "url": "https://exstatic-in.vivo.com/Oz84QB3Wo0uns8j1/in/1739430601498/7ea444162d1cfaf488a4035e4c96a5ed.png",
+      "color": "Titanium Grey"
+    }
+  ],
+  "nokia-105-classic": [
+    {
+      "url": "https://images.ctfassets.net/wcfotm6rrl7u/7FeJIOm2O3vZxP0tp5i5JS/d0f38d71cef73eaef026e3eaa90483c3/nokia-105-charcoal-front_back-int.png?w=1600&fm=png",
+      "color": "Charcoal"
+    },
+    {
+      "url": "https://images.ctfassets.net/wcfotm6rrl7u/7ryMKPp2bzWQwYu51ljoUa/fb4916bccde73d58a5ce8c66bddec897/nokia_105-blue-front_back-int.png?w=1600&fm=png",
+      "color": "Blue"
+    }
+  ],
+  "nokia-110-4g-2024": [
+    {
+      "url": "https://images.ctfassets.net/wcfotm6rrl7u/6MDZM4ppdySrXGHF2AR3ZH/158f4f75ead9cd570af4381f0cba7d30/nokia-110_4G-midnight_black-frontback-int.png?w=1600&fm=png",
+      "color": "Blue"
+    },
+    {
+      "url": "https://images.ctfassets.net/wcfotm6rrl7u/Wvs2HhcVe0Oil0ZG9aHMQ/8ff1107c1fe2e4859609c0279503019e/nokia-110_4G-midnight_black-front-int.png?w=1600&fm=png",
+      "color": "Blue"
+    }
+  ],
+  "lava-a1-josh": [
+    {
+      "url": "https://hotfixapi.lavamobiles.com/storage/media/images/product-gallery/image_path/a1-josh-21-img-1-1705496539.webp",
+      "color": "Black Blue"
+    },
+    {
+      "url": "https://hotfixapi.lavamobiles.com/storage/media/images/product-gallery/image_path/a1-josh-21-img-3-1705496548.webp",
+      "color": "Black Blue"
+    }
+  ],
+  "jbl-tune-520bt": [
+    {
+      "url": "https://mm.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dwb980b623/01.JBL_Tune_520BT_ProductImage_Hero_Black.png",
+      "color": "Black"
+    },
+    {
+      "url": "https://mm.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dw0e0a9038/02.JBL_Tune%20520BT_Product%20Image_Front_Black.png",
+      "color": "Black"
+    },
+    {
+      "url": "https://mm.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dw094c89c5/01.JBL_Tune_520BT_ProductImage_Hero_Blue.png",
+      "color": "Blue"
+    },
+    {
+      "url": "https://mm.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dw648f0355/02.JBL_Tune%20520BT_Product%20Image_Front_Blue.png",
+      "color": "Blue"
+    },
+    {
+      "url": "https://mm.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dw4903f9e9/01.JBL_Tune_520BT_ProductImage_Hero_White.png",
+      "color": "White"
+    },
+    {
+      "url": "https://mm.jbl.com/dw/image/v2/AAUJ_PRD/on/demandware.static/-/Sites-masterCatalog_Harman/default/dw6c5623ed/02.JBL_Tune%20520BT_Product%20Image_Front_White.png",
+      "color": "White"
+    }
+  ]
+}

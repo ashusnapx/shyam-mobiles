@@ -11,6 +11,7 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/widgets/delivery_address.dart';
 import '../../checkout/screens/widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
@@ -131,6 +132,7 @@ class _CartList extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.only(bottom: Space.xl),
         children: [
+          const DeliverToRow(),
           for (final line in lines)
             Dismissible(
               key: ValueKey(line.variant.id),
@@ -152,6 +154,7 @@ class _CartList extends ConsumerWidget {
                 },
                 child: _LineTile(
                   line: line,
+                  onRemove: () => _remove(context, line),
                   onQty: (q) => _report(
                     ScaffoldMessenger.of(context),
                     ref.read(cartProvider.notifier).setQty(line.variant.id, q),
@@ -217,7 +220,7 @@ class _CartList extends ConsumerWidget {
           for (final (icon, text) in [
             (PhosphorIconsRegular.sealCheck, 'No platform, COD or packing fees'),
             (PhosphorIconsRegular.info, 'The final amount is confirmed when you place the order.'),
-            (PhosphorIconsRegular.arrowUUpLeft, 'Swipe an item left to remove it. You can undo.'),
+            (PhosphorIconsRegular.arrowUUpLeft, 'Removed something by mistake? Tap Undo on the message.'),
           ])
             Padding(
               padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
@@ -237,10 +240,11 @@ class _CartList extends ConsumerWidget {
 }
 
 class _LineTile extends StatelessWidget {
-  const _LineTile({required this.line, required this.onQty});
+  const _LineTile({required this.line, required this.onQty, this.onRemove});
 
   final CartLine line;
   final ValueChanged<int> onQty;
+  final VoidCallback? onRemove; // the stepper's bin at its lowest qty
 
   @override
   Widget build(BuildContext context) {
@@ -289,9 +293,27 @@ class _LineTile extends StatelessWidget {
                           min: unavailable ? line.qty : 1,
                           max: unavailable ? line.qty : maxQtyFor(line.variant),
                           onChanged: onQty,
+                          onRemove: onRemove,
                         ),
                       ],
                     ),
+                    // always on screen: swipe-to-remove alone is easy to miss
+                    if (onRemove != null)
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Tooltip(
+                          message: 'Remove ${line.productName} from the cart',
+                          child: TextButton.icon(
+                            onPressed: onRemove,
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                              foregroundColor: c.onSurfaceVariant,
+                            ),
+                            icon: const Icon(PhosphorIconsRegular.trash, size: 18),
+                            label: const Text('Remove'),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

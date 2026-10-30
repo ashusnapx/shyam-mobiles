@@ -236,6 +236,20 @@ void main() {
     await tester.pumpWidget(const SizedBox()); // dispose, so the carousel's timer is cancelled
   });
 
+  testWidgets('featured hero also has Previous and Next buttons, so no swipe is needed', (tester) async {
+    final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
+    await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Next featured'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Featured 2 of 3'), findsOneWidget);
+    await tester.tap(find.byTooltip('Previous featured'));
+    await tester.tap(find.byTooltip('Previous featured'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Featured 3 of 3'), findsOneWidget, reason: 'wraps around');
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('featured carousel keeps one height for every card, so the page never jumps', (tester) async {
     // A long name wraps to two lines; the carousel must still be the same height on every slide.
     final mixed = [cards[0], card('long', 'Samsung Galaxy S25 Ultra Titanium Edition 1 TB', 'Samsung', 129999), cards[1]];

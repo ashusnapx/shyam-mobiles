@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/format.dart';
+import '../../../core/links.dart';
 import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
@@ -88,7 +89,13 @@ class OfferDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final offers = ref.watch(availableOffersProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Offer')),
+      appBar: AppBar(title: const Text('Offer'), actions: [
+        if (offers.value?.where((o) => o.id == offerId).firstOrNull case final o?)
+          ShareButton(
+            what: '${offerHeadline(o)} at Shyam Mobiles: ${o.title}${o.code == null ? '' : ' · code ${o.code}'}',
+            offer: o.id,
+          ),
+      ]),
       body: AsyncBody<List<Offer>>(
         value: offers,
         onRetry: () => ref.invalidate(availableOffersProvider),

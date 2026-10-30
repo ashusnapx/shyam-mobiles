@@ -14,6 +14,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/data/booking_days.dart';
 import '../../repairs/widgets/repair_widgets.dart';
+import '../../feedback/data/feedback.dart';
 import '../data/admin.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
@@ -30,6 +31,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               onRefresh: () => Future.wait([
                 ref.refresh(adminDashboardProvider.future),
                 ref.refresh(needsActionProvider.future),
+                ref.refresh(feedbackNewCountProvider.future),
               ]),
               child: ListView(
                 padding: const EdgeInsets.only(bottom: Space.xl),
@@ -84,6 +86,7 @@ class _Stats extends ConsumerWidget {
     }
     final d = value.value;
     int n(String k) => d?[k] ?? 0;
+    final fresh = ref.watch(feedbackNewCountProvider).value ?? 0; // feedback with status new
     final tiles = [
       _Tile(PhosphorIconsRegular.receipt, 'Orders today', '${n('orders_today')}', '/admin/orders'),
       _Tile(PhosphorIconsRegular.currencyInr, 'Revenue today', shortInr(n('revenue_today_paise')), '/admin/orders'),
@@ -94,6 +97,8 @@ class _Stats extends ConsumerWidget {
       _Tile(PhosphorIconsBold.arrowCounterClockwise, 'Needs refund', '${n('needs_refund')}',
           '/admin/orders?status=needs_refund',
           tone: n('needs_refund') > 0 ? TagTone.bad : null),
+      _Tile(PhosphorIconsRegular.chatCircleText, 'New feedback', '$fresh', '/admin/feedback',
+          tone: fresh > 0 ? TagTone.info : null),
     ];
     return Skeletonizer(
       enabled: d == null,
@@ -110,7 +115,7 @@ class _Stats extends ConsumerWidget {
                     children: [
                       Expanded(child: tiles[i]),
                       const SizedBox(width: Space.sm + 2),
-                      Expanded(child: tiles[i + 1]),
+                      Expanded(child: i + 1 < tiles.length ? tiles[i + 1] : const SizedBox()),
                     ],
                   ),
                 ),

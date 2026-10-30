@@ -13,6 +13,7 @@ import '../features/account/screens/profile_screen.dart';
 import '../features/admin/screens/admin_banners_screen.dart';
 import '../features/admin/screens/admin_catalogue_screen.dart';
 import '../features/admin/screens/admin_dashboard_screen.dart';
+import '../features/admin/screens/admin_feedback_screen.dart';
 import '../features/admin/screens/admin_groups_screen.dart';
 import '../features/admin/screens/admin_offers_screen.dart';
 import '../features/admin/screens/admin_order_screen.dart';
@@ -39,6 +40,8 @@ import '../features/repairs/screens/repair_detail_screen.dart';
 import '../features/repairs/screens/repair_form_screen.dart';
 import '../features/repairs/screens/repairs_screen.dart';
 import '../features/wishlist/screens/wishlist_screen.dart';
+import 'deep_links.dart';
+import 'links.dart';
 import 'supabase.dart';
 import 'widgets/widgets.dart';
 
@@ -64,6 +67,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     refreshListenable: refresh,
     redirect: (context, state) {
+      // a shared link (https://<LINK_HOST>/open?…, shyammobiles://open?…): keep the friend's code, show the page
+      if (openLink(state.uri) case final link?) {
+        if (link.code case final code?) unawaited(ref.read(pendingReferralProvider.notifier).remember(code));
+        return link.to;
+      }
       final signedIn = auth.currentSession != null;
       final path = state.matchedLocation;
       if (!signedIn && _authOnly.any(path.startsWith)) {
@@ -134,6 +142,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                 sub(':id', (s) => AdminBannerEditScreen(bannerId: s.pathParameters['id'])),
               ]),
               sub('settings', (_) => const AdminSettingsScreen()),
+              sub('feedback', (_) => const AdminFeedbackScreen(), routes: [
+                sub(':id', (s) => AdminFeedbackDetailScreen(feedbackId: s.pathParameters['id']!)),
+              ]),
             ]),
           ]),
         ],

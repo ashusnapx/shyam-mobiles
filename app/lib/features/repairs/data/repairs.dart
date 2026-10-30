@@ -3,24 +3,44 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 
-/// The signed-in user's bookings, newest first. Filters on user_id because admins can read every booking.
-final myRepairsProvider = FutureProvider<List<RepairBooking>>((ref) async {
-  final uid = ref.watch(currentUserIdProvider);
-  if (uid == null) return const [];
-  final rows = await ref
-      .watch(supabaseProvider)
-      .from('repair_bookings')
-      .select()
-      .eq('user_id', uid)
-      .order('created_at', ascending: false);
-  return [for (final r in rows) RepairBooking.fromJson(r)];
-});
+/// The signed-in user's bookings, newest first, a page at a time. Filters on user_id because admins can read every
+/// booking.
+final myRepairsProvider = AsyncNotifierProvider<MyRepairsNotifier, Paged<RepairBooking>>(MyRepairsNotifier.new);
 
-/// One booking. RLS limits customers to their own; admins see all, so the admin detail uses this too.
+class MyRepairsNotifier extends PagedNotifier<RepairBooking> {
+  @override
+  Object idOf(RepairBooking b) => b.id;
+
+  @override
+  Future<Paged<RepairBooking>> build() {
+    ref.watch(currentUserIdProvider);
+    return super.build();
+  }
+
+  @override
+  Future<List<RepairBooking>> fetch(int from, int size) async {
+    final uid = ref.read(currentUserIdProvider);
+    if (uid == null) return const [];
+    final rows = await ref
+        .read(supabaseProvider)
+        .from('repair_bookings')
+        .select()
+        .eq('user_id', uid)
+        .order('created_at', ascending: false)
+        .order('id') // ties: no booking repeats or goes missing between pages
+        .range(from, from + size - 1);
+    return [for (final r in rows) RepairBooking.fromJson(r)];
+  }
+}
+
+/// One booking with its timeline. RLS limits customers to their own; admins see all, so the admin detail uses this too.
 final repairProvider = FutureProvider.autoDispose.family<RepairBooking, String>((ref, id) async {
-  final row = await ref.watch(supabaseProvider).from('repair_bookings').select().eq('id', id).single();
+  ref.watch(currentUserIdProvider); // never show one account's booking to the next
+  final row =
+      await ref.watch(supabaseProvider).from('repair_bookings').select('*, events:repair_events(*)').eq('id', id).single();
   return RepairBooking.fromJson(row);
 });
 
@@ -65,3 +85,11 @@ Future<String> bookRepair(
 }
 
 Future<void> cancelRepair(SupabaseClient db, String id) => db.rpc<void>('cancel_repair', params: {'p_booking_id': id});
+
+/// Sends the amount the customer was shown: if staff changed it meanwhile the server refuses (QUOTE_CHANGED).
+Future<void> approveRepairQuote(SupabaseClient db, RepairBooking b) =>
+    db.rpc<void>('approve_repair_quote', params: {'p_booking_id': b.id, 'p_quote_paise': b.quotePaise});
+
+/// [reason] is optional ('' sends none); staff see it on the timeline.
+Future<void> declineRepairQuote(SupabaseClient db, String id, String reason) => db.rpc<void>('decline_repair_quote',
+    params: {'p_booking_id': id, 'p_reason': reason.isEmpty ? null : reason});

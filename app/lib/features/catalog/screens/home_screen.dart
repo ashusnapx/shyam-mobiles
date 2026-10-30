@@ -16,6 +16,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/catalog.dart';
+import '../widgets/product_rail.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/store_links.dart';
 import '../widgets/store_photos.dart';
@@ -97,6 +98,7 @@ class HomeScreen extends ConsumerWidget {
         ),
       SliverToBoxAdapter(key: const ValueKey('banners'), child: const BannerStrip().enter(context, index: 1)),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryGrid(d.categories)),
+      const SliverToBoxAdapter(key: ValueKey('recent'), child: RecentlyViewedRail()),
       SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairCta().enter(context, index: 4)),
       if (d.accessories.isNotEmpty) ...[
         const SliverToBoxAdapter(key: ValueKey('acc-header'), child: SectionHeader('Accessories under ₹1,500')),
@@ -325,27 +327,49 @@ class _HeroCarouselState extends State<_HeroCarousel> {
             ],
           ),
         ),
-        const SizedBox(height: Space.md),
-        Semantics(
-          label: 'Featured ${_index + 1} of $_count',
-          excludeSemantics: true,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < _count; i++)
-                AnimatedContainer(
-                  duration: duration,
-                  curve: Curves.easeOutCubic,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _index ? 18 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _index ? heroGradients[i % heroGradients.length][1] : c.outline,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-            ],
-          ),
+        const SizedBox(height: Space.xs),
+        // buttons as well as the swipe: no action is gesture-only
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              tooltip: 'Previous featured',
+              icon: const Icon(PhosphorIconsBold.caretLeft, size: 18),
+              onPressed: () {
+                _step(-1);
+                _restart();
+              },
+            ),
+            Semantics(
+              label: 'Featured ${_index + 1} of $_count',
+              excludeSemantics: true,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < _count; i++)
+                    AnimatedContainer(
+                      duration: duration,
+                      curve: Curves.easeOutCubic,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == _index ? 18 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: i == _index ? heroGradients[i % heroGradients.length][1] : c.outline,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Next featured',
+              icon: const Icon(PhosphorIconsBold.caretRight, size: 18),
+              onPressed: () {
+                _step(1);
+                _restart();
+              },
+            ),
+          ],
         ),
       ],
     );

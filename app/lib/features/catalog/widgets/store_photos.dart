@@ -117,6 +117,10 @@ class _ViewerState extends State<_Viewer> {
     super.dispose();
   }
 
+  void _go(int i) => MediaQuery.disableAnimationsOf(context)
+      ? _page.jumpToPage(i)
+      : _page.animateToPage(i, duration: Motion.normal, curve: Curves.easeOutCubic);
+
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
@@ -136,6 +140,28 @@ class _ViewerState extends State<_Viewer> {
         ),
         title: Text('${_index + 1} of $n'),
       ),
+      // buttons as well as the swipe: no action is gesture-only
+      bottomNavigationBar: n < 2
+          ? null
+          : SafeArea(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    tooltip: 'Previous photo',
+                    color: c.surface,
+                    onPressed: _index == 0 ? null : () => _go(_index - 1),
+                    icon: const Icon(PhosphorIconsBold.caretLeft),
+                  ),
+                  IconButton(
+                    tooltip: 'Next photo',
+                    color: c.surface,
+                    onPressed: _index == n - 1 ? null : () => _go(_index + 1),
+                    icon: const Icon(PhosphorIconsBold.caretRight),
+                  ),
+                ],
+              ),
+            ),
       body: PageView.builder(
         controller: _page,
         itemCount: n,

@@ -104,7 +104,7 @@ from (values
   ('spigen-ultra-hybrid-iphone-16', 'SP-UH-IP16-CLR', 'Crystal Clear', '{"color":"Crystal Clear","color_hex":"#E8EEF2"}', 1299, 2999, 25, 0),
   ('spigen-ultra-hybrid-iphone-16', 'SP-UH-IP16-MBK', 'Matte Black', '{"color":"Matte Black","color_hex":"#222222"}', 1399, 2999, 10, 1),
   ('spigen-glastr-galaxy-s25', 'SP-GLS-S25-2PK', '2 pack', '{}', 1199, 2499, 30, 0),
-  ('anker-nano-20w-usb-c-charger', 'AN-NANO20-WHT', 'White', '{"color":"White","color_hex":"#F5F5F5"}', 1299, 1999, 20, 0),
+  ('anker-nano-20w-usb-c-charger', 'AN-NANO20-BLK', 'Black', '{"color":"Black","color_hex":"#1F1F1F"}', 1299, 1999, 20, 0),
   ('boat-airdopes-141', 'BT-AD141-BLK', 'Bold Black', '{"color":"Bold Black","color_hex":"#1E1E1E"}', 1099, 4490, 40, 0),
   ('boat-airdopes-141', 'BT-AD141-WHT', 'Pure White', '{"color":"Pure White","color_hex":"#FAFAFA"}', 1099, 4490, 0, 1),
   ('anker-powercore-10000', 'AN-PC10K-BLK', 'Black', '{"color":"Black","color_hex":"#202020"}', 1999, 3999, 2, 0)
@@ -248,7 +248,7 @@ from (values
   ('ambrane-stylo-pro-10000mah', 'AM-STP-10K-BLK', 'Black', '{"color":"Black","color_hex":"#202020"}', 799, 1999, 28, 0),
   ('ambrane-stylo-pro-10000mah', 'AM-STP-10K-BLU', 'Blue', '{"color":"Blue","color_hex":"#2C4F8C"}', 799, 1999, 9, 1),
   ('anker-621-maggo-5000mah', 'AN-621-MG5K-WHT', 'Ice White', '{"color":"Ice White","color_hex":"#F0F2F4"}', 2999, 4999, 5, 0),
-  ('samsung-10000mah-25w-battery-pack', 'SAM-EBP10-GRY', 'Grey', '{"color":"Grey","color_hex":"#6E7074"}', 1999, 2999, 0, 0)
+  ('samsung-10000mah-25w-battery-pack', 'SAM-EBP10-BEG', 'Beige', '{"color":"Beige","color_hex":"#D9CBB3"}', 1999, 2999, 0, 0)
 ) v(product, sku, name, attributes, price, mrp, stock, sort)
 join public.products pr on pr.slug = v.product
 on conflict (sku) do nothing;

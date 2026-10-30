@@ -12,6 +12,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/data/addresses.dart';
+import '../../account/widgets/delivery_address.dart';
 import '../../cart/data/cart.dart';
 import '../../cart/screens/cart_screen.dart' show placeholderCartLine;
 import '../../offers/data/offers.dart';
@@ -43,8 +44,6 @@ String? codUnavailableReason(StoreSettings s, int totalPaise) => !s.codEnabled
         ? null
         : 'Not available for orders above ${formatInr(s.codMaxPaise)}';
 
-const _addNew = 'new';
-
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -53,32 +52,13 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  Address? _picked; // null: the default (first) address
   PaymentMethod _method = PaymentMethod.razorpay;
   bool _showItems = false;
   Quote? _lastQuote; // shown dimmed while a change of payment method re-prices
 
-  Address? _addressFrom(List<Address> list) => _picked == null
-      ? list.firstOrNull
-      // the address form returns the saved row before the list has reloaded
-      : list.where((a) => a.id == _picked!.id).firstOrNull ?? _picked;
+  Future<void> _addAddress() => addDeliveryAddress(context, ref);
 
-  Future<void> _addAddress() async {
-    final a = await context.push<Address>('/account/addresses/new');
-    if (mounted && a?.id != null) setState(() => _picked = a);
-  }
-
-  Future<void> _changeAddress(List<Address> list, Address current) async {
-    final picked = await showModalBottomSheet<Object>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _AddressSheet(addresses: list, selectedId: current.id),
-    );
-    if (!mounted) return;
-    if (picked is Address) setState(() => _picked = picked);
-    if (picked == _addNew) await _addAddress();
-  }
+  Future<void> _changeAddress(List<Address> list, Address current) => changeDeliveryAddress(context, ref, list, current);
 
   Future<void> _submit(String addressId, PaymentMethod method, String? couponCode) async {
     final router = GoRouter.of(context);
@@ -101,7 +81,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (e is PostgrestException && e.message == 'COD_UNAVAILABLE') ref.invalidate(storeSettingsProvider);
       if (e is PostgrestException && e.message == 'ADDRESS_NOT_FOUND') {
         ref.invalidate(addressesProvider);
-        setState(() => _picked = null);
+        ref.read(selectedAddressProvider.notifier).set(null);
       }
       return;
     }
@@ -140,7 +120,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           });
         }
         final method = codReason == null ? _method : PaymentMethod.razorpay;
-        final address = _addressFrom(list);
+        final address = deliveryAddressFrom(list, ref.watch(selectedAddressProvider));
         final cartOk = lines.every((l) => l.purchasable);
         final button = checkoutButton(
           method: method,
@@ -565,55 +545,6 @@ class _PayOption extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _AddressSheet extends StatelessWidget {
-  const _AddressSheet({required this.addresses, required this.selectedId});
-
-  final List<Address> addresses;
-  final String? selectedId;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final t = Theme.of(context).textTheme;
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.sm),
-            child: Semantics(header: true, child: Text('Deliver to', style: t.titleLarge)),
-          ),
-          Flexible(
-            child: RadioGroup<String>(
-              groupValue: selectedId,
-              onChanged: (id) => Navigator.pop(context, addresses.firstWhere((a) => a.id == id)),
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final a in addresses)
-                    RadioListTile<String>(
-                      value: a.id!,
-                      title: Text(a.name),
-                      subtitle: Text('${a.oneLine}\n${displayPhone(a.phone)}'),
-                      isThreeLine: true,
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: Icon(PhosphorIconsRegular.plus, color: c.primary),
-            title: Text('Add new address', style: t.titleSmall?.copyWith(color: c.primary)),
-            onTap: () => Navigator.pop(context, _addNew),
-          ),
-        ],
       ),
     );
   }

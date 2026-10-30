@@ -45,6 +45,23 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Shared links (lib/core/links.dart) open here; Flutter hands the URI to go_router, whose redirect sends
+                 /open?p=&o=&ref= to the product, offer or Home. App Link: linkHost is LINK_HOST from the build's env
+                 JSON (build.gradle.kts); verified by build/site/.well-known/assetlinks.json (scripts/launch.py). -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="${linkHost}" android:path="/open"/>
+            </intent-filter>
+            <!-- shyammobiles://open?…: site/open.html's intent:// button, and adb testing -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="shyammobiles" android:host="open"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

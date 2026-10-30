@@ -69,14 +69,15 @@ class ProductCard {
 }
 
 class ProductPhoto {
-  const ProductPhoto({required this.id, required this.path, this.sort = 0});
+  const ProductPhoto({required this.id, required this.path, this.sort = 0, this.color});
 
   final String id;
   final String path;
   final int sort;
+  final String? color; // a variant colour ("Navy"); null: shows for every colour
 
   factory ProductPhoto.fromJson(Map<String, dynamic> j) =>
-      ProductPhoto(id: j['id'], path: j['path'], sort: j['sort'] ?? 0);
+      ProductPhoto(id: j['id'], path: j['path'], sort: j['sort'] ?? 0, color: j['color']);
 }
 
 class Spec {

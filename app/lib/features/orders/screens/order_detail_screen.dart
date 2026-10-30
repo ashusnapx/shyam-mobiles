@@ -17,6 +17,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
 import '../../checkout/data/payment.dart';
 import '../../checkout/screens/widgets.dart';
+import '../../feedback/widgets/feedback_widgets.dart';
 import '../data/orders.dart';
 
 String _paymentLine(Order o) => switch ((o.paymentMethod, o.paymentStatus)) {
@@ -96,6 +97,11 @@ class _OrderBody extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
           child: _Timeline(steps: buildTimeline(o)),
         ),
+        if (o.status == OrderStatus.delivered)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
+            child: RateCard(title: 'How was your order?', orderId: o.id),
+          ),
         const SectionHeader('Items'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.lg),

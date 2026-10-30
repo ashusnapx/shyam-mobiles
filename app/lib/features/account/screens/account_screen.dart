@@ -13,6 +13,8 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../auth/data/google.dart';
+import '../../feedback/data/feedback.dart';
+import '../../feedback/widgets/feedback_widgets.dart';
 import '../widgets/policies.dart';
 import '../data/profile.dart';
 
@@ -133,6 +135,17 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   subtitle: 'Give ${formatInr(s.referralFriendPaise)}, get ${formatInr(s.referralRewardPaise)}'),
             row(PhosphorIconsRegular.mapPin, 'Addresses', () => context.push('/account/addresses')),
             row(PhosphorIconsRegular.userCircle, 'Profile', () => context.push('/account/profile')),
+            row(
+              PhosphorIconsRegular.chatCircleText,
+              'Send feedback',
+              () => showFeedbackSheet(
+                context,
+                title: 'Send feedback',
+                kinds: const [FeedbackKind.general, FeedbackKind.bug],
+                hint: 'What’s on your mind?',
+              ),
+              subtitle: 'An idea, or something not working',
+            ),
             const SectionHeader('Store'),
             const Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: _StoreCard()),
             const SectionHeader('About & policies'),

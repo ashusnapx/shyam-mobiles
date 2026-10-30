@@ -322,12 +322,14 @@ Future<void> _removeQuietly(StorageFileApi bucket, List<String> paths) async {
 }
 
 /// Uploads the photo and its thumb, then adds the product_images row (removing the files if that fails).
-Future<({int before, int after})> addProductImage(WidgetRef ref, String productId, Uint8List original, int sort) async {
+/// [color]: the variant colour it shows (null: every colour).
+Future<({int before, int after})> addProductImage(WidgetRef ref, String productId, Uint8List original, int sort,
+    {String? color}) async {
   final db = _db(ref);
   final bucket = db.storage.from('product-images');
   final up = await _uploadPhoto(bucket, productId, original);
   try {
-    await db.from('product_images').insert({'product_id': productId, 'path': up.path, 'sort': sort});
+    await db.from('product_images').insert({'product_id': productId, 'path': up.path, 'sort': sort, 'color': color});
   } catch (_) {
     await _removeQuietly(bucket, [up.path, thumbPathFor(up.path)!]);
     rethrow;
@@ -350,6 +352,12 @@ Future<void> reorderImages(WidgetRef ref, String productId, List<ProductPhoto> o
   for (final (i, image) in ordered.indexed) {
     if (image.sort != i) await db.from('product_images').update({'sort': i}).eq('id', image.id);
   }
+  _productChanged(ref, productId);
+}
+
+/// Which colour a photo shows: one of the variants' colours, or null for every colour.
+Future<void> setImageColor(WidgetRef ref, String productId, ProductPhoto image, String? color) async {
+  await _db(ref).from('product_images').update({'color': color}).eq('id', image.id);
   _productChanged(ref, productId);
 }
 

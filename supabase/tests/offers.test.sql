@@ -280,7 +280,7 @@ select tests.login('alice');
 select tests.cart('1');
 select is(tests.q(null, 'cod'), '1000000/0/50000/950000/Ends soon/-', 'best automatic sale; ₹500 tie broken by the earliest end');
 select is(tests.q(null, 'razorpay'), '1000000/0/60000/940000/Online deal/-', 'online-only sale when paying online');
-select is(tests.q('FLAT100', 'razorpay'), '1000000/0/10000/990000/FLAT100/-', 'a valid typed code wins over a bigger sale');
+select is(tests.q('FLAT100', 'razorpay'), '1000000/0/60000/940000/Online deal/COUPON_BETTER_OFFER', 'a weaker typed code gives way to the bigger sale');
 select is(tests.q('NOPE2', 'razorpay'), '1000000/0/60000/940000/Online deal/COUPON_NOT_FOUND', 'a bad code reports its error and falls back to the sale');
 select lives_ok($$select tests.keep('auto', tests.place('cod'))$$, 'order with an automatic sale');
 select results_eq($$select discount_paise, total_paise, promotion_id, coupon_code from public.orders where id = tests.id('auto')$$,
