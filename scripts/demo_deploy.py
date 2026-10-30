@@ -126,7 +126,7 @@ class Deploy:
     def catalogue(self):
         step('sample catalogue, offers and banners (conflict-safe)')
         seed = (ROOT / 'supabase/seed.sql').read_text()
-        products = seed[seed.index('-- Five products in every category'):seed.index('-- The shop: ')]
+        products = seed[seed.index('-- More products in every category'):seed.index('-- The shop: ')]
         offers = seed[seed.index('-- Offers (docs/SPEC.md'):]
         fixes = ("update public.variants set sku = 'AN-NANO20-BLK', name = 'Black', "
                  "attributes = '{\"color\":\"Black\",\"color_hex\":\"#1F1F1F\"}' where sku = 'AN-NANO20-WHT';\n"
