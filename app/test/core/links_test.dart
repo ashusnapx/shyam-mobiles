@@ -137,7 +137,7 @@ void main() {
     });
 
     test('a REFERRAL_* refusal drops it quietly; a network failure keeps it for next time', () async {
-      api.referralError = PostgrestException(message: 'REFERRAL_SELF');
+      api.referralError = const PostgrestException(message: 'REFERRAL_SELF');
       await start(prefs: {'pending_referral': 'ABCD1234'});
       expect(api.calls, ['referral ABCD1234']);
       expect(await kept(), isNull);

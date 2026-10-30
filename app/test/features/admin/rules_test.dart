@@ -42,6 +42,46 @@ void main() {
     ]);
   });
 
+  group('repair steps (admin_update_repair, admin_set_repair_quote)', () {
+    RepairBooking b(RepairStatus s, RepairQuoteStatus q) => RepairBooking(
+          id: '1',
+          number: 'RP100012',
+          deviceBrand: 'Vivo',
+          deviceModel: 'Y20',
+          issue: RepairIssue.battery,
+          preferredDate: DateTime(2026, 10, 30),
+          slot: RepairSlot.evening,
+          contactPhone: '+919876543210',
+          status: s,
+          createdAt: DateTime(2026, 10, 29),
+          quotePaise: q == RepairQuoteStatus.none ? null : 20000,
+          quoteStatus: q,
+        );
+
+    test('starting and finishing the work wait for an approved quote, nothing else does', () {
+      for (final s in RepairStatus.values) {
+        for (final q in RepairQuoteStatus.values) {
+          final gated = (s == RepairStatus.confirmed || s == RepairStatus.inProgress) && q != RepairQuoteStatus.approved;
+          expect(repairStepBlocker(b(s, q)) != null, gated, reason: '${s.value} ${q.value}');
+        }
+      }
+      expect(repairStepBlocker(b(RepairStatus.confirmed, RepairQuoteStatus.pending)), 'Waiting for the customer to approve ₹200.');
+      expect(repairStepBlocker(b(RepairStatus.inProgress, RepairQuoteStatus.declined)), contains('declined ₹200'));
+      expect(repairStepBlocker(b(RepairStatus.confirmed, RepairQuoteStatus.none)), startsWith('Send a quote first'));
+    });
+
+    test('quotes only before the repair is ready', () {
+      expect([for (final s in RepairStatus.values) if (canQuoteRepair(s)) s],
+          [RepairStatus.requested, RepairStatus.confirmed, RepairStatus.inProgress]);
+    });
+
+    test('the WhatsApp text follows the quote', () {
+      expect(repairUpdateText(b(RepairStatus.confirmed, RepairQuoteStatus.approved)), endsWith('Agreed price: ₹200.'));
+      expect(repairUpdateText(b(RepairStatus.confirmed, RepairQuoteStatus.declined)), contains('You declined the quote of ₹200.'));
+      expect(repairUpdateText(b(RepairStatus.completed, RepairQuoteStatus.approved)), isNot(contains('₹')));
+    });
+  });
+
   group('rupees <-> paise', () {
     test('parses plain, grouped, symbol and decimal input', () {
       expect(parseRupees('74999'), 7499900);
@@ -167,11 +207,13 @@ void main() {
         status: RepairStatus.confirmed,
         createdAt: DateTime(2026, 10, 29),
         quotePaise: 249900,
+        quoteStatus: RepairQuoteStatus.pending,
       );
       expect(
         repairUpdateText(b),
         'Hi, your Shyam Mobiles repair RP100012 (Samsung Galaxy S23) is confirmed for Fri 30 Oct, afternoon '
-        '(1 pm – 5 pm). Quote: ₹2,499. Work starts only after you approve it.',
+        '(1 pm – 5 pm). Quote: ₹2,499. Approve or decline it in the app under Repairs. Work starts only after you '
+        'approve it.',
       );
     });
   });

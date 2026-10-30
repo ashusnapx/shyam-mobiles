@@ -302,7 +302,7 @@ def setup_catalog(staff: Actor) -> None:
 def anon_checks(alice_order: str) -> None:
     section('anon')
     for t in ('profiles', 'admins', 'wishlist', 'cart_items', 'addresses', 'orders', 'order_items', 'order_events',
-              'payment_events', 'repair_bookings'):
+              'payment_events', 'repair_bookings', 'repair_events'):
         r = ANON.get(f'{t}?select=*&limit=1')
         check(f'anon cannot read {t}', r.status == 401, r)
     r = ANON.get(f'products?select=id&id=in.({P["phone"]},{P["retired"]})')
@@ -905,20 +905,47 @@ def lifecycle(staff: Actor, alice: Actor, bob: Actor, addrs: dict, functions: bo
     check('alice books a repair', rep.status == 201 and rep.body[0]['status'] == 'requested' and rep.body[0]['number'].startswith('RP'), rep)
     rid = rep.body[0]['id']
     REPAIRS.append(rid)
-    check('alice cannot quote or confirm her own repair', alice.patch(f'repair_bookings?id=eq.{rid}', {'status': 'completed', 'quote_paise': 0}).body == [])
-    r = staff.patch(f'repair_bookings?id=eq.{rid}', {'status': 'confirmed', 'quote_paise': 150000, 'admin_note': 'Battery ₹1,500'})
-    check('staff quotes and confirms', r.status == 200 and alice.one(f'repair_bookings?id=eq.{rid}')['quote_paise'] == 150000, r)
+    check('alice cannot quote or confirm her own repair', denied(alice.patch(f'repair_bookings?id=eq.{rid}', {'status': 'completed', 'quote_paise': 0})))
+    check('staff cannot skip the steps with a direct write', denied(staff.patch(f'repair_bookings?id=eq.{rid}', {'status': 'completed'})))
+
+    def step(booking, status, note=None):
+        return staff.rpc('admin_update_repair', {'p_booking_id': booking, 'p_status': status, 'p_note': note})
+
+    def quote(booking, paise, approved=False):
+        return staff.rpc('admin_set_repair_quote', {'p_booking_id': booking, 'p_quote_paise': paise, 'p_approved': approved})
+
+    check('alice cannot move her own repair', code(alice.rpc('admin_update_repair', {'p_booking_id': rid, 'p_status': 'confirmed'})) == 'FORBIDDEN')
+    check('staff confirm', step(rid, 'confirmed', 'Bring the charger').status in (200, 204))
+    r = quote(rid, 150000)
+    b = alice.one(f'repair_bookings?id=eq.{rid}')
+    check('staff quote ₹1,500, waiting for alice', r.status in (200, 204) and (b['quote_paise'], b['quote_status']) == (150000, 'pending'), r)
     check('alice cancels the confirmed repair', alice.rpc('cancel_repair', {'p_booking_id': rid}).status in (200, 204)
           and alice.one(f'repair_bookings?id=eq.{rid}')['status'] == 'cancelled')
     check('cancel twice -> INVALID_TRANSITION', code(alice.rpc('cancel_repair', {'p_booking_id': rid})) == 'INVALID_TRANSITION')
     rid2 = alice.post('repair_bookings', base).body[0]['id']
     REPAIRS.append(rid2)
-    for st in ('confirmed', 'in_progress'):
-        staff.patch(f'repair_bookings?id=eq.{rid2}', {'status': st})
+    step(rid2, 'confirmed')
+    check('no work before a quote', code(step(rid2, 'in_progress')) == 'QUOTE_NOT_APPROVED')
+    quote(rid2, 20000)
+    check('no work while the quote waits', code(step(rid2, 'in_progress')) == 'QUOTE_NOT_APPROVED')
+    check("bob cannot approve alice's quote", code(bob.rpc('approve_repair_quote', {'p_booking_id': rid2, 'p_quote_paise': 20000})) == 'NOT_FOUND')
+    check('approving a price alice did not see -> QUOTE_CHANGED',
+          code(alice.rpc('approve_repair_quote', {'p_booking_id': rid2, 'p_quote_paise': 15000})) == 'QUOTE_CHANGED')
+    check('alice declines with a reason', alice.rpc('decline_repair_quote', {'p_booking_id': rid2, 'p_reason': 'Too costly'}).status in (200, 204)
+          and alice.one(f'repair_bookings?id=eq.{rid2}')['quote_status'] == 'declined')
+    quote(rid2, 18000)
+    check('alice approves the new quote', alice.rpc('approve_repair_quote', {'p_booking_id': rid2, 'p_quote_paise': 18000}).status in (200, 204))
+    check('staff start the repair', step(rid2, 'in_progress').status in (200, 204))
     check('in-progress repair cannot be cancelled by the customer', code(alice.rpc('cancel_repair', {'p_booking_id': rid2})) == 'INVALID_TRANSITION')
+    check('no jumping to completed', code(step(rid2, 'completed')) == 'INVALID_TRANSITION')
     for st in ('ready', 'completed'):
-        staff.patch(f'repair_bookings?id=eq.{rid2}', {'status': st})
+        step(rid2, st)
     check('staff completes it', alice.one(f'repair_bookings?id=eq.{rid2}')['status'] == 'completed')
+    ev = alice.get(f'repair_events?booking_id=eq.{rid2}&order=id').body
+    check('alice reads the whole timeline', [(e['status'], e['quote_status']) for e in ev] == [
+        ('requested', None), ('confirmed', None), ('confirmed', 'pending'), ('confirmed', 'declined'), ('confirmed', 'pending'),
+        ('confirmed', 'approved'), ('in_progress', None), ('ready', None), ('completed', None)] and ev[3]['note'] == 'Too costly', ev)
+    check("bob cannot read alice's timeline", bob.get(f'repair_events?booking_id=eq.{rid2}').body == [])
 
 
 def offers_checks(staff: Actor, alice: Actor, bob: Actor, carol: Actor, dave: Actor, addrs: dict, functions: bool) -> None:

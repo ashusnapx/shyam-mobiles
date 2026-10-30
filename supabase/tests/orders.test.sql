@@ -191,9 +191,9 @@ insert into public.repair_bookings (user_id, device_brand, device_model, issue, 
   ('11111111-1111-1111-1111-111111111111', 'Apple', 'iPhone 12', 'screen', current_date, 'morning', '+919876543210', 'in_progress'),
   ('11111111-1111-1111-1111-111111111111', 'Apple', 'iPhone 11', 'battery', current_date, 'morning', '+919876543210', 'completed');
 select tests.login('staff');
--- orders: rzp cancelled, cod refunded, big cancelled, two confirmed (100000); low stock: T-CHEAP 1, T-EMPTY 0
+-- orders: rzp cancelled, cod refunded, big cancelled, two confirmed (100000); low stock: T-CHEAP 1, T-EMPTY 0 (one product)
 select is(public.admin_dashboard()::jsonb,
-  '{"orders_today": 1, "revenue_today_paise": 100000, "open_orders": 1, "low_stock": 2, "open_repairs": 1, "needs_refund": 0}'::jsonb,
+  '{"orders_today": 1, "revenue_today_paise": 100000, "open_orders": 1, "low_stock": 1, "open_repairs": 1, "needs_refund": 0, "repairs_awaiting_approval": 0}'::jsonb,
   'dashboard numbers');
 select tests.login('anon');
 select throws_ok('select public.admin_dashboard()', '42501', null, 'anon cannot call admin_dashboard');
@@ -210,7 +210,8 @@ select lives_ok($$select public.cancel_repair('90000000-0000-0000-0000-000000000
 select is((select status::text from public.repair_bookings where id = '90000000-0000-0000-0000-000000000001'), 'cancelled', 'repair cancelled');
 select throws_ok($$select public.cancel_repair(id) from public.repair_bookings where status = 'in_progress'$$, 'P0001', 'INVALID_TRANSITION', 'in-progress repairs cannot be cancelled');
 select tests.login('staff');
-select lives_ok($$update public.repair_bookings set status = 'confirmed' where id = '90000000-0000-0000-0000-000000000001'$$, 'staff can update repairs');
+select throws_ok($$update public.repair_bookings set status = 'confirmed' where id = '90000000-0000-0000-0000-000000000001'$$, '42501', null,
+  'staff cannot update repairs directly (admin_update_repair, repair_flow.test.sql)');
 
 select * from finish();
 rollback;

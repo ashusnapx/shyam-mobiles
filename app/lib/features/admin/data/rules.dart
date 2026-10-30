@@ -15,13 +15,33 @@ const orderTransitions = <OrderStatus, List<OrderStatus>>{
 
 List<OrderStatus> nextOrderStatuses(OrderStatus s) => orderTransitions[s] ?? const [];
 
-/// Repair forward step (SPEC state machine). Any open booking can also be cancelled.
+/// Mirrors `admin_update_repair` (supabase/migrations/20261030000300_repair_flow.sql): the forward step from each
+/// open status. Any open booking can also be cancelled.
 const repairNextStep = <RepairStatus, RepairStatus>{
   RepairStatus.requested: RepairStatus.confirmed,
   RepairStatus.confirmed: RepairStatus.inProgress,
   RepairStatus.inProgress: RepairStatus.ready,
   RepairStatus.ready: RepairStatus.completed,
 };
+
+/// `admin_set_repair_quote` accepts a quote only before the repair is ready.
+bool canQuoteRepair(RepairStatus s) =>
+    s == RepairStatus.requested || s == RepairStatus.confirmed || s == RepairStatus.inProgress;
+
+/// Why staff can't take the forward step yet, or null. Mirrors QUOTE_NOT_APPROVED: starting the repair and marking it
+/// ready need the customer's yes to the current quote.
+String? repairStepBlocker(RepairBooking b) {
+  final next = repairNextStep[b.status];
+  if ((next != RepairStatus.inProgress && next != RepairStatus.ready) || b.quoteStatus == RepairQuoteStatus.approved) {
+    return null;
+  }
+  final quote = b.quotePaise == null ? '' : formatInr(b.quotePaise!);
+  return switch (b.quoteStatus) {
+    RepairQuoteStatus.pending => 'Waiting for the customer to approve $quote.',
+    RepairQuoteStatus.declined => 'The customer declined $quote. Send a new quote, or cancel.',
+    _ => 'Send a quote first. Work starts once the customer approves it.',
+  };
+}
 
 /// DB columns are int4.
 const _maxPaise = 2147483647;
@@ -145,9 +165,16 @@ String repairUpdateText(RepairBooking b) {
     RepairStatus.completed => 'completed. Thank you',
     RepairStatus.cancelled => 'cancelled',
   };
-  final quote = b.quotePaise == null || !b.status.isOpen
+  final price = b.quotePaise == null ? '' : formatInr(b.quotePaise!);
+  final quote = !b.status.isOpen
       ? ''
-      : ' Quote: ${formatInr(b.quotePaise!)}. Work starts only after you approve it.';
+      : switch (b.quoteStatus) {
+          RepairQuoteStatus.none => '',
+          RepairQuoteStatus.pending =>
+            ' Quote: $price. Approve or decline it in the app under Repairs. Work starts only after you approve it.',
+          RepairQuoteStatus.approved => ' Agreed price: $price.',
+          RepairQuoteStatus.declined => ' You declined the quote of $price. Reply here or call us to talk it over.',
+        };
   return 'Hi, your Shyam Mobiles repair ${b.number} (${b.deviceBrand} ${b.deviceModel}) is $where.$quote';
 }
 

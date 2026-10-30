@@ -8,7 +8,7 @@ import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/data/repairs.dart';
-import '../../repairs/screens/repair_detail_screen.dart' show RepairStatusHero;
+import '../../repairs/screens/repair_detail_screen.dart' show RepairHistory, RepairStatusHero, RepairTimeline;
 import '../../repairs/widgets/repair_widgets.dart';
 import '../data/admin.dart';
 import '../data/rules.dart';
@@ -30,15 +30,28 @@ class AdminRepairScreen extends ConsumerWidget {
           value: value,
           onRetry: () => ref.invalidate(provider),
           loading: const Center(child: CircularProgressIndicator()),
-          data: (b) => _Body(booking: b),
+          // keyed by the quote so a refresh after a write refills the quote field
+          data: (b) => RefreshIndicator(
+            onRefresh: () => ref.refresh(provider.future),
+            child: _Body(key: ValueKey('${b.id} ${b.quotePaise}'), booking: b),
+          ),
         ),
       ),
     );
   }
 }
 
+/// The next step's button label, by the status it moves to.
+String _stepLabel(RepairStatus to) => switch (to) {
+      RepairStatus.confirmed => 'Confirm booking',
+      RepairStatus.inProgress => 'Start repair',
+      RepairStatus.ready => 'Ready for pickup',
+      RepairStatus.completed => 'Mark completed',
+      _ => to.label,
+    };
+
 class _Body extends ConsumerStatefulWidget {
-  const _Body({required this.booking});
+  const _Body({super.key, required this.booking});
 
   final RepairBooking booking;
 
@@ -51,7 +64,7 @@ class _BodyState extends ConsumerState<_Body> {
   late final _quote = TextEditingController(
     text: widget.booking.quotePaise == null ? '' : rupeesText(widget.booking.quotePaise!),
   );
-  late final _note = TextEditingController(text: widget.booking.adminNote ?? '');
+  final _note = TextEditingController();
   bool _busy = false;
 
   @override
@@ -61,9 +74,9 @@ class _BodyState extends ConsumerState<_Body> {
     super.dispose();
   }
 
-  Future<void> _write(String done, Map<String, dynamic> changes) async {
+  Future<void> _write(String done, Future<void> Function() write) async {
     try {
-      await updateRepair(ref, widget.booking.id, changes);
+      await write();
       if (mounted) showMessage(context, done);
     } catch (e) {
       if (mounted) showMessage(context, adminError(e));
@@ -81,27 +94,60 @@ class _BodyState extends ConsumerState<_Body> {
     }
   }
 
-  Future<void> _setStatus(RepairStatus to) async {
-    if (to == RepairStatus.cancelled &&
+  RepairBooking get _b => widget.booking;
+
+  Future<void> _step(RepairStatus to) async {
+    if (to == RepairStatus.completed &&
         !await confirmAction(
           context,
-          title: 'Cancel ${widget.booking.number}?',
-          message: 'The customer sees the booking as cancelled.',
-          action: 'Cancel booking',
-          cancel: 'Keep booking',
-          destructive: true,
+          title: 'Mark ${_b.number} completed?',
+          message: 'Only once the customer has collected the phone.',
+          action: 'Mark completed',
         )) {
       return;
     }
-    await _write('Marked ${to.label.toLowerCase()}', {'status': to.value});
+    if (!mounted) return;
+    await _write('Marked ${to.label.toLowerCase()}', () => updateRepairStatus(ref, _b.id, to));
   }
 
-  Future<void> _saveQuote() async {
+  Future<void> _cancel() async {
+    final reason = await askReason(
+      context,
+      title: 'Cancel ${_b.number}?',
+      message: 'The customer sees the booking as cancelled, with your reason.',
+      action: 'Cancel booking',
+      keep: 'Keep booking',
+    );
+    if (reason == null || !mounted) return;
+    await _write('Booking cancelled',
+        () => updateRepairStatus(ref, _b.id, RepairStatus.cancelled, note: 'Cancelled by the store: $reason'));
+  }
+
+  Future<void> _sendQuote() async {
     if (!_form.currentState!.validate()) return;
+    final paise = parseRupees(_quote.text)!;
+    final changing = _b.quotePaise != null;
+    await _write(changing ? 'New quote sent' : 'Quote sent', () => setRepairQuote(ref, _b.id, paise));
+  }
+
+  Future<void> _approvedInPerson() async {
+    final quote = formatInr(_b.quotePaise!);
+    final ok = await confirmAction(
+      context,
+      title: 'Customer agreed to $quote?',
+      message: 'Only if they said yes at the counter or on the phone. Their timeline shows it as agreed with the store.',
+      action: 'They agreed',
+    );
+    if (!ok || !mounted) return;
+    await _write('Recorded as approved', () => setRepairQuote(ref, _b.id, _b.quotePaise!, approved: true));
+  }
+
+  Future<void> _sendNote() async {
     final note = tidy(_note.text, multiline: true);
-    await _write('Saved', {
-      'quote_paise': _quote.text.trim().isEmpty ? null : parseRupees(_quote.text),
-      'admin_note': note.isEmpty ? null : note,
+    if (note.isEmpty) return showMessage(context, 'Write the note first.');
+    await _write('Note sent', () async {
+      await updateRepairStatus(ref, _b.id, _b.status, note: note);
+      _note.clear();
     });
   }
 
@@ -111,30 +157,100 @@ class _BodyState extends ConsumerState<_Body> {
     final c = Theme.of(context).colorScheme;
     final b = widget.booking;
     final next = repairNextStep[b.status];
+    final blocker = repairStepBlocker(b);
+    final declineReason =
+        b.quoteDeclined ? b.events.where((e) => e.quoteStatus == RepairQuoteStatus.declined).lastOrNull?.note : null;
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, Space.xl + MediaQuery.paddingOf(context).bottom),
       children: [
         RepairStatusHero(booking: b),
-        if (b.status.isOpen) ...[
+        if (b.awaitingApproval) ...[
           const SizedBox(height: Space.md),
-          Row(
-            children: [
-              if (next != null)
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _busy ? null : () => _once(() => _setStatus(next)),
-                    child: Text('Mark ${next.label.toLowerCase()}'),
-                  ),
-                ),
-              const SizedBox(width: Space.sm),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(foregroundColor: c.error),
-                onPressed: _busy ? null : () => _once(() => _setStatus(RepairStatus.cancelled)),
-                child: const Text('Cancel'),
-              ),
-            ],
+          NoteBox('Waiting for the customer to approve ${formatInr(b.quotePaise!)} in the app.',
+              icon: PhosphorIconsFill.hourglassMedium),
+        ],
+        if (b.quoteDeclined) ...[
+          const SizedBox(height: Space.md),
+          NoteBox(
+            'The customer declined ${formatInr(b.quotePaise!)}${declineReason == null ? '' : ': “$declineReason”'}. '
+            'Call them, then send a new quote or cancel.',
+            tone: TagTone.bad,
+            icon: PhosphorIconsFill.xCircle,
           ),
         ],
+        if (b.status.isOpen) ...[
+          const SizedBox(height: Space.md),
+          if (next != null)
+            FilledButton(
+              onPressed: _busy || blocker != null ? null : () => _once(() => _step(next)),
+              child: Text(_stepLabel(next)),
+            ),
+          if (blocker != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.xs),
+              child: Text(blocker, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+            ),
+          const SizedBox(height: Space.sm),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(foregroundColor: c.error, side: BorderSide(color: c.error)),
+            onPressed: _busy ? null : () => _once(_cancel),
+            icon: const Icon(PhosphorIconsRegular.xCircle),
+            label: const Text('Cancel booking'),
+          ),
+        ],
+        if (canQuoteRepair(b.status)) ...[
+          const ListSection('Quote'),
+          Form(
+            key: _form,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _quote,
+                  decoration: const InputDecoration(labelText: 'Price for the customer', prefixText: '₹ '),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: const [RupeesFormatter(maxDigits: 7)],
+                  validator: (v) => rupeesError(v, maxPaise: maxAmountPaise),
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  b.quotePaise == null
+                      ? 'The customer approves or declines it in the app. Work starts only after they approve.'
+                      : 'A new price waits for the customer again, even mid-repair.',
+                  style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
+                ),
+                const SizedBox(height: Space.sm),
+                FilledButton.tonal(
+                  onPressed: _busy ? null : () => _once(_sendQuote),
+                  child: Text(b.quotePaise == null ? 'Send quote' : 'Change quote'),
+                ),
+                if (b.awaitingApproval || b.quoteDeclined)
+                  TextButton(
+                    onPressed: _busy ? null : () => _once(_approvedInPerson),
+                    child: const Text('Customer agreed in person or by phone'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        const ListSection('Note to the customer'),
+        TextField(
+          controller: _note,
+          decoration: InputDecoration(
+            labelText: 'Shown on their timeline',
+            counter: LengthCounter(_note, MaxLen.note),
+          ),
+          minLines: 2,
+          maxLines: 5,
+          inputFormatters: textInput(MaxLen.note, multiline: true),
+          textCapitalization: TextCapitalization.sentences,
+        ),
+        const SizedBox(height: Space.sm),
+        FilledButton.tonal(
+          onPressed: _busy ? null : () => _once(_sendNote),
+          child: const Text('Send note'),
+        ),
         const ListSection('Customer'),
         Card(
           child: Column(
@@ -166,47 +282,18 @@ class _BodyState extends ConsumerState<_Body> {
               if (b.description.isNotEmpty) InfoRow('Customer notes', b.description),
               InfoRow('Slot', '${repairWhen(b)} (${b.slot.hours})'),
               InfoRow('Booked', formatDateTime(b.createdAt)),
+              if (b.quotePaise != null && !canQuoteRepair(b.status)) InfoRow('Price', formatInr(b.quotePaise!), strong: true),
             ],
           ),
         ),
-        const ListSection('Quote and note'),
-        Form(
-          key: _form,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _quote,
-                decoration: const InputDecoration(labelText: 'Quote', prefixText: '₹ ', hintText: 'Blank until inspected'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: const [RupeesFormatter(maxDigits: 7)],
-                textInputAction: TextInputAction.next,
-                validator: (v) => rupeesError(v, maxPaise: maxAmountPaise, optional: true),
-              ),
-              const SizedBox(height: Space.md),
-              TextFormField(
-                controller: _note,
-                decoration: InputDecoration(
-                  labelText: 'Note for the customer (optional)',
-                  counter: LengthCounter(_note, MaxLen.note),
-                ),
-                minLines: 2,
-                maxLines: 5,
-                inputFormatters: textInput(MaxLen.note, multiline: true),
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              Text(
-                'The customer sees the quote and note in the app. Work starts only after they approve the price.',
-                style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
-              ),
-              const SizedBox(height: Space.md),
-              FilledButton.tonal(
-                onPressed: _busy ? null : () => _once(_saveQuote),
-                child: const Text('Save quote and note'),
-              ),
-            ],
-          ),
-        ),
+        if (b.status != RepairStatus.cancelled) ...[
+          const ListSection('Progress'),
+          RepairTimeline(booking: b, hint: false),
+        ],
+        if (b.events.isNotEmpty) ...[
+          const ListSection('Timeline'),
+          RepairHistory(events: b.events),
+        ],
       ],
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shyam_mobiles/core/models/models.dart';
+import 'package:shyam_mobiles/features/feedback/data/feedback.dart';
 import 'package:shyam_mobiles/features/repairs/data/repairs.dart';
 import 'package:shyam_mobiles/features/repairs/screens/repair_detail_screen.dart';
 import 'package:shyam_mobiles/features/repairs/screens/repair_form_screen.dart';
@@ -27,20 +29,37 @@ void main() {
       expect(tester.widget<TextFormField>(phone).controller!.text, '98765 43210', reason: 'the 10 digits after a fixed +91');
     });
 
-    testWidgets('booking detail with quote lays out ($theme)', (tester) async {
+    testWidgets('booking detail with a quote to approve lays out ($theme)', (tester) async {
       await pumpScreen(tester, const RepairDetailScreen(bookingId: 'b1'),
           dark: dark, overrides: [repairProvider.overrideWith((ref, id) => testBooking())]);
       expect(find.text('Confirmed'), findsWidgets);
-      expect(find.text('Approve on WhatsApp'), findsOneWidget);
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('Decline'), findsOneWidget);
+      await scrollTo(tester, find.text('Quote sent · ₹2,499'));
+      expect(find.text('Bring the charger too, please.'), findsOneWidget, reason: 'staff notes are on the timeline');
       await scrollTo(tester, find.text('Cancel booking'));
       expect(find.text('Cancel booking'), findsOneWidget);
     });
 
+    testWidgets('completed booking asks for a rating ($theme)', (tester) async {
+      await pumpScreen(tester, const RepairDetailScreen(bookingId: 'b1'), dark: dark, overrides: [
+        repairProvider.overrideWith(
+            (ref, id) => testBooking(status: RepairStatus.completed, quoteStatus: RepairQuoteStatus.approved)),
+        myFeedbackProvider.overrideWith((ref, key) => null),
+      ]);
+      expect(find.text('Approve'), findsNothing);
+      await scrollTo(tester, find.text('How was your repair?'));
+      expect(find.text('Cancel booking'), findsNothing);
+    });
+
     testWidgets('bookings list lays out ($theme)', (tester) async {
-      await pumpScreen(tester, const RepairsScreen(),
-          dark: dark, overrides: [myRepairsProvider.overrideWithValue(AsyncData([testBooking()]))]);
+      await pumpScreen(tester, const RepairsScreen(), dark: dark, overrides: [
+        myRepairsProvider.overrideWithBuild((ref, _) => (items: [testBooking()], hasMore: true, moreFailed: true)),
+      ]);
       expect(find.text('RP100012'), findsOneWidget);
+      expect(find.text('Awaiting approval'), findsOneWidget);
       expect(find.text('Book a repair'), findsOneWidget);
+      await scrollTo(tester, find.text('Couldn’t load more. Try again'));
     });
   }
 }

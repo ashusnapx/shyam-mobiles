@@ -75,7 +75,7 @@ class _GalleryState extends State<_Gallery> {
                     itemBuilder: (context, i) => Semantics(
                       button: true,
                       label: n > 1 ? 'Photo ${i + 1} of $n, opens full screen' : 'Product photo, opens full screen',
-                      child: Zoomable(
+                      child: _Zoomable(
                         active: i == _page,
                         onZoom: (z) => setState(() => _zoomed = z),
                         onTap: () => openPhotoViewer(context, paths, i, owner: this, onPage: _pages.jumpToPage),
@@ -141,8 +141,8 @@ class _GalleryState extends State<_Gallery> {
 
 /// Pinch or double-tap to zoom (double-tap again to fit). While it fits, one-finger drags belong to the page
 /// around it (the gallery pages, the viewer's swipe down via [onPull]).
-class Zoomable extends StatefulWidget {
-  const Zoomable({
+class _Zoomable extends StatefulWidget {
+  const _Zoomable({
     super.key,
     required this.active,
     required this.onZoom,
@@ -160,10 +160,10 @@ class Zoomable extends StatefulWidget {
   final Widget child;
 
   @override
-  State<Zoomable> createState() => _ZoomableState();
+  State<_Zoomable> createState() => _ZoomableState();
 }
 
-class _ZoomableState extends State<Zoomable> with SingleTickerProviderStateMixin {
+class _ZoomableState extends State<_Zoomable> with SingleTickerProviderStateMixin {
   final _t = TransformationController();
   late final AnimationController _anim = AnimationController(vsync: this, duration: Motion.normal)
     ..addListener(() => _t.value = _tween.transform(Curves.easeOutCubic.transform(_anim.value)));
@@ -183,12 +183,14 @@ class _ZoomableState extends State<Zoomable> with SingleTickerProviderStateMixin
   }
 
   @override
-  void didUpdateWidget(Zoomable old) {
+  void didUpdateWidget(_Zoomable old) {
     super.didUpdateWidget(old);
     if (!widget.active && _zoomed) {
       _anim.stop();
       // after this frame: the reset tells the page around it, which may be mid-layout now
-      WidgetsBinding.instance.addPostFrameCallback((_) => _t.value = Matrix4.identity());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _t.value = Matrix4.identity();
+      });
     }
   }
 
@@ -375,7 +377,7 @@ class _ViewerState extends State<_Viewer> {
           itemBuilder: (context, i) => Semantics(
             image: true,
             label: 'Photo ${i + 1} of $n',
-            child: Zoomable(
+            child: _Zoomable(
               key: _zoom.putIfAbsent(i, GlobalKey.new),
               active: i == _index,
               onZoom: (z) => setState(() => _zoomed = z),

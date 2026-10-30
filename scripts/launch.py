@@ -14,8 +14,8 @@ keys arrive. Steps, in order (pick some with --only schema,auth):
   auth       auth settings: sign-in hook, 6-digit codes, code emails, Resend SMTP, Google, MSG91 SMS hook
   cleanup    remove the test-login domain from production
   app        write app/env/prod.json, the app's build settings
-  signing    create the Play upload key once, write android/key.properties, print its SHA-1
-  site       fill the policy pages into build/site/, ready to publish
+  signing    create the Play upload key once, write android/key.properties, print its SHA-1 and SHA-256
+  site       fill the policy pages into build/site/, with .well-known/assetlinks.json for share links
   build      release app bundle (.aab) for Play and an .apk to share
 
 Secrets reach the CLI through environment variables or a temp file (chmod 600, deleted after), never the command
@@ -23,6 +23,7 @@ line, and nothing here prints a secret.
 """
 import argparse
 import base64
+import json
 import os
 import re
 import secrets as rand
@@ -35,6 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 STEPS = ['link', 'schema', 'secrets', 'functions', 'auth', 'cleanup', 'app', 'signing', 'site', 'build']
 TEST_DOMAIN = 'shyammobiles.test'
+PACKAGE = 'com.shyammobiles.app'
 KEYSTORE = ROOT / 'app/android/upload-keystore.jks'
 PLACEHOLDERS = {
     '[[LEGAL BUSINESS NAME]]': 'LEGAL_BUSINESS_NAME',
@@ -113,11 +115,32 @@ def fill_site(src, dst, env):
     return sorted(left)
 
 
+def key_fingerprints(keytool_out):
+    """(SHA-1, SHA-256) from `keytool -list -v`; None where missing."""
+    def find(name):
+        m = re.search(rf'{name}: ([0-9A-F:]+)', keytool_out or '')
+        return m.group(1) if m else None
+    return find('SHA1'), find('SHA256')
+
+
+SHA256 = re.compile(r'^([0-9A-F]{2}:){31}[0-9A-F]{2}$')
+
+
+def assetlinks(fingerprints):
+    """build/site/.well-known/assetlinks.json: lets Android open https://<LINK_HOST>/open links in the app. Every key
+    that signs a copy people install: the upload key (sideloaded .apk) and Play's app-signing key (Play installs)."""
+    return json.dumps([{
+        'relation': ['delegate_permission/common.handle_all_urls'],
+        'target': {'namespace': 'android_app', 'package_name': PACKAGE, 'sha256_cert_fingerprints': fingerprints},
+    }], indent=2) + '\n'
+
+
 class Launch:
     def __init__(self, env, dry):
         self.env, self.dry = env, dry
         self.cli = os.environ.get('SUPABASE_CLI') or shutil.which('supabase-go') or 'supabase'
         self.hook_secret = None
+        self.upload_sha256 = None
         self.skipped = []
 
     def has(self, *keys):
@@ -207,16 +230,16 @@ class Launch:
                   f"delete from private.password_sign_in_domains where domain = '{TEST_DOMAIN}'"], env=self.db_env)
 
     def app(self):
-        keys = ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'RAZORPAY_KEY_ID', 'GOOGLE_WEB_CLIENT_ID', 'POLICIES_URL']
+        keys = ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'RAZORPAY_KEY_ID', 'GOOGLE_WEB_CLIENT_ID', 'POLICIES_URL',
+                'LINK_HOST']
         values = {k: self.env.get(k, '') for k in keys}
         path = ROOT / 'app/env/prod.json'
         print(f'  writing {path.relative_to(ROOT)} ({", ".join(k for k in keys if values[k])})')
-        for k in ['RAZORPAY_KEY_ID', 'GOOGLE_WEB_CLIENT_ID', 'POLICIES_URL']:
+        for k in ['RAZORPAY_KEY_ID', 'GOOGLE_WEB_CLIENT_ID', 'POLICIES_URL', 'LINK_HOST']:
             if not values[k]:
                 self.skip('app', f'{k} is empty, so that part of the app stays off in this build')
         if self.dry:
             return
-        import json
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, 'w') as f:
             json.dump(values, f, indent=2)
@@ -244,23 +267,49 @@ class Launch:
             with os.fdopen(fd, 'w') as f:
                 f.write(f'storeFile=../upload-keystore.jks\nstorePassword={password}\nkeyAlias={alias}\n'
                         f'keyPassword={password}\n')
-        out = self.run(['keytool', '-list', '-v', '-keystore', KEYSTORE, '-alias', alias,
-                        '-storepass:env', 'ANDROID_KEYSTORE_PASSWORD'], env=pw)
-        sha1 = re.search(r'SHA1: ([0-9A-F:]+)', out or '')
+        sha1, self.upload_sha256 = self.upload_fingerprints()
         if sha1:
-            print(f'  upload key SHA-1: {sha1.group(1)}  (Google Cloud > Android OAuth client; add Play’s app '
+            print(f'  upload key SHA-1: {sha1}  (Google Cloud > Android OAuth client; add Play’s app '
                   'signing SHA-1 too, from Play Console > Setup > App signing)')
+        if self.upload_sha256:
+            print(f'  upload key SHA-256: {self.upload_sha256}  (share links: the site step puts it in assetlinks.json)')
         print('  back up app/android/upload-keystore.jks and its password: without them the app can’t be updated')
+
+    def upload_fingerprints(self):
+        """(SHA-1, SHA-256) of the upload key, when it exists and its password is in."""
+        if not ((KEYSTORE.exists() or self.dry) and self.has('ANDROID_KEYSTORE_PASSWORD')):
+            return None, None
+        out = self.run(['keytool', '-list', '-v', '-keystore', KEYSTORE, '-alias',
+                        self.env.get('ANDROID_KEY_ALIAS') or 'upload', '-storepass:env', 'ANDROID_KEYSTORE_PASSWORD'],
+                       env={'ANDROID_KEYSTORE_PASSWORD': self.env['ANDROID_KEYSTORE_PASSWORD']})
+        return key_fingerprints(out)
 
     def site(self):
         print('  writing build/site/')
+        play = self.env.get('PLAY_SIGNING_SHA256', '').strip().upper()
+        if play and not SHA256.match(play):
+            self.skip('site', 'PLAY_SIGNING_SHA256 should look like AB:CD:… (32 pairs), from Play Console > App signing')
+            play = ''
+        if self.upload_sha256 is None:
+            self.upload_sha256 = self.upload_fingerprints()[1]
+        keys = [k for k in [self.upload_sha256, play] if k]
+        if not keys and not self.dry:
+            self.skip('site', 'share links open the browser, not the app, until assetlinks.json has a key: '
+                              'the upload key (step signing) or PLAY_SIGNING_SHA256')
+        if not play:
+            self.skip('site', 'PLAY_SIGNING_SHA256 is empty, so share links won’t open copies installed from Play')
         if self.dry:
             return
         left = fill_site(ROOT / 'site', ROOT / 'build/site', self.env)
+        if keys:
+            (ROOT / 'build/site/.well-known').mkdir()
+            (ROOT / 'build/site/.well-known/assetlinks.json').write_text(assetlinks(keys))
+            print(f'  wrote .well-known/assetlinks.json ({len(keys)} key{"s" if len(keys) > 1 else ""})')
         if left:
             self.skip('site', f'still blank: {", ".join(left)}')
         else:
-            print('  build/site/ is complete: publish it, then put its address in POLICIES_URL and run --only app,auth')
+            print('  build/site/ is complete: publish it (with .well-known/) at LINK_HOST, put its address in '
+                  'POLICIES_URL and run --only app,auth')
 
     def build(self):
         if not (ROOT / 'app/android/key.properties').exists() and not self.dry:

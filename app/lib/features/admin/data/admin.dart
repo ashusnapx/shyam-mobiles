@@ -123,33 +123,72 @@ Future<void> setImeis(WidgetRef ref, String orderId, String itemId, List<String>
 
 // Repairs ---------------------------------------------------------------------
 
+/// Filter keys for `/admin/repairs?status=`: a status value, or `open`, `awaiting_approval`, `all`.
 final repairFilters = {
   'open': 'Open',
+  'awaiting_approval': 'Awaiting approval',
   for (final s in RepairStatus.values) s.value: s.label,
   'all': 'All',
 };
 
-/// By preferred date: soonest first for open work, latest first for history.
-final adminRepairsProvider = FutureProvider.autoDispose.family<List<RepairBooking>, String>((ref, filter) async {
-  var q = ref.watch(supabaseProvider).from('repair_bookings').select();
-  q = switch (filter) {
-    'all' => q,
-    'open' => q.inFilter('status', [for (final s in RepairStatus.values) if (s.isOpen) s.value]),
-    _ => q.eq('status', filter),
-  };
-  final upcoming = filter == 'open' || (filter != 'all' && RepairStatus.parse(filter).isOpen);
-  final rows = await q.order('preferred_date', ascending: upcoming).order('slot', ascending: upcoming).limit(200);
-  return [for (final r in rows) RepairBooking.fromJson(r)];
-});
+/// By preferred date, a page at a time: soonest first for open work, latest first for history.
+final adminRepairsProvider = AsyncNotifierProvider.autoDispose
+    .family<AdminRepairsNotifier, Paged<RepairBooking>, String>(AdminRepairsNotifier.new);
 
-/// Admins write repair_bookings directly (RLS "admin write").
-Future<void> updateRepair(WidgetRef ref, String id, Map<String, dynamic> changes) async {
-  await _db(ref).from('repair_bookings').update(changes).eq('id', id).select('id').single(); // errors if no row changed
+class AdminRepairsNotifier extends PagedNotifier<RepairBooking> {
+  AdminRepairsNotifier(this.filter);
+
+  final String filter;
+
+  @override
+  Object idOf(RepairBooking b) => b.id;
+
+  @override
+  Future<List<RepairBooking>> fetch(int from, int size) async {
+    final open = [for (final s in RepairStatus.values) if (s.isOpen) s.value];
+    var q = ref.read(supabaseProvider).from('repair_bookings').select();
+    q = switch (filter) {
+      'all' => q,
+      'open' => q.inFilter('status', open),
+      // same rule as admin_dashboard's repairs_awaiting_approval
+      'awaiting_approval' => q.inFilter('status', open).eq('quote_status', 'pending'),
+      _ => q.eq('status', filter),
+    };
+    final upcoming = switch (filter) {
+      'all' => false,
+      'open' || 'awaiting_approval' => true,
+      _ => RepairStatus.parse(filter).isOpen,
+    };
+    final rows = await q
+        .order('preferred_date', ascending: upcoming)
+        .order('slot', ascending: upcoming)
+        .order('id') // ties: no booking repeats or goes missing between pages
+        .range(from, from + size - 1);
+    return [for (final r in rows) RepairBooking.fromJson(r)];
+  }
+}
+
+void _repairsChanged(WidgetRef ref, String id) {
   ref.invalidate(repairProvider(id));
   ref.invalidate(adminRepairsProvider);
   ref.invalidate(needsActionProvider);
   ref.invalidate(adminDashboardProvider);
   ref.invalidate(myRepairsProvider);
+}
+
+/// `admin_update_repair`: one step forward or a cancel (rules.dart mirrors the steps); the current status only
+/// adds [note] to the timeline.
+Future<void> updateRepairStatus(WidgetRef ref, String id, RepairStatus status, {String? note}) async {
+  await _db(ref).rpc<void>('admin_update_repair', params: {'p_booking_id': id, 'p_status': status.value, 'p_note': note});
+  _repairsChanged(ref, id);
+}
+
+/// `admin_set_repair_quote`: sends or changes the quote, which then waits for the customer; [approved] records a
+/// yes given at the counter or on the phone.
+Future<void> setRepairQuote(WidgetRef ref, String id, int paise, {String? note, bool approved = false}) async {
+  await _db(ref).rpc<void>('admin_set_repair_quote',
+      params: {'p_booking_id': id, 'p_quote_paise': paise, 'p_note': note, 'p_approved': approved});
+  _repairsChanged(ref, id);
 }
 
 // Products --------------------------------------------------------------------

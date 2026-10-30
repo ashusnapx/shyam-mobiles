@@ -92,6 +92,8 @@ class _Stats extends ConsumerWidget {
       _Tile(PhosphorIconsRegular.currencyInr, 'Revenue today', shortInr(n('revenue_today_paise')), '/admin/orders'),
       _Tile(PhosphorIconsRegular.package, 'Open orders', '${n('open_orders')}', '/admin/orders?status=open'),
       _Tile(PhosphorIconsRegular.wrench, 'Open repairs', '${n('open_repairs')}', '/admin/repairs'),
+      _Tile(PhosphorIconsRegular.hourglassMedium, 'Awaiting approval', '${n('repairs_awaiting_approval')}',
+          '/admin/repairs?status=awaiting_approval'),
       _Tile(PhosphorIconsBold.warning, 'Low stock', '${n('low_stock')}', '/admin/products?stock=low',
           tone: n('low_stock') > 0 ? TagTone.deal : null),
       _Tile(PhosphorIconsBold.arrowCounterClockwise, 'Needs refund', '${n('needs_refund')}',
@@ -331,7 +333,7 @@ class _NeedsActionState extends ConsumerState<_NeedsAction> {
             onTap: () => context.push('/admin/repairs/${r.id}'),
             action: 'Confirm',
             onAction: () => _run(r.id, '${r.number} confirmed',
-                () => updateRepair(ref, r.id, {'status': RepairStatus.confirmed.value})),
+                () => updateRepairStatus(ref, r.id, RepairStatus.confirmed)),
           ),
       ],
     );

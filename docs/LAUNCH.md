@@ -15,10 +15,13 @@ template, with where to get each key, is in the chat of 2026-10-29 and below).
 | `GOOGLE_WEB_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in, in Supabase and in the app build |
 | `RAZORPAY_KEY_ID`, `_KEY_SECRET`, `_WEBHOOK_SECRET` | online payments (`rzp_test_` keys first) |
 | `ANDROID_KEYSTORE_PASSWORD` | the Play upload key, `key.properties`, and the SHA-1 for Google's Android client |
+| `LINK_HOST` (where `site/` is published, e.g. `shyammobiles.in`) | share links `https://<LINK_HOST>/open?p=…&ref=…` in the app, and the App Link the build claims |
+| `PLAY_SIGNING_SHA256` (Play Console > Setup > App signing, after the first upload) | share links open copies installed from Play, not only the sideloaded `.apk` |
 | business details | policy pages filled into `build/site/`, ready to publish |
 
 Outputs: `app/env/prod.json` (app build settings), `app/android/upload-keystore.jks` + `key.properties` (back
-them up: without them the app can never be updated), `build/site/`, and the release `.aab` and `.apk`.
+them up: without them the app can never be updated), `build/site/` (with `.well-known/assetlinks.json` from the
+upload key's SHA-256 and `PLAY_SIGNING_SHA256`), and the release `.aab` and `.apk`.
 
 After the first run:
 - Send yourself a phone code once: MSG91's API is wired from its docs, so the first real send is the check
@@ -27,4 +30,8 @@ After the first run:
   `payment.failed`, `refund.processed`.
 - Google Cloud Android client: package `com.shyammobiles.app`, the SHA-1 the script prints, and Play's app-signing
   SHA-1 (Play Console > Setup > App signing) once the first bundle is uploaded.
+- Share links work once `build/site/` is published at `https://<LINK_HOST>`: `/open` must serve `open.html`
+  (most hosts drop the `.html`; GitHub Pages also needs an empty `.nojekyll` to publish `.well-known/`). Without the
+  app, the page sends people to Play with the link as the install referrer, so the app opens it on first launch.
+  Rebuild the app after setting `LINK_HOST`: the manifest's App Link host comes from `env/prod.json`.
 - Not keys: Supabase Pro, the Play developer account, real products, a courier and the delivery fee.

@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/widgets/repair_widgets.dart';
@@ -50,36 +51,57 @@ class _RepairList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = adminRepairsProvider(filter);
-    return AsyncBody<List<RepairBooking>>(
+    return AsyncBody<Paged<RepairBooking>>(
       value: ref.watch(provider),
       onRetry: () => ref.invalidate(provider),
       loading: Skeletonizer(child: _Rows(bookings: skeletonBookings)),
-      data: (bookings) => bookings.isEmpty
-          ? const EmptyState(
+      data: (page) => page.items.isEmpty
+          ? EmptyState(
               icon: PhosphorIconsRegular.wrench,
               title: 'No repairs here',
-              message: 'Bookings show up here as customers make them.',
+              message: filter == 'awaiting_approval'
+                  ? 'Quotes you send show up here until the customer answers.'
+                  : 'Bookings show up here as customers make them.',
             )
-          : RefreshIndicator(onRefresh: () => ref.refresh(provider.future), child: _Rows(bookings: bookings)),
+          : RefreshIndicator(
+              onRefresh: () => ref.refresh(provider.future),
+              child: LoadMoreListener(
+                hasMore: page.hasMore,
+                onMore: ref.read(provider.notifier).loadMore,
+                child: _Rows(
+                  bookings: page.items,
+                  footer: page.hasMore
+                      ? PagedFooter(
+                          failed: page.moreFailed,
+                          onRetry: () => ref.read(provider.notifier).loadMore(retry: true),
+                          what: 'more repairs',
+                        )
+                      : null,
+                ),
+              ),
+            ),
     );
   }
 }
 
 class _Rows extends StatelessWidget {
-  const _Rows({required this.bookings});
+  const _Rows({required this.bookings, this.footer});
 
   final List<RepairBooking> bookings;
+  final Widget? footer; // the next page's spinner or retry
 
   @override
   Widget build(BuildContext context) => ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xl + MediaQuery.paddingOf(context).bottom),
-        itemCount: bookings.length,
+        itemCount: bookings.length + (footer == null ? 0 : 1),
         separatorBuilder: (_, _) => const SizedBox(height: Space.sm),
-        itemBuilder: (context, i) => RepairCard(
-          booking: bookings[i],
-          showPhone: true,
-          onTap: () => context.push('/admin/repairs/${bookings[i].id}'),
-        ),
+        itemBuilder: (context, i) => i == bookings.length
+            ? footer!
+            : RepairCard(
+                booking: bookings[i],
+                showPhone: true,
+                onTap: () => context.push('/admin/repairs/${bookings[i].id}'),
+              ),
       );
 }

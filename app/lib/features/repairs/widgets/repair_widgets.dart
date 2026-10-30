@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
@@ -224,6 +225,8 @@ class RepairCard extends StatelessWidget {
                       children: [
                         Text(b.number, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                         Tag(b.status.label, tone: repairTone(b.status)),
+                        if (b.awaitingApproval) const Tag('Awaiting approval', tone: TagTone.deal),
+                        if (b.quoteDeclined) const Tag('Quote declined', tone: TagTone.bad),
                       ],
                     ),
                     const SizedBox(height: Space.xs),
@@ -255,6 +258,115 @@ class RepairCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Title of a timeline entry: the quote event, the new status, or "Note" when the status didn't change.
+String repairEventTitle(RepairEvent e, RepairEvent? before) => switch (e.quoteStatus) {
+      RepairQuoteStatus.pending => 'Quote sent · ${formatInr(e.quotePaise!)}',
+      RepairQuoteStatus.approved => 'Quote approved · ${formatInr(e.quotePaise!)}',
+      RepairQuoteStatus.declined => 'Quote declined · ${formatInr(e.quotePaise!)}',
+      _ => before == null || before.status != e.status ? e.status.label : 'Note from the store',
+    };
+
+/// A destructive choice with a reason (decline a quote, cancel a booking): quiet red [action] on the left, the safe
+/// [keep] filled on the right, as in confirmChoice. Returns the tidied reason ('' when [optional] and left blank),
+/// or null when kept.
+Future<String?> askReason(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String action,
+  required String keep,
+  String label = 'Reason',
+  bool optional = false,
+  int maxLength = 200,
+}) =>
+    showDialog<String>(
+      context: context,
+      builder: (_) => _ReasonDialog(
+        title: title,
+        message: message,
+        action: action,
+        keep: keep,
+        label: label,
+        optional: optional,
+        maxLength: maxLength,
+      ),
+    );
+
+class _ReasonDialog extends StatefulWidget {
+  const _ReasonDialog({
+    required this.title,
+    required this.message,
+    required this.action,
+    required this.keep,
+    required this.label,
+    required this.optional,
+    required this.maxLength,
+  });
+
+  final String title;
+  final String message;
+  final String action;
+  final String keep;
+  final String label;
+  final bool optional;
+  final int maxLength;
+
+  @override
+  State<_ReasonDialog> createState() => _ReasonDialogState();
+}
+
+class _ReasonDialogState extends State<_ReasonDialog> {
+  final _reason = TextEditingController();
+  bool _tried = false;
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final missing = !widget.optional && tidy(_reason.text).isEmpty;
+    return AlertDialog(
+      scrollable: true, // the keyboard and large text can leave little room
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.message),
+          const SizedBox(height: Space.md),
+          TextField(
+            controller: _reason,
+            autofocus: !widget.optional,
+            inputFormatters: textInput(widget.maxLength),
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: widget.label,
+              errorText: _tried && missing ? 'Add a short reason' : null,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: [
+        TextButton(
+          onPressed: () => missing ? setState(() => _tried = true) : Navigator.pop(context, tidy(_reason.text)),
+          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error, minimumSize: const Size(64, 44)),
+          child: Text(widget.action),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
+          child: Text(widget.keep),
+        ),
+      ],
     );
   }
 }

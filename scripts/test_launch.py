@@ -1,4 +1,5 @@
 """python3 -m unittest scripts/test_launch.py — checks the production config and policy pages launch.py writes."""
+import json
 import sys
 import tempfile
 import tomllib
@@ -6,7 +7,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from launch import ROOT, fill_site, parse_env, prod_config  # noqa: E402
+from launch import ROOT, SHA256, Launch, assetlinks, fill_site, key_fingerprints, parse_env, prod_config  # noqa: E402
 
 CONFIG = (ROOT / 'supabase/config.toml').read_text()
 BASE = {'SUPABASE_PROJECT_REF': 'abcdefghijklmnopqrst'}
@@ -60,6 +61,31 @@ class Site(unittest.TestCase):
             self.assertIn('MSG91', privacy)
             self.assertNotIn('[[GSTIN]]', privacy)
             self.assertIn('[[LEGAL BUSINESS NAME]]', (ROOT / 'site/privacy.html').read_text())  # source untouched
+            self.assertIn('package=com.shyammobiles.app', (out / 'open.html').read_text())  # the share-link page
+
+
+UPLOAD = ':'.join(['AB'] * 32)
+PLAY = ':'.join(['0F'] * 32)
+KEYTOOL = f'Certificate fingerprints:\n\t SHA1: {":".join(["12"] * 20)}\n\t SHA256: {UPLOAD}\nSignature algorithm'
+
+
+class ShareLinks(unittest.TestCase):
+    def test_fingerprints_from_keytool(self):
+        self.assertEqual(key_fingerprints(KEYTOOL), (':'.join(['12'] * 20), UPLOAD))
+        self.assertEqual(key_fingerprints(''), (None, None))
+        self.assertTrue(SHA256.match(UPLOAD))
+        self.assertFalse(SHA256.match(UPLOAD[:-3]))
+
+    def test_assetlinks_lists_every_signing_key_for_the_package(self):
+        [entry] = json.loads(assetlinks([UPLOAD, PLAY]))
+        self.assertEqual(entry['relation'], ['delegate_permission/common.handle_all_urls'])
+        self.assertEqual(entry['target'], {'namespace': 'android_app', 'package_name': 'com.shyammobiles.app',
+                                           'sha256_cert_fingerprints': [UPLOAD, PLAY]})
+
+    def test_dry_run_site_waits_for_a_valid_play_key(self):
+        launch = Launch({'PLAY_SIGNING_SHA256': 'not-a-key'}, dry=True)
+        launch.site()
+        self.assertTrue(any('PLAY_SIGNING_SHA256 should look like' in s for s in launch.skipped))
 
 
 if __name__ == '__main__':

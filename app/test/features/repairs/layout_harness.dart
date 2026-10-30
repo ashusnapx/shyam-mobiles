@@ -83,7 +83,13 @@ const testSettings = StoreSettings(
   returnsPolicy: 'Unopened items can be returned within 7 days of delivery.',
 );
 
-RepairBooking testBooking({RepairStatus status = RepairStatus.confirmed, int? quote = 249900}) => RepairBooking(
+/// A booking as staff and customer see it; [quoteStatus] defaults to pending when there's a quote (as the DB does).
+RepairBooking testBooking({
+  RepairStatus status = RepairStatus.confirmed,
+  int? quote = 249900,
+  RepairQuoteStatus? quoteStatus,
+}) =>
+    RepairBooking(
       id: 'b1',
       number: 'RP100012',
       deviceBrand: 'Samsung',
@@ -96,5 +102,19 @@ RepairBooking testBooking({RepairStatus status = RepairStatus.confirmed, int? qu
       status: status,
       createdAt: DateTime(2026, 10, 29, 10),
       quotePaise: quote,
-      adminNote: 'Bring the charger too, please.',
+      quoteStatus: quoteStatus ?? (quote == null ? RepairQuoteStatus.none : RepairQuoteStatus.pending),
+      events: [
+        RepairEvent(id: 1, status: RepairStatus.requested, createdAt: DateTime(2026, 10, 29, 10)),
+        RepairEvent(
+            id: 2, status: RepairStatus.confirmed, createdAt: DateTime(2026, 10, 29, 11), note: 'Bring the charger too, please.'),
+        if (quote != null)
+          RepairEvent(
+            id: 3,
+            status: RepairStatus.confirmed,
+            createdAt: DateTime(2026, 10, 30, 14),
+            quoteStatus: RepairQuoteStatus.pending,
+            quotePaise: quote,
+            note: 'New display and speaker mesh, with 3 months warranty on the parts.',
+          ),
+      ],
     );

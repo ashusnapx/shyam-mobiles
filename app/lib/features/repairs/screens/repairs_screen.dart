@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/models/models.dart';
+import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
@@ -26,11 +27,11 @@ class RepairsScreen extends ConsumerWidget {
               message: 'Sign in to book a slot and track your repair.',
               from: '/repairs',
             )
-          : AsyncBody<List<RepairBooking>>(
+          : AsyncBody<Paged<RepairBooking>>(
               value: ref.watch(myRepairsProvider),
               onRetry: () => ref.invalidate(myRepairsProvider),
               loading: Skeletonizer(child: _List(bookings: skeletonBookings)),
-              data: (bookings) => bookings.isEmpty
+              data: (page) => page.items.isEmpty
                   ? EmptyState(
                       icon: PhosphorIconsRegular.wrench,
                       title: 'No repairs yet',
@@ -43,7 +44,20 @@ class RepairsScreen extends ConsumerWidget {
                     )
                   : RefreshIndicator(
                       onRefresh: () => ref.refresh(myRepairsProvider.future),
-                      child: _List(bookings: bookings),
+                      child: LoadMoreListener(
+                        hasMore: page.hasMore,
+                        onMore: ref.read(myRepairsProvider.notifier).loadMore,
+                        child: _List(
+                          bookings: page.items,
+                          footer: page.hasMore
+                              ? PagedFooter(
+                                  failed: page.moreFailed,
+                                  onRetry: () => ref.read(myRepairsProvider.notifier).loadMore(retry: true),
+                                  what: 'more repairs',
+                                )
+                              : null,
+                        ),
+                      ),
                     ),
             ),
     );
@@ -51,9 +65,10 @@ class RepairsScreen extends ConsumerWidget {
 }
 
 class _List extends StatelessWidget {
-  const _List({required this.bookings});
+  const _List({required this.bookings, this.footer});
 
   final List<RepairBooking> bookings;
+  final Widget? footer; // the next page's spinner or retry
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -67,6 +82,7 @@ class _List extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.md),
               child: RepairCard(booking: b, onTap: () => context.push('/repairs/${b.id}')),
             ),
+          ?footer,
         ],
       );
 }

@@ -161,7 +161,7 @@ select throws_ok($$insert into public.repair_bookings (user_id, device_brand, de
   values ('11111111-1111-1111-1111-111111111111', 'OnePlus', '9', 'battery', (now() at time zone 'Asia/Kolkata')::date + 31, 'morning', '+919876543210')$$, '42501', null, 'repair: at most 30 days ahead');
 select throws_ok($$insert into public.repair_bookings (user_id, device_brand, device_model, issue, preferred_date, slot, contact_phone)
   values ('22222222-2222-2222-2222-222222222222', 'OnePlus', '9', 'battery', current_date + 1, 'morning', '+919876543210')$$, '42501', null, 'repair: cannot book for someone else');
-select is_empty($$update public.repair_bookings set status = 'completed', quote_paise = 0 returning 1$$, 'alice: cannot update her repair');
+select throws_ok($$update public.repair_bookings set status = 'completed', quote_paise = 0$$, '42501', null, 'alice: cannot update her repair');
 
 -- Address rules
 select lives_ok($$insert into public.addresses (user_id, name, phone, line1, city, state, pincode, is_default)
@@ -212,8 +212,8 @@ select throws_ok($$update public.store_settings set store_photos = array_fill('s
   'store_settings: at most 8 store photos');
 select throws_ok($$update public.store_settings set store_maps_url = 'javascript:alert(1)'$$, '23514', null,
   'store_settings: maps link must be https');
-select isnt_empty($$update public.repair_bookings set status = 'confirmed', quote_paise = 150000 where id = '90000000-0000-0000-0000-000000000002' returning 1$$,
-  'staff: updates repairs');
+select throws_ok($$update public.repair_bookings set status = 'confirmed', quote_paise = 150000 where id = '90000000-0000-0000-0000-000000000002'$$,
+  '42501', null, 'staff: no direct repair updates (admin_update_repair, admin_set_repair_quote)');
 select throws_ok($$update public.orders set status = 'delivered'$$, '42501', null, 'staff: no direct order updates either');
 select throws_ok('select 1 from public.payment_events', '42501', null, 'staff: payment_events denied');
 select lives_ok($$insert into storage.objects (bucket_id, name) values ('product-images', 'test/x.webp')$$, 'staff: uploads product images');

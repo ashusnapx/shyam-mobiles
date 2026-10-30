@@ -51,7 +51,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Photo 3 of 3'));
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('Photo 3 of 3, opens full screen'), findsOneWidget);
-      expect(tester.getSemantics(find.bySemanticsLabel('Photo 3 of 3')), containsSemantics(isSelected: true));
+      expect(tester.getSemantics(find.bySemanticsLabel('Photo 3 of 3')), isSemantics(isSelected: true));
       // Previous / Next as well as the swipe
       expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, PhosphorIconsBold.caretRight)).onPressed, isNull);
       await tester.tap(find.byTooltip('Previous photo'));

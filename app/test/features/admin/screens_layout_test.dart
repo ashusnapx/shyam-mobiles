@@ -124,15 +124,17 @@ void main() {
 
     testWidgets('repairs list and detail ($theme)', (tester) async {
       await pumpScreen(tester, const AdminRepairsScreen(), dark: dark, overrides: [
-        adminRepairsProvider.overrideWith((ref, f) => [testBooking()]),
+        adminRepairsProvider.overrideWithBuild((ref, _) => (items: [testBooking()], hasMore: false, moreFailed: false)),
       ]);
       expect(find.text('RP100012'), findsOneWidget);
+      expect(find.text('Awaiting approval'), findsWidgets, reason: 'the filter chip and the card tag');
       await pumpScreen(tester, const AdminRepairScreen(bookingId: 'b1'), dark: dark, overrides: [
         repairProvider.overrideWith((ref, id) => testBooking()),
       ]);
-      expect(find.text('Mark in repair'), findsOneWidget);
-      await scrollTo(tester, find.text('Save quote and note'));
-      expect(find.text('Save quote and note'), findsOneWidget);
+      expect(find.text('Start repair'), findsOneWidget);
+      expect(find.text('Waiting for the customer to approve ₹2,499.'), findsOneWidget);
+      await scrollTo(tester, find.text('Change quote'));
+      await scrollTo(tester, find.text('Timeline'));
     });
 
     testWidgets('products list and editor ($theme)', (tester) async {
