@@ -75,6 +75,32 @@ Frequency / severity is rated High (H), Medium (M) or Low (L).
 
 Already in the spec or mockup and matching best practice (no change needed): pending and failed payment states with retry, the 15-minute stock hold, late-payment revival, totals computed on the server, the COD cap, the order timeline, stock badges, variant price differences, and the free-delivery threshold on the product page.
 
+## 4b. Offers research (2026-10-30)
+
+Indian phone retailers sell on offers more than on price: Croma, Reliance Digital and Vijay Sales run a few big
+festive sales a year (Independence Day, Diwali, Black Friday) with no-cost EMI, bank-card discounts and exchange
+bonuses on top [18][19]; coupon codes circulate on WhatsApp and deal sites [20]. Coupon-abuse guides agree on the
+basics: enforce every limit in the backend, cap per-customer use, set start and end dates, use a minimum order, and
+decide which offers stack [21][22].
+
+Built now (SPEC, "Offers"): coupons and automatic sales in one engine, scoped to the whole order or any mix of
+products, categories, brands and product groups; percent with cap, flat, free delivery; min order, dates, total and
+per-customer limits, first order only, online only, hidden and personal codes; one offer per order; referrals paid as
+personal coupons only after the friend's order is delivered; banners that follow a sale automatically.
+
+Next, ranked:
+
+| # | Feature | Why | Size |
+|---|---|---|---|
+| 25 | "EMI from ₹X/month" on phones, and Razorpay's card offers shown at payment | The big chains lead with EMI and bank discounts [18][19]; Razorpay already runs both | S |
+| 26 | Countdown on sale banners ("ends in 5 h") | Festive sales are short and time-boxed [19] | S |
+| 27 | Combos: phone + case + guard at a bundle price | A ₹1,299 case is easy to add to a ₹25,000 phone; needs a "bought together" rule in the engine | M |
+| 28 | Spend tiers ("₹200 off over ₹2,000, ₹500 off over ₹5,000") and buy-2-get-1 on accessories | Common in accessories; one more rule type in the engine | M |
+| 29 | Back-in-stock and price-drop alerts | Needs push notifications (row 16) | M |
+| 30 | Exchange bonus on top of the estimate (row 21) | Every big chain advertises it [18] | M |
+| 31 | Reviews and ratings | Trust on high-value items; needs moderation | M |
+| 32 | Loyalty points, gift cards | Later: margins and accounting first | L |
+
 ## 5. Sources
 
 1. MediaNama, NCH e-commerce grievances FY2023-24: https://www.medianama.com/2024/12/223-flipkart-leads-consumer-complaints-in-e-commerce-over-1-5-lakh-grievances-registered-in-fy-2023-24/
@@ -103,3 +129,8 @@ Already in the spec or mockup and matching best practice (no change needed): pen
 24. Flipkart exchange and IMEI: https://flipkart.com/pages/sell-back-faq · https://digitalterminal.in/amp/story/e-commerce/flipkart-minutes-launches-fast-smartphone-exchange-service
 25. Reliance Digital 30-minute delivery: https://m.greaterkashmir.com/article/reliance-digital-offers-30-minute-delivery-for-samsung-galaxy-s25-series/369529/amp
 26. Croma "out for delivery" stall: https://voxya.com/consumer-complaints/order-delayed-and-not-delivered-no-cancellation-or-refund/252492
+- [18] Croma vs Reliance Digital comparison: https://dealifyhq.com/compare/croma-vs-reliance-digital.html
+- [19] Electronics sales calendar 2026: https://www.myrupaya.in/post/upcoming-ongoing-electronics-sales-2026-best-deals-on-croma-reliance-digital-flipkart
+- [20] Croma vs Reliance Digital coupons (Zoutons): https://zoutons.com/news/croma-vs-reliance-digital-where-buy-electronics-india
+- [21] Voucherify, preventing coupon fraud: https://www.voucherify.io/blog/how-to-prevent-coupon-fraud-and-abuse
+- [22] Fingerprint, preventing promo abuse: https://fingerprint.com/blog/prevent-coupon-promo-abuse-increase-sales/
