@@ -11,30 +11,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/notifications.dart';
-
-/// The kind's icon in a circle tinted by meaning, in the same tones as [Tag].
-class NotificationIcon extends StatelessWidget {
-  const NotificationIcon(this.kind, {super.key, this.size = 40});
-
-  final String kind;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final (icon, tone) = notificationStyle(kind);
-    final (bg, fg) = switch (tone) {
-      TagTone.info => (BrandColors.peacockMist, BrandColors.peacockInk),
-      TagTone.ok => (c.secondaryContainer, c.onSecondaryContainer),
-      TagTone.deal => (c.tertiaryContainer, c.onTertiaryContainer),
-      TagTone.bad => (c.errorContainer, c.onErrorContainer),
-    };
-    return DecoratedBox(
-      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-      child: SizedBox.square(dimension: size, child: Icon(icon, size: size / 2, color: fg)),
-    );
-  }
-}
+import 'notification_art.dart';
 
 /// The bell for Home and the admin dashboard: unread count in a gold badge that pops when it rises; opens
 /// /notifications. Nothing when signed out.
@@ -192,7 +169,7 @@ class _Banner extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, 0, Space.sm),
                 child: Row(
                   children: [
-                    NotificationIcon(n.kind, size: 36),
+                    NotificationLeading(n, size: 40),
                     const SizedBox(width: Space.md),
                     Expanded(
                       child: Column(

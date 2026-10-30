@@ -37,6 +37,7 @@ import '../features/offers/screens/refer_screen.dart';
 import '../features/orders/screens/order_detail_screen.dart';
 import '../features/notifications/screens/notifications_screen.dart';
 import '../features/orders/screens/orders_screen.dart';
+import '../features/payments/screens/admin_payment_links_screen.dart';
 import '../features/repairs/screens/repair_detail_screen.dart';
 import '../features/repairs/screens/repair_form_screen.dart';
 import '../features/repairs/screens/repairs_screen.dart';
@@ -143,6 +144,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 sub(':id', (s) => AdminBannerEditScreen(bannerId: s.pathParameters['id'])),
               ]),
               sub('settings', (_) => const AdminSettingsScreen()),
+              sub('payment-links', (_) => const AdminPaymentLinksScreen()),
               sub('feedback', (s) => AdminFeedbackScreen(productId: s.uri.queryParameters['product']), routes: [
                 sub(':id', (s) => AdminFeedbackDetailScreen(feedbackId: s.pathParameters['id']!)),
               ]),

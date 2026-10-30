@@ -1,8 +1,30 @@
 import { env, handler, HttpError, json, readJson, UUID } from "../_shared/http.ts";
-import { requireUser } from "../_shared/supabase.ts";
+import { type Db, requireUser } from "../_shared/supabase.ts";
 import { razorpay } from "../_shared/razorpay.ts";
+import { customerFor, type CustomerStore } from "../_shared/customers.ts";
 
-// {order_id} -> {key_id, razorpay_order_id, amount, currency, order_number, reserved_until}
+const customers = (db: Db): CustomerStore => ({
+  async find(userId) {
+    const { data, error } = await db.from("razorpay_customers").select("customer_id").eq("user_id", userId).maybeSingle();
+    if (error) throw error;
+    return data?.customer_id ?? null;
+  },
+  async who(userId) {
+    const [{ data: auth, error }, { data: profile }] = await Promise.all([
+      db.auth.admin.getUserById(userId),
+      db.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+    ]);
+    if (error) throw error;
+    return { phone: auth.user.phone || null, email: auth.user.email || null, name: profile?.full_name ?? null };
+  },
+  async save(userId, customerId) {
+    const { error } = await db.from("razorpay_customers").insert({ user_id: userId, customer_id: customerId });
+    if (error && error.code !== "23505") throw error; // 23505: made meanwhile, or another account's customer
+    return await this.find(userId);
+  },
+});
+
+// {order_id} -> {key_id, razorpay_order_id, amount, currency, order_number, reserved_until, customer_id}
 Deno.serve(handler(async (req) => {
   const { userId, db } = await requireUser(req);
   const { order_id } = await readJson(req);
@@ -44,5 +66,6 @@ Deno.serve(handler(async (req) => {
     currency: "INR",
     order_number: order.number,
     reserved_until: new Date(order.reserved_until).toISOString(), // app sets Razorpay's checkout timeout from this
+    customer_id: await customerFor(customers(db), userId), // saved cards in Checkout; null without one
   });
 }));

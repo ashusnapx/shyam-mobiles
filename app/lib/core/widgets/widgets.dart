@@ -134,9 +134,10 @@ class PriceTag extends StatelessWidget {
 }
 
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.title, this.message, this.action});
+  const EmptyState({super.key, required this.icon, required this.title, this.message, this.action, this.art});
 
   final IconData icon;
+  final Widget? art; // an illustration in place of the icon's circle
   final String title;
   final String? message;
   final Widget? action;
@@ -151,13 +152,14 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(color: c.primaryContainer, shape: BoxShape.circle),
-              child: Padding(
-                padding: const EdgeInsets.all(Space.xl),
-                child: Icon(icon, size: 36, color: c.onPrimaryContainer),
-              ),
-            ),
+            art ??
+                DecoratedBox(
+                  decoration: BoxDecoration(color: c.primaryContainer, shape: BoxShape.circle),
+                  child: Padding(
+                    padding: const EdgeInsets.all(Space.xl),
+                    child: Icon(icon, size: 36, color: c.onPrimaryContainer),
+                  ),
+                ),
             const SizedBox(height: Space.xl),
             Text(title, style: t.titleLarge, textAlign: TextAlign.center),
             if (message != null) ...[

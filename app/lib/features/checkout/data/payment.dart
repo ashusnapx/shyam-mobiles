@@ -21,7 +21,7 @@ abstract interface class PaymentApi {
   /// COUPON_* refusal of [couponCode], ...).
   Future<String> placeOrder(String addressId, PaymentMethod method, {String? couponCode});
 
-  /// `create-payment` → `{key_id, razorpay_order_id, amount, currency, order_number}`.
+  /// `create-payment` → `{key_id, razorpay_order_id, amount, currency, order_number, reserved_until, customer_id}`.
   Future<Map<String, dynamic>> createPayment(String orderId);
 
   /// `verify-payment` → the order status afterwards (`confirmed`, or `cancelled` when it was paid too late).
@@ -162,6 +162,8 @@ Map<String, dynamic>? razorpayOptions(Map<String, dynamic> payment, {String? pho
     'theme': {'color': '#${(BrandColors.ink.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}'},
     'retry': {'enabled': true},
     if (until != null) 'timeout': math.max(60, until.difference(now ?? DateTime.now()).inSeconds),
+    // saved cards: the account's Razorpay customer (create-payment makes it); the card tokens stay with Razorpay
+    if (payment['customer_id'] is String) ...{'customer_id': payment['customer_id'], 'remember_customer': true},
   };
 }
 

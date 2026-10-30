@@ -12,7 +12,15 @@ const serviceAccount = JSON.stringify({ project_id: "shyam-test", client_email: 
 
 const PHONE_A = "fA1b2C3d4E5f6G7h8I9j0:APA91bAAAA";
 const PHONE_B = "zZ9y8X7w6V5u4T3s2R1q0:APA91bBBBB";
-const push = { id: "n1", kind: "order_packed", title: "SM1042 is packed", body: "It ships soon.", link: "/orders/o1", tokens: [PHONE_A, PHONE_B] };
+const push = {
+  id: "n1",
+  kind: "order_packed",
+  title: "SM1042 is packed",
+  body: "It ships soon.",
+  link: "/orders/o1",
+  image_path: "p1/1730000000000.webp",
+  tokens: [PHONE_A, PHONE_B],
+};
 
 /** Google and FCM stand-ins: every call recorded; [fcm] decides each phone's reply. */
 function fakeGoogle(fcm: (token: string) => Response = () => Response.json({ name: "projects/shyam-test/messages/1" })) {
@@ -82,12 +90,28 @@ Deno.test("one FCM v1 message per phone, with one access token for many pushes",
   assertEquals(fcm.length, 3);
   assertEquals(fcm[0].url, "https://fcm.googleapis.com/v1/projects/shyam-test/messages:send");
   assertEquals(new Headers(fcm[0].init?.headers).get("authorization"), "Bearer ya29.test");
+  // data-only: the app draws the notification (photo, illustration, colour) in the foreground and the background
   assertEquals(JSON.parse(String(fcm[0].init?.body)).message, {
     token: PHONE_A,
-    notification: { title: "SM1042 is packed", body: "It ships soon." },
-    data: { link: "/orders/o1", kind: "order_packed", id: "n1" },
+    data: {
+      id: "n1",
+      kind: "order_packed",
+      title: "SM1042 is packed",
+      body: "It ships soon.",
+      link: "/orders/o1",
+      image_path: "p1/1730000000000.webp",
+    },
     android: { priority: "high" },
   });
+});
+
+Deno.test("no photo, no link: those keys are left out, never sent as null or empty", async () => {
+  const { calls, fetchFn } = fakeGoogle();
+  const send = sendPushHandler({ secret: "s3cret", serviceAccount, fetch: fetchFn, forget: async () => {} });
+  await send(request({ ...push, image_path: null, link: null, tokens: [PHONE_A] }));
+  const message = JSON.parse(String(calls.find((c) => c.url.includes("fcm.googleapis.com"))!.init?.body)).message;
+  assertEquals(message.data, { id: "n1", kind: "order_packed", title: "SM1042 is packed", body: "It ships soon." });
+  assertEquals(message.notification, undefined);
 });
 
 Deno.test("a phone FCM no longer knows is forgotten; other failures are only logged", async () => {

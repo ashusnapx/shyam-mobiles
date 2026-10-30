@@ -11,7 +11,7 @@ import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/notifications.dart';
-import '../widgets/notification_widgets.dart';
+import '../widgets/notification_art.dart';
 
 /// Everything that happened to your orders, repairs and coupons (and, for staff, what needs doing), newest first under
 /// Today / Yesterday / Earlier. Tap one to open it; the × or a swipe removes it.
@@ -75,6 +75,7 @@ class NotificationsScreen extends ConsumerWidget {
           if (p.items.isEmpty) {
             return const EmptyState(
               icon: PhosphorIconsRegular.bell,
+              art: NotificationArt(kind: '', size: 112),
               title: 'No notifications yet',
               message: 'Updates on your orders, repairs and offers show up here.',
             );
@@ -161,7 +162,7 @@ class _Tile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              NotificationIcon(n.kind),
+              NotificationLeading(n),
               const SizedBox(width: Space.md),
               Expanded(
                 child: Column(

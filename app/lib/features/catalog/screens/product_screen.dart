@@ -19,6 +19,7 @@ import '../../cart/widgets/cart_button.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
+import '../../payments/widgets/emi_line.dart';
 import '../data/catalog.dart';
 import '../data/rails.dart';
 import '../data/variant_options.dart';
@@ -319,8 +320,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               Text(shortName(p.name, p.brand.name), style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: Space.sm),
               PriceTag(pricePaise: v.pricePaise, mrpPaise: v.mrpPaise, large: true),
-              // Slot for the payments feature's `EmiLine(pricePaise: v.pricePaise)` ("EMI from ₹X/month"), right
-              // under the price.
+              EmiLine(pricePaise: v.pricePaise), // "EMI from ₹X/month"; nothing when EMI doesn't apply
               const SizedBox(height: 2),
               Text('Inclusive of all taxes · EMI options at checkout', style: muted),
               if (p.id.isNotEmpty) _OfferChips(productId: p.id),

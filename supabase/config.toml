@@ -450,3 +450,7 @@ verify_jwt = false
 # Off until scripts/launch.py sets FCM_SERVICE_ACCOUNT and PUSH_SECRET (and the matching Vault entries).
 [functions.send-push]
 verify_jwt = false
+
+# EMI plans are public (the product page shows "EMI from ₹X/month" signed out too); it reads Razorpay with the key id.
+[functions.emi-plans]
+verify_jwt = false

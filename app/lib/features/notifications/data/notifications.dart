@@ -4,13 +4,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/paging.dart';
+import '../../../core/push.dart' show pushServiceProvider;
 import '../../../core/router.dart' show safeReturnPath;
 import '../../../core/supabase.dart';
-import '../../../core/widgets/widgets.dart' show TagTone;
 import '../../admin/data/admin.dart';
 import '../../feedback/data/feedback.dart' show feedbackNewCountProvider;
 import '../../orders/data/orders.dart';
@@ -28,6 +27,7 @@ class AppNotification {
     this.body = '',
     this.link,
     this.readAt,
+    this.imagePath,
     required this.createdAt,
   });
 
@@ -38,6 +38,7 @@ class AppNotification {
         body: j['body'] as String? ?? '',
         link: j['link'] as String?,
         readAt: j['read_at'] == null ? null : DateTime.parse(j['read_at'] as String),
+        imagePath: j['image_path'] as String?,
         createdAt: DateTime.parse(j['created_at'] as String),
       );
 
@@ -47,57 +48,15 @@ class AppNotification {
   final String body;
   final String? link; // an app route
   final DateTime? readAt;
+  final String? imagePath; // a product photo (product-images key): the order's main item, or the product
   final DateTime createdAt;
 
   bool get unread => readAt == null;
 
-  AppNotification markedRead() =>
-      AppNotification(id: id, kind: kind, title: title, body: body, link: link, readAt: DateTime.now(), createdAt: createdAt);
+  AppNotification markedRead() => AppNotification(
+      id: id, kind: kind, title: title, body: body, link: link, readAt: DateTime.now(), imagePath: imagePath,
+      createdAt: createdAt);
 }
-
-/// Icon and tone per kind, by meaning: emerald done, gold needs you (or a deal), peacock news, red failed or cancelled.
-/// Every kind the database writes (supabase/migrations/20261030000400_notifications.sql) is here; a test checks.
-const notificationStyles = <String, (IconData, TagTone)>{
-  'order_awaiting_payment': (PhosphorIconsRegular.hourglass, TagTone.deal),
-  'order_confirmed': (PhosphorIconsRegular.checkCircle, TagTone.ok),
-  'payment_received': (PhosphorIconsRegular.currencyInr, TagTone.ok),
-  'payment_failed': (PhosphorIconsRegular.warningCircle, TagTone.bad),
-  'order_late_payment': (PhosphorIconsRegular.arrowCounterClockwise, TagTone.info),
-  'order_packed': (PhosphorIconsRegular.package, TagTone.info),
-  'order_shipped': (PhosphorIconsRegular.truck, TagTone.info),
-  'order_tracking': (PhosphorIconsRegular.mapPinLine, TagTone.info),
-  'order_update': (PhosphorIconsRegular.chatCircleText, TagTone.info),
-  'order_delivered': (PhosphorIconsRegular.sealCheck, TagTone.ok),
-  'order_refunded': (PhosphorIconsRegular.arrowCounterClockwise, TagTone.ok),
-  'order_cancelled': (PhosphorIconsRegular.xCircle, TagTone.bad),
-  'order_expired': (PhosphorIconsRegular.clockCountdown, TagTone.bad),
-  'repair_booked': (PhosphorIconsRegular.calendarCheck, TagTone.info),
-  'repair_confirmed': (PhosphorIconsRegular.calendarCheck, TagTone.ok),
-  'repair_quote': (PhosphorIconsRegular.receipt, TagTone.deal),
-  'repair_quote_agreed': (PhosphorIconsRegular.handshake, TagTone.ok),
-  'repair_started': (PhosphorIconsRegular.wrench, TagTone.info),
-  'repair_update': (PhosphorIconsRegular.chatCircleText, TagTone.info),
-  'repair_ready': (PhosphorIconsRegular.storefront, TagTone.deal),
-  'repair_completed': (PhosphorIconsRegular.checkCircle, TagTone.ok),
-  'repair_cancelled': (PhosphorIconsRegular.xCircle, TagTone.bad),
-  'referral_welcome': (PhosphorIconsRegular.gift, TagTone.deal),
-  'referral_reward': (PhosphorIconsRegular.gift, TagTone.deal),
-  'coupon': (PhosphorIconsRegular.ticket, TagTone.deal),
-  'staff_new_order': (PhosphorIconsRegular.shoppingBag, TagTone.deal),
-  'staff_order_paid': (PhosphorIconsRegular.currencyInr, TagTone.deal),
-  'staff_order_cancelled': (PhosphorIconsRegular.xCircle, TagTone.bad),
-  'staff_refund_needed': (PhosphorIconsRegular.arrowCounterClockwise, TagTone.deal),
-  'staff_new_repair': (PhosphorIconsRegular.wrench, TagTone.deal),
-  'staff_quote_approved': (PhosphorIconsRegular.thumbsUp, TagTone.ok),
-  'staff_quote_declined': (PhosphorIconsRegular.thumbsDown, TagTone.bad),
-  'staff_repair_cancelled': (PhosphorIconsRegular.xCircle, TagTone.bad),
-  'staff_feedback': (PhosphorIconsRegular.chatCircleText, TagTone.info),
-  'staff_feedback_low': (PhosphorIconsRegular.star, TagTone.bad),
-  'staff_low_stock': (PhosphorIconsRegular.warning, TagTone.deal),
-  'staff_out_of_stock': (PhosphorIconsRegular.prohibit, TagTone.bad),
-};
-
-(IconData, TagTone) notificationStyle(String kind) => notificationStyles[kind] ?? (PhosphorIconsRegular.bell, TagTone.info);
 
 enum DayGroup {
   today('Today'),
@@ -285,7 +244,10 @@ class UnreadCount extends Notifier<int> {
     }
     if (newest == null || !ref.mounted) return;
     _refreshScreen(newest.link);
-    ref.read(notificationBannerProvider.notifier).show(newest);
+    // Android already showed it (lib/core/push.dart): the banner is only for phones without notifications on
+    final push = ref.read(pushServiceProvider);
+    if (push.enabled && await push.allowed().catchError((Object _) => false)) return;
+    if (ref.mounted) ref.read(notificationBannerProvider.notifier).show(newest);
   }
 
   // the order, repair or admin screen the notification is about shows the new state when opened (or at once)

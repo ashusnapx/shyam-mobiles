@@ -26,6 +26,8 @@ Assumption: $1 = ₹88. All rupee figures include 18% GST unless marked otherwis
 | Razorpay, any domestic method (UPI, cards, netbanking, wallets, EMI) | 2% + 18% GST = **2.36% of the amount paid** | razorpay.com/pricing. UPI has zero MDR, but Razorpay still charges its 2% platform fee. |
 | Razorpay, corporate cards | 2.15% + GST = 2.54% | |
 | Razorpay refunds, setup, AMC | ₹0 | The fee on a refunded payment is **not** returned. |
+| Razorpay instant refund (optional, per refund) | ₹7.99 (≤ ₹1,000) / ₹11.99 (₹1,000–₹25,000) / ₹14.99 (> ₹25,000) + 18% GST | razorpay.com/pricing. Staff tick "Instant refund" per refund; returned if it falls back to normal. |
+| Razorpay payment links, saved cards, EMI plans, dispute alerts | ₹0 extra | A paid link costs the usual 2.36%. EMI you make no-cost comes out of the margin. |
 | COD | ₹0 gateway fee | Real costs: courier COD charges, failed-delivery returns (RTO), cash handling. Not modelled yet. |
 | SMS OTP (MSG91, India) | ₹0.25 + GST = **₹0.30 per SMS** on the 5,000 pack (₹1,475 prepaid, the smallest); ₹0.18 + GST = ₹0.21 on the 30,000 pack | MSG91's slab table as quoted by third parties in Oct 2026 (₹0.25 / ₹0.18 / ₹0.16, negotiable to ~₹0.13); confirm on msg91.com. Budget 1.3 SMS per phone login (resends). Supabase has no built-in MSG91 provider: it goes through the Send SMS auth hook (one small Edge Function). |
 | Email OTP / Google sign-in | ₹0 | Inside the Resend free tier and Supabase Auth. |
@@ -58,6 +60,8 @@ The gateway fee is about 90% of the bill. Infrastructure is a rounding error by 
 6. **Stay on Micro compute** until DB CPU stays above 70%. The next size up (Small) costs extra beyond the $10 credit.
 
 ## Change log
+
+- 2026-10-30: Refunds, payment links, saved cards, EMI on the product page and dispute alerts on Razorpay: no fixed cost; instant refunds are optional per refund (fee above).
 
 - 2026-10-29: Sentry dropped for Play Console's Android vitals (free, no SDK).
 - 2026-10-29: SMS OTP priced from MSG91's slabs incl. GST (₹0.30 at launch, ₹0.21 on the 30k pack); DLT budgeted as yearly.

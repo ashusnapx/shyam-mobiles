@@ -27,9 +27,13 @@ export async function signJwt(claims: Record<string, unknown>, privateKeyPem: st
 }
 
 /**
- * One notification row (private.push_notification, via pg_net) to each of its user's phones, as FCM HTTP v1
- * messages: the system tray shows title and body, and the app opens `data.link` on tap. Without
+ * One notification row (private.push_notification, via pg_net) to each of its user's phones, as data-only, high
+ * priority FCM HTTP v1 messages: the app draws every Android notification itself (lib/core/push.dart), with the
+ * product photo from `data.image_path` (a product-images key; the phone builds the URL from its own Supabase URL,
+ * so local http stacks work too) or the kind's illustration, and opens `data.link` on tap. Without
  * FCM_SERVICE_ACCOUNT it sends nothing and says so in the log. pg_net ignores the reply, so failures are logged.
+ * shortcut: data-only messages need the app's background handler to run; phones that block background starts
+ * (some MIUI/ColorOS settings) can miss them. Add a `notification` block back if that shows up in the field.
  */
 export function sendPushHandler(deps: PushDeps) {
   const now = deps.now ?? Date.now;
@@ -67,13 +71,18 @@ export function sendPushHandler(deps: PushDeps) {
       return json({ sent: 0, off: true });
     }
     const body = await readJson(req);
-    const { title, body: text, link, kind, id, tokens } = body;
+    const { title, body: text, link, kind, id, image_path: image, tokens } = body;
     if (
       typeof title !== "string" || typeof text !== "string" || !Array.isArray(tokens) || tokens.length > 20 ||
       tokens.some((t) => typeof t !== "string" || !/^[A-Za-z0-9_:-]{20,1000}$/.test(t))
     ) {
       throw new HttpError(400, "BAD_REQUEST", "Need title, body and up to 20 tokens.");
     }
+    // every FCM data value is a string; keys without a value are left out
+    const data = Object.fromEntries(
+      Object.entries({ id, kind, title, body: text, link, image_path: image })
+        .filter(([, v]) => typeof v === "string" && v !== "") as [string, string][],
+    );
     const sa = JSON.parse(deps.serviceAccount) as ServiceAccount;
     const bearer = await accessToken(sa);
     const dead: string[] = [];
@@ -83,12 +92,7 @@ export function sendPushHandler(deps: PushDeps) {
         method: "POST",
         headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
         body: JSON.stringify({
-          message: {
-            token,
-            notification: { title, body: text },
-            data: { link: typeof link === "string" ? link : "", kind: String(kind ?? ""), id: String(id ?? "") },
-            android: { priority: "high" },
-          },
+          message: { token, data, android: { priority: "high" } },
         }),
         signal: AbortSignal.timeout(10_000),
       }).catch((e) => (console.error("send-push:", e), null));

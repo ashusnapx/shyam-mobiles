@@ -8,6 +8,7 @@ import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../feedback/data/feedback.dart' show FeedbackKind;
+import '../../payments/widgets/admin_payments.dart';
 import '../../repairs/widgets/repair_widgets.dart';
 import '../data/admin.dart';
 import '../data/rules.dart';
@@ -186,8 +187,8 @@ class _Body extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: Space.md),
             child: NoteBox(
               'Refund due: ${formatInr(o.totalPaise)} was paid online and this order is cancelled. '
-              'Refund it in the Razorpay dashboard${o.razorpayOrderId == null ? '' : ' (order ${o.razorpayOrderId})'}. '
-              'The payment shows Refunded here once Razorpay confirms it, or tap Mark refunded.',
+              'Tap Refund under Payments below. If you refunded it another way (the Razorpay dashboard'
+              '${o.razorpayOrderId == null ? '' : ', order ${o.razorpayOrderId}'}, cash, UPI), tap Mark refunded.',
               tone: TagTone.bad,
               icon: PhosphorIconsBold.arrowCounterClockwise,
             ),
@@ -253,6 +254,7 @@ class _Body extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: Space.sm),
             child: _ItemCard(orderId: o.id, item: item),
           ),
+        OrderPaymentsSection(order: o), // refunds through Razorpay, payment links, disputes
         const ListSection('Shipping'),
         Text(
           o.courier == null
@@ -485,7 +487,7 @@ class _CancelDialogState extends State<_CancelDialog> {
         children: [
           Text(
             'Items go back into stock. The customer sees your reason.'
-            '${o.paymentStatus == PaymentStatus.paid ? ' They paid ${formatInr(o.totalPaise)} online, so refund it in the Razorpay dashboard afterwards.' : ''}',
+            '${o.paymentStatus == PaymentStatus.paid ? ' They paid ${formatInr(o.totalPaise)} online, so refund it under Payments afterwards.' : ''}',
           ),
           const SizedBox(height: Space.md),
           TextField(

@@ -421,6 +421,7 @@ reset role;
 
 create function pg_temp.pushes() returns bigint language sql as $$
   select count(*) from net.http_request_queue where url = 'http://127.0.0.1:54321/functions/v1/send-push' $$;
+delete from vault.secrets where name in ('push_url', 'push_secret'); -- the local stack may have push set up
 select lives_ok($$select private.notify('ab000000-0000-0000-0000-000000000002', 'order_update', 'Hello', 'Body', '/orders/x')$$,
   'a notification with push not set up');
 select is(pg_temp.pushes(), 0::bigint, 'sends nothing');

@@ -11,7 +11,9 @@ Refuses any API/DB URL that isn't 127.0.0.1/localhost. Everything it creates is 
 the end (store_settings are restored), so it can be re-run; GoTrue allows 20 sign-ins per 5 min per IP, and a run
 uses about 8. It never touches the dev customer account. Edge Function secrets it signs with (fake, local):
 RAZORPAY_KEY_SECRET=fake_secret_for_tests, RAZORPAY_WEBHOOK_SECRET=whsec_local_tests (override with E2E_<NAME>).
-It never makes a function call Razorpay's real API. Prints PASS/FAIL per check, exits 1 if any failed.
+Served with fake keys, no check needs Razorpay; served with the Razorpay TEST keys (and E2E_RAZORPAY_KEY_SECRET /
+E2E_RAZORPAY_WEBHOOK_SECRET set to match), the payments section also makes real test-mode payment links, customers and
+a refund Razorpay refuses. Never live keys. Prints PASS/FAIL per check, exits 1 if any failed.
 """
 import base64
 import hashlib
@@ -1240,6 +1242,123 @@ def place_one(actor: Actor, addr: str) -> str:
     return place(actor, addr, 'razorpay').body
 
 
+def payments_checks(staff: Actor, alice: Actor, bob: Actor, addrs: dict) -> None:
+    section('payments: EMI, refunds, payment links, disputes, saved cards')
+    real = KEY_SECRET != 'fake_secret_for_tests'  # served with Razorpay's test keys: some checks reach its test API
+    aa = addrs['alice']
+
+    r = http('POST', '/functions/v1/emi-plans', {})
+    if real:
+        check('emi-plans (test API): public, a list of bank plans', r.status == 200 and isinstance(r.body, dict)
+              and isinstance(r.body.get('plans'), list)
+              and all(set(p) == {'bank', 'name', 'months', 'rate', 'min_paise', 'no_cost'} for p in r.body['plans']), r)
+    else:  # a fake key id: Razorpay says no, and the app just hides the EMI line
+        check('emi-plans with fake keys: public, 502 GATEWAY_ERROR', r.status == 502 and code(r) == 'GATEWAY_ERROR', r)
+    for fn in ('refund-payment', 'payment-link'):
+        check(f'{fn}: signed out -> 401', http('POST', f'/functions/v1/{fn}', {}).status == 401)
+        r = alice.fn(fn, {'order_id': ORDERS[0]})
+        check(f'{fn}: a customer -> 403 FORBIDDEN', r.status == 403 and code(r) == 'FORBIDDEN', r)
+    r = staff.fn('refund-payment', {'order_id': 'x'})
+    check('refund-payment bad body -> 400', r.status == 400 and code(r) == 'BAD_REQUEST', r)
+    r = staff.fn('payment-link', {'amount_paise': 5, 'phone': '123', 'description': 'x'})
+    check('payment-link bad body -> 400', r.status == 400 and code(r) == 'BAD_REQUEST', r)
+
+    # refunds: a paid, delivered order with two lines
+    set_cart(alice, {'c': 1, 'cheap': 2})
+    o = place(alice, aa, 'razorpay').body
+    rzp, total, pay = set_rzp(o), order(o)['total_paise'], f'pay_E2E{RUN}RFAAA'  # Razorpay's id shape: 14 after pay_
+    webhook(captured(rzp, pay, total))
+    for st, courier in (('packed', None), ('shipped', 'Delhivery'), ('delivered', None)):
+        staff_update(staff, o, st, None, courier)
+    cheap = next(i for i in order(o)['order_items'] if i['variant_id'] == V['cheap'])
+    set_cart(alice, {'cheap': 1})
+    cod = place(alice, aa, 'cod').body
+    r = staff.fn('refund-payment', {'order_id': cod})
+    check('refund-payment on an unpaid COD order -> 409 REFUND_NOT_ALLOWED', r.status == 409 and code(r) == 'REFUND_NOT_ALLOWED', r)
+    if real:
+        r = staff.fn('refund-payment', {'order_id': o, 'item_ids': [cheap['id']]})
+        f = SVC.get(f'refunds?order_id=eq.{o}&select=status,failure').body
+        check("refund-payment (test API): Razorpay refuses a payment it never took -> 409 REFUND_REFUSED, its reason kept",
+              r.status == 409 and code(r) == 'REFUND_REFUSED' and f and f[0]['status'] == 'failed' and f[0]['failure'], (r, f))
+        check('... the line is free to refund again', SVC.one(f'order_items?id=eq.{cheap["id"]}&select=refund_id')['refund_id'] is None)
+    start = SVC.rpc('admin_start_refund', {'p_staff': staff.uid, 'p_order_id': o, 'p_items': [cheap['id']], 'p_restock': True})
+    check('a line refund is what was paid for it', start.status == 200 and start.body['amount_paise'] == 200 and start.body['payment_id'] == pay, start)
+    s0 = stock('cheap')
+    refund = {'id': f'rfnd_{RUN}_a', 'payment_id': pay, 'amount': 200, 'speed_processed': 'normal', 'notes': {'refund_id': start.body['refund_id']}}
+    r = webhook({'event': 'refund.processed', 'payload': {'refund': {'entity': refund}, 'payment': {'entity': {'id': pay, 'amount': total, 'amount_refunded': 200}}}})
+    x = order(o)
+    check('refund.processed for an app refund -> processed, restocked, order unchanged', r.body == {'result': 'refund_processed'}
+          and stock('cheap') == s0 + 2 and (x['status'], x['payment_status']) == ('delivered', 'paid'), (r, x))
+    mine = alice.get(f'refunds?order_id=eq.{o}&select=status&order=created_at')
+    check('... the customer reads it, nobody else does', mine.status == 200 and mine.body[-1] == {'status': 'processed'}
+          and len(mine.body) == len(SVC.get(f'refunds?order_id=eq.{o}').body)
+          and bob.get(f'refunds?order_id=eq.{o}').body == [] and denied(ANON.get('refunds')), (mine, ANON.get('refunds')))
+    check('... timeline', timeline(o)[-1][1].startswith('Refund of ₹2 for '), timeline(o))
+    start = SVC.rpc('admin_start_refund', {'p_staff': staff.uid, 'p_order_id': o})
+    check('the rest: total minus what is back', start.status == 200 and start.body['amount_paise'] == total - 200, start)
+    refund = {'id': f'rfnd_{RUN}_b', 'payment_id': pay, 'amount': total - 200, 'notes': {'refund_id': start.body['refund_id']}}
+    r = webhook({'event': 'refund.processed', 'payload': {'refund': {'entity': refund}}})
+    x = order(o)
+    check('... processed -> refunded/refunded', r.body == {'result': 'refund_processed'} and (x['status'], x['payment_status']) == ('refunded', 'refunded'), (r, x))
+    r = staff.fn('refund-payment', {'order_id': o})
+    check('nothing left -> 409 REFUND_NOT_ALLOWED', r.status == 409 and code(r) == 'REFUND_NOT_ALLOWED', r)
+
+    # disputes
+    disp = f'disp_e2e{RUN}'
+    r = webhook({'event': 'payment.dispute.created', 'payload': {'dispute': {'entity': {
+        'id': disp, 'payment_id': pay, 'amount': total, 'status': 'open', 'phase': 'chargeback', 'reason_code': 'fraudulent',
+        'reason_description': 'e2e: card holder says they did not buy it', 'respond_by': int(time.time()) + 7 * 86400}}}})
+    check('payment.dispute.created -> recorded on its order', r.body == {'result': 'dispute'}
+          and SVC.one(f'disputes?id=eq.{disp}&select=order_id')['order_id'] == o, r)
+    check('... staff see it and are told, customers don\'t', len(staff.get(f'disputes?id=eq.{disp}').body) == 1
+          and alice.get(f'disputes?id=eq.{disp}').body == []
+          and len(SVC.get(f'notifications?user_id=eq.{staff.uid}&kind=eq.staff_dispute&order_id=eq.{o}').body) == 1)
+
+    # payment links
+    set_cart(alice, {'c': 1})
+    cod2 = place(alice, aa, 'cod').body
+    r = staff.fn('payment-link', {'order_id': cod2})
+    if not real:
+        check('payment-link with fake keys -> 502, no link row left', r.status == 502 and SVC.get(f'payment_links?order_id=eq.{cod2}').body == [], r)
+    else:
+        total2 = order(cod2)['total_paise']
+        check('payment-link (test API) for a COD order: its total, a short URL', r.status == 200 and r.body['amount_paise'] == total2
+              and r.body['short_url'].startswith('https://') and r.body['customer_phone'] == '+919876543210', r)
+        again = staff.fn('payment-link', {'order_id': cod2})
+        check('... asking again sends the same open link', again.status == 200 and again.body['id'] == r.body['id'] and again.body['reused'], again)
+        link = SVC.one(f'payment_links?id=eq.{r.body["id"]}')
+        paid = {'event': 'payment_link.paid', 'payload': {'payment_link': {'entity': {'id': link['razorpay_link_id'], 'status': 'paid'}},
+                                                         'payment': {'entity': {'id': f'pay_{RUN}_pl', 'amount': total2}}}}
+        w = webhook(paid)
+        x = order(cod2)
+        check('payment_link.paid -> the COD order is paid online', w.body == {'result': 'link_paid'}
+              and (x['status'], x['payment_method'], x['payment_status'], x['razorpay_payment_id']) == ('confirmed', 'razorpay', 'paid', f'pay_{RUN}_pl'), (w, x))
+        check('... replay (new event id) is harmless', webhook(paid).body == {'result': 'link_paid'}
+              and timeline(cod2).count(('confirmed', 'Paid online with a payment link.')) == 1, timeline(cod2))
+        c = staff.fn('payment-link', {'amount_paise': 150000, 'phone': '+919812345678', 'name': 'E2E Traders', 'description': f'e2e-{RUN} wholesale'})
+        check('a custom-amount link (test API)', c.status == 200 and c.body['order_id'] is None and c.body['short_url'].startswith('https://'), c)
+        x = staff.fn('payment-link', {'cancel': c.body['id']}) if c.status == 200 else c
+        check('... cancelled at Razorpay and here', x.status == 200 and SVC.one(f'payment_links?id=eq.{c.body["id"]}')['status'] == 'cancelled', x)
+        x = staff.fn('payment-link', {'cancel': c.body['id']}) if c.status == 200 else c
+        check('... not twice -> 409 LINK_NOT_OPEN', x.status == 409 and code(x) == 'LINK_NOT_OPEN', x)
+    check('customers never see payment links', alice.get('payment_links').body == [])
+
+    # saved cards: create-payment hands Checkout the account's Razorpay customer
+    set_cart(alice, {'cheap': 1})
+    rz = place(alice, aa, 'razorpay').body
+    set_rzp(rz)
+    first, second = alice.fn('create-payment', {'order_id': rz}), alice.fn('create-payment', {'order_id': rz})
+    if real:
+        cust = SVC.get(f'razorpay_customers?user_id=eq.{alice.uid}').body
+        check('create-payment (test API): a Razorpay customer per account, reused', first.status == second.status == 200
+              and first.body['customer_id'].startswith('cust_') and first.body['customer_id'] == second.body['customer_id']
+              and cust and cust[0]['customer_id'] == first.body['customer_id'], (first, cust))
+    else:
+        check('create-payment with fake keys: no customer, payment still starts', first.status == 200 and first.body['customer_id'] is None, first)
+    check('... the customer id is server-only', denied(alice.get('razorpay_customers')), alice.get('razorpay_customers'))
+    alice.rpc('cancel_order', {'p_order_id': rz})  # later sections place online orders too (PENDING_LIMIT)
+
+
 def delete_account_checks(carol: Actor, addr: str) -> None:
     section('delete-account')
     set_cart(carol, {'cheap': 1})
@@ -1256,8 +1375,10 @@ def delete_account_checks(carol: Actor, addr: str) -> None:
     r = carol.fn('delete-account')
     check('open repair -> 409 ACTIVE_ORDERS', r.status == 409, r)
     carol.rpc('cancel_repair', {'p_booking_id': rid})
+    SVC.post('razorpay_customers', {'user_id': carol.uid, 'customer_id': f'cust_e2e{RUN}'})
     r = carol.fn('delete-account')
     check('nothing open -> 204', r.status == 204, r)
+    check('... and the Razorpay customer link is forgotten', SVC.get(f'razorpay_customers?user_id=eq.{carol.uid}').body == [])
     check('auth user gone', http('GET', f'/auth/v1/admin/users/{carol.uid}', key=SECRET).status == 404)
     for t, col in (('profiles', 'id'), ('addresses', 'user_id'), ('cart_items', 'user_id'), ('wishlist', 'user_id')):
         check(f'{t} deleted', SVC.get(f'{t}?{col}=eq.{carol.uid}').body == [])
@@ -1336,6 +1457,9 @@ def cleanup(staff, settings, paths) -> None:
     if REPAIRS:
         SVC.delete(f'repair_bookings?id=in.({",".join(REPAIRS)})')
     SVC.delete(f'payment_events?razorpay_event_id=like.evt_e2e_{RUN}*')
+    SVC.delete(f'disputes?id=like.disp_e2e{RUN}*')
+    if STARTED:  # links outlive their order (order_id set null): the wholesale one, and any for deleted orders
+        SVC.delete(f'payment_links?created_by=eq.{staff.uid}&created_at=gte.{STARTED[0]}')
     if P:
         SVC.delete(f'products?id=in.({",".join(P.values())})')
     SVC.delete(f'brands?slug=eq.e2e-{RUN}')
@@ -1374,6 +1498,8 @@ def main() -> None:
         money_checks(staff, alice, bob, carol, dave, addrs)
         functions = function_checks(staff, alice, bob, addrs)
         lifecycle(staff, alice, bob, addrs, functions)
+        if functions:
+            payments_checks(staff, alice, bob, addrs)
         notification_checks(staff, alice, bob, a_order)
         offers_checks(staff, alice, bob, carol, dave, addrs, functions)
         caps_checks(staff, alice, addrs['alice'])

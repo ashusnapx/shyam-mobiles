@@ -18,6 +18,7 @@ import '../../cart/data/cart.dart';
 import '../../checkout/data/payment.dart';
 import '../../checkout/screens/widgets.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
+import '../../payments/widgets/order_refunds.dart';
 import '../data/orders.dart';
 
 String _paymentLine(Order o) => switch ((o.paymentMethod, o.paymentStatus)) {
@@ -211,6 +212,7 @@ class _OrderBody extends StatelessWidget {
             ),
           ),
         ),
+        OrderRefunds(orderId: o.id),
         _Actions(order: o),
       ],
     );

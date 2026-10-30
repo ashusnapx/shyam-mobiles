@@ -49,6 +49,12 @@ const _codes = {
   'REFERRAL_TOO_LATE': 'Friend codes are for new customers, before their first order.',
   'CODE_TAKEN': 'Another offer already uses this code. Pick a different one, or tap Generate.',
   'INVALID_PROMOTION': 'Something in this offer isn’t allowed. Check the amount, dates and products.',
+  // Staff payments (refund-payment, payment-link). Codes not listed here (REFUND_NOT_ALLOWED, REFUND_REFUSED,
+  // LINK_NOT_ALLOWED, LINK_REFUSED) carry the server's own staff copy, often Razorpay's reason.
+  'REFUND_IN_PROGRESS': 'A refund for this order is already with Razorpay. Wait until it’s done, then refresh.',
+  'REFUND_UNCONFIRMED': 'Razorpay didn’t confirm the refund. Tap Refund again: it retries this same refund, never a second one.',
+  'LINK_IN_PROGRESS': 'That link is still being made. Try again in a moment.',
+  'LINK_NOT_OPEN': 'This link is already paid, cancelled or expired. Refresh to see it.',
   'FEEDBACK_LIMIT': 'That’s all the feedback we can take from you today. Thank you! Try again tomorrow, or call the shop.',
 };
 

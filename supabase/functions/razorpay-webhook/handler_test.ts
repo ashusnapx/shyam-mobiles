@@ -22,6 +22,8 @@ function fakeStore(rpcError: string | null = null) {
       return rzp === "order_RZP1" || id === ORDER.id ? ORDER : null;
     },
     async rpc(fn, args) {
+      // refunds made in the Razorpay dashboard aren't in our refunds table
+      if (fn === "settle_refund" && args.p_refund_id === null && args.p_razorpay_refund_id !== "rfnd_ours") return "NOT_FOUND";
       state.calls.push([fn, args]);
       return state.rpcError;
     },
@@ -157,4 +159,74 @@ Deno.test("signed but malformed body -> 400", async () => {
     body: "not json",
   });
   assertEquals((await handleWebhook(req, SECRET, store)).status, 400);
+});
+
+const REFUND_ID = "0b8f5a3e-1111-4222-8333-944445555777";
+const ourRefund = (event: string, notes: Record<string, string> = { refund_id: REFUND_ID }) => ({
+  event,
+  payload: {
+    refund: { entity: { id: "rfnd_1", payment_id: "pay_1", amount: 1000, speed_processed: "instant", notes } },
+    payment: { entity: { id: "pay_1", amount: 54900, amount_refunded: 1000 } },
+  },
+});
+
+Deno.test("refund.processed / refund.failed for a refund made in the app -> settle_refund", async () => {
+  const { store, calls } = fakeStore();
+  assertEquals((await post(store, ourRefund("refund.processed"), { eventId: "evt_r1" })).body.result, "refund_processed");
+  assertEquals((await post(store, ourRefund("refund.failed"), { eventId: "evt_r2" })).body.result, "refund_failed");
+  assertEquals(calls, [
+    ["settle_refund", { p_refund_id: REFUND_ID, p_razorpay_refund_id: "rfnd_1", p_status: "processed", p_speed: "instant" }],
+    ["settle_refund", { p_refund_id: REFUND_ID, p_razorpay_refund_id: "rfnd_1", p_status: "failed", p_speed: "instant" }],
+  ]);
+});
+
+Deno.test("a refund without our id is found by Razorpay's id; junk ids are ignored", async () => {
+  const { store, calls } = fakeStore();
+  const byRazorpayId = ourRefund("refund.processed", { refund_id: "not-a-uuid" });
+  byRazorpayId.payload.refund.entity.id = "rfnd_ours";
+  assertEquals((await post(store, byRazorpayId)).body.result, "refund_processed");
+  assertEquals(calls[0][1].p_refund_id, null);
+  assertEquals((await post(store, ourRefund("refund.failed", {}), { eventId: "evt_r3" })).body.result, "unknown_refund");
+});
+
+Deno.test("payment_link.paid -> mark_link_paid with the payment's amount; closed links", async () => {
+  const { store, calls } = fakeStore();
+  const paid = (amount: unknown) => ({
+    event: "payment_link.paid",
+    payload: {
+      payment_link: { entity: { id: "plink_1", amount: 44900, status: "paid", notes: { link_id: REFUND_ID } } },
+      payment: { entity: { id: "pay_9", amount, order_id: "order_LINK", notes: { link_id: REFUND_ID } } },
+      order: { entity: { id: "order_LINK" } },
+    },
+  });
+  assertEquals((await post(store, paid(44900), { eventId: "evt_l1" })).body.result, "link_paid");
+  assertEquals((await post(store, paid("44900"), { eventId: "evt_l2" })).body.result, "amount_mismatch");
+  assertEquals((await post(store, { event: "payment_link.expired", payload: { payment_link: { entity: { id: "plink_2" } } } }, { eventId: "evt_l3" })).body.result, "link_expired");
+  assertEquals((await post(store, { event: "payment_link.cancelled", payload: { payment_link: { entity: { id: "plink_3" } } } }, { eventId: "evt_l4" })).body.result, "link_cancelled");
+  assertEquals((await post(store, { event: "payment_link.paid", payload: {} }, { eventId: "evt_l5" })).body.result, "ignored");
+  assertEquals(calls, [
+    ["mark_link_paid", { p_razorpay_link_id: "plink_1", p_razorpay_payment_id: "pay_9", p_amount_paise: 44900 }],
+    ["close_payment_link", { p_razorpay_link_id: "plink_2", p_status: "expired" }],
+    ["close_payment_link", { p_razorpay_link_id: "plink_3", p_status: "cancelled" }],
+  ]);
+});
+
+Deno.test("a link's payment.captured is left to payment_link.paid (no order_id in its notes)", async () => {
+  const { store, calls } = fakeStore();
+  const res = await post(store, { event: "payment.captured", payload: { payment: { entity: {
+    id: "pay_9", order_id: "order_LINK", amount: 44900, notes: { link_id: REFUND_ID, shop_order_id: ORDER.id } } } } });
+  assertEquals(res.body.result, "unknown_order");
+  assertEquals(calls, []);
+});
+
+Deno.test("payment.dispute.* -> record_dispute; an empty dispute is ignored", async () => {
+  const { store, calls } = fakeStore();
+  const res = await post(store, { event: "payment.dispute.created", payload: { dispute: { entity: {
+    id: "disp_1", payment_id: "pay_1", amount: 54900, status: "open", phase: "chargeback", reason_code: "fraudulent",
+    reason_description: "Card holder says they didn't buy it", respond_by: 1793961000 } } } });
+  assertEquals(res.body.result, "dispute");
+  assertEquals(calls, [["record_dispute", { p_id: "disp_1", p_payment_id: "pay_1", p_amount_paise: 54900, p_status: "open",
+    p_phase: "chargeback", p_reason_code: "fraudulent", p_reason: "Card holder says they didn't buy it",
+    p_respond_by: "2026-11-06T10:30:00.000Z" }]]);
+  assertEquals((await post(store, { event: "payment.dispute.won", payload: {} }, { eventId: "evt_d2" })).body.result, "ignored");
 });

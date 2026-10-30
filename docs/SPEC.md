@@ -64,9 +64,10 @@ Exact DDL: `supabase/migrations/20261028000000_schema.sql`. Summary:
 - Offers tables (`collections`, `promotions`, `banners`, referrals…) and the new `store_settings` referral columns: see **Offers** below and `supabase/migrations/20261030000000_offers.sql`.
 - `order_events(order_id, status, note, created_at)`: timeline shown to the customer.
 - `payment_events(razorpay_event_id unique, type, payload)`: webhook audit + idempotency.
+- `refunds`, `order_items.refund_id`, `payment_links`, `razorpay_customers`, `disputes`: see **Payments: refunds, payment links, saved cards, disputes**.
 - `repair_bookings(number 'RP100001', user_id, device_brand, device_model, issue, description, preferred_date, slot, contact_phone, status, quote_paise, quote_status, quote_decided_at, admin_note)`: a customer has at most 3 open (not completed/cancelled) bookings (`REPAIR_LIMIT`); staff booking walk-ins are exempt. `quote_status`: `none` (no quote; exactly when `quote_paise` is null), `pending` (waiting for the customer), `approved`, `declined`; `quote_decided_at` is when the customer (or staff for them) answered. `admin_note` is legacy (copied into `repair_events`; no longer written).
 - `repair_events(booking_id, status, quote_status, quote_paise, note, created_at)`: the repair timeline, shown to the customer and staff. A status change has `quote_status` null; a quote event (sent, approved, declined) has both `quote_status` and the amount; `note` is staff's note or the customer's decline reason. Written only by the RPCs and the booking insert trigger.
-- `notifications(user_id, kind, title ≤ 80, body ≤ 300, link (app route), order_id, repair_id, read_at, created_at)` and `device_tokens(token pk, user_id, platform, updated_at)`: see **Notifications**.
+- `notifications(user_id, kind, title ≤ 80, body ≤ 300, link (app route), order_id, repair_id, image_path, read_at, created_at)` and `device_tokens(token pk, user_id, platform, updated_at)`: see **Notifications**.
 - `store_settings` (single row): `delivery_fee_paise`, `free_delivery_min_paise`, `cod_enabled`, `cod_max_paise`, `store_phone`, `store_address`, `store_lat`/`store_lng` (the shop's map pin, both or neither; directions go to it, else to the address), `store_maps_url` (https, ≤500: the shop's Google Maps listing, linked to as "Photos, reviews & hours on Google Maps"; seeded with the `?cid=` link of "Shyam Mobile Center"), `store_photos text[]` (≤8 object keys `store/<millis>.<ext>` in the `product-images` bucket, in display order), `store_hours`, `repair_note`, `returns_policy` (placeholder text the owner must edit before launch).
 
 ### Input rules (enforced in the database; app limits are only a convenience)
@@ -81,7 +82,7 @@ Exact DDL: `supabase/migrations/20261028000000_schema.sql`. Summary:
 ```
 order.status:   pending_payment ─┬─> confirmed ─> packed ─> shipped ─> delivered
                                  └─> cancelled (expiry / user / admin)
-                confirmed|packed ─> cancelled          delivered ─> refunded (admin, after refund)
+                confirmed|packed ─> cancelled          delivered ─> refunded (full refund processed, or admin)
 payment_status: pending ─> paid ─> refunded ;  pending ─> failed (stays retryable until expiry)
 repair.status:  requested ─> confirmed ─> in_progress ─> ready ─> completed ; any open ─> cancelled (staff)
                 requested|confirmed ─> cancelled (customer)
@@ -115,7 +116,8 @@ Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code 
 | `admin_dashboard() → json` | admin | `{orders_today, revenue_today_paise, open_orders, low_stock, open_repairs, repairs_awaiting_approval, needs_refund}`, all integers. Today = IST calendar day, orders in confirmed/packed/shipped/delivered. `open_orders`: confirmed/packed/shipped. `low_stock`: active products with an active variant at stock ≤ 3 (what the Products low-stock list shows). `open_repairs`: not completed/cancelled. `repairs_awaiting_approval`: open with `quote_status = pending`. `needs_refund`: `status = cancelled and payment_status = paid`. |
 | `mark_order_paid(p_order_id uuid, p_razorpay_payment_id text) → void` | service_role only | Idempotent. Used by the Edge Functions. A late payment revives an *expired* order if stock allows; a customer/admin-cancelled order is never revived (→ needs refund). |
 | `mark_payment_failed(p_order_id uuid) → void` | service_role only | From the `payment.failed` webhook: `pending → failed`, order stays payable until expiry. |
-| `mark_order_refunded(p_razorpay_payment_id text) → void` | service_role only | From the `refund.processed` webhook (full refunds only): `payment_status = refunded`. |
+| `mark_order_refunded(p_razorpay_payment_id text) → void` | service_role only | From the `refund.processed` webhook for a refund made in the Razorpay dashboard (full refunds only): `payment_status = refunded`. |
+| `admin_start_refund`, `settle_refund`, `admin_new_payment_link`, `mark_link_paid`, `close_payment_link`, `record_dispute` | service_role only | See **Payments: refunds, payment links, saved cards, disputes**. |
 | `expire_unpaid_orders() → int` | `pg_cron`, every 5 min | Cancels `pending_payment` orders past `reserved_until`, restocks. |
 | `unread_notifications() → int` | authenticated | The caller's unread count (the bell). |
 | `mark_notifications_read(p_ids uuid[] default null) → void` | authenticated | Sets `read_at` on those of the caller's notifications (null: all of them). Someone else's ids are ignored. |
@@ -128,14 +130,83 @@ All are `POST`. User functions keep the platform `verify_jwt` check and verify t
 
 | Function | Auth | Body → Response |
 |---|---|---|
-| `create-payment` | user JWT | `{order_id}` → `{key_id, razorpay_order_id, amount, currency, order_number, reserved_until}` (`reserved_until`: ISO 8601 UTC, when the stock hold ends; set Razorpay's checkout `timeout` from it). Reuses an existing `razorpay_order_id`. Refuses unless the order is the caller's, `pending_payment`, `razorpay`, and not expired. |
+| `create-payment` | user JWT | `{order_id}` → `{key_id, razorpay_order_id, amount, currency, order_number, reserved_until, customer_id}` (`reserved_until`: ISO 8601 UTC, when the stock hold ends; set Razorpay's checkout `timeout` from it; `customer_id`: the account's Razorpay customer for saved cards, or null). Reuses an existing `razorpay_order_id`. Refuses unless the order is the caller's, `pending_payment`, `razorpay`, and not expired. |
 | `verify-payment` | user JWT | `{razorpay_order_id, razorpay_payment_id, razorpay_signature}` → `{order_id, status}`. Checks the HMAC, fetches the payment from Razorpay (order id, amount = total, status captured/authorized), then calls `mark_order_paid`. `status` is the order status afterwards (`confirmed`, or `cancelled` if it was paid too late). |
-| `razorpay-webhook` | none (`verify_jwt = false`), HMAC instead | Handles `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`. Verifies `x-razorpay-signature` over the raw body (401 if bad), dedupes on `x-razorpay-event-id` via `payment_events`, checks amount = order total. `refund.processed` counts as full only when the event's payment has `amount_refunded ≥ amount`; anything else (a partial refund, missing totals) is left for staff. Returns 200 on duplicates, unknown events/orders and business refusals; 500 only on infrastructure errors (Razorpay retries). |
-| `delete-account` | user JWT | `{}` → 204. Returns 409 `ACTIVE_ORDERS` if any order is not delivered/cancelled/refunded, any cancelled order is still owed a refund (`payment_status = paid`), or any repair is not completed/cancelled. Otherwise deletes the auth user (cascades the profile, cart, wishlist, addresses; orders keep `user_id = null`). |
+| `razorpay-webhook` | none (`verify_jwt = false`), HMAC instead | Handles `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `refund.failed`, `payment_link.paid`, `payment_link.cancelled`, `payment_link.expired` and `payment.dispute.*` (created, won, lost, closed, under_review, action_required). Verifies `x-razorpay-signature` over the raw body (401 if bad), dedupes on `x-razorpay-event-id` via `payment_events`, checks amount = order total (a link: = the link's amount). A refund made in the app (our id in its notes, else its Razorpay id in `refunds`) goes to `settle_refund`; any other `refund.processed` counts as full only when the event's payment has `amount_refunded ≥ amount`, and anything else (a partial refund, missing totals) is left for staff. A payment link's own `payment.captured` is ignored (its notes carry no `order_id`); `payment_link.paid` handles it. Returns 200 on duplicates, unknown events/orders and business refusals; 500 only on infrastructure errors (Razorpay retries). |
+| `delete-account` | user JWT | `{}` → 204. Returns 409 `ACTIVE_ORDERS` if any order is not delivered/cancelled/refunded, any cancelled order is still owed a refund (`payment_status = paid`), or any repair is not completed/cancelled. Otherwise deletes the account's saved cards at Razorpay (best effort; Razorpay can't delete a customer), then the auth user (cascades the profile, cart, wishlist, addresses, `razorpay_customers`; orders keep `user_id = null`). |
+| `emi-plans` | none (`verify_jwt = false`): public data | `{}` → `{plans: [{bank, name, months, rate, min_paise, no_cost}]}`: Razorpay's EMI plans for the account (`GET /v1/methods` with the key id only), one per bank and tenure, cached in memory for a day. `[]` when EMI isn't activated. |
+| `refund-payment` | staff JWT (`admins`) | `{order_id, item_ids?, restock?, instant?}` → `{refund_id, amount_paise, status, retry}`. See **Payments**. 403 `FORBIDDEN`, 409 `REFUND_NOT_ALLOWED`/`REFUND_IN_PROGRESS`/`REFUND_REFUSED` (Razorpay's reason in `message`), 502 `REFUND_UNCONFIRMED` (retry: same refund, same key). |
+| `payment-link` | staff JWT (`admins`) | `{order_id}` or `{amount_paise, phone, name?, description}` → the link `{id, order_id, amount_paise, description, customer_name, customer_phone, status, short_url, expires_at, reused}`; `{cancel: link_id}` → `{id, status: cancelled}`. 409 `LINK_NOT_ALLOWED`/`LINK_IN_PROGRESS`/`LINK_NOT_OPEN`/`LINK_REFUSED`. |
 
-| `send-push` | none (`verify_jwt = false`), `x-push-secret` = `PUSH_SECRET` instead | Called by the database (pg_net) for each new notification of a user with a phone: `{id, kind, title, body, link, tokens[≤20]}` → `{sent, failed, removed}`. One FCM HTTP v1 message per token (notification title/body, data `{link, kind, id}`), with a service-account access token cached for its hour. A 404 from FCM (app gone) deletes that token. Without `FCM_SERVICE_ACCOUNT` it sends nothing and logs that push is off (200 `{sent: 0, off: true}`). 401 bad secret, 400 bad body. |
+| `send-push` | none (`verify_jwt = false`), `x-push-secret` = `PUSH_SECRET` instead | Called by the database (pg_net) for each new notification of a user with a phone: `{id, kind, title, body, link, image_path, tokens[≤20]}` → `{sent, failed, removed}`. One data-only, high-priority FCM HTTP v1 message per token (`data` = those fields as strings, empty ones left out; no `notification` block: the app draws every notification), with a service-account access token cached for its hour. A 404 from FCM (app gone) deletes that token. Without `FCM_SERVICE_ACCOUNT` it sends nothing and logs that push is off (200 `{sent: 0, off: true}`). 401 bad secret, 400 bad body. |
 
 Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `FCM_SERVICE_ACCOUNT` (the Firebase service-account key JSON) and `PUSH_SECRET` (+ the built-in `SUPABASE_URL`, `SUPABASE_SECRET_KEYS`, `SUPABASE_JWKS`, read by `@supabase/server`).
+
+## Payments: refunds, payment links, saved cards, disputes
+
+Migrations `20261030000500_refunds.sql`, `…0510_payment_links.sql`, `…0520_saved_cards_disputes.sql`; app code in
+`lib/features/payments`. Research and what's left: docs/RAZORPAY.md.
+
+**EMI from ₹X/month.** `emi-plans` returns the account's plans; the app (`emiPlansProvider`, kept for the run once
+loaded) computes per price: a plan applies when `price ≥ min_paise`; monthly = price ÷ months when `no_cost`
+(Razorpay's `subvention = merchant`), else the reducing-balance EMI P·r·(1+r)ⁿ/((1+r)ⁿ−1), r = rate/1200, to the
+rupee. `EmiLine(pricePaise:)` under the product price shows the cheapest ("EMI from ₹2,083/month · No-cost EMI
+available") and opens every bank and tenure; it takes no space when no plan applies or the plans don't load. No API
+says whether a No Cost EMI *offer* (made on the dashboard's Offers page) covers a price, so only merchant-subvention
+plans are called no-cost.
+
+**Refunds** (`refunds(order_id, amount_paise ≥ 100, full_refund, restock, instant, status pending|processed|failed,
+razorpay_refund_id, speed_processed, failure, created_by)`; `order_items.refund_id` = the pending or processed refund
+paying that line back). Customers read refunds on their orders, staff all; no client writes.
+- `admin_start_refund(p_staff, p_order_id, p_items uuid[] = null, p_restock, p_instant) → {refund_id, amount_paise,
+  payment_id, instant, order_number, retry}`: only a paid online order. `p_items` null = everything not yet
+  refunded, delivery included, on a cancelled or delivered order; else those lines at what was paid for them
+  (`unit_price × qty − discount_paise`), not on a cancelled order. One refund in flight per order: a pending one
+  Razorpay never answered is handed back (`retry`), else `REFUND_IN_PROGRESS`. Restock is ignored on a cancelled
+  order (the cancel restocked). Errors `FORBIDDEN`, `NOT_FOUND`, `REFUND_NOT_ALLOWED` (detail = staff copy),
+  `BAD_REQUEST` (a line not of this order or already refunded).
+- `refund-payment` then calls `POST /v1/payments/:id/refund` with `X-Refund-Idempotency` and `receipt` = the
+  refund id, `speed` `optimum` (instant) or `normal`, notes `{order_id, order_number, refund_id}`. A 400/404 from
+  Razorpay is a definite no (refund failed, lines freed); a timeout, 5xx, 409 or "another operation in progress"
+  leaves it pending for a safe retry.
+- `settle_refund(p_refund_id, p_razorpay_refund_id, p_status, p_speed, p_failure) → status`: from the create reply and
+  the `refund.processed`/`refund.failed` webhooks; idempotent. Processed: restock if chosen, a timeline note ("Refund
+  of ₹X for … issued…" / "…sent instantly…"), and once processed refunds reach the total, `payment_status = refunded`
+  (a delivered order becomes `refunded`); a partial one notifies the customer itself (`order_refunded`). Failed:
+  lines freed, staff notified (`staff_refund_failed`).
+- App: the admin order screen's Payments card has "Refund ₹X" / "Refund items" → a sheet (everything left or chosen
+  lines, "Put the items back in stock", "Instant refund") → `confirmChoice` (destructive: "Don't refund" filled on the
+  right). "Mark refunded" stays for refunds made outside the app. The customer's order screen lists refunds with
+  amount, items and status.
+
+**Payment links** (`payment_links(order_id?, amount_paise ₹1–₹50 lakh, description, customer_name, customer_phone,
+status created|paid|cancelled|expired, razorpay_link_id, short_url, razorpay_payment_id, expires_at, created_by,
+paid_at)`; staff read, no client writes; one open link per order).
+- `admin_new_payment_link(p_staff, p_order_id | p_amount_paise, p_phone, p_name, p_description) → link + reused`: for
+  an unpaid, not cancelled order its total, delivery name and phone (an open link is returned again; one whose time
+  ran out is closed first); else the typed amount. Valid 3 days. `payment-link` creates it at Razorpay
+  (`POST /v1/payment_links`, `reference_id` = our link id since Razorpay wants it unique per link, notes
+  `{link_id, shop_order_id}`, Razorpay's own SMS/email off), and removes the row if Razorpay refuses. Cancel:
+  `POST /v1/payment_links/:id/cancel`.
+- `mark_link_paid(p_razorpay_link_id, p_razorpay_payment_id, p_amount_paise)` (`payment_link.paid`, idempotent,
+  `AMOUNT_MISMATCH` unless = the link's amount): an online order goes through `mark_order_paid`; a cash-on-delivery
+  order becomes `razorpay`/`paid` ("Paid online with a payment link.", or needs refund if it was cancelled); an order
+  already paid is left alone and staff are told to refund the second payment; a custom link notifies staff
+  (`staff_link_paid`). `close_payment_link` for `payment_link.cancelled`/`expired`.
+- App: "Send payment link" on an unpaid order's Payments card opens WhatsApp to the customer (`whatsAppUri`) with
+  the link, amount and expiry; open links can be cancelled. Admin → Payment links lists them and makes custom ones.
+
+**Saved cards.** `razorpay_customers(user_id pk → auth.users on delete cascade, customer_id unique)`, service_role
+only. `create-payment` finds or makes the account's customer (`POST /v1/customers`, the verified phone else the
+email, the profile name when Razorpay's name rule allows, `fail_existing: "0"`) and returns `customer_id`; the app
+passes `customer_id` and `remember_customer: true` to Checkout (Razorpay's Orders API takes no customer). A failure
+just means no saved cards. Card tokens stay with Razorpay (RBI tokenisation).
+
+**Disputes** (`disputes(id = Razorpay's, order_id, razorpay_payment_id, amount_paise, status, phase, reason_code,
+reason, respond_by)`, staff read). `record_dispute(…)` from every `payment.dispute.*` event: upsert, order found by
+the payment (an order's or a link's), staff notified (`staff_dispute`: "Dispute on SM…: reply by 6 Nov", the amount,
+reason and what to send). The admin order screen shows open disputes in red. Evidence goes in through the Razorpay
+dashboard.
 
 ## App structure (`app/`)
 
@@ -350,7 +421,10 @@ expiry job can't forget one; nobody inserts from a client.
 - `notifications`: `kind` (`^[a-z_]{2,40}$`, picks the app's icon and colour), `title` 1..80, `body` ≤ 300 (one line;
   longer copy is cut with …), `link` an app route (`/orders/…`, `/repairs/…`, `/offers…`, `/product/…`,
   `/admin/orders/…`, `/admin/repairs/…`, `/admin/feedback/…`, `/admin/products/…`, `/admin/catalogue…`; always the
-  specific screen), `order_id`/`repair_id` (on delete cascade), `read_at`, `created_at`. RLS: people read, delete and
+  specific screen), `order_id`/`repair_id` (on delete cascade), `image_path` (a product-images key, set by a BEFORE
+  INSERT trigger, migration `20261030000600`: an order's priciest line with a photo, for every order kind and the staff
+  ones; the product's cover for stock alerts and product feedback; the order's for order feedback; none for repairs
+  and offers; a lookup error leaves it out), `read_at`, `created_at`. RLS: people read, delete and
   update their own; the only column they can change is `read_at`. A nightly `pg_cron` job (`notifications-cleanup`,
   03:30) deletes notifications older than 90 days and phone tokens unused for 270.
 - Who: the customer the order, repair or coupon belongs to; "staff" means one row for each admin in `admins` except
@@ -387,18 +461,35 @@ expiry job can't forget one; nobody inserts from a client.
 replace the timer): `unread_notifications` every 45 s while the app is in front, on resume, and right after any write
 the app sends (`TimeoutClient.onWrite`). A rise slides the newest one in at the top for about 5 s (one at a time,
 tappable, with View and a close button; no slide when the phone asks for less motion; it stays for screen-reader
-users) and refreshes the screen it's about. `/notifications`: paged, grouped Today / Yesterday / Earlier, icon tinted
-by meaning (emerald done, gold needs you or a deal, peacock news, red failed or cancelled), unread rows bold with a
-dot; tap marks read and opens the link; Mark all read; a delete button on every row and swipe to delete.
+users) and refreshes the screen it's about. The banner only shows while Android notifications are off or denied on
+the phone; with them on, Android shows each one (below) and the bell's badge and the list are the history.
+`/notifications`: paged, grouped Today / Yesterday / Earlier, each row with the product photo (thumb, with the status
+badge) or the kind's illustration, unread rows bold with a dot; tap marks read and opens the link; Mark all read; a
+delete button on every row and swipe to delete.
+
+**Illustrations** (`lib/features/notifications/widgets/notification_art.dart`): one table maps every kind to a group
+(orders, payments, repairs, offers, staff orders, staff repairs, feedback, stock: each a `softPalette` aurora, still),
+a two-tone Phosphor icon for the event, and a corner badge (emerald check done, gold clock waiting, red × failed or
+cancelled, gold ! needs you); unknown kinds get a bell. Used in list rows (48 dp), the banner (40 dp) and the empty
+state (112 dp). The same art ships as PNGs in `app/assets/notification_art/` (one per look, 144 px) for Android's
+notifications: `ART_OUT=assets/notification_art flutter test test/preview/notification_art_test.dart` re-renders
+them, and a test fails if a kind any migration writes has no art or no PNG.
 
 **Push (off until configured).** `device_tokens` (own rows readable and deletable; written only by `register_device`).
 An AFTER INSERT trigger on `notifications` posts the row and the user's tokens to `send-push` with pg_net, only when
 Vault holds `push_url` and `push_secret` (set by `scripts/launch.py --only secrets,functions,push`); pg_net sends after
 commit, and any error is logged and swallowed, so a push never fails the order or repair behind it. The app uses
 Firebase only when built with all four `FIREBASE_*` defines (no google-services.json, no Gradle plugin). Then: after
-the first order or repair booking a short explainer offers phone notifications once, before Android 13's prompt; the
-token is registered after sign-in and on refresh, dropped at sign-out; a push in the foreground shows in the same
-banner, and tapping one opens its link.
+the first order or repair booking the app asks for Android's notification permission once (Android's own prompt
+only); the token is registered after sign-in and on refresh, dropped at sign-out. Pushes are data-only, so the app
+draws each Android notification itself with `flutter_local_notifications`, from `onMessage` in the foreground and
+from the background handler (`showPushInBackground`, its own isolate) otherwise, so exactly one per push: channel
+"Updates" (high importance, heads-up), the monochrome feather as the small icon, the group's colour, the product
+photo as the large icon (its `@thumb.webp`) and the full photo when expanded, built from the app's own Supabase URL;
+no photo, or a download over 5 s or failing: the kind's PNG as the large icon and the whole text when expanded. A tap
+(app open, in the background, or launching it) marks it read and opens its link. Without permission a push in the
+foreground falls back to the in-app banner. shortcut: data-only delivery depends on the background handler running;
+phones that block background starts (some MIUI/ColorOS settings) can miss pushes while the app is closed.
 
 ## Environments and setup
 

@@ -28,7 +28,9 @@ After the first run:
 - Send yourself a phone code once: MSG91's API is wired from its docs, so the first real send is the check
   (Supabase > Authentication > Logs show MSG91's error text if it refuses).
 - Razorpay webhook: `https://<ref>.supabase.co/functions/v1/razorpay-webhook`, events `payment.captured`,
-  `payment.failed`, `refund.processed`.
+  `payment.failed`, `refund.processed`, `refund.failed`, `payment_link.paid`, `payment_link.cancelled`,
+  `payment_link.expired` and every `payment.dispute.*` event. Razorpay dashboard switches the app's payment features
+  need (EMI, saved cards, instant refunds, payment links): docs/RAZORPAY.md.
 - Google Cloud Android client: package `com.shyammobiles.app`, the SHA-1 the script prints, and Play's app-signing
   SHA-1 (Play Console > Setup > App signing) once the first bundle is uploaded.
 - Share links work once `build/site/` is published at `https://<LINK_HOST>`: `/open` must serve `open.html`
@@ -42,5 +44,6 @@ After the first run:
   `FIREBASE_PROJECT_ID`; from Project settings > Service accounts > Generate new private key, the downloaded file's path
   (or its JSON on one line) → `FCM_SERVICE_ACCOUNT`. Run `python3 scripts/launch.py --only secrets,functions,push,app,build`:
   send-push gets the key and a fresh shared secret, the database (Vault) learns where send-push is, and the new build
-  asks for notification permission after the first order or repair booking. Keep the key file private.
+  asks for notification permission after the first order or repair booking. Keep the key file private. Nothing to
+  upload for the pictures: product photos come from the shop's own storage, and the illustrations ship inside the app.
 - Not keys: Supabase Pro, the Play developer account, real products, a courier and the delivery fee.
