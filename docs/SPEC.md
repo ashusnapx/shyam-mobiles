@@ -183,6 +183,100 @@ Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account
 - **No surprise money:** cart shows "No platform, COD or packing fees"; checkout says EMI bank charges, if any, are shown by Razorpay before you pay; repair quotes say "Work starts only after you approve this price".
 - **Less sign-in friction:** "Use email instead" link on the code screen after 30 s; add-to-cart/buy-now resumes automatically after sign-in (`from=/product/<slug>?add=<variantId>` or `&buy=<variantId>`).
 
+## Offers: coupons, sales, groups, referrals, banners
+
+One engine. A **promotion** is either a **coupon** (has a `code`) or an **automatic sale** (no code). **One offer per
+order**: a valid typed code wins, else the best automatic sale the customer qualifies for (largest discount; tie →
+earliest `ends_at`). All pricing goes through one SQL function, used by both `quote_order` (preview) and
+`place_order` (charge), so the cart and the charge can never disagree. New migration `20261030000000_offers.sql`
+(production already has the 2026-10-28 files: never edit those).
+
+### Tables
+
+- `collections (id, slug unique ^[a-z0-9-]{1,60}$, name 2..60, created_at)` and `collection_products (collection_id,
+  product_id, pk both)`: admin-made product groups ("Diwali picks", "Under ₹999") that offers can target.
+- `promotions`: `title` 2..60 (shown to customers), `description` ≤ 300 (terms line), `code` null or unique
+  `^[A-Z0-9]{4,20}$` (stored uppercase; null = automatic sale), `kind` (`percent` | `flat` | `free_delivery`),
+  `value` int (percent 1..90; flat paise ≥ 100; free_delivery 0), `max_discount_paise` (percent only, null = no cap),
+  `min_subtotal_paise` ≥ 0 (on eligible lines), `applies_to` (`order` | `items`), `starts_at` (default now),
+  `ends_at` null or > starts_at, `usage_limit` null or ≥ 1 (whole shop), `per_user_limit` null or ≥ 1 (default 1),
+  `first_order_only`, `online_only` (Razorpay only), `is_public` (listed in Offers; hidden codes work only when typed,
+  e.g. a wholesale code sent on WhatsApp), `user_id` null (a **personal** coupon only that user can see or use:
+  referrals; requires a code), `is_active` (pause), `show_banner`, `created_at`, `updated_at`.
+- `promotion_targets (promotion_id, target_type product|category|brand|collection, target_id, pk all three)`. A line
+  is eligible when its product, its category, its brand, or a collection containing it is targeted. `applies_to =
+  items` needs at least one target (admin RPC refuses otherwise).
+- `promotion_redemptions (order_id pk → orders on delete cascade, promotion_id, user_id, discount_paise, created_at)`.
+  Uses are counted over orders that are **not cancelled** (a cancelled or expired order gives the use back).
+- `coupon_attempts (user_id, at)`: failed code lookups; more than 10 in 10 minutes → `COUPON_RATE_LIMIT`.
+- `orders` + `discount_paise ≥ 0`, `promotion_id` (on delete set null), `coupon_code`; the total check becomes
+  `total = subtotal + delivery_fee − discount`. `order_items` + `discount_paise ≥ 0` (its share; Σ lines = order
+  discount; for GST invoices and refunds).
+- `banners (title 2..60, subtitle ≤ 120, cta_label ≤ 20 default 'Shop now', link (app route, allowlist
+  `^/(search|product/|offers|repairs)`), image_path null (`banners/…webp` in product-images), tone 0..2 (index into the
+  app's heroGradients), starts_at, ends_at null, sort, is_active, promotion_id null unique → promotions on delete
+  cascade)`. A trigger keeps one banner per promotion with `show_banner`: same window, link `/offers/<id>`, CTA "Use
+  code X" or "Shop the sale"; turning `show_banner` off deletes it. Anyone can read running, active banners (RLS).
+- Referrals: `store_settings` + `referral_enabled` (default false), `referral_friend_paise` (20000),
+  `referral_reward_paise` (20000), `referral_min_order_paise` (199900), `referral_monthly_cap` (10).
+  `referral_codes (user_id pk, code unique ^[A-Z0-9]{6,10}$)` made lazily; `referrals (referee_id pk, referrer_id,
+  status pending|rewarded|void, created_at, rewarded_at)`.
+
+Promotions, targets, redemptions, collections writes and referral tables: admin only (RLS + explicit grants, like
+the rest). Customers never read `promotions` directly: they go through the RPCs below, so hidden and personal codes
+can't be listed.
+
+### Pricing (`private.price_lines`, shared)
+
+1. Lines = the caller's locked cart lines (as `place_order` does today); subtotal = Σ unit × qty.
+2. Pick the promotion (code if given and valid, else best automatic). Eligible lines per `applies_to`/targets.
+3. `eligible < min_subtotal` → not applicable. Discount: percent → ⌊eligible × value / 100⌋ capped at
+   `max_discount_paise`; flat → min(value, eligible); free_delivery → 0 (fee becomes 0). Never more than
+   subtotal − 100 (an order always costs at least ₹1 before delivery).
+4. Delivery is free when **subtotal − discount** ≥ `free_delivery_min_paise`. COD limit applies to the final total.
+5. Split the discount over eligible lines in proportion to line totals, rounding down; the remainder goes to the
+   largest line (ties by variant id).
+6. Valid code checks: active, started, not ended, owner (personal), total uses < usage_limit, caller's uses <
+   per_user_limit, first_order_only → caller has no non-cancelled order, online_only → method razorpay,
+   eligible lines exist, min subtotal met. `place_order` locks the promotion row `for update` before counting uses.
+
+### RPCs
+
+| Function | Caller | Does |
+|---|---|---|
+| `quote_order(p_coupon_code text default null, p_payment_method payment_method default null) → json` | authenticated | Prices the current cart without writing: `{subtotal_paise, delivery_fee_paise, discount_paise, total_paise, promotion: {id, title, code, kind} or null, coupon_error: code or null}`. A bad code returns `coupon_error` and falls back to the best automatic sale. |
+| `place_order(p_address_id, p_payment_method, p_coupon_code text default null) → uuid` | authenticated | As before, priced by the shared function; a bad code **raises** its error. Writes discount, promotion_id, coupon_code, line discounts and the redemption. |
+| `available_offers() → json` | anon, authenticated | Running offers the caller may use: public ones plus their personal coupons. `[{id, title, description, code, kind, value, max_discount_paise, min_subtotal_paise, starts_at, ends_at, applies_to, automatic}]`. |
+| `offers_for_product(p_product_id uuid) → json` | anon, authenticated | Same shape, only offers that would cover this product (for the product page chip). |
+| `offer_products(p_promotion_id uuid) → setof product_cards` | anon, authenticated | Products an `items` offer covers (all active products for `order`); for `/offers/:id`. Hidden/personal offers: only their owner. |
+| `my_referral() → json` | authenticated | `{enabled, code, friend_paise, reward_paise, min_order_paise, joined, rewarded, can_enter_code}`; makes the code on first call. |
+| `apply_referral_code(p_code text) → json` | authenticated | Links the caller to a referrer and creates their welcome coupon (personal, flat `referral_friend_paise`, min `referral_min_order_paise`, first order only, 90 days). Errors: `REFERRAL_OFF`, `REFERRAL_INVALID`, `REFERRAL_SELF`, `REFERRAL_USED` (already referred), `REFERRAL_TOO_LATE` (has an order). |
+| `admin_save_promotion(p json) → uuid` | admin | Insert/update a promotion with its targets in one transaction; validates the rules above. |
+| `admin_promotions() → json` | admin | Every promotion with `uses` and `discount_total_paise`, newest first. |
+
+Referral reward: when a referee's **first delivered** order (subtotal ≥ `referral_min_order_paise`) is reached and
+the referral is pending, a trigger creates the referrer's reward coupon (personal, flat `referral_reward_paise`, same
+minimum, 90 days) unless the referrer already got `referral_monthly_cap` this IST month, and marks it `rewarded`.
+
+New error codes: `COUPON_NOT_FOUND` (unknown, paused, or someone else's), `COUPON_NOT_STARTED`, `COUPON_EXPIRED`,
+`COUPON_USED_UP`, `COUPON_LIMIT_REACHED`, `COUPON_MIN_ORDER` (detail = min paise), `COUPON_NOT_APPLICABLE`,
+`COUPON_FIRST_ORDER`, `COUPON_ONLINE_ONLY`, `COUPON_RATE_LIMIT`, plus the `REFERRAL_*` codes.
+
+### App
+
+- Home: banner strip under the hero (tone gradients, image when set), tapping opens `link`.
+- `/offers` (Account → Offers & coupons, cart → View offers): list with Copy code / Apply. `/offers/:id`: terms,
+  code, time left, eligible products.
+- Cart and checkout: "Apply coupon" sheet (code field + listed offers); summary shows the discount line (code or sale
+  title); errors in plain words; the code rides along to `place_order`. Order detail shows the discount.
+- Product page: an offer chip per `offers_for_product` row.
+- Account → Refer & earn: your code, share on WhatsApp, counts; "Have a friend's code?" while `can_enter_code`.
+- Admin (dashboard tiles): Offers (list with status running/scheduled/paused/ended, uses, total given; create, edit,
+  duplicate, pause, end now, delete only when never used), Groups (collections CRUD with a product picker), Banners
+  (CRUD, order, schedule, image). Promotion editor: type, value, code (or Generate), public/hidden, applies to (whole
+  order, or any mix of products, categories, brands, groups), min order, cap, dates, limits, first order, online only,
+  show banner. Settings: referral section.
+
 ## Environments and setup
 
 The local stack is `supabase start` (Docker/Colima). Test OTP: phone `+919999999999` / code `123456`. Emails land in Mailpit at `http://127.0.0.1:54324`.
