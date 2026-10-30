@@ -8,6 +8,7 @@ import 'app.dart';
 import 'core/deep_links.dart';
 import 'core/network.dart';
 import 'core/supabase.dart';
+import 'features/offers/data/offers.dart' show bannersProvider;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,10 @@ Future<void> main() async {
   final container = ProviderContainer(retry: noAutoRetry);
   await container.read(networkProvider.notifier).start(); // data-saver signals before the first image loads
   runApp(UncontrolledProviderScope(container: container, child: const App()));
+  // The shop changes fees, COD, hours and banners on its side: read them again whenever the app comes back.
+  AppLifecycleListener(onResume: () => container
+    ..invalidate(storeSettingsProvider)
+    ..invalidate(bannersProvider));
   // a friend's code from a shared link (or a Play install from one) waits for sign-in, then applies once
   unawaited(container.read(pendingReferralProvider.notifier).followInstallReferrer());
 }

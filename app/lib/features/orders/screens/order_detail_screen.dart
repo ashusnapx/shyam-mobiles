@@ -255,6 +255,11 @@ class _StatusHero extends StatelessWidget {
                 style: t.bodySmall?.copyWith(color: fg, fontWeight: FontWeight.w700),
               ),
             ),
+          if ((tracking == null || tracking.isEmpty) && o.courier != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.xs),
+              child: Text('Delivery by ${o.courier}', style: t.bodySmall?.copyWith(color: fg)),
+            ),
           if (tracking != null && tracking.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(top: Space.md),

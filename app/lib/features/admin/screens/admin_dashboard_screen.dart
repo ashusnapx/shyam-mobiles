@@ -11,6 +11,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/data/booking_days.dart';
 import '../../repairs/widgets/repair_widgets.dart';
@@ -88,18 +89,19 @@ class _Stats extends ConsumerWidget {
     int n(String k) => d?[k] ?? 0;
     final fresh = ref.watch(feedbackNewCountProvider).value ?? 0; // feedback with status new
     final tiles = [
-      _Tile(PhosphorIconsRegular.receipt, 'Orders today', '${n('orders_today')}', '/admin/orders'),
-      _Tile(PhosphorIconsRegular.currencyInr, 'Revenue today', shortInr(n('revenue_today_paise')), '/admin/orders'),
-      _Tile(PhosphorIconsRegular.package, 'Open orders', '${n('open_orders')}', '/admin/orders?status=open'),
-      _Tile(PhosphorIconsRegular.wrench, 'Open repairs', '${n('open_repairs')}', '/admin/repairs'),
-      _Tile(PhosphorIconsRegular.hourglassMedium, 'Awaiting approval', '${n('repairs_awaiting_approval')}',
+      _Tile(PhosphorIconsRegular.receipt, 'Orders today', n('orders_today'), '/admin/orders?status=today'),
+      _Tile(PhosphorIconsRegular.currencyInr, 'Revenue today', n('revenue_today_paise'),
+          '/admin/orders?status=today', format: shortInr),
+      _Tile(PhosphorIconsRegular.package, 'Open orders', n('open_orders'), '/admin/orders?status=open'),
+      _Tile(PhosphorIconsRegular.wrench, 'Open repairs', n('open_repairs'), '/admin/repairs'),
+      _Tile(PhosphorIconsRegular.hourglassMedium, 'Awaiting approval', n('repairs_awaiting_approval'),
           '/admin/repairs?status=awaiting_approval'),
-      _Tile(PhosphorIconsBold.warning, 'Low stock', '${n('low_stock')}', '/admin/products?stock=low',
+      _Tile(PhosphorIconsBold.warning, 'Low stock', n('low_stock'), '/admin/products?stock=low',
           tone: n('low_stock') > 0 ? TagTone.deal : null),
-      _Tile(PhosphorIconsBold.arrowCounterClockwise, 'Needs refund', '${n('needs_refund')}',
+      _Tile(PhosphorIconsBold.arrowCounterClockwise, 'Needs refund', n('needs_refund'),
           '/admin/orders?status=needs_refund',
           tone: n('needs_refund') > 0 ? TagTone.bad : null),
-      _Tile(PhosphorIconsRegular.chatCircleText, 'New feedback', '$fresh', '/admin/feedback',
+      _Tile(PhosphorIconsRegular.chatCircleText, 'New feedback', fresh, '/admin/feedback',
           tone: fresh > 0 ? TagTone.info : null),
     ];
     return Skeletonizer(
@@ -130,13 +132,16 @@ class _Stats extends ConsumerWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile(this.icon, this.label, this.value, this.route, {this.tone});
+  const _Tile(this.icon, this.label, this.count, this.route, {this.tone, this.format = _plain});
 
   final IconData icon;
   final String label;
-  final String value;
+  final int count;
   final String route;
   final TagTone? tone; // null = plain tile
+  final String Function(int) format;
+
+  static String _plain(int n) => '$n';
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +150,7 @@ class _Tile extends StatelessWidget {
     final colors = tone == null ? (bg: c.surfaceContainerLow, fg: c.onSurface) : toneColors(c, tone!);
     return Semantics(
       button: true,
-      label: '$label, $value',
+      label: '$label, ${format(count)}',
       excludeSemantics: true,
       child: Material(
         color: colors.bg,
@@ -174,13 +179,12 @@ class _Tile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  value,
-                  style: t.headlineSmall?.copyWith(
-                    color: colors.fg,
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                // counts up when the numbers arrive, and rolls when they change
+                CountTo(
+                  count,
+                  format: format,
+                  fromZero: true,
+                  style: t.headlineSmall?.copyWith(color: colors.fg, fontWeight: FontWeight.w800),
                 ),
               ],
             ),

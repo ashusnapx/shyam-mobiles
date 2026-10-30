@@ -15,6 +15,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
+import '../../cart/widgets/cart_button.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
@@ -197,6 +198,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
             ),
             HeartButton(product.id),
           ],
+          CartButton(style: IconButton.styleFrom(backgroundColor: c.surface)),
           const SizedBox(width: Space.xs),
         ],
       ),

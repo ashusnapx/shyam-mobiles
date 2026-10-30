@@ -331,7 +331,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final missing = !widget.optional && tidy(_reason.text).isEmpty;
+    bool missing() => !widget.optional && tidy(_reason.text).isEmpty; // read on tap: the last frame may predate typing
     return AlertDialog(
       scrollable: true, // the keyboard and large text can leave little room
       title: Text(widget.title),
@@ -348,7 +348,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               labelText: widget.label,
-              errorText: _tried && missing ? 'Add a short reason' : null,
+              errorText: _tried && missing() ? 'Add a short reason' : null,
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -357,7 +357,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         TextButton(
-          onPressed: () => missing ? setState(() => _tried = true) : Navigator.pop(context, tidy(_reason.text)),
+          onPressed: () => missing() ? setState(() => _tried = true) : Navigator.pop(context, tidy(_reason.text)),
           style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error, minimumSize: const Size(64, 44)),
           child: Text(widget.action),
         ),

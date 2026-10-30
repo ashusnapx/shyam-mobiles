@@ -9,6 +9,7 @@ import '../../../core/supabase.dart';
 import '../../catalog/data/catalog.dart' show brandsProvider;
 import 'photos.dart';
 import 'rules.dart';
+import '../../repairs/data/booking_days.dart' show istMidnight;
 import '../../repairs/data/repairs.dart';
 
 // Reads rely on RLS: admins can select every row (incl. inactive products) via the "admin write" policies.
@@ -48,6 +49,7 @@ final needsActionProvider = FutureProvider.autoDispose<NeedsAction>((ref) async 
 /// Filter keys for `/admin/orders?status=`: a status value, or `all`, `open`, `needs_refund`.
 final orderFilters = {
   'all': 'All',
+  'today': 'Today',
   'open': 'Open',
   for (final s in OrderStatus.values) s.value: s.label,
   'needs_refund': 'Needs refund',
@@ -72,6 +74,10 @@ class AdminOrdersNotifier extends PagedNotifier<Order> {
       'all' => q,
       'open' => q.inFilter('status', ['confirmed', 'packed', 'shipped']),
       'needs_refund' => q.eq('status', 'cancelled').eq('payment_status', 'paid'),
+      // the dashboard's "Orders today": placed since IST midnight and not unpaid or cancelled
+      'today' => q
+          .gte('created_at', istMidnight().toIso8601String())
+          .inFilter('status', ['confirmed', 'packed', 'shipped', 'delivered']),
       _ => q.eq('status', filter),
     };
     // id breaks created_at ties, so no order repeats or goes missing between pages

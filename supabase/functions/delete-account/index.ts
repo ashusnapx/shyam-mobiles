@@ -5,16 +5,20 @@ import { requireUser } from "../_shared/supabase.ts";
 Deno.serve(handler(async (req) => {
   const { userId, db } = await requireUser(req);
 
-  const [orders, repairs] = await Promise.all([
+  const [orders, repairs, refunds] = await Promise.all([
     db.from("orders").select("id", { count: "exact", head: true })
       .eq("user_id", userId).not("status", "in", "(delivered,cancelled,refunded)"),
     db.from("repair_bookings").select("id", { count: "exact", head: true })
       .eq("user_id", userId).not("status", "in", "(completed,cancelled)"),
+    // a cancelled order still owed a refund: the customer would lose sight of it
+    db.from("orders").select("id", { count: "exact", head: true })
+      .eq("user_id", userId).eq("status", "cancelled").eq("payment_status", "paid"),
   ]);
   if (orders.error) throw orders.error;
   if (repairs.error) throw repairs.error;
-  if (orders.count || repairs.count) {
-    throw new HttpError(409, "ACTIVE_ORDERS", "Finish or cancel your open orders and repairs first.");
+  if (refunds.error) throw refunds.error;
+  if (orders.count || repairs.count || refunds.count) {
+    throw new HttpError(409, "ACTIVE_ORDERS", "Finish or cancel your open orders and repairs first, and wait for any refund.");
   }
 
   const { error } = await db.auth.admin.deleteUser(userId);

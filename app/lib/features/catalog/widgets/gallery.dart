@@ -6,13 +6,23 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 
 /// The photos for [color]: that colour's own first, then the untagged ones (box, back, any colour). A colour with
 /// none of its own shows every photo.
 List<ProductPhoto> photosFor(List<ProductPhoto> photos, String color) {
-  final own = [for (final p in photos) if (p.color == color) p];
-  return own.isEmpty ? photos : [...own, for (final p in photos) if (p.color == null) p];
+  final own = [
+    for (final p in photos)
+      if (p.color == color) p,
+  ];
+  return own.isEmpty
+      ? photos
+      : [
+          ...own,
+          for (final p in photos)
+            if (p.color == null) p,
+        ];
 }
 
 /// The product page's photos: square on white so every product lines up, pinch or double-tap to zoom, tap for full
@@ -24,9 +34,9 @@ class ProductGallery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedSwitcher(
-        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.fast,
-        child: _Gallery(key: ValueKey(paths.join('\n')), paths: paths),
-      );
+    duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.fast,
+    child: _Gallery(key: ValueKey(paths.join('\n')), paths: paths),
+  );
 }
 
 class _Gallery extends StatefulWidget {
@@ -67,21 +77,29 @@ class _GalleryState extends State<_Gallery> {
             aspectRatio: 1,
             child: n == 0
                 ? ProductImage(null, radius: 0, color: c.surface)
-                : PageView.builder(
-                    controller: _pages,
-                    itemCount: n,
-                    physics: _zoomed ? const NeverScrollableScrollPhysics() : null, // a zoomed photo pans instead
-                    onPageChanged: (i) => setState(() => _page = i),
-                    itemBuilder: (context, i) => Semantics(
-                      button: true,
-                      label: n > 1 ? 'Photo ${i + 1} of $n, opens full screen' : 'Product photo, opens full screen',
-                      child: _Zoomable(
-                        active: i == _page,
-                        onZoom: (z) => setState(() => _zoomed = z),
-                        onTap: () => openPhotoViewer(context, paths, i, owner: this, onPage: _pages.jumpToPage),
-                        child: Hero(
-                          tag: (this, i),
-                          child: ProductImage(paths[i], radius: 0, color: c.surface),
+                // drifts and fades a little as the page scrolls up over it, inside its own square
+                : ClipRect(
+                    child: Parallax(
+                      rate: 0.35,
+                      fadeTo: 0.85,
+                      distance: 360,
+                      child: PageView.builder(
+                        controller: _pages,
+                        itemCount: n,
+                        physics: _zoomed ? const NeverScrollableScrollPhysics() : null, // a zoomed photo pans instead
+                        onPageChanged: (i) => setState(() => _page = i),
+                        itemBuilder: (context, i) => Semantics(
+                          button: true,
+                          label: n > 1 ? 'Photo ${i + 1} of $n, opens full screen' : 'Product photo, opens full screen',
+                          child: _Zoomable(
+                            active: i == _page,
+                            onZoom: (z) => setState(() => _zoomed = z),
+                            onTap: () => openPhotoViewer(context, paths, i, owner: this, onPage: _pages.jumpToPage),
+                            child: Hero(
+                              tag: (this, i),
+                              child: ProductImage(paths[i], radius: 0, color: c.surface),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -116,7 +134,10 @@ class _GalleryState extends State<_Gallery> {
                             duration: Motion.fast,
                             width: 48,
                             decoration: BoxDecoration(
-                              border: Border.all(color: i == _page ? c.primary : c.outlineVariant, width: i == _page ? 2 : 1),
+                              border: Border.all(
+                                color: i == _page ? c.primary : c.outlineVariant,
+                                width: i == _page ? 2 : 1,
+                              ),
                               borderRadius: BorderRadius.circular(Radii.sm),
                             ),
                             child: ProductImage(paths[i], radius: Radii.sm, padding: 2, color: c.surface),
@@ -212,8 +233,8 @@ class _ZoomableState extends State<_Zoomable> with SingleTickerProviderStateMixi
     final to = _zoomed
         ? Matrix4.identity()
         : (Matrix4.identity()
-          ..translateByDouble(-_tapAt.dx * (s - 1), -_tapAt.dy * (s - 1), 0, 1)
-          ..scaleByDouble(s, s, 1, 1));
+            ..translateByDouble(-_tapAt.dx * (s - 1), -_tapAt.dy * (s - 1), 0, 1)
+            ..scaleByDouble(s, s, 1, 1));
     if (MediaQuery.disableAnimationsOf(context)) {
       _t.value = to;
       return;
@@ -224,22 +245,22 @@ class _ZoomableState extends State<_Zoomable> with SingleTickerProviderStateMixi
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: widget.onTap,
-        onDoubleTapDown: (d) => _tapAt = d.localPosition,
-        onDoubleTap: _doubleTap,
-        child: InteractiveViewer(
-          transformationController: _t,
-          maxScale: 4,
-          panEnabled: _zoomed,
-          onInteractionUpdate: (d) {
-            if (!_zoomed && d.pointerCount == 1) widget.onPull?.call(d.focalPointDelta.dy);
-          },
-          onInteractionEnd: (d) {
-            if (!_zoomed) widget.onPullEnd?.call(d.velocity.pixelsPerSecond.dy);
-          },
-          child: widget.child,
-        ),
-      );
+    onTap: widget.onTap,
+    onDoubleTapDown: (d) => _tapAt = d.localPosition,
+    onDoubleTap: _doubleTap,
+    child: InteractiveViewer(
+      transformationController: _t,
+      maxScale: 4,
+      panEnabled: _zoomed,
+      onInteractionUpdate: (d) {
+        if (!_zoomed && d.pointerCount == 1) widget.onPull?.call(d.focalPointDelta.dy);
+      },
+      onInteractionEnd: (d) {
+        if (!_zoomed) widget.onPullEnd?.call(d.velocity.pixelsPerSecond.dy);
+      },
+      child: widget.child,
+    ),
+  );
 }
 
 /// Full screen on black: swipe or Previous / Next between photos, pinch, double-tap or the zoom button to zoom, swipe
@@ -253,13 +274,15 @@ void openPhotoViewer(
   required ValueChanged<int> onPage,
 }) {
   final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal;
-  Navigator.of(context).push(PageRouteBuilder<void>(
-    opaque: false, // swiping down shows the product page behind
-    transitionDuration: duration,
-    reverseTransitionDuration: duration,
-    pageBuilder: (_, _, _) => _Viewer(paths: paths, start: start, owner: owner, onPage: onPage),
-    transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
-  ));
+  Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      opaque: false, // swiping down shows the product page behind
+      transitionDuration: duration,
+      reverseTransitionDuration: duration,
+      pageBuilder: (_, _, _) => _Viewer(paths: paths, start: start, owner: owner, onPage: onPage),
+      transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
+    ),
+  );
 }
 
 class _Viewer extends StatefulWidget {
@@ -305,7 +328,9 @@ class _ViewerState extends State<_Viewer> {
     final c = Theme.of(context).colorScheme;
     final n = widget.paths.length;
     final still = MediaQuery.disableAnimationsOf(context);
-    final fallback = Center(child: Icon(PhosphorIconsLight.deviceMobile, size: 48, color: c.surface.withValues(alpha: 0.5)));
+    final fallback = Center(
+      child: Icon(PhosphorIconsLight.deviceMobile, size: 48, color: c.surface.withValues(alpha: 0.5)),
+    );
     Widget photo(String path) {
       final thumb = thumbPathFor(path);
       return CachedNetworkImage(
@@ -314,7 +339,11 @@ class _ViewerState extends State<_Viewer> {
         fadeInDuration: still ? Duration.zero : Motion.normal,
         placeholder: (_, _) => thumb == null
             ? fallback
-            : CachedNetworkImage(imageUrl: publicImageUrl(thumb), fit: BoxFit.contain, errorWidget: (_, _, _) => fallback),
+            : CachedNetworkImage(
+                imageUrl: publicImageUrl(thumb),
+                fit: BoxFit.contain,
+                errorWidget: (_, _, _) => fallback,
+              ),
         errorWidget: (_, _, _) => fallback,
       );
     }

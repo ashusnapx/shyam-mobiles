@@ -7,10 +7,12 @@ import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../feedback/data/feedback.dart' show FeedbackKind;
 import '../../repairs/widgets/repair_widgets.dart';
 import '../data/admin.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
+import '../widgets/feedback_card.dart';
 
 class AdminOrderScreen extends ConsumerStatefulWidget {
   const AdminOrderScreen({super.key, required this.orderId});
@@ -101,7 +103,13 @@ class _AdminOrderScreenState extends ConsumerState<AdminOrderScreen> {
     final provider = adminOrderProvider(widget.orderId);
     final value = ref.watch(provider);
     final order = value.value;
-    final forward = order == null ? const <OrderStatus>[] : nextOrderStatuses(order.status).where((s) => s != OrderStatus.cancelled);
+    final forward = order == null
+        ? const <OrderStatus>[]
+        : [
+            ...nextOrderStatuses(order.status).where((s) => s != OrderStatus.cancelled),
+            // refunded outside the webhook (a partial or missed refund event): admin_update_order clears it
+            if (order.needsRefund) OrderStatus.refunded,
+          ];
     return AdminGate(
       child: Scaffold(
         appBar: AppBar(title: Text(order == null ? 'Order' : 'Order ${order.number}')),
@@ -177,9 +185,9 @@ class _Body extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: Space.md),
             child: NoteBox(
-              'Refund due: ${formatInr(o.totalPaise)} was paid online after this order was cancelled. '
+              'Refund due: ${formatInr(o.totalPaise)} was paid online and this order is cancelled. '
               'Refund it in the Razorpay dashboard${o.razorpayOrderId == null ? '' : ' (order ${o.razorpayOrderId})'}. '
-              'The payment shows Refunded here once Razorpay confirms it.',
+              'The payment shows Refunded here once Razorpay confirms it, or tap Mark refunded.',
               tone: TagTone.bad,
               icon: PhosphorIconsBold.arrowCounterClockwise,
             ),
@@ -238,22 +246,29 @@ class _Body extends StatelessWidget {
             ],
           ),
         ),
+        CustomerFeedbackCard(kind: FeedbackKind.order, id: o.id),
         ListSection('Items (${o.items.fold(0, (n, i) => n + i.qty)})'),
         for (final item in o.items)
           Padding(
             padding: const EdgeInsets.only(bottom: Space.sm),
             child: _ItemCard(orderId: o.id, item: item),
           ),
-        ListSection(
-          'Shipping',
-          trailing: shipped ? TextButton(onPressed: busy ? null : onEditShipping, child: const Text('Edit')) : null,
-        ),
+        const ListSection('Shipping'),
         Text(
           o.courier == null
               ? (shipped ? 'No courier yet.' : 'Add the courier when you ship.')
               : '${o.courier}${o.trackingNumber == null ? '' : ' · ${o.trackingNumber}'}',
           style: t.bodyMedium?.copyWith(color: o.courier == null ? c.onSurfaceVariant : null),
         ),
+        if (shipped)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: busy ? null : onEditShipping,
+              icon: const Icon(PhosphorIconsRegular.pencilSimple),
+              label: const Text('Edit courier & tracking'),
+            ),
+          ),
         const ListSection('Timeline'),
         for (final e in o.events.reversed)
           Padding(

@@ -1,7 +1,7 @@
 -- place_order, cancel_order, cancel_repair, admin_update_order, admin_set_imeis, admin_dashboard.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(67);
+select plan(68);
 
 create schema tests;
 grant usage on schema tests to anon, authenticated, service_role;
@@ -161,7 +161,9 @@ select throws_ok(format($$select public.admin_update_order(%L, 'refunded')$$, te
 select lives_ok(format($$select public.admin_update_order(%L, 'delivered')$$, tests.id('cod')), 'shipped -> delivered');
 select is((select payment_status::text from public.orders where id = tests.id('cod')), 'paid', 'COD becomes paid on delivery');
 select results_eq($$select status::text from public.order_events where order_id = tests.id('cod') order by id$$,
-  $$values ('confirmed'), ('packed'), ('shipped'), ('delivered')$$, 'timeline has one event per transition');
+  $$values ('confirmed'), ('packed'), ('shipped'), ('shipped'), ('delivered')$$, 'one event per transition, plus the tracking fix');
+select is((select note from public.order_events where order_id = tests.id('cod') and status = 'shipped' order by id desc limit 1),
+  'Courier and tracking updated: Delhivery · DL124', 'the customer sees the new tracking number');
 select lives_ok(format($$select public.admin_update_order(%L, 'refunded', 'Returned')$$, tests.id('cod')), 'delivered -> refunded');
 select results_eq($$select status::text, payment_status::text from public.orders where id = tests.id('cod')$$, $$values ('refunded', 'refunded')$$, 'refund recorded');
 select is(tests.stock('T-PRICEY'), 9, 'online order holds stock');

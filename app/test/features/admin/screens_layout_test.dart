@@ -12,6 +12,7 @@ import 'package:shyam_mobiles/features/admin/screens/admin_products_screen.dart'
 import 'package:shyam_mobiles/features/admin/screens/admin_repair_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_repairs_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_settings_screen.dart';
+import 'package:shyam_mobiles/features/admin/widgets/feedback_card.dart';
 import 'package:shyam_mobiles/features/repairs/data/repairs.dart';
 
 import '../repairs/layout_harness.dart';
@@ -91,6 +92,7 @@ void main() {
         ))),
       ]);
       expect(find.text('Today at the shop'), findsOneWidget);
+      await tester.pumpAndSettle(); // the stat numbers count up
       expect(find.text('₹4.82L'), findsOneWidget);
       await scrollTo(tester, find.text('Confirm'));
       expect(find.text('Confirm'), findsOneWidget);
@@ -99,16 +101,20 @@ void main() {
     testWidgets('order detail, needs refund ($theme)', (tester) async {
       await pumpScreen(tester, const AdminOrderScreen(orderId: 'o1'), dark: dark, overrides: [
         adminOrderProvider.overrideWith((ref, id) => _order(OrderStatus.cancelled)),
+        aboutFeedbackProvider.overrideWith((ref, key) => null),
       ]);
       expect(find.textContaining('Refund due'), findsOneWidget);
+      expect(find.text('Mark refunded'), findsOneWidget, reason: 'staff can close a refund the webhook missed');
       await scrollTo(tester, find.text('Timeline'));
     });
 
     testWidgets('order detail, packed shows Ship + Cancel ($theme)', (tester) async {
       await pumpScreen(tester, const AdminOrderScreen(orderId: 'o1'), dark: dark, overrides: [
         adminOrderProvider.overrideWith((ref, id) => _order(OrderStatus.packed)),
+        aboutFeedbackProvider.overrideWith((ref, key) => null),
       ]);
       expect(find.text('Ship'), findsOneWidget);
+      await scrollTo(tester, find.text('Edit courier & tracking'));
       await scrollTo(tester, find.text('Cancel order'));
       expect(find.text('Cancel order'), findsOneWidget);
     });
@@ -130,6 +136,7 @@ void main() {
       expect(find.text('Awaiting approval'), findsWidgets, reason: 'the filter chip and the card tag');
       await pumpScreen(tester, const AdminRepairScreen(bookingId: 'b1'), dark: dark, overrides: [
         repairProvider.overrideWith((ref, id) => testBooking()),
+        aboutFeedbackProvider.overrideWith((ref, key) => null),
       ]);
       expect(find.text('Start repair'), findsOneWidget);
       expect(find.text('Waiting for the customer to approve ₹2,499.'), findsOneWidget);

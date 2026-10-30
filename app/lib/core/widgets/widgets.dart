@@ -14,6 +14,7 @@ import '../format.dart';
 import '../network.dart';
 import '../supabase.dart';
 import '../theme/tokens.dart';
+import 'motion.dart';
 
 /// Product photo from the `product-images` bucket on a soft tinted well, with an icon when there's no photo.
 /// In data-saver mode it loads the 480 px thumb (the gallery's full-screen viewer loads the full photo).
@@ -111,10 +112,10 @@ class PriceTag extends StatelessWidget {
       spacing: Space.sm,
       children: [
         if (prefix != null) Text(prefix!, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-        Text(
-          formatInr(pricePaise),
-          style: (large ? t.headlineSmall : t.titleMedium)?.copyWith(fontWeight: FontWeight.w800, fontFeatures: tabular),
-        ),
+        if (large) // the product page: rolls to the new price when the variant changes
+          CountTo(pricePaise, style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800))
+        else
+          Text(formatInr(pricePaise), style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontFeatures: tabular)),
         if (off > 0) ...[
           Text(
             formatInr(mrpPaise!),
@@ -424,22 +425,61 @@ void showMessage(BuildContext context, String message, {SnackBarAction? action})
 /// The Shyam Mobiles mark (logo 6 in docs/logo-ideas.html): Krishna's peacock feather drawn as a grid of
 /// dots, like a phone screen up close, with the eye left open around a grey core.
 class BrandMark extends StatelessWidget {
-  const BrandMark({super.key, this.size = 34, this.onDark = false});
+  const BrandMark({super.key, this.size = 34, this.onDark = false, this.ripple = false});
 
   final double size;
   final bool onDark; // translucent tile for use on the black hero
+  final bool ripple; // the dots pop in once, rippling out from the eye (sign-in, order placed)
 
   @override
   Widget build(BuildContext context) => Semantics(
         label: 'Shyam Mobiles',
-        child: CustomPaint(size: Size.square(size), painter: _BrandMarkPainter(onDark)),
+        child: ripple
+            ? _RippleMark(size: size, onDark: onDark)
+            : CustomPaint(size: Size.square(size), painter: _BrandMarkPainter(onDark)),
       );
 }
 
+/// anime.js's grid stagger from the centre: each dot pops in ~700 ms, the nearer the eye the sooner. Once per
+/// mount; skipped (the plain mark) with reduced motion and on low-RAM phones.
+class _RippleMark extends ConsumerStatefulWidget {
+  const _RippleMark({required this.size, required this.onDark});
+
+  final double size;
+  final bool onDark;
+
+  @override
+  ConsumerState<_RippleMark> createState() => _RippleMarkState();
+}
+
+class _RippleMarkState extends ConsumerState<_RippleMark> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 700), value: 1);
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (!MediaQuery.disableAnimationsOf(context) && ref.read(richMotionProvider)) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      CustomPaint(size: Size.square(widget.size), painter: _BrandMarkPainter(widget.onDark, _c));
+}
+
 class _BrandMarkPainter extends CustomPainter {
-  const _BrandMarkPainter(this.onDark);
+  const _BrandMarkPainter(this.onDark, [this.ripple]) : super(repaint: ripple);
 
   final bool onDark;
+  final Animation<double>? ripple; // 0 → 1; null: all dots shown
 
   // Same geometry as the logo page and the launcher icon (100-unit box).
   static final List<(Offset, _Dot)> _dots = () {
@@ -475,8 +515,11 @@ class _BrandMarkPainter extends CustomPainter {
     );
     final white = Paint()..color = Colors.white;
     final paints = {_Dot.plain: white, _Dot.ring: Paint()..color = BrandColors.gold, _Dot.core: Paint()..color = BrandColors.sky};
+    final t = ripple?.value ?? 1;
     for (final (p, dot) in _dots) {
-      canvas.drawCircle(p, 2.1, paints[dot]!);
+      // the eye (50, 63) first, the feather's tip and edges last (≈ 46 units away)
+      final local = t >= 1 ? 1.0 : ((t - 0.5 * (p - const Offset(50, 63)).distance / 46) / 0.5).clamp(0.0, 1.0);
+      if (local > 0) canvas.drawCircle(p, 2.1 * Curves.easeOutBack.transform(local), paints[dot]!);
     }
     canvas.drawLine(
       const Offset(50, 84),
@@ -488,7 +531,7 @@ class _BrandMarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BrandMarkPainter old) => old.onDark != onDark;
+  bool shouldRepaint(_BrandMarkPainter old) => old.onDark != onDark || old.ripple != ripple;
 }
 
 /// White feather dots, a gold ring around the open eye, and a sky-blue core: a peacock feather.

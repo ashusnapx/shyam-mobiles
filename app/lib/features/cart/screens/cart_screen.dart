@@ -10,6 +10,7 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/widgets/delivery_address.dart';
 import '../../checkout/screens/widgets.dart';
@@ -360,10 +361,9 @@ class _CheckoutBar extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Flexible(
-                      child: Text(
-                        total == null ? 'Checkout' : 'Checkout · ${formatInr(total)}',
-                        style: const TextStyle(fontFeatures: tabularFigures),
-                      ),
+                      child: total == null
+                          ? const Text('Checkout')
+                          : CountTo(total, format: (p) => 'Checkout · ${formatInr(p)}'), // rolls with the total
                     ),
                     const SizedBox(width: Space.sm),
                     const Icon(PhosphorIconsBold.arrowRight, size: 18),

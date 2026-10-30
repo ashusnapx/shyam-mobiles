@@ -161,7 +161,14 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
     final backToCart = FilledButton(onPressed: () => _reorder(o), child: const Text('Add items to cart again'));
     return switch (view) {
       ResultView.success => _Layout(
-        visual: _Badge(icon: PhosphorIconsBold.check, bg: c.secondary, fg: c.onSecondary, animate: true),
+        // the feather's dots ripple out once, then the tick pops
+        visual: Column(
+          children: [
+            const BrandMark(size: 48, ripple: true),
+            const SizedBox(height: Space.lg),
+            _Badge(icon: PhosphorIconsBold.check, bg: c.secondary, fg: c.onSecondary, animate: true),
+          ],
+        ),
         title: o.paymentMethod == PaymentMethod.cod ? 'Order placed' : 'Payment received',
         message: o.paymentMethod == PaymentMethod.cod
             ? 'Pay $total in cash when it arrives.'

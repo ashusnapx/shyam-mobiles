@@ -47,6 +47,21 @@ Map<String, dynamic> _orderRow(int i) => {
 }
 
 void main() {
+  test('a line whose item the shop hid is dropped, not a broken cart', () async {
+    final deletes = <String>[];
+    final s = _setup((r) async {
+      if (r.method == 'DELETE') {
+        deletes.add(r.url.query);
+        return http.Response('', 204, request: r);
+      }
+      // RLS hides an inactive variant from customers, so its line comes back without one
+      return _json([_cartRow(1), {'qty': 2, 'variant_id': 'v9', 'variant': null}], r);
+    });
+    final lines = await s.container.read(cartProvider.future);
+    expect([for (final l in lines) l.variant.id], ['v1']);
+    expect(Uri.decodeQueryComponent(deletes.single), 'variant_id=in.("v9")');
+  });
+
   test('quantity taps reach the server one at a time, in tap order', () async {
     final patches = <int>[];
     final gates = <Completer<void>>[];

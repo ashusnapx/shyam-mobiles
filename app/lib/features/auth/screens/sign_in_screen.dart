@@ -18,6 +18,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/widgets/policies.dart';
 import '../data/google.dart';
+import '../widgets/auth_hero.dart';
 import '../widgets/dev_login.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
@@ -162,7 +163,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, // hero spans the screen on any width
           children: [
-            _Hero(compact: compact, onClose: () => context.canPop() ? context.pop() : context.go('/')),
+            AuthHero(
+              compact: compact,
+              leading: heroButton(
+                tooltip: 'Close',
+                icon: PhosphorIconsRegular.x,
+                onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+              ),
+            ),
             Expanded(
               child: Transform.translate(
                 offset: const Offset(0, -26),
@@ -177,6 +185,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          if (!compact) const _Benefits(),
                           DecoratedBox(
                             decoration: BoxDecoration(
                               color: c.surfaceContainer,
@@ -189,14 +198,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                                 indicatorSize: TabBarIndicatorSize.tab,
                                 dividerHeight: 0,
                                 splashBorderRadius: BorderRadius.circular(Radii.sm + 2),
+                                // the chosen tab in peacock; the button below stays ink
                                 indicator: BoxDecoration(
-                                  color: c.surface,
+                                  color: BrandColors.peacockMist,
                                   borderRadius: BorderRadius.circular(Radii.sm + 2),
-                                  boxShadow: [
-                                    BoxShadow(color: c.shadow.withValues(alpha: 0.12), blurRadius: 3, offset: const Offset(0, 1)),
-                                  ],
+                                  border: Border.all(color: BrandColors.peacock.withValues(alpha: 0.35)),
                                 ),
-                                labelColor: c.onSurface,
+                                labelColor: BrandColors.peacockInk,
                                 unselectedLabelColor: c.onSurfaceVariant,
                                 labelStyle: t.titleSmall,
                                 tabs: const [Tab(height: 44, text: 'Phone'), Tab(height: 44, text: 'Email')],
@@ -206,7 +214,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
                           const SizedBox(height: 18),
                           ExcludeSemantics(child: Text(_usePhone ? 'Mobile number' : 'Email', style: label)),
                           const SizedBox(height: Space.sm),
-                          Semantics(label: _usePhone ? 'Mobile number' : 'Email', child: field),
+                          Semantics(label: _usePhone ? 'Mobile number' : 'Email', child: _peacockFocus(context, field)),
                           const SizedBox(height: 14),
                           FilledButton(
                             onPressed: busy ? null : _sendCode,
@@ -267,121 +275,65 @@ class _Spinner extends StatelessWidget {
       const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5));
 }
 
-/// Black hero with a soft white glow and ripple rings (mockup screen 8). Folds to a compact bar while typing.
-class _Hero extends StatelessWidget {
-  const _Hero({required this.compact, required this.onClose});
-
-  final bool compact;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    const onHero = Colors.white;
-    final still = MediaQuery.disableAnimationsOf(context);
-    final close = Transform.translate(
-      offset: const Offset(-Space.md, 0),
-      child: IconButton(
-        tooltip: 'Close',
-        onPressed: onClose,
-        style: IconButton.styleFrom(backgroundColor: onHero.withValues(alpha: 0.14), foregroundColor: onHero),
-        icon: const Icon(PhosphorIconsRegular.x, size: 20),
+/// The focused field's outline in peacock, matching the chosen tab.
+Widget _peacockFocus(BuildContext context, Widget field) {
+  final theme = Theme.of(context);
+  final input = theme.inputDecorationTheme;
+  return Theme(
+    data: theme.copyWith(
+      inputDecorationTheme: input.copyWith(
+        focusedBorder: input.focusedBorder?.copyWith(borderSide: const BorderSide(color: BrandColors.peacock, width: 2)),
       ),
-    );
-    final full = Column(
-      key: const ValueKey('full'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        close,
-        const SizedBox(height: Space.lg),
-        const BrandMark(size: 52, onDark: true),
-        const SizedBox(height: 18),
-        Semantics(
-          header: true,
-          child: Text('Welcome to\nShyam Mobiles', style: t.displayLarge?.copyWith(color: onHero)),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Sign in or create your account with a one-time code. No password to remember.',
-          style: t.bodyMedium?.copyWith(color: onHero.withValues(alpha: 0.8)),
-        ),
-      ],
-    );
-    final bar = Row(
-      key: const ValueKey('compact'),
-      children: [
-        close,
-        const BrandMark(size: 28, onDark: true),
-        const SizedBox(width: Space.md),
-        Flexible(
-          child: Semantics(
-            header: true,
-            child: Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 22, color: onHero)),
-          ),
-        ),
-      ],
-    );
-    final duration = still ? Duration.zero : Motion.normal;
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.black, BrandColors.graphite],
-        ),
-      ),
-      child: CustomPaint(
-        painter: const _RipplePainter(),
-        child: AnimatedPadding(
-          duration: duration,
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.fromLTRB(
-            Space.xl,
-            MediaQuery.paddingOf(context).top + Space.xs,
-            Space.xl,
-            (compact ? Space.md : Space.xxl) + 26, // + the sheet's overlap
-          ),
-          child: AnimatedSize(
-            duration: duration,
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topLeft,
-            child: AnimatedSwitcher(
-              duration: still ? Duration.zero : Motion.fast,
-              layoutBuilder: (current, previous) =>
-                  Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
-              child: compact ? bar : full,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+      textSelectionTheme: theme.textSelectionTheme.copyWith(cursorColor: BrandColors.peacock),
+    ),
+    child: field,
+  );
 }
 
-class _RipplePainter extends CustomPainter {
-  const _RipplePainter();
+/// What signing up gets you, from the shop's settings: the friend's-code welcome, free delivery, repairs. Each hides
+/// when its value isn't there; all of them while the settings load.
+class _Benefits extends ConsumerWidget {
+  const _Benefits();
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final centre = Offset(size.width / 2, size.height * 1.2);
-    final glow = Rect.fromCircle(center: centre, radius: size.height * 0.75);
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [Colors.white.withValues(alpha: 0.18), Colors.white.withValues(alpha: 0)],
-        ).createShader(glow),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(storeSettingsProvider).value;
+    if (s == null) return const SizedBox.shrink();
+    final chips = [
+      if (s.referralEnabled && s.referralFriendPaise > 0)
+        (PhosphorIconsFill.gift, '${formatInr(s.referralFriendPaise)} off your first order with a friend’s code',
+            BrandColors.mint, BrandColors.mintInk),
+      if (s.deliveryFeePaise == 0 || s.freeDeliveryMinPaise == 0)
+        (PhosphorIconsFill.truck, 'Free delivery on every order', BrandColors.cream, BrandColors.creamInk)
+      else
+        (PhosphorIconsFill.truck, 'Free delivery from ${formatInr(s.freeDeliveryMinPaise)}', BrandColors.cream,
+            BrandColors.creamInk),
+      (PhosphorIconsFill.wrench, 'Phone repairs at our shop', tileTints[3].$1, tileTints[3].$2),
+    ];
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Wrap(
+        spacing: Space.sm,
+        runSpacing: Space.sm,
+        children: [
+          for (final (i, (icon, text, bg, fg)) in chips.indexed)
+            DecoratedBox(
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.sm)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 14, color: fg),
+                    const SizedBox(width: 6),
+                    Flexible(child: Text(text, style: t.labelMedium?.copyWith(color: fg, fontWeight: FontWeight.w700))),
+                  ],
+                ),
+              ),
+            ).enter(context, index: i),
+        ],
+      ),
     );
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = Colors.white.withValues(alpha: 0.07);
-    for (var r = 20.0; r < size.height * 1.3; r += 20) {
-      canvas.drawOval(Rect.fromCenter(center: centre, width: r * 2.6, height: r * 2), ring);
-    }
   }
-
-  @override
-  bool shouldRepaint(_RipplePainter old) => false;
 }

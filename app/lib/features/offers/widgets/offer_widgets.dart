@@ -11,6 +11,7 @@ import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/offers.dart';
 
@@ -67,7 +68,9 @@ class OfferCard extends StatelessWidget {
   final bool applied;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Pressable(child: _card(context));
+
+  Widget _card(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final left = timeLeft(offer.endsAt);
@@ -199,7 +202,15 @@ class CouponRow extends ConsumerWidget {
         enabled: enabled,
         leading: Icon(icon, color: color),
         title: Text(title),
-        subtitle: Text(subtitle, style: color == null ? null : TextStyle(color: color)),
+        subtitle: error == null && promo != null && q!.discountPaise > 0
+            // the saving counts up when the code lands, and rolls when the cart changes it
+            ? CountTo(
+                q.discountPaise,
+                format: (p) => 'You save ${formatInr(p)}',
+                fromZero: true,
+                style: TextStyle(color: color),
+              )
+            : Text(subtitle, style: color == null ? null : TextStyle(color: color)),
         trailing: code == null
             ? const Icon(PhosphorIconsRegular.caretRight, size: 18)
             : TextButton(
@@ -376,7 +387,9 @@ class PromoBannerCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Pressable(child: _card(context));
+
+  Widget _card(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final colors = heroGradients[banner.tone.clamp(0, heroGradients.length - 1)];
     return MergeSemantics(
@@ -459,7 +472,14 @@ class BannerStrip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final banners = ref.watch(bannersProvider).value ?? const <PromoBanner>[];
+    final now = DateTime.now();
+    // an offer's banner shows only while this customer can still use the offer: available_offers leaves out
+    // ended, used-up and (once they've ordered) first-order-only ones, which would open "This offer has ended"
+    final open = {...?ref.watch(availableOffersProvider).value?.map((o) => o.id)};
+    final banners = [
+      for (final b in ref.watch(bannersProvider).value ?? const <PromoBanner>[])
+        if (b.runningAt(now) && (b.promotionId == null || open.contains(b.promotionId))) b,
+    ];
     if (banners.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),

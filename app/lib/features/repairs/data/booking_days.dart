@@ -8,6 +8,12 @@ const istOffset = Duration(hours: 5, minutes: 30);
 /// Wall-clock time in India, as a UTC DateTime whose fields read as IST.
 DateTime istNow([DateTime? now]) => (now ?? DateTime.now()).toUtc().add(istOffset);
 
+/// The instant today began in India (admin_dashboard's "today").
+DateTime istMidnight([DateTime? now]) {
+  final ist = istNow(now);
+  return DateTime.utc(ist.year, ist.month, ist.day).subtract(istOffset);
+}
+
 /// Hour (IST) each slot ends. Mirrors the text in [RepairSlot.hours].
 const slotEndHour = {RepairSlot.morning: 13, RepairSlot.afternoon: 17, RepairSlot.evening: 21};
 

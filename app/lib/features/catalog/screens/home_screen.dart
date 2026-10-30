@@ -12,6 +12,7 @@ import '../../../core/models/models.dart';
 import '../../../core/network.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
@@ -28,6 +29,7 @@ class HomeScreen extends ConsumerWidget {
     ref.invalidate(categoriesProvider);
     ref.invalidate(storeSettingsProvider);
     ref.invalidate(bannersProvider);
+    ref.invalidate(availableOffersProvider); // which offer banners still apply
     try {
       ref.invalidate(homeProvider);
       await ref.read(homeProvider.future);
@@ -49,27 +51,30 @@ class HomeScreen extends ConsumerWidget {
       ref.invalidate(storeSettingsProvider);
     });
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          onRefresh: () => _refresh(context, ref),
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(key: const ValueKey('header'), child: _Header(settings)),
-              const SliverToBoxAdapter(key: ValueKey('search'), child: _SearchField()),
-              if (offline && home.hasValue) const SliverToBoxAdapter(key: ValueKey('offline'), child: _OfflineBanner()),
-              ...switch (home) {
-                AsyncValue(value: final d?) => _sections(context, d, settings, saver: saver),
-                AsyncValue(:final error?) => [
-                    SliverFillRemaining(
-                      key: const ValueKey('error'),
-                      hasScrollBody: false,
-                      child: ErrorView(error: error, onRetry: () => ref.invalidate(homeProvider)),
-                    ),
-                  ],
-                _ => [SliverToBoxAdapter(key: const ValueKey('skeleton'), child: _skeleton)],
-              },
-            ],
+      // the hero grows a touch while the page is pulled down
+      body: OverscrollScope(
+        child: SafeArea(
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: () => _refresh(context, ref),
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(key: const ValueKey('header'), child: _Header(settings)),
+                const SliverToBoxAdapter(key: ValueKey('search'), child: _SearchField()),
+                if (offline && home.hasValue) const SliverToBoxAdapter(key: ValueKey('offline'), child: _OfflineBanner()),
+                ...switch (home) {
+                  AsyncValue(value: final d?) => _sections(context, d, settings, saver: saver),
+                  AsyncValue(:final error?) => [
+                      SliverFillRemaining(
+                        key: const ValueKey('error'),
+                        hasScrollBody: false,
+                        child: ErrorView(error: error, onRetry: () => ref.invalidate(homeProvider)),
+                      ),
+                    ],
+                  _ => [SliverToBoxAdapter(key: const ValueKey('skeleton'), child: _skeleton)],
+                },
+              ],
+            ),
           ),
         ),
       ),
@@ -94,14 +99,17 @@ class HomeScreen extends ConsumerWidget {
       if (d.featured.isNotEmpty)
         SliverToBoxAdapter(
           key: const ValueKey('hero'),
-          child: _HeroCarousel(d.featured.take(6).toList(), saver: saver).enter(context),
+          child: PullScale(child: _HeroCarousel(d.featured.take(6).toList(), saver: saver)).enter(context),
         ),
       SliverToBoxAdapter(key: const ValueKey('banners'), child: const BannerStrip().enter(context, index: 1)),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryGrid(d.categories)),
-      const SliverToBoxAdapter(key: ValueKey('recent'), child: RecentlyViewedRail()),
+      const SliverToBoxAdapter(key: ValueKey('recent'), child: RevealOnScroll(child: RecentlyViewedRail())),
       SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairCta().enter(context, index: 4)),
       if (d.accessories.isNotEmpty) ...[
-        const SliverToBoxAdapter(key: ValueKey('acc-header'), child: SectionHeader('Accessories under ₹1,500')),
+        const SliverToBoxAdapter(
+          key: ValueKey('acc-header'),
+          child: RevealOnScroll(child: SectionHeader('Accessories under ₹1,500')),
+        ),
         SliverProductGrid(d.accessories, key: const ValueKey('accessories')),
       ],
       if (settings != null) SliverToBoxAdapter(key: const ValueKey('store'), child: _StoreCard(settings)),
@@ -463,7 +471,14 @@ class _Hero extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: Space.md),
-                      SizedBox(width: 108, child: ProductImage(photo ? card.coverPath : null, aspectRatio: 0.8, padding: Space.sm)),
+                      SizedBox(
+                        width: 108,
+                        // drifts a little slower than the page; the card clips it
+                        child: Parallax(
+                          rate: 0.12,
+                          child: ProductImage(photo ? card.coverPath : null, aspectRatio: 0.8, padding: Space.sm),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -569,7 +584,9 @@ class _CategoryTile extends StatelessWidget {
   final (Color, Color)? tint; // background and icon; null is the neutral All tile
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Pressable(child: _tile(context));
+
+  Widget _tile(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,

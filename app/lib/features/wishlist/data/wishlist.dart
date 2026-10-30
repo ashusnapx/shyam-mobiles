@@ -61,19 +61,25 @@ class WishlistNotifier extends AsyncNotifier<Set<String>> {
   }
 }
 
-/// Cards for the wishlist screen, in wishlist order, a page of saved ids at a time. Inactive products drop out (not
-/// in `product_cards`), so a page can come back short: whether there's more goes by the ids, not the rows.
+/// Cards for the wishlist screen, in wishlist order, a page of saved ids at a time. Hidden products drop out (not in
+/// `product_cards`), so a page can come back short or empty: an empty one moves straight on to the next ids, and
+/// whether there's more goes by the ids, not the rows.
 final wishlistCardsProvider =
     AsyncNotifierProvider.autoDispose<WishlistCardsNotifier, Paged<ProductCard>>(WishlistCardsNotifier.new);
 
 class WishlistCardsNotifier extends PagedNotifier<ProductCard> {
   List<String> _ids = const [];
+  int _cursor = 0; // ids asked for so far: a page may read past its size while it skips hidden ones
+  int _dropped = 0;
+
+  /// Saved products that aren't sold any more, among those loaded so far.
+  int get dropped => _dropped;
 
   @override
   Object idOf(ProductCard c) => c.id;
 
   @override
-  bool hasMoreAfter(int from, List<ProductCard> rows) => from + pageSize < _ids.length;
+  bool hasMoreAfter(int from, List<ProductCard> rows) => _cursor < _ids.length;
 
   @override
   Future<Paged<ProductCard>> build() async {
@@ -81,12 +87,18 @@ class WishlistCardsNotifier extends PagedNotifier<ProductCard> {
     return super.build();
   }
 
+  /// The next [size] saved ids that still have a card, or the rest of them. [from] only says when to start over.
   @override
   Future<List<ProductCard>> fetch(int from, int size) async {
-    final ids = _ids.skip(from).take(size).toList();
-    if (ids.isEmpty) return const [];
-    final rows = await ref.read(supabaseProvider).from('product_cards').select(cardColumns).inFilter('id', ids);
-    final byId = {for (final r in rows) r['id'] as String: ProductCard.fromJson(r)};
-    return [for (final id in ids) ?byId[id]];
+    if (from == 0) _cursor = _dropped = 0;
+    while (_cursor < _ids.length) {
+      final ids = _ids.skip(_cursor).take(size).toList();
+      final rows = await ref.read(supabaseProvider).from('product_cards').select(cardColumns).inFilter('id', ids);
+      final byId = {for (final r in rows) r['id'] as String: ProductCard.fromJson(r)};
+      _cursor += ids.length;
+      _dropped += ids.length - byId.length;
+      if (byId.isNotEmpty) return [for (final id in ids) ?byId[id]];
+    }
+    return const [];
   }
 }

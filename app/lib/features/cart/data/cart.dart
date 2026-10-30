@@ -7,7 +7,7 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 
 const _select =
-    'qty, variant:variants(*, product:products(id, slug, name, is_active, images:product_images(path, sort)))';
+    'qty, variant_id, variant:variants(*, product:products(id, slug, name, is_active, images:product_images(path, sort)))';
 
 /// Most of one variant a customer can hold in the cart (DB check allows 1..5).
 int maxQtyFor(Variant v) => math.min(v.stock, 5);
@@ -28,7 +28,11 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
   Future<List<CartLine>> build() async {
     if (ref.watch(currentUserIdProvider) == null) return const [];
     final rows = await _db.from('cart_items').select(_select).order('created_at');
-    return [for (final r in rows) CartLine.fromJson(r)];
+    // A line whose item the shop hid comes back without its variant (RLS), yet place_order would still refuse the
+    // cart over it, and the customer couldn't see it to remove it: drop it from the cart.
+    final hidden = [for (final r in rows) if (r['variant'] == null) r['variant_id'] as String];
+    if (hidden.isNotEmpty) await _db.from('cart_items').delete().inFilter('variant_id', hidden);
+    return [for (final r in rows) if (r['variant'] != null) CartLine.fromJson(r)];
   }
 
   /// Adds [qty] more of [variant], capped by stock and the per-item limit. Requires a signed-in user.

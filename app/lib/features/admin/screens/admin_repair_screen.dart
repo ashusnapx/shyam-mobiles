@@ -7,12 +7,14 @@ import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../feedback/data/feedback.dart' show FeedbackKind;
 import '../../repairs/data/repairs.dart';
 import '../../repairs/screens/repair_detail_screen.dart' show RepairHistory, RepairStatusHero, RepairTimeline;
 import '../../repairs/widgets/repair_widgets.dart';
 import '../data/admin.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
+import '../widgets/feedback_card.dart';
 
 class AdminRepairScreen extends ConsumerWidget {
   const AdminRepairScreen({super.key, required this.bookingId});
@@ -251,6 +253,7 @@ class _BodyState extends ConsumerState<_Body> {
           onPressed: _busy ? null : () => _once(_sendNote),
           child: const Text('Send note'),
         ),
+        CustomerFeedbackCard(kind: FeedbackKind.repair, id: b.id),
         const ListSection('Customer'),
         Card(
           child: Column(

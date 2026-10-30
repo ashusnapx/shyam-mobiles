@@ -10,6 +10,7 @@ import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/links.dart';
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../catalog/widgets/store_links.dart';
@@ -39,7 +40,10 @@ class ReferScreen extends ConsumerWidget {
         onRetry: () => ref.invalidate(myReferralProvider),
         loading: const Skeletonizer(child: _Body(referral: _placeholder)),
         data: (r) => r.enabled
-            ? RefreshIndicator(onRefresh: () => ref.refresh(myReferralProvider.future), child: _Body(referral: r))
+            ? RefreshIndicator(
+                onRefresh: () => ref.refresh(myReferralProvider.future),
+                child: _Body(referral: r, monthlyCap: ref.watch(storeSettingsProvider).value?.referralMonthlyCap),
+              )
             : EmptyState(
                 icon: PhosphorIconsRegular.gift,
                 title: 'Refer & earn isn’t running right now',
@@ -52,9 +56,10 @@ class ReferScreen extends ConsumerWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.referral});
+  const _Body({required this.referral, this.monthlyCap});
 
   final Referral referral;
+  final int? monthlyCap; // store_settings.referral_monthly_cap: rewards per IST month, the rest are void
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +92,8 @@ class _Body extends StatelessWidget {
                   const SizedBox(height: Space.xs),
                   Text(
                     'Your friend gets ${formatInr(r.friendPaise)} off their first order of ${formatInr(r.minOrderPaise)} '
-                    'or more. You get a ${formatInr(r.rewardPaise)} coupon once it’s delivered.',
+                    'or more. You get a ${formatInr(r.rewardPaise)} coupon when an order of theirs of '
+                    '${formatInr(r.minOrderPaise)} or more is delivered.',
                     style: t.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                   ),
                 ],
@@ -131,7 +137,13 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: Space.sm),
         Text(
-          'Rewards show up in Offers & coupons and last 90 days.',
+          [
+            'Your coupon is for an order of ${formatInr(r.minOrderPaise)} or more and lasts 90 days. It shows up in '
+                'Offers & coupons.',
+            if (monthlyCap case final cap? when cap > 0)
+              'You can earn up to $cap reward${cap == 1 ? '' : 's'} a month. Friends who join after that still get '
+                  'their discount, but no reward is added for you.',
+          ].join(' '),
           style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
         ),
         if (r.canEnterCode) const _FriendCode(),

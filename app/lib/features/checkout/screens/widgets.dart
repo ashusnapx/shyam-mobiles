@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/motion.dart';
 
 const tabularFigures = [FontFeature.tabularFigures()];
 
@@ -42,11 +43,9 @@ class TotalsRows extends StatelessWidget {
             ],
           ),
         );
-    Text money(int paise, {bool total = false}) => Text(
-          formatInr(paise),
-          style: (total ? t.titleMedium?.copyWith(fontWeight: FontWeight.w800) : t.bodyMedium)
-              ?.copyWith(fontFeatures: tabularFigures),
-        );
+    // every amount rolls to its new value when the cart, the code or the delivery changes it
+    Widget money(int paise, {bool total = false}) =>
+        CountTo(paise, style: total ? t.titleMedium?.copyWith(fontWeight: FontWeight.w800) : t.bodyMedium);
     final saving = t.bodyMedium?.copyWith(color: c.secondary, fontWeight: FontWeight.w700, fontFeatures: tabularFigures);
     return Column(
       children: [
@@ -55,7 +54,13 @@ class TotalsRows extends StatelessWidget {
           row(
             discountLabel == null ? 'Discount' : '${discountPaise > 0 ? 'Discount' : 'Offer'} · $discountLabel',
             discountPaise > 0
-                ? Text('−${formatInr(discountPaise)}', semanticsLabel: 'minus ${formatInr(discountPaise)}', style: saving)
+                ? CountTo(
+                    discountPaise,
+                    format: (p) => '−${formatInr(p)}',
+                    semanticsLabel: 'minus ${formatInr(discountPaise)}',
+                    fromZero: true,
+                    style: saving,
+                  )
                 : Text('Free delivery', style: saving),
           ),
         row(

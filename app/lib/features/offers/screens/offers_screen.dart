@@ -10,6 +10,7 @@ import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../cart/widgets/cart_button.dart';
 import '../../catalog/widgets/product_tile.dart';
 import '../data/offers.dart';
 import '../widgets/offer_widgets.dart';
@@ -40,7 +41,7 @@ class OffersScreen extends ConsumerWidget {
     final offers = ref.watch(availableOffersProvider);
     final applied = ref.watch(couponCodeProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Offers & coupons')),
+      appBar: AppBar(title: const Text('Offers & coupons'), actions: const [CartButton()]),
       body: AsyncBody<List<Offer>>(
         value: offers,
         onRetry: () => ref.invalidate(availableOffersProvider),
@@ -95,6 +96,7 @@ class OfferDetailScreen extends ConsumerWidget {
             what: '${offerHeadline(o)} at Shyam Mobiles: ${o.title}${o.code == null ? '' : ' · code ${o.code}'}',
             offer: o.id,
           ),
+        const CartButton(),
       ]),
       body: AsyncBody<List<Offer>>(
         value: offers,

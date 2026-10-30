@@ -10,6 +10,7 @@ import '../../../core/errors.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../wishlist/data/wishlist.dart';
 
@@ -40,7 +41,9 @@ class ProductTile extends StatelessWidget {
   final ProductCard card;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Pressable(child: _tile(context));
+
+  Widget _tile(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final nameStyle = t.bodyMedium!.copyWith(fontWeight: FontWeight.w600, height: 1.3);
