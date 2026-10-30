@@ -1,7 +1,7 @@
 -- Feedback: ownership, one rating per order/repair, the daily cap, and who can read or change what.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(17);
 
 insert into auth.users (id, email) values
   ('fb000000-0000-0000-0000-000000000001', 'fb-amit@test.dev'),
@@ -36,7 +36,7 @@ select lives_ok($$ select public.send_feedback('general', null, 'Please stock No
   'a comment with no rating');
 select throws_ok($$ select public.send_feedback('general', null, '   ') $$, '23514', null, 'nothing to say is refused');
 select throws_ok($$ select public.send_feedback('general', 6, 'x') $$, '23514', null, 'ratings are 1 to 5');
-select throws_ok($$ select public.send_feedback('product', 2, 'Wrong colour shown') $$, '23514', null,
+select throws_ok($$ select public.send_feedback('product', 2, 'Wrong colour shown') $$, 'P0001', 'BAD_REQUEST',
   'product feedback needs the product');
 
 select pg_temp.as_user('fb000000-0000-0000-0000-000000000002');
@@ -51,13 +51,20 @@ select is((select count(*)::int from public.feedback where status = 'resolved'),
 
 reset role;
 select pg_temp.as_user('fb000000-0000-0000-0000-000000000003');
-select is((select count(*)::int from public.feedback), 3, 'the shop sees everyone''s feedback');
+select is((select count(*)::int from public.feedback where user_id::text like 'fb000000-%'), 3,
+  'the shop sees everyone''s feedback');
 select lives_ok($$ update public.feedback set status = 'resolved', admin_note = 'Called the customer'
   where order_id = 'fb0000aa-0000-0000-0000-000000000001' $$, 'the shop marks it resolved');
 
 reset role;
 set local role anon;
 select throws_ok($$ select public.send_feedback('general', 5, 'x') $$, '42501', null, 'signed-out callers can''t send');
+
+reset role;
+delete from public.orders where id = 'fb0000aa-0000-0000-0000-000000000001';
+select is((select count(*)::int from public.feedback
+  where user_id = 'fb000000-0000-0000-0000-000000000001' and kind = 'order' and order_id is null), 1,
+  'deleting an order keeps its feedback, unlinked');
 
 select * from finish();
 rollback;
