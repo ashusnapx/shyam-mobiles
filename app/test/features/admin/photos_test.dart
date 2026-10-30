@@ -49,11 +49,27 @@ void main() {
     expect(formatBytes(15 * 1024 * 1024), '15.0 MB');
   });
 
-  test('preparePhoto refuses files over 15 MB before compressing', () async {
-    await expectLater(
-      preparePhoto(Uint8List(maxPhotoBytes + 1)),
-      throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('under 15 MB'))),
-    );
+  test('any camera photo is accepted; only what no camera makes is refused', () {
+    checkPhotoSize(48 * 1024 * 1024); // a 200 MP original
+    expect(() => checkPhotoSize(maxPhotoBytes + 1),
+        throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('too big to be a photo'))));
+  });
+
+  test('fitBudget keeps the best step that fits and lowers quality before size', () async {
+    final tried = <(int, int)>[];
+    Future<Uint8List> encode(int side, int quality) async {
+      tried.add((side, quality));
+      return Uint8List(side * quality * 10); // stands in for the WebP: bigger and better weigh more
+    }
+
+    expect((await fitBudget(encode, budget: 2000000)).length, 1600 * 80 * 10); // fits at once: full quality
+    expect(tried, [(1600, 80)]);
+    tried.clear();
+    expect((await fitBudget(encode, budget: 900000)).length, 1400 * 64 * 10); // quality 80→72→64, then 1400 px
+    expect(tried, [(1600, 80), (1600, 72), (1600, 64), (1400, 64)]);
+    tried.clear();
+    expect((await fitBudget(encode, budget: 10)).length, 1000 * 56 * 10); // nothing fits: the smallest try
+    expect(tried.length, photoSteps.length);
   });
 
   test('preparePhoto refuses files that aren’t images', () async {

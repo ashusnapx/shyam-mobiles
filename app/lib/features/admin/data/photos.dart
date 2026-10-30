@@ -4,11 +4,20 @@ import 'dart:ui' as ui;
 
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 
-/// Bigger files are refused before compressing (a phone photo is 2–8 MB).
-const maxPhotoBytes = 15 * 1024 * 1024;
+/// Any camera photo is taken as it is and compressed here; only something no camera makes (a video picked by mistake)
+/// is turned away, so a ₹10k phone never tries to load it.
+const maxPhotoBytes = 100 * 1024 * 1024;
+
+/// What a stored photo may weigh: under the bucket's 1 MB cap (migration 20261030000700) with room to spare.
+const photoBudgetBytes = 900 * 1024;
 
 const fullSide = 1600; // longest side of what customers see
 const fullQuality = 80;
+
+/// Tries, best first, until the photo fits [photoBudgetBytes]: quality comes down a little before size does, since
+/// WebP at 70-ish still looks the same on a phone screen. Nearly every photo fits on the first try (20–300 KB).
+const photoSteps = [(fullSide, fullQuality), (fullSide, 72), (fullSide, 64), (1400, 64), (1200, 60), (1000, 56)];
+
 const thumbSide = 480; // lists and data-saver mode
 const thumbQuality = 70;
 
@@ -38,28 +47,41 @@ String formatBytes(int bytes) => bytes >= 1024 * 1024
         ? '${(bytes / 1024).round()} KB'
         : '$bytes B';
 
-/// Reads a picked file, refusing big ones before they're loaded into memory.
+/// Reads a picked file, refusing only what can't be a photo before it's loaded into memory.
 Future<Uint8List> readPhoto(XFile file) async {
-  final size = await file.length();
-  if (size > maxPhotoBytes) throw FormatException(_tooBig(size));
+  checkPhotoSize(await file.length());
   return file.readAsBytes();
 }
 
-String _tooBig(int bytes) => 'That photo is ${formatBytes(bytes)}. Pick one under 15 MB.';
+void checkPhotoSize(int bytes) {
+  if (bytes > maxPhotoBytes) {
+    throw FormatException('That file is ${formatBytes(bytes)}, too big to be a photo. Pick a photo instead.');
+  }
+}
+
+/// The first of [photoSteps] whose result fits [budget]; [encode] makes the WebP for (longest side, quality).
+Future<Uint8List> fitBudget(Future<Uint8List> Function(int side, int quality) encode,
+    {int budget = photoBudgetBytes}) async {
+  var out = Uint8List(0);
+  for (final (side, quality) in photoSteps) {
+    out = await encode(side, quality);
+    if (out.length <= budget) return out;
+  }
+  // shortcut: a 1000 px WebP at 56 over 900 KB is pathological noise; upload it and let the server's 1 MB cap decide
+  return out;
+}
 
 /// A photo ready to upload: WebP full + thumb, upright, with no metadata.
 typedef PreparedPhoto = ({Uint8List full, Uint8List thumb, int originalBytes});
 
-/// Refuses big files and non-images, then makes the full photo and its thumb.
+/// Refuses non-images, then makes the full photo (always under [photoBudgetBytes]) and its thumb.
 Future<PreparedPhoto> preparePhoto(Uint8List original) async {
-  if (original.length > maxPhotoBytes) {
-    throw FormatException(_tooBig(original.length));
-  }
+  checkPhotoSize(original.length);
   final size = await imageSizeOf(original);
   if (size == null) throw const FormatException('That file isn’t a photo. Pick a JPEG, PNG or WebP image.');
   final Uint8List full, thumb;
   try {
-    full = await _webp(original, size, fullSide, fullQuality);
+    full = await fitBudget((side, quality) => _webp(original, size, side, quality));
     // from the 1600 px WebP: much faster than decoding the camera original again
     thumb = await _webp(full, await imageSizeOf(full) ?? size, thumbSide, thumbQuality);
   } catch (_) {
