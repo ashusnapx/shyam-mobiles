@@ -112,17 +112,9 @@ class _NotificationBannerHostState extends ConsumerState<NotificationBannerHost>
     if (prefs.getBool(_askedKey) == true || await push.allowed()) return;
     await prefs.setBool(_askedKey, true); // asked once, whatever the answer
     await Future<void>.delayed(const Duration(milliseconds: 1200)); // let the order or booking screen land first
-    final context = widget.router.routerDelegate.navigatorKey.currentContext;
-    if (context == null || !context.mounted) return;
-    final yes = await confirmChoice(
-      context,
-      title: 'Get updates on your phone?',
-      message: 'We’ll tell you when your order is packed and on its way, when your repair is ready, and when a '
-          'quote needs your OK. Nothing else.',
-      action: 'Turn on',
-      keep: 'Not now',
-    );
-    if (yes) await push.ask().catchError((Object _) => false);
+    // straight to Android's own prompt: a second "are you sure" dialog of ours before it reads as asking twice.
+    // The banner that just slid in ("SM1042 is confirmed") already shows what these notifications are.
+    await push.ask().catchError((Object _) => false);
   }
 
   @override

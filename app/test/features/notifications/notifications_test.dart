@@ -288,7 +288,7 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('push on: after the first order, a short explainer before Android asks, once', (tester) async {
+    testWidgets('push on: after the first order, Android asks once, with no dialog of ours first', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final api = FakeNotificationsApi();
       final push = FakePush();
@@ -297,9 +297,7 @@ void main() {
       await container.read(unreadCountProvider.notifier).refresh();
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
-      expect(find.text('Get updates on your phone?'), findsOneWidget);
-      await tester.tap(find.text('Turn on'));
-      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing, reason: 'one prompt only: Android\'s');
       expect(push.asked, isTrue);
 
       push.asked = false;
@@ -307,7 +305,7 @@ void main() {
       await container.read(unreadCountProvider.notifier).refresh();
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
-      expect(find.text('Get updates on your phone?'), findsNothing, reason: 'asked once, whatever the answer');
+      expect(push.asked, isFalse, reason: 'asked once, whatever the answer');
       await tester.pump(const Duration(seconds: 5));
     });
   });
