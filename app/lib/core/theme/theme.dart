@@ -71,7 +71,10 @@ ThemeData buildTheme(ColorScheme c) {
       hintStyle: text.bodyMedium?.copyWith(color: c.onSurfaceVariant),
     ),
     cardTheme: CardThemeData(
-      elevation: 0,
+      // the hairline plus the faintest lift, so cards float on the soft section bands
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.05),
+      surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       color: c.surface,
       shape: RoundedRectangleBorder(
@@ -97,7 +100,10 @@ ThemeData buildTheme(ColorScheme c) {
       height: 68,
       backgroundColor: c.surface,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: c.primaryContainer,
+      indicatorColor: BrandColors.peacockMist, // the open tab: a peacock pill and icon
+      iconTheme: WidgetStateProperty.resolveWith(
+        (s) => IconThemeData(color: s.contains(WidgetState.selected) ? BrandColors.peacock : c.onSurfaceVariant),
+      ),
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => text.labelSmall?.copyWith(color: s.contains(WidgetState.selected) ? c.onSurface : c.onSurfaceVariant),

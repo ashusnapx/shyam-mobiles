@@ -11,6 +11,7 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/network.dart';
 import '../../../core/supabase.dart';
+import '../../../core/theme/generative.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
@@ -106,9 +107,9 @@ class HomeScreen extends ConsumerWidget {
     final banners = ref.watch(homeBannersProvider).take(_slides).toList();
     final slides = <_Slide>[
       for (final b in banners)
-        (key: 'banner ${b.id}', build: (_, _) => PromoBannerCard(b, onTap: () => openAppLink(context, b.link))),
+        (key: 'banner ${b.id}', build: (_) => PromoBannerCard(b, onTap: () => openAppLink(context, b.link))),
       for (final card in d.featured.take(_slides - banners.length))
-        (key: 'product ${card.id}', build: (tone, photo) => _ProductSlide(card, tone: tone, photo: photo)),
+        (key: 'product ${card.id}', build: (photo) => _ProductSlide(card, photo: photo)),
     ];
     final phoneSlugs = {for (final c in d.categories) if (c.kind == CategoryKind.phone) c.slug};
     final phones = [for (final c in d.featured) if (phoneSlugs.contains(c.categorySlug)) c];
@@ -125,6 +126,7 @@ class HomeScreen extends ConsumerWidget {
           key: const ValueKey('deals'),
           child: ProductRail(
             title: 'Deals under ₹1,500',
+            band: 'deals',
             value: AsyncData(d.accessories),
             onSeeAll: () => context.go('/search?sort=price_asc'),
           ).enter(context, index: 3),
@@ -135,6 +137,7 @@ class HomeScreen extends ConsumerWidget {
           child: RevealOnScroll(
             child: ProductRail(
               title: 'Featured phones',
+              band: 'phones',
               value: AsyncData(phones),
               onSeeAll: () => context.go('/search?category=${phones.first.categorySlug}'),
             ),
@@ -147,18 +150,46 @@ class HomeScreen extends ConsumerWidget {
     ];
   }
 
-  /// "More to explore": the newest products as the two-column grid. Hidden while loading, empty or failing.
+  /// "More to explore": the newest products, two to a row on their own band. Hidden while loading, empty or failing.
   List<Widget> _moreGrid(BuildContext context, WidgetRef ref) {
     final more = ref.watch(latestProvider).value ?? const <ProductCard>[];
     if (more.isEmpty) return const [];
+    final c = Theme.of(context).colorScheme;
+    Widget tile(ProductCard card) => DecoratedBox(
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(Radii.lg),
+            border: Border.all(color: c.outlineVariant),
+          ),
+          child: Padding(padding: const EdgeInsets.all(6), child: ProductTile(card)),
+        );
     return [
       SliverToBoxAdapter(
-        key: const ValueKey('more-header'),
+        key: const ValueKey('more'),
         child: RevealOnScroll(
-          child: RailHeader('More to explore', onSeeAll: () => context.go('/search?sort=newest')),
-        ),
+            child: SectionBand(
+              seed: 'explore',
+              child: Column(
+                children: [
+                  RailHeader('More to explore', accent: softPalette('explore').accent,
+                      onSeeAll: () => context.go('/search?sort=newest')),
+                  for (var i = 0; i < more.length; i += 2)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.md),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: Space.md,
+                        children: [
+                          Expanded(child: tile(more[i])),
+                          Expanded(child: i + 1 < more.length ? tile(more[i + 1]) : const SizedBox()),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
       ),
-      SliverProductGrid(more, key: const ValueKey('more')),
     ];
   }
 
@@ -310,8 +341,8 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// One carousel slide: an offer banner or a featured product; [build] gets its tone and whether to load its photo.
-typedef _Slide = ({String key, Widget Function(int tone, bool photo) build});
+/// One carousel slide: an offer banner or a featured product; [build] gets whether to load its photo.
+typedef _Slide = ({String key, Widget Function(bool photo) build});
 
 /// Offers and featured products in one carousel that moves on every few seconds. Previous / Next and the dots as
 /// well as the swipe (nothing is swipe-only); touching it pauses it. Stays still with reduce-motion or TalkBack on,
@@ -380,7 +411,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   }
 
   Widget _slide(int i, {bool photo = true}) =>
-      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.lg), child: widget.slides[i].build(i, photo));
+      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.lg), child: widget.slides[i].build(photo));
 
   @override
   Widget build(BuildContext context) {
@@ -468,7 +499,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                               width: i == _index ? 18 : 6,
                               height: 6,
                               decoration: BoxDecoration(
-                                color: i == _index ? heroGradients[i % heroGradients.length][1] : c.outline,
+                                color: i == _index ? c.primary : c.outline,
                                 borderRadius: BorderRadius.circular(3),
                               ),
                             ),
@@ -492,30 +523,28 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   }
 }
 
-/// A featured product on a [heroGradients] tone, matching the offer banners beside it; the whole card opens it.
+/// A featured product on its own deep colours ([deepPalette] of its id), like the offer banners beside it; the whole
+/// card opens it.
 class _ProductSlide extends StatelessWidget {
-  const _ProductSlide(this.card, {this.photo = true, this.tone = 0});
+  const _ProductSlide(this.card, {this.photo = true});
 
   final ProductCard card;
   final bool photo; // false for the invisible sizing copies in data-saver mode: same size, nothing downloaded
-  final int tone;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final colors = heroGradients[tone % heroGradients.length];
+    final palette = deepPalette(card.id); // white text passes 4.5:1 on every stop
     final off = discountPercent(card.minPricePaise, card.mrpPaise);
     return Pressable(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: DecoratedBox(
-          // every gradient is dark enough for white text
-          decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
-          ),
-          child: CustomPaint(
-            painter: _FeatherPainter(heroAccents[tone % heroAccents.length]),
-            child: Material(
+        // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
+        child: AuroraBackground(
+          palette: palette,
+          seed: card.id,
+          still: true,
+          child: Material(
               type: MaterialType.transparency,
               child: InkWell(
                 onTap: () => context.push('/product/${card.slug}'),
@@ -555,8 +584,8 @@ class _ProductSlide extends StatelessWidget {
                                   spacing: Space.xs,
                                   children: [
                                     Text(card.categorySlug == 'smartphones' ? 'View phone' : 'View',
-                                        style: t.labelMedium?.copyWith(color: colors.first)),
-                                    Icon(PhosphorIconsBold.arrowRight, size: 14, color: colors.first),
+                                        style: t.labelMedium?.copyWith(color: palette.stops.first)),
+                                    Icon(PhosphorIconsBold.arrowRight, size: 14, color: palette.stops.first),
                                   ],
                                 ),
                               ),
@@ -580,53 +609,27 @@ class _ProductSlide extends StatelessWidget {
               ),
             ),
           ),
-        ),
       ),
     );
   }
 }
 
-/// Peacock glow plus feather-eye rings behind the hero, as in the mockup.
-class _FeatherPainter extends CustomPainter {
-  const _FeatherPainter(this.accent);
-
-  final Color accent;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final glow = Offset(size.width * 0.9, size.height * 0.3);
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [accent.withValues(alpha: 0.34), accent.withValues(alpha: 0)],
-        ).createShader(Rect.fromCircle(center: glow, radius: size.width * 0.55)),
-    );
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = Colors.white.withValues(alpha: 0.07);
-    final eye = Offset(size.width * 0.88, size.height * 0.62);
-    for (var r = 16.0; r < size.width; r += 16) {
-      canvas.drawOval(Rect.fromCenter(center: eye, width: r * 2.4, height: r * 2), ring);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_FeatherPainter oldDelegate) => oldDelegate.accent != accent;
+/// Short one-line label and icon per category. Its colours come from its slug ([softPalette]); saffron is kept for
+/// Repairs.
+(Color, Color) _tint(String slug) {
+  final p = softPalette(slug);
+  return (p.band, p.accent);
 }
 
-/// Short one-line label, icon and [tileTints] index per category. Tint 1 (saffron) is kept for Repairs.
 const _categoryLooks = {
-  'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile, 0),
-  'keypad-phones': ('Keypad', PhosphorIconsRegular.deviceMobileSpeaker, 3),
-  'cases-covers': ('Cases', PhosphorIconsRegular.deviceMobileCamera, 2),
-  'screen-guards': ('Guards', PhosphorIconsRegular.shieldCheck, 5),
-  'chargers-cables': ('Chargers', PhosphorIconsRegular.plugCharging, 4),
-  'earbuds-headphones': ('Earbuds', PhosphorIconsRegular.headphones, 6),
-  'power-banks': ('Power bank', PhosphorIconsRegular.batteryCharging, 2),
+  'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile),
+  'keypad-phones': ('Keypad', PhosphorIconsRegular.deviceMobileSpeaker),
+  'cases-covers': ('Cases', PhosphorIconsRegular.deviceMobileCamera),
+  'screen-guards': ('Guards', PhosphorIconsRegular.shieldCheck),
+  'chargers-cables': ('Chargers', PhosphorIconsRegular.plugCharging),
+  'earbuds-headphones': ('Earbuds', PhosphorIconsRegular.headphones),
+  'power-banks': ('Power bank', PhosphorIconsRegular.batteryCharging),
 };
-const _otherTints = [0, 3, 2, 5, 4, 6]; // categories added later take these in turn
 
 /// One row of round category tiles that scrolls sideways (the next tile peeks out), with All first and See all last,
 /// so every category is a tap away without a swipe.
@@ -639,17 +642,17 @@ class _CategoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final tiles = [
       _CategoryTile(label: 'All', icon: PhosphorIconsRegular.squaresFour, onTap: () => context.go('/search')),
-      for (final (i, cat) in categories.indexed)
+      for (final cat in categories)
         _CategoryTile(
           label: _categoryLooks[cat.slug]?.$1 ?? cat.name,
           icon: _categoryLooks[cat.slug]?.$2 ?? PhosphorIconsRegular.tag,
-          tint: tileTints[_categoryLooks[cat.slug]?.$3 ?? _otherTints[i % _otherTints.length]],
+          tint: _tint(cat.slug),
           onTap: () => context.go('/search?category=${cat.slug}'),
         ),
       _CategoryTile(
         label: 'Repairs',
         icon: PhosphorIconsRegular.wrench,
-        tint: tileTints[1],
+        tint: (BrandColors.cream, BrandColors.saffron),
         onTap: () => context.go('/repairs'),
       ),
       _CategoryTile(label: 'See all', icon: PhosphorIconsRegular.arrowRight, onTap: () => context.go('/search')),

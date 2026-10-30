@@ -209,7 +209,7 @@ class _EditorState extends ConsumerState<_Editor> {
   late final _subtitle = TextEditingController(text: _b?.subtitle);
   late final _cta = TextEditingController(text: _b?.ctaLabel ?? 'Shop now');
   late String? _link = _b?.link;
-  late int _tone = _b?.tone ?? 0;
+  late final int _tone = _b?.tone ?? 0;
   late String? _image = _b?.imagePath;
   late DateTime _starts = _b?.startsAt.toLocal() ?? DateTime.now();
   late DateTime? _ends = _b?.endsAt?.toLocal();
@@ -382,12 +382,10 @@ class _EditorState extends ConsumerState<_Editor> {
                 ),
               ],
               const ListSection('Look'),
-              PickerField<int>(
-                label: 'Colour',
-                options: const [0, 1, 2],
-                labelOf: (i) => toneNames[i],
-                initialValue: _tone.clamp(0, 2),
-                onChanged: (v) => setState(() => _tone = v),
+              // colours come from the banner's id (core/theme/generative.dart), so there's nothing to pick
+              Text(
+                'Colours are made for each banner automatically, so every banner looks different.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               _gap(),
               Wrap(

@@ -77,7 +77,7 @@ void main() {
       expect(find.text('3 of 3'), findsOneWidget);
       await tester.tap(find.byTooltip('Previous photo').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Zoom in'));
+      await tester.tap(find.byTooltip('Zoom in').last); // the viewer's (the gallery behind has one too)
       await tester.pumpAndSettle();
       expect(find.byTooltip('Fit to screen'), findsOneWidget);
       await tester.tap(find.byTooltip('Close'));

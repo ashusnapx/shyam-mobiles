@@ -70,13 +70,29 @@ void main() {
     expect(pickVariant(iphone16, iphone16[0], color: 'Black').id, 'blk128');
   });
 
-  test('picking memory skips an out-of-stock combination for an in-stock one', () {
+  test('a sold-out combination can still be picked to look at, and offers the nearest one in stock', () {
     final vs = [
       v('b128', 100, 0, a(null, '128 GB', 'Black')),
       v('w128', 100, 4, a(null, '128 GB', 'White')),
       v('b256', 200, 4, a(null, '256 GB', 'Black')),
     ];
-    expect(pickVariant(vs, vs[2], memory: '128 GB').id, 'w128');
+    final picked = pickVariant(vs, vs[2], memory: '128 GB');
+    expect(picked.id, 'b128', reason: 'the colour stays: what was tapped is what shows');
+    final alt = inStockAlternative(vs, picked)!;
+    expect(alt.id, 'b256', reason: 'the same colour first');
+    expect(switchLabel(alt, picked), '256 GB');
+    expect(inStockAlternative(vs, vs[1]), isNull, reason: 'in stock: nothing to offer');
+  });
+
+  test('the alternative falls back to the same memory, then the cheapest; none when all are sold out', () {
+    final ult = iphone16[1];
+    final alt = inStockAlternative(iphone16, ult)!;
+    expect(alt.id, 'blk128', reason: 'same 128 GB in another colour');
+    expect(switchLabel(alt, ult), 'Black');
+    final allGone = [v('x', 100, 0, a(null, '128 GB', 'Black')), v('y', 90, 0, a(null, '256 GB', 'Blue'))];
+    expect(inStockAlternative(allGone, allGone[0]), isNull);
+    final odd = [v('p', 100, 0, a('8 GB', '128 GB', 'Black')), v('q', 90, 3, a('12 GB', '256 GB', 'Blue'))];
+    expect(switchLabel(inStockAlternative(odd, odd[0])!, odd[0]), '12 GB · 256 GB, Blue');
   });
 
   test('when nothing with the option is in stock, the exact combination is shown', () {

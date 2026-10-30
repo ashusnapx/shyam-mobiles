@@ -10,6 +10,7 @@ import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
+import '../../../core/theme/generative.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
@@ -379,7 +380,8 @@ void openAppLink(BuildContext context, String link) {
   }
 }
 
-/// One home banner on a [heroGradients] tone (white text passes AA on every stop), with its photo when set.
+/// One home banner on its own deep colours, made from its id ([deepPalette]: white text passes 4.5:1 on every stop),
+/// with its photo when set. The admin's tone is no longer used: the maths picks the colours.
 class PromoBannerCard extends StatelessWidget {
   const PromoBannerCard(this.banner, {super.key, this.onTap});
 
@@ -391,14 +393,15 @@ class PromoBannerCard extends StatelessWidget {
 
   Widget _card(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final colors = heroGradients[banner.tone.clamp(0, heroGradients.length - 1)];
+    final palette = deepPalette(banner.id);
     return MergeSemantics(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
-          ),
+        // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
+        child: AuroraBackground(
+          palette: palette,
+          seed: banner.id,
+          still: true,
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
@@ -437,9 +440,9 @@ class PromoBannerCard extends StatelessWidget {
                                 spacing: Space.xs,
                                 children: [
                                   Flexible(
-                                    child: Text(banner.ctaLabel, style: t.labelMedium?.copyWith(color: colors.first)),
+                                    child: Text(banner.ctaLabel, style: t.labelMedium?.copyWith(color: palette.stops.first)),
                                   ),
-                                  Icon(PhosphorIconsBold.arrowRight, size: 14, color: colors.first),
+                                  Icon(PhosphorIconsBold.arrowRight, size: 14, color: palette.stops.first),
                                 ],
                               ),
                             ),

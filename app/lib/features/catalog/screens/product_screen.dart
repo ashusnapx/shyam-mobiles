@@ -83,6 +83,7 @@ class ProductScreen extends ConsumerStatefulWidget {
 
 class _ProductScreenState extends ConsumerState<ProductScreen> {
   String? _variantId; // the shopper's pick; until then the cheapest in-stock variant
+  bool _zoomed = false; // a gallery photo is zoomed in: one-finger drags pan it instead of scrolling the page
   bool _busy = false;
   bool _readRoute = false;
   ({bool buy, String variantId})? _resume; // add/buy to finish after the sign-in round trip
@@ -172,6 +173,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     final variants = product?.activeVariants ?? const <Variant>[];
     final variant = variants.where((v) => v.id == _variantId).firstOrNull ?? initialVariant(variants);
     final canBuy = variant != null && variant.inStock && !_busy;
+    final alternative = variant == null ? null : inStockAlternative(variants, variant);
     ref.watch(currentUserIdProvider); // rebuild on sign-in so a pending add/buy can resume
     _maybeResume(variants);
 
@@ -231,26 +233,32 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.sm),
-                  child: Row(
-                    spacing: 10,
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: canBuy ? () => _add(variant, buy: false) : null,
-                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.md)),
-                          icon: const Icon(PhosphorIconsRegular.shoppingBag, size: 20),
-                          label: Text(variant.inStock ? 'Add to cart' : 'Out of stock'),
+                  child: variant.inStock
+                      ? Row(
+                          spacing: 10,
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: canBuy ? () => _add(variant, buy: false) : null,
+                                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.md)),
+                                icon: const Icon(PhosphorIconsRegular.shoppingBag, size: 20),
+                                label: const Text('Add to cart'),
+                              ),
+                            ),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: canBuy ? () => _add(variant, buy: true) : null,
+                                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.md)),
+                                child: const Text('Buy now'),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _SoldOutBar(
+                          variant: variant,
+                          alternative: alternative,
+                          onSwitch: alternative == null ? null : () => setState(() => _variantId = alternative.id),
                         ),
-                      ),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: canBuy ? () => _add(variant, buy: true) : null,
-                          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.md)),
-                          child: const Text('Buy now'),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -273,13 +281,19 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
             style: t.labelMedium,
           ),
         );
-    void pick({String? memory, String? color}) =>
-        setState(() => _variantId = pickVariant(variants, v, memory: memory, color: color).id);
+    void pick({String? memory, String? color}) => setState(() {
+          _variantId = pickVariant(variants, v, memory: memory, color: color).id;
+          _zoomed = false; // the gallery starts over on the new colour's photos
+        });
 
     return ListView(
       padding: EdgeInsets.zero,
+      physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
       children: [
-        ProductGallery(paths: [for (final i in photosFor(p.images, colorOf(v))) i.path]),
+        ProductGallery(
+          paths: [for (final i in photosFor(p.images, colorOf(v))) i.path],
+          onZoom: (zoomed) => setState(() => _zoomed = zoomed),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, Space.xl),
           child: Column(
@@ -305,6 +319,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               Text(shortName(p.name, p.brand.name), style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: Space.sm),
               PriceTag(pricePaise: v.pricePaise, mrpPaise: v.mrpPaise, large: true),
+              // Slot for the payments feature's `EmiLine(pricePaise: v.pricePaise)` ("EMI from ₹X/month"), right
+              // under the price.
               const SizedBox(height: 2),
               Text('Inclusive of all taxes · EMI options at checkout', style: muted),
               if (p.id.isNotEmpty) _OfferChips(productId: p.id),
@@ -320,16 +336,17 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                         // selected = solid ink with white text, as everywhere else (the theme's chip style)
                         selected: memoryOf(v) == o.label,
                         label: Text.rich(TextSpan(text: o.label, children: [
-                          if (o.deltaPaise > 0)
+                          if (o.deltaPaise > 0 || !o.available)
                             TextSpan(
-                              text: '  +${formatInr(o.deltaPaise)}',
+                              text: o.available ? '  +${formatInr(o.deltaPaise)}' : '  Sold out',
                               style: TextStyle(
                                 color: memoryOf(v) == o.label ? c.onPrimary.withValues(alpha: 0.8) : c.onSurfaceVariant,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                         ])),
-                        onSelected: o.available ? (_) => pick(memory: o.label) : null,
+                        // sold out is still a tap away: its photos and price show, the bar says it's out of stock
+                        onSelected: (_) => pick(memory: o.label),
                       ),
                   ],
                 ),
@@ -341,11 +358,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                   runSpacing: Space.xs,
                   children: [
                     for (final o in colors)
-                      _Swatch(
-                        option: o,
-                        selected: colorOf(v) == o.label,
-                        onTap: o.available ? () => pick(color: o.label) : null,
-                      ),
+                      _Swatch(option: o, selected: colorOf(v) == o.label, onTap: () => pick(color: o.label)),
                   ],
                 ),
               ],
@@ -419,13 +432,18 @@ class _OfferChips extends ConsumerWidget {
         children: [
           for (final o in offers)
             ActionChip(
-              avatar: Icon(PhosphorIconsFill.sealPercent, size: 16, color: c.onTertiaryContainer),
+              // a coupon in rose (roseInk on roseMist ≈ 7:1), a sale in gold
+              avatar: Icon(PhosphorIconsFill.sealPercent, size: 16,
+                  color: o.code == null ? c.onTertiaryContainer : BrandColors.roseInk),
               label: Text(
                 o.code == null ? '${offerHeadline(o)} · ${o.title}' : '${offerHeadline(o)} with ${o.code}',
                 overflow: TextOverflow.ellipsis,
               ),
-              labelStyle: TextStyle(color: c.onTertiaryContainer, fontWeight: FontWeight.w700),
-              backgroundColor: c.tertiaryContainer,
+              labelStyle: TextStyle(
+                color: o.code == null ? c.onTertiaryContainer : BrandColors.roseInk,
+                fontWeight: FontWeight.w700,
+              ),
+              backgroundColor: o.code == null ? c.tertiaryContainer : BrandColors.roseMist,
               side: BorderSide.none,
               onPressed: () => context.push('/offers/${o.id}'),
             ),
@@ -435,21 +453,23 @@ class _OfferChips extends ConsumerWidget {
   }
 }
 
+/// A colour to pick. A sold-out colour keeps its colour, softened and struck through, and can still be picked to
+/// see its photos and price.
 class _Swatch extends StatelessWidget {
   const _Swatch({required this.option, required this.selected, required this.onTap});
 
   final ColorOption option;
   final bool selected;
-  final VoidCallback? onTap; // null: no stock in this colour
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
+    final soldOut = !option.available;
     return Semantics(
-      label: onTap == null ? '${option.label}, out of stock' : option.label,
+      label: soldOut ? '${option.label}, sold out' : option.label,
       selected: selected,
       button: true,
-      enabled: onTap != null,
       excludeSemantics: true,
       child: InkResponse(
         onTap: onTap,
@@ -469,7 +489,7 @@ class _Swatch extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   Opacity(
-                    opacity: onTap == null ? 0.35 : 1,
+                    opacity: soldOut ? 0.55 : 1,
                     child: Container(
                       width: 30,
                       height: 30,
@@ -480,14 +500,63 @@ class _Swatch extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (onTap == null)
-                    Transform.rotate(angle: -0.785, child: Container(width: 34, height: 2, color: c.onSurfaceVariant)),
+                  if (soldOut)
+                    Transform.rotate(angle: -0.785, child: Container(width: 34, height: 2, color: c.onSurface)),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The sticky bar for a sold-out pick: says so instead of Add to cart / Buy now, and offers the nearest one in stock.
+class _SoldOutBar extends StatelessWidget {
+  const _SoldOutBar({required this.variant, required this.alternative, required this.onSwitch});
+
+  final Variant variant;
+  final Variant? alternative;
+  final VoidCallback? onSwitch;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    final alt = alternative;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          liveRegion: true,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(PhosphorIconsRegular.prohibit, size: 20, color: c.error),
+              const SizedBox(width: Space.sm),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: 'Out of stock', style: TextStyle(fontWeight: FontWeight.w700)),
+                    TextSpan(
+                      text: alt == null
+                          ? ' · this one is sold out for now. Ask us on WhatsApp when it’s back.'
+                          : ' · this one is sold out right now.',
+                    ),
+                  ]),
+                  style: t.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (alt != null) ...[
+          const SizedBox(height: Space.sm),
+          FilledButton(onPressed: onSwitch, child: Text('See ${switchLabel(alt, variant)} in stock')),
+        ],
+      ],
     );
   }
 }

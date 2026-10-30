@@ -1,14 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/theme/generative.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 
-/// The sign-in and code screens' hero: the home card's deep peacock, drifting once through the three hero tones and
-/// back (12 s, then it rests: no endless repaint on a cheap phone; still with reduced motion and on low-RAM phones),
-/// feather rings, and the colour mark, whose dots ripple out once. [compact] folds it to a bar while typing; white
-/// text passes AA on every tone.
+/// The sign-in and code screens' hero: the shop's own deep colours (the 'shyam-mobiles' [deepPalette], so it's the same
+/// on every phone) with soft light drifting through it for one slow cycle (18 s, then it rests: no endless repaint on
+/// a cheap phone; still with reduced motion and on low-RAM phones), and the colour mark, whose dots ripple out once.
+/// [compact] folds it to a bar while typing; white text passes 4.5:1 on every stop.
 class AuthHero extends ConsumerStatefulWidget {
   const AuthHero({super.key, required this.compact, required this.leading, this.overlap = 26});
 
@@ -20,21 +23,26 @@ class AuthHero extends ConsumerStatefulWidget {
   ConsumerState<AuthHero> createState() => _AuthHeroState();
 }
 
-class _AuthHeroState extends ConsumerState<AuthHero> with SingleTickerProviderStateMixin {
-  late final _drift = AnimationController(vsync: this, duration: const Duration(seconds: 12));
-  bool _started = false;
+const _seed = 'shyam-mobiles';
+final _palette = deepPalette(_seed);
+
+class _AuthHeroState extends ConsumerState<AuthHero> {
+  bool _drifting = false;
+  Timer? _rest;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_started) return;
-    _started = true;
-    if (!MediaQuery.disableAnimationsOf(context) && ref.read(richMotionProvider)) _drift.forward();
+  void initState() {
+    super.initState();
+    if (!ref.read(richMotionProvider)) return;
+    _drifting = true;
+    _rest = Timer(const Duration(seconds: 18), () {
+      if (mounted) setState(() => _drifting = false); // one cycle of the aurora's drift, then still
+    });
   }
 
   @override
   void dispose() {
-    _drift.dispose();
+    _rest?.cancel();
     super.dispose();
   }
 
@@ -79,98 +87,36 @@ class _AuthHeroState extends ConsumerState<AuthHero> with SingleTickerProviderSt
       ],
     );
     final duration = still ? Duration.zero : Motion.normal;
-    // never taller than the space above the keyboard: while it slides up, the folding hero clips instead of
-    // pushing the form off the screen
-    final room = MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: room),
-      child: CustomPaint(
-        painter: _DriftPainter(_drift),
-        // the drift repaints only the gradient: the rings and text sit on their own layer
-        child: RepaintBoundary(
-          child: CustomPaint(
-            painter: const _RipplePainter(),
-            child: AnimatedPadding(
-              duration: duration,
-              curve: Curves.easeOutCubic,
-              padding: EdgeInsets.fromLTRB(
-                Space.xl,
-                MediaQuery.paddingOf(context).top + Space.xs,
-                Space.xl,
-                (widget.compact ? Space.md : Space.xxl) + widget.overlap,
-              ),
-              child: AnimatedSize(
-                duration: duration,
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topLeft,
-                child: AnimatedSwitcher(
-                  duration: still ? Duration.zero : Motion.fast,
-                  layoutBuilder: (current, previous) =>
-                      Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
-                  child: widget.compact ? bar : full,
-                ),
-              ),
+    return AuroraBackground(
+      palette: _palette,
+      seed: _seed,
+      still: !_drifting,
+      child: RepaintBoundary(
+        // the drift repaints the light, not the text
+        child: AnimatedPadding(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.fromLTRB(
+            Space.xl,
+            MediaQuery.paddingOf(context).top + Space.xs,
+            Space.xl,
+            (widget.compact ? Space.md : Space.xxl) + widget.overlap,
+          ),
+          child: AnimatedSize(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: AnimatedSwitcher(
+              duration: still ? Duration.zero : Motion.fast,
+              layoutBuilder: (current, previous) =>
+                  Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
+              child: widget.compact ? bar : full,
             ),
           ),
         ),
       ),
     );
   }
-}
-
-/// The diagonal hero gradient, easing from one of [heroGradients] to the next (peacock, marigold, emerald).
-class _DriftPainter extends CustomPainter {
-  _DriftPainter(this.drift) : super(repaint: drift);
-
-  final Animation<double> drift;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final at = drift.value * heroGradients.length;
-    final from = heroGradients[at.floor() % heroGradients.length];
-    final to = heroGradients[(at.floor() + 1) % heroGradients.length];
-    final f = Curves.easeInOut.transform(at - at.floor()); // lingers on each tone
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [for (var i = 0; i < from.length; i++) Color.lerp(from[i], to[i], f)!],
-        ).createShader(Offset.zero & size),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_DriftPainter old) => old.drift != drift;
-}
-
-/// A soft glow and feather-eye rings rising from below the hero.
-class _RipplePainter extends CustomPainter {
-  const _RipplePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centre = Offset(size.width / 2, size.height * 1.2);
-    final glow = Rect.fromCircle(center: centre, radius: size.height * 0.75);
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [BrandColors.gold.withValues(alpha: 0.22), BrandColors.gold.withValues(alpha: 0)],
-        ).createShader(glow),
-    );
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = Colors.white.withValues(alpha: 0.08);
-    for (var r = 20.0; r < size.height * 1.3; r += 20) {
-      canvas.drawOval(Rect.fromCenter(center: centre, width: r * 2.6, height: r * 2), ring);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_RipplePainter old) => false;
 }
 
 /// The hero's round translucent button (Close, Back).

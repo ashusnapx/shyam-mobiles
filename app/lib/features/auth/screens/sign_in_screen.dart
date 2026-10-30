@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -163,12 +164,26 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, // hero spans the screen on any width
           children: [
-            AuthHero(
-              compact: compact,
-              leading: heroButton(
-                tooltip: 'Close',
-                icon: PhosphorIconsRegular.x,
-                onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+            // while the keyboard slides up, the folding hero can be taller than the room above it for a few frames:
+            // clip it there instead of overflowing
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: ClipRect(
+                child: OverflowBox(
+                  fit: OverflowBoxFit.deferToChild,
+                  maxHeight: double.infinity,
+                  alignment: Alignment.topCenter,
+                  child: AuthHero(
+                    compact: compact,
+                    leading: heroButton(
+                      tooltip: 'Close',
+                      icon: PhosphorIconsRegular.x,
+                      onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                    ),
+                  ),
+                ),
               ),
             ),
             Expanded(

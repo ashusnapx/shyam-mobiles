@@ -164,7 +164,8 @@ Run config: `flutter run --dart-define-from-file=env/dev.json` (`env/*.json` is 
 Bottom nav (shell): **Home · Search · Repairs · Cart · Account**, plus **Admin** as a sixth tab only for admins.
 
 ```
-/                     home: featured carousel, offer banners, categories, repair CTA
+/                     home: pinned brand bar + search, one carousel (offer banners, then featured), a row of
+                      categories, a one-line repair strip, rails (deals, featured phones, recently viewed), a grid, the shop
 /search?q=&category=&brand=&sort=   listing + filters (also used for category pages)
 /product/:slug        gallery, variant picker, price/MRP/discount, stock, specs, add to cart, buy now
 /cart                 lines, qty stepper, coupon, quote_order totals, checkout CTA
@@ -198,6 +199,7 @@ Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account
 
 - Every screen that loads data has a skeleton, an empty state and an error state with retry. Lists pull to refresh.
 - Optimistic cart/wishlist updates that roll back on error.
+- Motion (`core/widgets/motion.dart`): totals, prices and stats roll to new values; cards dip and spring back under the finger; Home sections rise in once as they scroll into view; the gallery and the carousel's photos drift slower than the page; the feather mark's dots ripple out once on sign-in and order placed. All off when the phone asks for less motion; parallax, the ripple and the sign-in drift off on low-RAM phones. Colours for slides, bands and category tiles come from `core/theme/generative.dart` (seeded, so an item keeps its colours).
 - Tap targets ≥ 48dp, semantic labels on icon buttons, text scales to 1.3× without clipping, WCAG AA contrast in both themes.
 - Haptics on add-to-cart and order success. No modal dialogs for success; use inline states or snackbars.
 - The Razorpay sheet is prefilled with the account's phone/email.
@@ -207,7 +209,7 @@ Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account
 
 - `product_images.color` (null or a colour name matching `variants.attributes->>'color'`): picking a colour shows its photos plus the untagged ones; untagged photos show for every colour. Product photos display in a square frame on white, so every product lines up; seeded photos are trimmed and padded to square.
 
-- Product page gallery: full-width square on white (contain, small even inset), pinch / double-tap zoom, tap for a full-screen black viewer ("2 of 5", swipe down or back to close, always the full photo), thumbnail strip. The chosen colour's photos come first, then the untagged ones; a colour with none shows all. Admin tags each photo with a colour (or "Any colour") in the product editor and when uploading.
+- Product page gallery: full-width square on white (contain, small even inset), zoom in place by pinch, double-tap or the Zoom button (a one-time "Pinch or double-tap to zoom" hint; a zoomed photo pans under one finger), tap for a full-screen black viewer ("2 of 5", Previous / Next, swipe down, Close or back), thumbnail strip with Previous / Next. A sold-out colour or memory can still be picked to see its photos and price: the sticky bar then says "Out of stock" and offers "See <x> in stock". The chosen colour's photos come first, then the untagged ones; a colour with none shows all. Admin tags each photo with a colour (or "Any colour") in the product editor and when uploading.
 - Product page rails: "Fits this phone" (phones: accessories whose specs hold `{"label":"Fits","value":<short or full name>}`), "Similar products" (same category, nearest price, up to 8). Home: "Recently viewed" (last 10 opened on this phone, shared_preferences).
 - Admin uploads (products and shop) are straightened, stripped of EXIF/GPS, and stored as WebP: `<folder>/<millis>.webp` (≤1600 px, q80) plus `<folder>/<millis>@thumb.webp` (≤480 px, q70); the DB stores the full path, `thumbPathFor` derives the thumb. Uploads are cached for a year (keys are never reused).
 - Data saver (automatic, no setting: on for a low-RAM phone, mobile data until measured, or a measured latency above 800 ms): thumbnails everywhere, full photos on tap, no carousel auto-advance, search pages of 12. Home and store settings are kept on the phone and shown instantly when offline.

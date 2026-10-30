@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
@@ -25,36 +28,71 @@ List<ProductPhoto> photosFor(List<ProductPhoto> photos, String color) {
         ];
 }
 
-/// The product page's photos: square on white so every product lines up, pinch or double-tap to zoom, tap for full
+/// The product page's photos: square on white so every product lines up; pinch, double-tap or the Zoom button to
+/// zoom in place (a zoomed photo pans under one finger: [onZoom] tells the page to stop scrolling), tap for full
 /// screen, and a thumbnail strip between Previous / Next. A new set of photos (another colour) fades in from the first.
 class ProductGallery extends StatelessWidget {
-  const ProductGallery({super.key, required this.paths});
+  const ProductGallery({super.key, required this.paths, this.onZoom});
 
   final List<String> paths;
+  final ValueChanged<bool>? onZoom;
 
   @override
   Widget build(BuildContext context) => AnimatedSwitcher(
     duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.fast,
-    child: _Gallery(key: ValueKey(paths.join('\n')), paths: paths),
+    child: _Gallery(key: ValueKey(paths.join('\n')), paths: paths, onZoom: onZoom),
   );
 }
 
 class _Gallery extends StatefulWidget {
-  const _Gallery({super.key, required this.paths});
+  const _Gallery({super.key, required this.paths, this.onZoom});
 
   final List<String> paths;
+  final ValueChanged<bool>? onZoom;
 
   @override
   State<_Gallery> createState() => _GalleryState();
 }
 
+const _hintSeenKey = 'zoom_hint_seen';
+
 class _GalleryState extends State<_Gallery> {
   final _pages = PageController();
+  final _zoom = <int, GlobalKey<_ZoomableState>>{};
   int _page = 0;
   bool _zoomed = false;
+  bool _hint = false; // "Pinch or double-tap to zoom", the first time this phone shows a gallery
+  Timer? _hintTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.paths.isNotEmpty) unawaited(_maybeHint());
+  }
+
+  Future<void> _maybeHint() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_hintSeenKey) == true || !mounted) return;
+      await prefs.setBool(_hintSeenKey, true);
+      setState(() => _hint = true);
+      _hintTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _hint = false);
+      });
+    } catch (_) {} // no plugin (tests): no hint
+  }
+
+  void _setZoomed(bool zoomed) {
+    setState(() {
+      _zoomed = zoomed;
+      if (zoomed) _hint = false;
+    });
+    widget.onZoom?.call(zoomed);
+  }
 
   @override
   void dispose() {
+    _hintTimer?.cancel();
     _pages.dispose();
     super.dispose();
   }
@@ -62,6 +100,40 @@ class _GalleryState extends State<_Gallery> {
   void _show(int i) => MediaQuery.disableAnimationsOf(context)
       ? _pages.jumpToPage(i)
       : _pages.animateToPage(i, duration: Motion.normal, curve: Curves.easeOutCubic);
+
+  /// The photos, drifting and fading a little as the page scrolls up over them, inside their own square.
+  Widget _photos(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final paths = widget.paths;
+    final n = paths.length;
+    return ClipRect(
+      child: Parallax(
+        rate: 0.35,
+        fadeTo: 0.85,
+        distance: 360,
+        child: PageView.builder(
+          controller: _pages,
+          itemCount: n,
+          physics: _zoomed ? const NeverScrollableScrollPhysics() : null, // a zoomed photo pans instead
+          onPageChanged: (i) => setState(() => _page = i),
+          itemBuilder: (context, i) => Semantics(
+            button: true,
+            label: n > 1 ? 'Photo ${i + 1} of $n, opens full screen' : 'Product photo, opens full screen',
+            child: _Zoomable(
+              key: _zoom.putIfAbsent(i, GlobalKey.new),
+              active: i == _page,
+              onZoom: _setZoomed,
+              onTap: () => openPhotoViewer(context, paths, i, owner: this, onPage: _pages.jumpToPage),
+              child: Hero(
+                tag: (this, i),
+                child: ProductImage(paths[i], radius: 0, color: c.surface),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,32 +149,53 @@ class _GalleryState extends State<_Gallery> {
             aspectRatio: 1,
             child: n == 0
                 ? ProductImage(null, radius: 0, color: c.surface)
-                // drifts and fades a little as the page scrolls up over it, inside its own square
-                : ClipRect(
-                    child: Parallax(
-                      rate: 0.35,
-                      fadeTo: 0.85,
-                      distance: 360,
-                      child: PageView.builder(
-                        controller: _pages,
-                        itemCount: n,
-                        physics: _zoomed ? const NeverScrollableScrollPhysics() : null, // a zoomed photo pans instead
-                        onPageChanged: (i) => setState(() => _page = i),
-                        itemBuilder: (context, i) => Semantics(
-                          button: true,
-                          label: n > 1 ? 'Photo ${i + 1} of $n, opens full screen' : 'Product photo, opens full screen',
-                          child: _Zoomable(
-                            active: i == _page,
-                            onZoom: (z) => setState(() => _zoomed = z),
-                            onTap: () => openPhotoViewer(context, paths, i, owner: this, onPage: _pages.jumpToPage),
-                            child: Hero(
-                              tag: (this, i),
-                              child: ProductImage(paths[i], radius: 0, color: c.surface),
+                : Stack(
+                    children: [
+                      Positioned.fill(child: _photos(context)),
+                      // a button as well as the pinch and the double-tap: zoom in place without a gesture
+                      Positioned(
+                        right: Space.sm,
+                        bottom: Space.sm,
+                        child: IconButton(
+                          tooltip: _zoomed ? 'Zoom out' : 'Zoom in',
+                          style: IconButton.styleFrom(
+                            backgroundColor: c.surface,
+                            side: BorderSide(color: c.outlineVariant),
+                          ),
+                          onPressed: () => _zoom[_page]?.currentState?.toggle(),
+                          icon: Icon(
+                            _zoomed ? PhosphorIconsRegular.magnifyingGlassMinus : PhosphorIconsRegular.magnifyingGlassPlus,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: Space.lg,
+                        right: Space.lg,
+                        bottom: Space.lg,
+                        child: IgnorePointer(
+                          child: AnimatedOpacity(
+                            opacity: _hint ? 1 : 0,
+                            duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal,
+                            child: Center(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: c.inverseSurface.withValues(alpha: 0.85),
+                                  borderRadius: BorderRadius.circular(Radii.lg),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 6),
+                                  child: Text(
+                                    'Pinch or double-tap to zoom',
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: c.onInverseSurface),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
           ),
           // buttons as well as the swipe and the thumbnails: no action is gesture-only
