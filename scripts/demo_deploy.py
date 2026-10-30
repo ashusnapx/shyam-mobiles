@@ -98,10 +98,10 @@ class Deploy:
     def secret_key(self):
         if self._secret is None:
             keys = json.loads(run([CLI, 'projects', 'api-keys', '--project-ref', self.ref, '-o', 'json']))
-            pick = [k for k in keys if str(k.get('api_key', '')).startswith('sb_secret_')] or \
-                   [k for k in keys if k.get('name') == 'service_role']
+            # the CLI lists sb_secret_ keys masked, so only the legacy service_role key is usable from here
+            pick = [k for k in keys if k.get('name') == 'service_role' and k.get('api_key')]
             if not pick:
-                sys.exit('no secret or service_role key found for the project')
+                sys.exit('no service_role key found for the project (are legacy API keys turned off?)')
             self._secret = pick[0]['api_key']
         return self._secret
 
