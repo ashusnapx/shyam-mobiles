@@ -76,7 +76,7 @@ select throws_ok($$select public.admin_new_payment_link('7d000000-0000-0000-0000
   '23514', null, 'at least ₹1');
 select is((public.admin_new_payment_link('7d000000-0000-0000-0000-000000000003', null, 2500000, '+919812345678', ' Ravi Traders ',
             '10 × Redmi 13C, wholesale') ->> 'customer_name'), 'Ravi Traders', 'a wholesale link for ₹25,000');
-select pg_temp.issued(id, 'plink_custom') from public.payment_links where order_id is null;
+select pg_temp.issued(id, 'plink_custom') from public.payment_links where order_id is null and customer_name = 'Ravi Traders';
 
 -- Paying ---------------------------------------------------------------------------------------------------------------
 

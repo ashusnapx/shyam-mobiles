@@ -221,8 +221,8 @@ select lives_ok($$insert into storage.objects (bucket_id, name) values ('product
 reset role;
 select results_eq(
   $$select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'product-images'$$,
-  $$values (true, 5242880::bigint, '{image/webp,image/jpeg,image/png}'::text[])$$,
-  'product-images bucket: public, 5 MB, webp/jpeg/png');
+  $$values (true, 1048576::bigint, '{image/webp,image/jpeg,image/png}'::text[])$$,
+  'product-images bucket: public, 1 MB (compressed photos only), webp/jpeg/png');
 
 select * from finish();
 rollback;
