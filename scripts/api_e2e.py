@@ -921,6 +921,117 @@ def lifecycle(staff: Actor, alice: Actor, bob: Actor, addrs: dict, functions: bo
     check('staff completes it', alice.one(f'repair_bookings?id=eq.{rid2}')['status'] == 'completed')
 
 
+def offers_checks(staff: Actor, alice: Actor, bob: Actor, carol: Actor, dave: Actor, addrs: dict, functions: bool) -> None:
+    section('offers: coupons, one-use race, rate limit, discounted payments')
+    tag = f'E2E{RUN.upper()}'
+    SVC.patch('store_settings?id=eq.true', {'referral_enabled': True})
+
+    def save(actor, body):
+        return actor.rpc('admin_save_promotion', {'p': body})
+
+    def checkout(actor, method, coupon):
+        r = actor.rpc('place_order', {'p_address_id': addrs[actor.name], 'p_payment_method': method, 'p_coupon_code': coupon})
+        if r.status == 200 and isinstance(r.body, str):
+            ORDERS.append(r.body)
+        return r
+
+    r = save(staff, {'title': 'E2E phone 10%', 'code': tag + 'P', 'kind': 'percent', 'value': 10, 'applies_to': 'items',
+                     'per_user_limit': None, 'targets': [{'target_type': 'product', 'target_id': P['phone']}]})
+    check('staff create an items coupon', r.status == 200, r)
+    r = save(staff, {'title': 'E2E once', 'code': tag + 'ONE', 'kind': 'flat', 'value': 5000, 'usage_limit': 1, 'per_user_limit': None})
+    check('staff create a one-use coupon', r.status == 200, r)
+    r = save(staff, {'title': 'E2E hidden', 'code': tag + 'H', 'kind': 'flat', 'value': 1000, 'is_public': False})
+    check('staff create a hidden coupon', r.status == 200, r)
+    r = save(alice, {'title': 'Mine', 'code': tag + 'X', 'kind': 'flat', 'value': 100000})
+    check('customers cannot create coupons', code(r) == 'FORBIDDEN', r)
+    r = alice.post('promotions', {'title': 'Mine', 'code': tag + 'X', 'kind': 'flat', 'value': 100000})
+    check('... not even with a direct insert', r.status in (401, 403), r)
+    r = alice.get('promotions?select=code')
+    check('customers cannot read promotions (hidden codes stay hidden)', r.status == 200 and r.body == [], r)
+    r = ANON.get('promotions?select=code')
+    check('anon cannot read promotions', r.status == 401, r)
+    r = alice.post('promotion_redemptions', {'order_id': ORDERS[0], 'promotion_id': ORDERS[0], 'discount_paise': 0})
+    check('customers cannot write redemptions', r.status in (401, 403), r)
+    r = ANON.rpc('available_offers')
+    codes = {o['code'] for o in r.body} if r.status == 200 else set()
+    check('anon lists public coupons, never hidden ones', tag + 'P' in codes and tag + 'H' not in codes, r)
+    for fn in ('quote_order', 'my_referral', 'apply_referral_code', 'admin_save_promotion', 'admin_promotions'):
+        check(f'anon cannot call {fn}', denied(ANON.rpc(fn, {'p_code': 'X'} if fn == 'apply_referral_code' else {'p': {}} if fn == 'admin_save_promotion' else {})))
+
+    # 10% of the phone line only: subtotal 69,900 (below free delivery), total 69,900 + fee - 2,000
+    set_cart(alice, {'c': 1, 'g12': 1})
+    q = alice.rpc('quote_order', {'p_coupon_code': f' {tag.lower()}p '}).body
+    check('quote: 10% of the targeted line', isinstance(q, dict) and (q['subtotal_paise'], q['delivery_fee_paise'], q['discount_paise'], q['total_paise'],
+          q['promotion']['code'], q['coupon_error']) == (69900, FEE, 2000, 69900 + FEE - 2000, tag + 'P', None), q)
+    r = checkout(alice, 'cod', tag.lower() + 'p')
+    o = order(r.body) if r.status == 200 else {}
+    check('order charges exactly the quote', o and (o['subtotal_paise'], o['delivery_fee_paise'], o['discount_paise'], o['total_paise'], o['coupon_code'])
+          == (69900, FEE, 2000, 69900 + FEE - 2000, tag + 'P'), r if not o else o)
+    check('... the discount sits on the phone line', o and {i['variant_id']: i['discount_paise'] for i in o['order_items']} == {V['c']: 2000, V['g12']: 0}, o)
+    if o:
+        alice.rpc('cancel_order', {'p_order_id': o['id']})
+    set_cart(alice, {'c': 1})
+    r = alice.rpc('place_order', {'p_address_id': addrs['alice'], 'p_payment_method': 'cod', 'p_discount_paise': 999999})
+    check('a client-sent discount is not a parameter', r.status == 404 and r.body.get('code') == 'PGRST202', r)
+    r = checkout(alice, 'cod', 'NOSUCHCODE')
+    check('place_order refuses an unknown code', code(r) == 'COUPON_NOT_FOUND', r)
+    set_cart(alice, {})
+
+    # one use left, four parallel checkouts of different lines: only the promotion row lock serializes them
+    racers = [alice, bob, carol, dave]
+    for c, line in zip(racers, ('c', 'a', 'b', 'race')):
+        set_cart(c, {line: 1})
+    barrier = threading.Barrier(len(racers))
+
+    def go(c):
+        barrier.wait()
+        return checkout(c, 'cod', tag + 'ONE')
+
+    with ThreadPoolExecutor(len(racers)) as ex:
+        results = list(ex.map(go, racers))
+    wins = [(c, r) for c, r in zip(racers, results) if r.status == 200]
+    check('4 parallel checkouts with a one-use code: exactly one gets it',
+          len(wins) == 1 and all(code(r) == 'COUPON_USED_UP' for r in results if r.status != 200), results)
+    for c in racers:
+        set_cart(c, {})
+    for c, r in wins:
+        c.rpc('cancel_order', {'p_order_id': r.body})
+    set_cart(bob, {'c': 1})
+    q = bob.rpc('quote_order', {'p_coupon_code': tag + 'ONE'}).body
+    check('... cancelling that order gives the use back', isinstance(q, dict) and q['discount_paise'] == 5000 and q['coupon_error'] is None, q)
+    set_cart(bob, {})
+
+    if functions:
+        set_cart(bob, {'c': 1})
+        r = checkout(bob, 'razorpay', tag + 'P')
+        if check('discounted Razorpay order placed', r.status == 200, r):
+            oid, total = r.body, 20000 - 2000 + FEE
+            rzp = set_rzp(oid)
+            p = bob.fn('create-payment', {'order_id': oid})
+            check('create-payment asks Razorpay for the discounted total', p.status == 200 and p.body['amount'] == total, p)
+            w = webhook(captured(rzp, f'pay_{RUN}_off1', 20000 + FEE))
+            check('a payment of the undiscounted amount is refused', w.body == {'result': 'amount_mismatch'} and order(oid)['payment_status'] == 'pending', w)
+            w = webhook(captured(rzp, f'pay_{RUN}_off2', total))
+            o = order(oid)
+            check('the discounted amount pays it', w.body == {'result': 'paid'} and (o['status'], o['payment_status']) == ('confirmed', 'paid'), (w, o))
+            staff_update(staff, oid, 'cancelled', 'e2e')
+
+    # wrong guesses are rate limited (failed lookups count; 10 per 10 minutes)
+    set_cart(dave, {'c': 1})
+    misses = [dave.rpc('quote_order', {'p_coupon_code': f'GUESS{n}'}).body.get('coupon_error') for n in range(10)]
+    q = dave.rpc('quote_order', {'p_coupon_code': tag + 'P'}).body
+    check('10 wrong guesses, then even a good code is refused', misses == ['COUPON_NOT_FOUND'] * 10 and q.get('coupon_error') == 'COUPON_RATE_LIMIT'
+          and q['discount_paise'] == 0, (misses, q))
+    set_cart(dave, {})
+
+    r = carol.rpc('my_referral')  # carol deletes her account later: her referral code must not block it
+    check('my_referral gives a code', r.status == 200 and isinstance(r.body.get('code'), str) and 6 <= len(r.body['code']) <= 10, r)
+    r = staff.rpc('admin_promotions')
+    mine = {p['code']: p for p in r.body if (p['code'] or '').startswith(tag)} if r.status == 200 else {}
+    check('admin_promotions counts uses over orders that are not cancelled', mine.get(tag + 'P', {}).get('uses') == 0
+          and mine.get(tag + 'ONE', {}).get('uses') == 0, mine)
+
+
 def caps_checks(staff: Actor, alice: Actor, aa: str) -> None:
     section('abuse caps')
     for o in SVC.get(f'orders?select=id&user_id=eq.{alice.uid}&status=eq.pending_payment').body:
@@ -1139,12 +1250,13 @@ def audit_numbers() -> None:
         o = order(oid)
         items = o['order_items']
         sub = sum(i['unit_price_paise'] * i['qty'] for i in items)
-        fee_ok = o['delivery_fee_paise'] == (0 if o['subtotal_paise'] >= FREE_MIN else FEE)
+        disc = o['discount_paise']
+        fee_ok = o['delivery_fee_paise'] == (0 if o['subtotal_paise'] - disc >= FREE_MIN else FEE)
         gst_ok = all(float(i['gst_rate']) == GST[next(k for k, v in P.items() if v == i['product_id'])] for i in items)
-        if not (items and sub == o['subtotal_paise'] and o['total_paise'] == o['subtotal_paise'] + o['delivery_fee_paise'] and fee_ok and gst_ok
-                and all(1 <= i['qty'] <= 5 for i in items) and o['order_events']):
+        if not (items and sub == o['subtotal_paise'] and o['total_paise'] == o['subtotal_paise'] + o['delivery_fee_paise'] - disc and fee_ok and gst_ok
+                and sum(i['discount_paise'] for i in items) == disc and all(1 <= i['qty'] <= 5 for i in items) and o['order_events']):
             bad.append((o['number'], sub, o['subtotal_paise'], o['delivery_fee_paise'], o['total_paise']))
-    check(f'{len(ORDERS)} orders: subtotal = Σ unit×qty, total = subtotal + fee, fee rule, GST, timeline', ORDERS and not bad, bad)
+    check(f'{len(ORDERS)} orders: subtotal = Σ unit×qty, total = subtotal + fee − discount = Σ line discounts, fee rule, GST, timeline', ORDERS and not bad, bad)
     r = SVC.get(f'variants?select=sku,stock&product_id=in.({",".join(P.values())})&stock=lt.0')
     check('no variant stock below zero', r.body == [], r)
 
@@ -1153,6 +1265,7 @@ def cleanup(staff, settings, paths) -> None:
     section('cleanup')
     if ORDERS:
         SVC.delete(f'orders?id=in.({",".join(ORDERS)})')
+    SVC.delete(f'promotions?code=like.E2E{RUN.upper()}*')
     for uid in CREATED_USERS:
         SVC.delete(f'repair_bookings?user_id=eq.{uid}')
         SVC.delete(f'orders?user_id=eq.{uid}')
@@ -1197,6 +1310,7 @@ def main() -> None:
         money_checks(staff, alice, bob, carol, dave, addrs)
         functions = function_checks(staff, alice, bob, addrs)
         lifecycle(staff, alice, bob, addrs, functions)
+        offers_checks(staff, alice, bob, carol, dave, addrs, functions)
         caps_checks(staff, alice, addrs['alice'])
         input_checks(staff, alice, addrs['alice'])
         if functions:

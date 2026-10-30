@@ -264,3 +264,38 @@ update public.store_settings set
 
 -- Local dev logins (scripts/dev_setup.py, app DEV_LOGIN) still use a password; production keeps this table empty.
 insert into private.password_sign_in_domains (domain) values ('shyammobiles.test');
+
+-- Offers (docs/SPEC.md "Offers"). Conflict-safe like the block above.
+update public.store_settings set referral_enabled = true;
+
+insert into public.collections (slug, name) values ('under-1500', 'Under ₹1,500') on conflict (slug) do nothing;
+insert into public.collection_products (collection_id, product_id)
+select c.id, pc.id from public.collections c, public.product_cards pc
+where c.slug = 'under-1500' and pc.category_kind = 'accessory' and pc.min_price_paise <= 150000
+on conflict do nothing;
+
+insert into public.promotions (title, description, code, kind, value, max_discount_paise, min_subtotal_paise, applies_to,
+  first_order_only, per_user_limit, is_public)
+values
+  ('₹100 off your first order', 'Flat ₹100 off your first order of ₹999 or more.', 'WELCOME100', 'flat', 10000, null, 99900, 'order', true, 1, true),
+  ('20% off accessories', 'Cases, screen guards, chargers, earbuds and power banks. Up to ₹300 off.', 'ACC20', 'percent', 20, 30000, 0, 'items', false, 1, true),
+  ('10% off budget picks', 'Everything in Under ₹1,500. Up to ₹150 off.', 'PICKS10', 'percent', 10, 15000, 0, 'items', false, 1, true),
+  -- hidden: shared with shop owners on WhatsApp, never listed
+  ('Wholesale 5% off', 'For shops buying in bulk: 5% off orders of ₹10,000 or more.', 'WHOLESALE5', 'percent', 5, null, 1000000, 'order', false, null, false)
+on conflict (code) do nothing;
+insert into public.promotions (title, description, kind, value, max_discount_paise, applies_to, per_user_limit, show_banner, ends_at)
+select 'Festive phone sale', '5% off every smartphone, up to ₹2,000. No code needed.', 'percent', 5, 200000, 'items', null, true,
+  now() + interval '30 days'
+where not exists (select 1 from public.promotions where code is null and title = 'Festive phone sale');
+
+insert into public.promotion_targets (promotion_id, target_type, target_id)
+select p.id, 'category', c.id from public.promotions p
+join public.categories c on (p.code = 'ACC20' and c.kind = 'accessory') or (p.code is null and p.title = 'Festive phone sale' and c.slug = 'smartphones')
+on conflict do nothing;
+insert into public.promotion_targets (promotion_id, target_type, target_id)
+select p.id, 'collection', c.id from public.promotions p, public.collections c where p.code = 'PICKS10' and c.slug = 'under-1500'
+on conflict do nothing;
+
+insert into public.banners (title, subtitle, cta_label, link, tone, sort)
+select 'Phone repairs, same day', 'Screens, batteries and charging ports fixed at the shop in Waidhan.', 'Book a repair', '/repairs', 2, 1
+where not exists (select 1 from public.banners where link = '/repairs' and promotion_id is null);

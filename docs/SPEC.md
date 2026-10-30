@@ -9,7 +9,7 @@ Android app for Shyam Mobiles, a phone shop. iOS comes later from the same Flutt
 - Customers: browse and search new phones and accessories, wishlist, cart, checkout (Razorpay or cash on delivery), track orders, book repairs.
 - Staff: the same app shows an **Admin** tab when the signed-in user is in `admins`. Admins manage products/stock/images, move orders through fulfilment (with IMEIs), and handle repair bookings.
 
-Not in v1 (on purpose): guest cart, coupons, reviews, banners, store pickup, courier API, push notifications, GST invoice PDF, Hindi UI, refurbished phones. The schema leaves room for each.
+Not in v1 (on purpose): guest cart, reviews, store pickup, courier API, push notifications, GST invoice PDF, Hindi UI, refurbished phones. The schema leaves room for each.
 
 ## Stack
 
@@ -29,7 +29,7 @@ Not in v1 (on purpose): guest cart, coupons, reviews, banners, store pickup, cou
 
 - All money is **integer paise** (`*_paise` columns, `int` in Dart). Never use floats for money.
 - Prices include GST. `gst_rate` is stored per product for future invoices, and copied to each order line.
-- Delivery is free when the subtotal is at or above `free_delivery_min_paise`, else `delivery_fee_paise`. COD needs `cod_enabled` and a **total** (subtotal + delivery) at or below `cod_max_paise`. Every order satisfies `subtotal = Σ unit_price × qty` and `total = subtotal + delivery_fee`.
+- Delivery is free when the subtotal minus any discount is at or above `free_delivery_min_paise`, else `delivery_fee_paise`. COD needs `cod_enabled` and a **total** (subtotal + delivery − discount) at or below `cod_max_paise`. Every order satisfies `subtotal = Σ unit_price × qty`, `total = subtotal + delivery_fee − discount` and `discount = Σ line discount_paise` (see Offers).
 - The display format is `₹1,29,999` (Indian grouping, no decimals unless paise != 0): `formatInr(int paise)` in `lib/core/format.dart`.
 
 ## Security rules (non-negotiable)
@@ -58,8 +58,9 @@ Exact DDL: `supabase/migrations/20261028000000_schema.sql`. Summary:
 - `variants(product_id, sku, name, attributes jsonb, price_paise, mrp_paise, stock, is_active)`. Every product has ≥1 variant; cart/order lines point at variants.
 - `product_cards` (view, `security_invoker`): one row per active product with `min_price_paise`, `mrp_paise` (of the cheapest variant), `in_stock`, `cover_path`, `brand_name`, `category_slug`. Listing/search screens read this.
 - `wishlist(user_id, product_id)`, `cart_items(user_id, variant_id, qty 1..5)`: max 20 lines per user (`CART_LIMIT`), `addresses(user_id, name, phone, line1, line2, landmark, city, district, state, pincode, label 'home'|'work'|'other', is_default)`: max 10 per user, one default.
-- `orders(number 'SM100001', user_id, status, payment_method, payment_status, subtotal/delivery_fee/total paise, address jsonb snapshot, razorpay_order_id, razorpay_payment_id, courier, tracking_number, reserved_until)`.
-- `order_items(order_id, variant_id, product_name, variant_name, unit_price_paise, qty, gst_rate, imeis text[])`: snapshot of what was sold.
+- `orders(number 'SM100001', user_id, status, payment_method, payment_status, subtotal/delivery_fee/discount/total paise, promotion_id, coupon_code, address jsonb snapshot, razorpay_order_id, razorpay_payment_id, courier, tracking_number, reserved_until)`.
+- `order_items(order_id, variant_id, product_name, variant_name, unit_price_paise, qty, gst_rate, discount_paise, imeis text[])`: snapshot of what was sold.
+- Offers tables (`collections`, `promotions`, `banners`, referrals…) and the new `store_settings` referral columns: see **Offers** below and `supabase/migrations/20261030000000_offers.sql`.
 - `order_events(order_id, status, note, created_at)`: timeline shown to the customer.
 - `payment_events(razorpay_event_id unique, type, payload)`: webhook audit + idempotency.
 - `repair_bookings(number 'RP100001', user_id, device_brand, device_model, issue, description, preferred_date, slot, contact_phone, status, quote_paise, admin_note)`: a customer has at most 3 open (not completed/cancelled) bookings (`REPAIR_LIMIT`); staff booking walk-ins are exempt.
@@ -89,12 +90,12 @@ repair.status:  requested ─> confirmed ─> in_progress ─> ready ─> comple
 
 ## RPC contract (called by the app via `supabase.rpc`)
 
-Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code (detail, if any, in `details`). Codes: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK`, `COD_UNAVAILABLE`, `NOT_FOUND`, `INVALID_TRANSITION`, `FORBIDDEN`, `INVALID_IMEIS`, `ADDRESS_LIMIT` (address insert trigger: max 10 per user), `CART_LIMIT` (cart insert trigger: max 20 lines; `place_order`: max 10 lines), `REPAIR_LIMIT` (repair insert trigger: max 3 open), `PENDING_LIMIT`, `ORDER_TOO_LARGE`. Calling a function your role may not execute gives `42501`.
+Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code (detail, if any, in `details`). Codes: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK`, `COD_UNAVAILABLE`, `NOT_FOUND`, `INVALID_TRANSITION`, `FORBIDDEN`, `INVALID_IMEIS`, `ADDRESS_LIMIT` (address insert trigger: max 10 per user), `CART_LIMIT` (cart insert trigger: max 20 lines; `place_order`: max 10 lines), `REPAIR_LIMIT` (repair insert trigger: max 3 open), `PENDING_LIMIT`, `ORDER_TOO_LARGE`, plus the Offers codes (`COUPON_*`, `REFERRAL_*`, `INVALID_PROMOTION`, `CODE_TAKEN`; see Offers → Errors). Calling a function your role may not execute gives `42501`.
 
 | Function | Caller | Does |
 |---|---|---|
 | `is_admin() → bool` | authenticated | Whether the caller is staff. |
-| `place_order(p_address_id uuid, p_payment_method payment_method) → uuid` | authenticated | Reads the caller's cart, locks its lines and variants (only those locked lines are ordered: a line added while it runs stays in the cart), checks stock and active flags, computes totals, applies the COD rules, creates the order, items and first event, decrements stock, clears the cart. Errors: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK` (also for inactive variants/products; `details` = comma-separated variant ids), `COD_UNAVAILABLE` (COD disabled or total > `cod_max_paise`), `CART_LIMIT` (more than 10 lines), `PENDING_LIMIT` (an online order while the caller already has 2 unpaid online orders whose hold hasn't expired; COD is not capped), `ORDER_TOO_LARGE` (total beyond what int paise can hold, ₹2,14,74,836.47). `address` snapshot keys: `name, phone, line1, line2, landmark, city, district, state, pincode` (`district` may be null). |
+| `place_order(p_address_id uuid, p_payment_method payment_method, p_coupon_code text default null) → uuid` | authenticated | Reads the caller's cart, locks its lines and variants (only those locked lines are ordered: a line added while it runs stays in the cart), checks stock and active flags, prices it with the shared Offers pricing (code or best automatic sale; a bad code raises its `COUPON_*` error), applies the COD rules to the discounted total, creates the order, items and first event, decrements stock, clears the cart. Errors: `CART_EMPTY`, `ADDRESS_NOT_FOUND`, `OUT_OF_STOCK` (also for inactive variants/products; `details` = comma-separated variant ids), `COD_UNAVAILABLE` (COD disabled or total > `cod_max_paise`), `CART_LIMIT` (more than 10 lines), `PENDING_LIMIT` (an online order while the caller already has 2 unpaid online orders whose hold hasn't expired; COD is not capped), `ORDER_TOO_LARGE` (subtotal + delivery beyond what int paise can hold, ₹2,14,74,836.47), `COUPON_*`. Writes `discount_paise`, `promotion_id`, `coupon_code`, each line's `discount_paise` and the redemption. `address` snapshot keys: `name, phone, line1, line2, landmark, city, district, state, pincode` (`district` may be null). |
 | `cancel_order(p_order_id uuid) → void` | authenticated (owner) | Allowed while `pending_payment` or `confirmed`. Restocks. A paid order cancelled here shows up as **needs refund**. |
 | `cancel_repair(p_booking_id uuid) → void` | authenticated (owner) | Allowed while `requested` or `confirmed`. |
 | `admin_update_order(p_order_id uuid, p_status order_status, p_note text, p_courier text, p_tracking_number text) → void` | admin | Validates the transition, writes an event, restocks on cancel, marks COD paid on delivered; `refunded` also sets `payment_status = refunded`. `p_status` = current status just updates courier/tracking (null keeps the old value) and adds a note event if `p_note` is set. |
@@ -104,6 +105,7 @@ Errors are raised exceptions with `errcode 'P0001'` and `message` = a bare code 
 | `mark_payment_failed(p_order_id uuid) → void` | service_role only | From the `payment.failed` webhook: `pending → failed`, order stays payable until expiry. |
 | `mark_order_refunded(p_razorpay_payment_id text) → void` | service_role only | From the `refund.processed` webhook (full refunds only): `payment_status = refunded`. |
 | `expire_unpaid_orders() → int` | `pg_cron`, every 5 min | Cancels `pending_payment` orders past `reserved_until`, restocks. |
+| `quote_order`, `available_offers`, `offers_for_product`, `offer_products`, `my_referral`, `apply_referral_code`, `admin_save_promotion`, `admin_promotions` | see Offers → RPCs | |
 
 ## Edge Functions (`supabase/functions/*`)
 
@@ -186,81 +188,105 @@ Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account
 ## Offers: coupons, sales, groups, referrals, banners
 
 One engine. A **promotion** is either a **coupon** (has a `code`) or an **automatic sale** (no code). **One offer per
-order**: a valid typed code wins, else the best automatic sale the customer qualifies for (largest discount; tie →
-earliest `ends_at`). All pricing goes through one SQL function, used by both `quote_order` (preview) and
-`place_order` (charge), so the cart and the charge can never disagree. New migration `20261030000000_offers.sql`
+order**: a valid typed code wins, else the best automatic sale the customer qualifies for (largest saving; tie →
+earliest `ends_at`, then id). All pricing goes through one SQL function, used by both `quote_order` (preview) and
+`place_order` (charge), so the cart and the charge can never disagree. Migration `20261030000000_offers.sql`
 (production already has the 2026-10-28 files: never edit those).
 
 ### Tables
 
 - `collections (id, slug unique ^[a-z0-9-]{1,60}$, name 2..60, created_at)` and `collection_products (collection_id,
-  product_id, pk both)`: admin-made product groups ("Diwali picks", "Under ₹999") that offers can target.
+  product_id, pk both)`: admin-made product groups ("Diwali picks", "Under ₹999") that offers can target. Anyone can
+  read them.
 - `promotions`: `title` 2..60 (shown to customers), `description` ≤ 300 (terms line), `code` null or unique
   `^[A-Z0-9]{4,20}$` (stored uppercase; null = automatic sale), `kind` (`percent` | `flat` | `free_delivery`),
   `value` int (percent 1..90; flat paise ≥ 100; free_delivery 0), `max_discount_paise` (percent only, null = no cap),
   `min_subtotal_paise` ≥ 0 (on eligible lines), `applies_to` (`order` | `items`), `starts_at` (default now),
-  `ends_at` null or > starts_at, `usage_limit` null or ≥ 1 (whole shop), `per_user_limit` null or ≥ 1 (default 1),
-  `first_order_only`, `online_only` (Razorpay only), `is_public` (listed in Offers; hidden codes work only when typed,
-  e.g. a wholesale code sent on WhatsApp), `user_id` null (a **personal** coupon only that user can see or use:
-  referrals; requires a code), `is_active` (pause), `show_banner`, `created_at`, `updated_at`.
+  `ends_at` null or > starts_at, `usage_limit` null or ≥ 1 (whole shop), `per_user_limit` null or ≥ 1 (default 1;
+  null = unlimited, the usual choice for a sale), `first_order_only`, `online_only` (Razorpay only), `is_public`
+  (listed in Offers; hidden codes work only when typed, e.g. a wholesale code sent on WhatsApp), `user_id` null (a
+  **personal** coupon only that user can see or use: referrals; requires a code), `is_active` (pause), `show_banner`
+  (only for public, non-personal ones: a banner prints the code), `created_at`, `updated_at`. Staff delete only a
+  promotion with no use on a non-cancelled order (RLS: deleting a used one deletes no row; pause or end it instead).
 - `promotion_targets (promotion_id, target_type product|category|brand|collection, target_id, pk all three)`. A line
   is eligible when its product, its category, its brand, or a collection containing it is targeted. `applies_to =
-  items` needs at least one target (admin RPC refuses otherwise).
-- `promotion_redemptions (order_id pk → orders on delete cascade, promotion_id, user_id, discount_paise, created_at)`.
-  Uses are counted over orders that are **not cancelled** (a cancelled or expired order gives the use back).
-- `coupon_attempts (user_id, at)`: failed code lookups; more than 10 in 10 minutes → `COUPON_RATE_LIMIT`.
-- `orders` + `discount_paise ≥ 0`, `promotion_id` (on delete set null), `coupon_code`; the total check becomes
-  `total = subtotal + delivery_fee − discount`. `order_items` + `discount_paise ≥ 0` (its share; Σ lines = order
-  discount; for GST invoices and refunds).
-- `banners (title 2..60, subtitle ≤ 120, cta_label ≤ 20 default 'Shop now', link (app route, allowlist
-  `^/(search|product/|offers|repairs)`), image_path null (`banners/…webp` in product-images), tone 0..2 (index into the
-  app's heroGradients), starts_at, ends_at null, sort, is_active, promotion_id null unique → promotions on delete
-  cascade)`. A trigger keeps one banner per promotion with `show_banner`: same window, link `/offers/<id>`, CTA "Use
-  code X" or "Shop the sale"; turning `show_banner` off deletes it. Anyone can read running, active banners (RLS).
+  items` needs at least one target (admin RPC refuses otherwise); `order` keeps none.
+- `promotion_redemptions (order_id pk → orders on delete cascade, promotion_id, user_id, discount_paise, created_at)`,
+  one per order that got a promotion (code or sale; `discount_paise` is 0 for free delivery). Uses are counted over
+  orders that are **not cancelled** (a cancelled or expired order gives the use back).
+- `coupon_attempts (user_id, at)`: failed code lookups (`COUPON_NOT_FOUND`); 10 in 10 minutes → `COUPON_RATE_LIMIT`
+  for every code until the oldest is 10 minutes old. Only `quote_order` lookups are counted (a `place_order` refusal
+  rolls its own attempt back); the app always quotes a code before placing.
+- `orders` + `discount_paise ≥ 0` (0 or ≤ subtotal − 100), `promotion_id` (on delete set null), `coupon_code` (the code
+  used; null for a sale); the total check is `total = subtotal + delivery_fee − discount`. `order_items` +
+  `discount_paise` 0..line total (its share; Σ lines = order discount; for GST invoices and refunds).
+- `banners (title 2..60, subtitle ≤ 120 default '', cta_label 1..20 default 'Shop now', link ≤ 200 (an app route:
+  `^/(search|product/|offers|repairs)[A-Za-z0-9/?=&%._~+-]*$`, so no URLs or spaces), image_path null
+  (`^banners/[A-Za-z0-9_@-]{1,80}\.webp$` in product-images), tone 0..2 (index into the app's heroGradients),
+  starts_at, ends_at null or > starts_at, sort, is_active, promotion_id null unique → promotions on delete cascade,
+  created_at, updated_at)`. A trigger keeps one banner per promotion with `show_banner`: title, subtitle (the
+  description on one line), same window and `is_active`, link `/offers/<id>`, CTA "Use code X" (codes up to 11
+  characters, else "View offer") or "Shop the sale"; staff edits to its image, tone and sort survive; turning
+  `show_banner` off deletes it. Anyone can read running, active banners; staff read and write all (RLS).
 - Referrals: `store_settings` + `referral_enabled` (default false), `referral_friend_paise` (20000),
-  `referral_reward_paise` (20000), `referral_min_order_paise` (199900), `referral_monthly_cap` (10).
-  `referral_codes (user_id pk, code unique ^[A-Z0-9]{6,10}$)` made lazily; `referrals (referee_id pk, referrer_id,
-  status pending|rewarded|void, created_at, rewarded_at)`.
+  `referral_reward_paise` (20000), `referral_min_order_paise` (199900), `referral_monthly_cap` (10); readable by
+  anyone like the rest of `store_settings`. `referral_codes (user_id pk, code unique ^[A-Z0-9]{6,10}$)` made lazily
+  (8 characters); `referrals (referee_id pk, referrer_id, status pending|rewarded|void, created_at, rewarded_at)`.
 
-Promotions, targets, redemptions, collections writes and referral tables: admin only (RLS + explicit grants, like
-the rest). Customers never read `promotions` directly: they go through the RPCs below, so hidden and personal codes
-can't be listed.
+Promotions, targets, collections, collection_products and banners: staff write (RLS + explicit grants, like the
+rest). Redemptions, referral codes and referrals: staff read only; only the RPCs and triggers write them; nobody reads
+`coupon_attempts`. Customers never read `promotions` directly: they go through the RPCs below, so hidden and personal
+codes can't be listed.
 
 ### Pricing (`private.price_lines`, shared)
 
-1. Lines = the caller's locked cart lines (as `place_order` does today); subtotal = Σ unit × qty.
+1. Lines = the caller's cart lines (locked ones in `place_order`); subtotal = Σ unit × qty.
 2. Pick the promotion (code if given and valid, else best automatic). Eligible lines per `applies_to`/targets.
 3. `eligible < min_subtotal` → not applicable. Discount: percent → ⌊eligible × value / 100⌋ capped at
    `max_discount_paise`; flat → min(value, eligible); free_delivery → 0 (fee becomes 0). Never more than
    subtotal − 100 (an order always costs at least ₹1 before delivery).
 4. Delivery is free when **subtotal − discount** ≥ `free_delivery_min_paise`. COD limit applies to the final total.
+   A promotion applies only when it lowers the total (saving = what the order costs without it − with it > 0; a
+   discount that drops the order under the free-delivery minimum can bring the fee back): a typed code that wouldn't
+   → `COUPON_NOT_APPLICABLE`, a sale that wouldn't is skipped.
 5. Split the discount over eligible lines in proportion to line totals, rounding down; the remainder goes to the
-   largest line (ties by variant id).
-6. Valid code checks: active, started, not ended, owner (personal), total uses < usage_limit, caller's uses <
-   per_user_limit, first_order_only → caller has no non-cancelled order, online_only → method razorpay,
-   eligible lines exist, min subtotal met. `place_order` locks the promotion row `for update` before counting uses.
+   largest line (ties by lowest variant id), spilling to the next largest only if it would pass that line's total.
+6. Checks, for codes and sales alike: active, started, not ended, owner (personal), total uses < usage_limit, caller's
+   uses < per_user_limit, first_order_only → caller has no non-cancelled order, online_only → method razorpay (a
+   quote with no method yet counts as online), eligible lines exist, min subtotal met. `place_order` locks the
+   promotion row(s) `for update` before counting uses (with the caller's checkout lock, two checkouts can't both take
+   the last use).
 
 ### RPCs
 
+Offer rows (`available_offers`, `offers_for_product`, `apply_referral_code`): `{id, title, description, code, kind,
+value, max_discount_paise, min_subtotal_paise, starts_at, ends_at, applies_to, automatic, online_only,
+first_order_only}`.
+
 | Function | Caller | Does |
 |---|---|---|
-| `quote_order(p_coupon_code text default null, p_payment_method payment_method default null) → json` | authenticated | Prices the current cart without writing: `{subtotal_paise, delivery_fee_paise, discount_paise, total_paise, promotion: {id, title, code, kind} or null, coupon_error: code or null}`. A bad code returns `coupon_error` and falls back to the best automatic sale. |
-| `place_order(p_address_id, p_payment_method, p_coupon_code text default null) → uuid` | authenticated | As before, priced by the shared function; a bad code **raises** its error. Writes discount, promotion_id, coupon_code, line discounts and the redemption. |
-| `available_offers() → json` | anon, authenticated | Running offers the caller may use: public ones plus their personal coupons. `[{id, title, description, code, kind, value, max_discount_paise, min_subtotal_paise, starts_at, ends_at, applies_to, automatic}]`. |
-| `offers_for_product(p_product_id uuid) → json` | anon, authenticated | Same shape, only offers that would cover this product (for the product page chip). |
-| `offer_products(p_promotion_id uuid) → setof product_cards` | anon, authenticated | Products an `items` offer covers (all active products for `order`); for `/offers/:id`. Hidden/personal offers: only their owner. |
-| `my_referral() → json` | authenticated | `{enabled, code, friend_paise, reward_paise, min_order_paise, joined, rewarded, can_enter_code}`; makes the code on first call. |
-| `apply_referral_code(p_code text) → json` | authenticated | Links the caller to a referrer and creates their welcome coupon (personal, flat `referral_friend_paise`, min `referral_min_order_paise`, first order only, 90 days). Errors: `REFERRAL_OFF`, `REFERRAL_INVALID`, `REFERRAL_SELF`, `REFERRAL_USED` (already referred), `REFERRAL_TOO_LATE` (has an order). |
-| `admin_save_promotion(p json) → uuid` | admin | Insert/update a promotion with its targets in one transaction; validates the rules above. |
-| `admin_promotions() → json` | admin | Every promotion with `uses` and `discount_total_paise`, newest first. |
+| `quote_order(p_coupon_code text default null, p_payment_method payment_method default null) → json` | authenticated | Prices the current cart without placing anything: `{subtotal_paise, delivery_fee_paise, discount_paise, total_paise, promotion: {id, title, code, kind} or null, coupon_error: code or null, coupon_error_detail: text or null}` (`coupon_error_detail` = the minimum in paise for `COUPON_MIN_ORDER`). A bad code returns `coupon_error` and falls back to the best automatic sale. Codes are trimmed, spaces removed, uppercased. `CART_EMPTY` on an empty cart. Stock is not checked here (`place_order` does). |
+| `place_order(p_address_id, p_payment_method, p_coupon_code text default null) → uuid` | authenticated | As before, priced by the shared function; a bad code **raises** its error (`details` = the minimum for `COUPON_MIN_ORDER`). Writes discount, promotion_id, coupon_code, line discounts and the redemption. |
+| `available_offers() → json` | anon, authenticated | Offer rows the caller may use now: running, public ones plus their personal coupons, with uses left; signed in, also leaves out ones they've used up and first-order ones once they have an order. Personal first, then by `ends_at`. Hidden codes never appear. |
+| `offers_for_product(p_product_id uuid) → json` | anon, authenticated | Same rows, only offers that would cover this product (for the product page chip). |
+| `offer_products(p_promotion_id uuid) → setof product_cards` | anon, authenticated | Products an `items` offer covers (all active products for `order`); for `/offers/:id`. Empty for a paused or ended offer; hidden ones show nothing but to staff, personal ones only to their owner (and staff). PostgREST filters/order/limit work on it. |
+| `my_referral() → json` | authenticated | `{enabled, code, friend_paise, reward_paise, min_order_paise, joined, rewarded, can_enter_code}`; makes the code on first call. `joined`/`rewarded`: friends who used the code / were rewarded. `can_enter_code`: enabled, not referred yet, no non-cancelled order. |
+| `apply_referral_code(p_code text) → json` | authenticated | Links the caller to a referrer and returns their welcome coupon as an offer row (personal, flat `referral_friend_paise`, min `referral_min_order_paise`, first order only, one use, 90 days, code `FRIEND…`). Errors, checked in this order: `REFERRAL_OFF`, `REFERRAL_USED` (already referred), `REFERRAL_TOO_LATE` (has a non-cancelled order), `REFERRAL_INVALID`, `REFERRAL_SELF`. |
+| `admin_save_promotion(p json) → uuid` | admin | Insert (no `id`) or update (`id`) a promotion with its targets in one transaction. `p` = promotion columns plus `targets: [{target_type, target_id}]`; keys left out keep their value (on insert: the column default), so `{id, is_active: false}` pauses; `targets` replaces the old ones when present. Code trimmed and uppercased. Errors: `FORBIDDEN`, `NOT_FOUND` (unknown id), `CODE_TAKEN`, `INVALID_PROMOTION` (`details` = the broken rule: a constraint name such as `promotions_value_check` / `promotions_window_check` / `promotions_banner_check`, a column name for a missing value, `items needs a target`, `unknown target`, or the bad-input message). "End now" on a scheduled offer must also move `starts_at`. |
+| `admin_promotions() → json` | admin | Every promotion (all columns) plus `status` (`paused` \| `ended` \| `scheduled` \| `running`), `uses` and `discount_total_paise` (over non-cancelled orders) and `targets: [{target_type, target_id}]`, newest first. |
 
-Referral reward: when a referee's **first delivered** order (subtotal ≥ `referral_min_order_paise`) is reached and
-the referral is pending, a trigger creates the referrer's reward coupon (personal, flat `referral_reward_paise`, same
-minimum, 90 days) unless the referrer already got `referral_monthly_cap` this IST month, and marks it `rewarded`.
+Referral reward: when one of a referee's orders with subtotal ≥ `referral_min_order_paise` is delivered while the
+referral is pending (so at most once; a smaller delivered order leaves it pending), a trigger creates the referrer's
+reward coupon (personal, flat `referral_reward_paise`, same minimum, one use, 90 days, code `REWARD…`) and marks it
+`rewarded`, unless the referrer already got `referral_monthly_cap` this IST month: then it is `void`. Pending
+referrals are still honoured after `referral_enabled` is switched off.
 
-New error codes: `COUPON_NOT_FOUND` (unknown, paused, or someone else's), `COUPON_NOT_STARTED`, `COUPON_EXPIRED`,
-`COUPON_USED_UP`, `COUPON_LIMIT_REACHED`, `COUPON_MIN_ORDER` (detail = min paise), `COUPON_NOT_APPLICABLE`,
-`COUPON_FIRST_ORDER`, `COUPON_ONLINE_ONLY`, `COUPON_RATE_LIMIT`, plus the `REFERRAL_*` codes.
+### Errors
+
+`COUPON_NOT_FOUND` (unknown, paused, or someone else's), `COUPON_NOT_STARTED`, `COUPON_EXPIRED`, `COUPON_USED_UP`,
+`COUPON_LIMIT_REACHED`, `COUPON_MIN_ORDER` (detail = min paise), `COUPON_NOT_APPLICABLE` (nothing eligible, or it
+wouldn't lower the total), `COUPON_FIRST_ORDER`, `COUPON_ONLINE_ONLY`, `COUPON_RATE_LIMIT`, the `REFERRAL_*` codes,
+and for staff `INVALID_PROMOTION` and `CODE_TAKEN`.
 
 ### App
 
