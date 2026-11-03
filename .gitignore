@@ -13,3 +13,11 @@ supabase/functions/.env
 local.env
 /build/
 __pycache__/
+# Firebase: installed packages, build output, local emulator data and logs
+firebase/functions/node_modules/
+firebase/functions/lib/
+firebase/.firebase/
+firebase/emulator-data/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
