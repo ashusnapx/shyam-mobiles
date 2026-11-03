@@ -138,7 +138,7 @@ firebase/
   firebase.json  .firebaserc (default: shyam-mobiles)  .nvmrc (22)
   firestore.rules  firestore.indexes.json  storage.rules
   test-vectors/          # JSON cases ported from pgTAP/api_e2e; read by functions tests AND app tests
-  seed/                  # dev.json, seed.ts (emulator), import-supabase.ts, copy-photos.ts (one-off)
+  seed/                  # dev.json (from supabase/seed.sql), seed.ts (emulator), copy-photos.ts (cut-over), import-supabase.ts (to do)
   functions/
     package.json (engines node 22, type module)  tsconfig.json (strict, noUncheckedIndexedAccess)
     eslint.config.mjs (typescript-eslint strict)  vitest.config.ts
@@ -192,8 +192,9 @@ variants/{id}          { productId, productName, productActive, sku (unique), na
 collections/{slug}     { name, productIds: string[] ≤ 500 } St
 catalogIndex/public    { cards: { [productId]: { n: name, s: slug, b: brandId, bn: brandName, c: categoryId, k: kind,
                          v: variant names joined, p: minPricePaise, m: mrpPaise, i: inStock, f: featured, cv: coverPath,
-                         col: collectionIds[], t: createdAt millis } }, updatedAt } S (trigger)
-catalogIndex/staff     same plus hidden products and per-variant [id, sku, name, pricePaise, mrpPaise, stock, isActive] S
+                         col: collectionIds[], t: createdAt millis, ft?: "Fits" spec values } }, updatedAt } S (trigger)
+catalogIndex/staff     same plus hidden products, active, u: updatedAt millis, variants: [{ id, sku, n, p, m, st, a, u }]
+                       (maps, not tuples: Firestore allows no arrays inside arrays) S
 banners/{id}           { title, subtitle, ctaLabel, link (app route), imagePath?, tone 0..5, startsAt, endsAt?, sort,
                          isActive, promotionId? } St (promotion banners: S via savePromotion)
 settings/store         { deliveryFeePaise, freeDeliveryMinPaise, codEnabled, codMaxPaise, onlinePaymentEnabled,
@@ -248,6 +249,15 @@ counters/{orders|repairs|invoice-2026-27}  { next: int } S
 ### Composite indexes (`firestore.indexes.json`)
 
 `orders (uid ↑, createdAt ↓)`, `orders (uid ↑, status ↑)` (first-order and pending checks in transactions), `orders (status ↑, createdAt ↓)`, `orders (status ↑, reservedUntil ↑)` (expiry), `repairs (uid ↑, createdAt ↓)`, `repairs (uid ↑, status ↑)` (open-repairs cap), `repairs (status ↑, preferredDate ↑)`, `feedback (status ↑, createdAt ↓)`, `feedback (uid ↑, createdAt ↓)`, `variants (productId ↑, isActive ↑, productActive ↑, sort ↑)`, `variants (productId ↑, sort ↑)` (staff), `banners (isActive ↑, sort ↑)`, `redemptions (promotionId ↑, uid ↑, active ↑)`, **collection group** `wishlist (productId ↑, waitVariant ↑)` (back-in-stock). Equality-only queries (devices by uid, staff by role) use the automatic single-field indexes. TTL policies: `notifications.expireAt` (collection group), `devices.expireAt`, `rateLimits.expireAt`.
+
+### Catalog decisions (engineer B, Phase 1)
+
+- **Index upkeep.** `catalog/cards.ts` builds one product's two entries from its source docs (the `product_cards` rules: a public card needs an active product with an active variant; price and MRP are the cheapest active variant's). `refreshIndex()` recomputes the given products in one transaction and writes only entries that changed. Triggers on `products`, `variants`, `collections` call it, and so does every catalog callable after its own write, so staff see an edit when the call returns. Brand renames and category kind changes rewrite the products' copies.
+- **Stock.** `catalog/stock.ts` `applyStockChange(tx, ref, current, {set}|{delta}, by, at, also?)` is the one stock writer: never below 0 (`OUT_OF_STOCK`, detail `[variantId]`), never above 1e6, `restockSeq + 1` on 0 → > 0. A new variant starts at `restockSeq: 0`.
+- **Callables** take the staff checks from `requireStaff`; slug and SKU clashes fail `CODE_TAKEN` with detail `slug`/`sku`. `deleteProduct` deletes only a product with no variants (no variant, never sold); anything else is hidden. `saveVariant.sort` is optional (kept on edit).
+- **App.** Customers read `catalogIndex/public` through one snapshot listener and search, sort and page it on the phone (`catalog_index.dart`; every typed word must start a word of the name, brand, variant names or category). Staff read `catalogIndex/staff` once per visit (`cataloguePage()` ports `admin_catalogue`). Photo ids are their Storage keys. `publicImageUrl` builds the Storage URL on Firebase (public read, so no token).
+- **settings.** `settings/store` no longer holds the phone and address: the Firebase settings repository reads them from `settings/business`, and Admin → Settings edits them in its Business details section (GSTIN shape + mod-36 check, state code from the GSTIN and matched to the state; never a PAN). Rules want a sign-in within 5 minutes for that doc.
+- **Wishlist.** `WishlistRepository.add(uid, productId, {waitFor})` writes the back-in-stock mark; a sold-out heart passes `'*'` (cards) or the sold-out variant (product page). Rules can't count a subcollection, so the old 200-item cap is gone.
 
 ### Where each invariant is enforced now
 
@@ -392,7 +402,7 @@ Shared files: `firestore.rules` is one file split into commented sections. Each 
 
 - **Node:** nvm has v20.18.1 (still the default, for other tools) and v22.23.4; run `nvm use` in `firebase/functions`. `firebase-tools` 15 accepts Node ≥ 20, but `firebase-admin` 14 and vitest 5 need Node ≥ 22 and the deploy runtime is `nodejs22`. `firebase/.nvmrc` pins 22.
 - **CLI:** `npm i -g firebase-tools` under Node 22 (15.34.2, installed) and `firebase login` (the owner's step). Java 22 is already installed; CLI 15's Firestore emulator needs Java ≥ 21.
-- **Emulator suite replaces Colima + the Supabase stack:** `firebase emulators:start --only auth,firestore,functions,storage --project demo-shyam-mobiles --import .emulator-data --export-on-exit`. The `demo-` project id means nothing real can be touched and no credentials are needed. Ports: auth 9099, firestore 8080, functions 5001, storage 9199, UI 4000. Run with `JAVA_TOOL_OPTIONS=-Xmx512m` for the Firestore JVM. The expected total is about 1–1.3 GB, against the 3 GB Colima VM today. `npm run seed:emulator` loads `seed/dev.json`, the two dev logins and the brand photos. `colima delete` after Phase 2.
+- **Emulator suite replaces Colima + the Supabase stack:** `firebase emulators:start --only auth,firestore,functions,storage --project demo-shyam-mobiles --import .emulator-data --export-on-exit`. The `demo-` project id means nothing real can be touched and no credentials are needed. Ports: auth 9099, firestore 8080, functions 5001, storage 9199, UI 4000. Run with `JAVA_TOOL_OPTIONS=-Xmx512m` for the Firestore JVM. The expected total is about 1–1.3 GB, against the 3 GB Colima VM today. `npm --prefix functions run build && node seed/seed.ts` (with `FIRESTORE_EMULATOR_HOST` set; it refuses anything but a `demo-` project) loads `seed/dev.json`: the sample catalogue, collections, the repairs banner, `settings/store` and `settings/business`. Dev logins are A's. `colima delete` after Phase 2.
 - **App against the emulators:** `flutter run --dart-define=BACKEND=firebase --dart-define=USE_EMULATORS=true`. On a USB phone, `adb reverse tcp:9099 tcp:9099` (same for 8080, 5001, 9199) lets the app use `127.0.0.1`. The emulator image uses `10.0.2.2`.
 - **One heavy command at a time:** never run emulators, `flutter test` and a Gradle build together. Scripts: `npm test` (vitest, no emulator, one fork via `vitest.config.ts`; vitest 5 has no `poolOptions`), `npm run test:rules` (`firebase emulators:exec --only firestore,storage "vitest run test/rules"`), `npm run test:int` (`firebase emulators:exec --only auth,firestore,functions,storage "vitest run test/integration"`), `flutter test test/features/<one>`.
 - **CI:** GitHub Actions job `firebase`: Node 22, Java 21, `npm ci`, lint, `tsc --noEmit`, unit, then rules and integration through `emulators:exec`. The `app` job stays as it is.
