@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { log } from "../shared/log.js";
 import { GatewayError, type GatewayRefund, type GatewayState, type PaymentGateway } from "./gateway.js";
 
 // PhonePe Payment Gateway, PG v2 Standard Checkout (docs/PHONEPE.md). Hosts from PhonePe's own SDKs.
@@ -30,19 +31,20 @@ export function phonePeGateway(config: PhonePeConfig, fetcher: typeof fetch = fe
     try {
       return await fetcher(url, { ...init, signal: AbortSignal.timeout(10_000) });
     } catch (e) {
-      console.error(`phonepe ${what}:`, e);
+      log.error(`phonepe ${what} unreachable`, { error: e });
       throw new GatewayError(0, "UNREACHABLE", String(e));
     }
   }
 
   async function failure(res: Response, what: string): Promise<GatewayError> {
     const text = await res.text();
-    console.error(`phonepe ${what}: ${res.status} ${text.slice(0, 500)}`);
+    log.error(`phonepe ${what} refused`, { status: res.status, reply: text.slice(0, 500) });
     let code = "", message = "";
     try {
-      const body = JSON.parse(text);
-      code = String(body?.errorCode ?? body?.code ?? "");
-      message = String(body?.message ?? "");
+      const body = JSON.parse(text) as { errorCode?: unknown; code?: unknown; message?: unknown } | null;
+      const str = (v: unknown) => (typeof v === "string" || typeof v === "number" ? String(v) : "");
+      code = str(body?.errorCode ?? body?.code);
+      message = str(body?.message);
     } catch { /* not JSON */ }
     return new GatewayError(res.status, code, message);
   }

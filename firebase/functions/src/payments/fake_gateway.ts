@@ -10,35 +10,35 @@ export function fakeGateway() {
     made: 0,
     fail: null as null | ((method: string, id: string) => GatewayError | null),
   };
-  const check = (method: string, id: string) => {
+  const check = (method: string, id: string): Promise<void> => {
     g.calls.push(`${method} ${id}`);
     const e = g.fail?.(method, id);
-    if (e) throw e;
+    return e ? Promise.reject(e) : Promise.resolve();
   };
   const gateway: PaymentGateway = {
     merchantId: "PPFAKEMERCHANT",
     env: "SANDBOX",
     async createOrder(o) {
-      check("createOrder", o.merchantOrderId);
+      await check("createOrder", o.merchantOrderId);
       g.orders.set(o.merchantOrderId, { state: "pending", amountPaise: o.amountPaise, transactionId: null });
       g.made++;
       return { phonepeOrderId: `OMO${g.made}`, token: `tok${g.made}`, expireAt: null };
     },
     async orderStatus(id) {
-      check("orderStatus", id);
+      await check("orderStatus", id);
       const o = g.orders.get(id);
       if (!o) throw new GatewayError(404, "ORDER_NOT_FOUND", "no such order");
       return { state: o.state, amountPaise: o.amountPaise, transactionId: o.transactionId };
     },
     async refund(r) {
-      check("refund", r.merchantRefundId);
+      await check("refund", r.merchantRefundId);
       if (g.refunds.has(r.merchantRefundId)) throw new GatewayError(400, "DUPLICATE_REQUEST", "duplicate merchantRefundId");
       const made = { state: "pending" as const, gatewayRefundId: `OMR${g.refunds.size + 1}`, amountPaise: r.amountPaise };
       g.refunds.set(r.merchantRefundId, made);
       return { state: made.state, gatewayRefundId: made.gatewayRefundId };
     },
     async refundStatus(id) {
-      check("refundStatus", id);
+      await check("refundStatus", id);
       const r = g.refunds.get(id);
       return r ? { state: r.state, gatewayRefundId: r.gatewayRefundId } : null;
     },

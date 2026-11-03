@@ -31,22 +31,4 @@ export default defineConfig(
     files: ["test/**/*.ts", "src/**/*.test.ts", "vitest.config.ts"],
     rules: { "@typescript-eslint/no-non-null-assertion": "off", "@typescript-eslint/no-floating-promises": "off" },
   },
-  {
-    // TODO(D): payments predates these rules. Fix its findings (`npx eslint src/payments` with this block removed),
-    // move console.* to shared/log.ts (it strips personal data), then delete this block.
-    files: ["src/payments/**"],
-    rules: {
-      "@typescript-eslint/no-unsafe-member-access": "off",
-      "@typescript-eslint/require-await": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/use-unknown-in-catch-callback-variable": "off",
-      "@typescript-eslint/no-unsafe-return": "off",
-      "@typescript-eslint/no-confusing-void-expression": "off",
-      "@typescript-eslint/no-unnecessary-condition": "off",
-      "@typescript-eslint/no-non-null-assertion": "off",
-      "@typescript-eslint/no-base-to-string": "off",
-      "@typescript-eslint/no-unnecessary-type-parameters": "off",
-      "no-console": "off",
-    },
-  },
 );

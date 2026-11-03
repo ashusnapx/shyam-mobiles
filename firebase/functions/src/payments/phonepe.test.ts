@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { GatewayError } from "./gateway.js";
 import { phonePeGateway, webhookAuthorized } from "./phonepe.js";
-import { CONFIG, fakeFetch, ok, refused, SANDBOX, token, TOKEN_URL } from "./testing.js";
+import { CONFIG, fakeFetch, ok, refused, rejection, SANDBOX, token, TOKEN_URL } from "./testing.js";
 
 const STATUS = `${SANDBOX}/checkout/v2/order/SM100001-a1b2c3d4/status?details=false`;
 const api = (reply: (url: string, body: unknown) => Response | Promise<Response>) =>
@@ -52,9 +52,9 @@ test("createOrder: PhonePe's request and reply shapes", async () => {
     metaInfo: { udf1: "o1", udf2: "SM100001" }, paymentFlow: { type: "PG_CHECKOUT" },
   });
   const empty = api(() => ok({ orderId: "OMO1", token: "" }));
-  assert.equal((await phonePeGateway(CONFIG, empty.fetcher).createOrder({
+  assert.equal((await rejection(phonePeGateway(CONFIG, empty.fetcher).createOrder({
     merchantOrderId: "x", amountPaise: 100, expireAfterSeconds: 300, orderId: "o", orderNumber: "SM1",
-  }).catch((e) => e)).code, "BAD_REPLY");
+  }))).code, "BAD_REPLY");
 });
 
 test("orderStatus: lowercased state, the amount, the transaction that paid", async () => {
@@ -79,13 +79,13 @@ test("refund and refundStatus; a refund PhonePe never heard of is null", async (
   const done = api(() => ok({ refundId: "OMR1", state: "COMPLETED" }));
   assert.deepEqual(await phonePeGateway(CONFIG, done.fetcher).refundStatus("SM1-Rabc"), { state: "completed", gatewayRefundId: "OMR1" });
   const down = api(() => refused(500, "INTERNAL_SERVER_ERROR", "down"));
-  assert.equal((await phonePeGateway(CONFIG, down.fetcher).refundStatus("x").catch((e) => e)).status, 500, "an outage isn't 'never heard of it'");
+  assert.equal((await rejection(phonePeGateway(CONFIG, down.fetcher).refundStatus("x"))).status, 500, "an outage isn't 'never heard of it'");
 });
 
 test("a 401 renews the token once, then gives up", async () => {
   let n = 0;
   const f = fakeFetch((c) => (c.url === TOKEN_URL ? token(`t${++n}`) : refused(401, "UNAUTHORIZED", "no")));
-  const err = await phonePeGateway(CONFIG, f.fetcher).orderStatus("x").catch((e) => e);
+  const err = await rejection(phonePeGateway(CONFIG, f.fetcher).orderStatus("x"));
   assert.ok(err instanceof GatewayError);
   assert.deepEqual([err.status, err.code], [401, "UNAUTHORIZED"]);
   assert.deepEqual(f.calls.map((c) => c.headers.get("authorization") ?? "token"), ["token", "O-Bearer t1", "token", "O-Bearer t2"]);
@@ -93,10 +93,10 @@ test("a 401 renews the token once, then gives up", async () => {
 
 test("errors keep PhonePe's status, code and message; unreachable is status 0; definite only for 400/404", async () => {
   const f = api(() => refused(400, "BAD_REQUEST", "Invalid amount"));
-  const err = await phonePeGateway(CONFIG, f.fetcher).refund({ merchantRefundId: "a", merchantOrderId: "b", amountPaise: 1 }).catch((e) => e);
+  const err = await rejection(phonePeGateway(CONFIG, f.fetcher).refund({ merchantRefundId: "a", merchantOrderId: "b", amountPaise: 1 }));
   assert.deepEqual([err.status, err.code, err.description, err.definite], [400, "BAD_REQUEST", "Invalid amount", true]);
   const down = fakeFetch(() => Promise.reject(new TypeError("timed out")));
-  const gone = await phonePeGateway(CONFIG, down.fetcher).orderStatus("x").catch((e) => e);
+  const gone = await rejection(phonePeGateway(CONFIG, down.fetcher).orderStatus("x"));
   assert.deepEqual([gone.status, gone.code, gone.definite], [0, "UNREACHABLE", false]);
   assert.equal(new GatewayError(400, "DUPLICATE_REQUEST", "Duplicate merchantRefundId").definite, false);
   assert.equal(new GatewayError(500, "X", "y").definite, false);

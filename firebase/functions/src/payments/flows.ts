@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DocumentReference, Firestore, Transaction } from "firebase-admin/firestore";
+import { ORDER_RETENTION_DAYS, type PaymentStatus } from "../model/orders.js";
+import { DAY_MS } from "../model/retention.js";
 import { GatewayError, type GatewayState, type PaymentGateway } from "./gateway.js";
 import { webhookAuthorized } from "./phonepe.js";
 import { expireAfterSeconds, merchantOrderId, merchantRefundId, orderNumberOf, PaymentError, planRefund, type RefundableOrder } from "./service.js";
@@ -11,11 +13,12 @@ import { expireAfterSeconds, merchantOrderId, merchantRefundId, orderNumberOf, P
 //                                     reservedUntil, payment, pendingRefundId, items; written here: pendingRefundId and
 //                                     items[].refundId when a refund starts
 //   orders/{id}/payments/{merchantOrderId}  { state, amountPaise, phonepeOrderId, token, expireAt, transactionId?,
-//                                     createdAt, updatedAt }: created and closed here; settleOnlinePayment moves it to
-//                                     completed / failed
-//   orders/{id}/refunds/{refundId}    { amountPaise, fullRefund, restock, status, gatewayRefundId, failure, createdBy,
-//                                     createdAt, updatedAt }: created here; settleRefund settles it and clears
-//                                     pendingRefundId (and items[].refundId when it failed)
+//                                     createdAt, updatedAt, purgeAt }: created and closed here; settleOnlinePayment moves
+//                                     it to completed / failed
+//   orders/{id}/refunds/{refundId}    { amountPaise, fullRefund, itemIds, restock, status, gatewayRefundId, failure,
+//                                     createdBy, createdAt, updatedAt, purgeAt }: created here, and gatewayRefundId set
+//                                     here when PhonePe accepts it; settleRefund settles it (completed / failed) and
+//                                     clears pendingRefundId (and items[].refundId when it failed)
 
 /** orders/settlement.ts (engineer C), as these flows call it. Both are idempotent. */
 export interface Settlement {
@@ -28,6 +31,7 @@ export interface Settlement {
 export type Deps = { db: Firestore; gateway: PaymentGateway; settlement: Settlement; now?: () => number; random?: () => string };
 
 type Order = RefundableOrder & {
+  paymentStatus: PaymentStatus;
   uid: string | null;
   number: string;
   paymentMethod: string;
@@ -35,7 +39,7 @@ type Order = RefundableOrder & {
   pendingRefundId?: string | null;
 };
 type Attempt = { state: GatewayState; amountPaise: number; phonepeOrderId: string | null; token: string | null; createdAt: Stamp };
-type Refund = { amountPaise: number; status: "pending" | "processed" | "failed" };
+type Refund = { amountPaise: number; status: "pending" | "processed" | "failed"; gatewayRefundId?: string | null };
 type Stamp = Date | { toMillis(): number } | number;
 
 const ID = /^[A-Za-z0-9]{1,40}$/; // Firestore auto ids
@@ -43,6 +47,7 @@ const ms = (v: Stamp | null | undefined) => (v == null ? null : typeof v === "nu
 const hex = (deps: Deps) => (deps.random?.() ?? randomUUID()).replace(/-/g, "");
 const IN_PROGRESS = () => new PaymentError(409, "PAYMENT_IN_PROGRESS", "Your payment is being set up. Try again in a moment.");
 const GATEWAY = () => new PaymentError(502, "GATEWAY_ERROR", "Payment service error. Try again.");
+const purgeAt = (now: number) => new Date(now + ORDER_RETENTION_DAYS * DAY_MS); // kept with the order (GST records)
 
 function orderId(body: unknown): string {
   const id = (body as { orderId?: unknown } | null)?.orderId;
@@ -109,6 +114,7 @@ export async function createPayment(body: unknown, uid: string, deps: Deps) {
     tx.create(ref, {
       state: "pending", amountPaise: order.totalPaise, phonepeOrderId: null, token: null,
       expireAt: new Date(now + expireAfter * 1000), transactionId: null, createdAt: new Date(now), updatedAt: new Date(now),
+      purgeAt: purgeAt(now),
     });
   });
 
@@ -158,14 +164,14 @@ export async function verifyPayment(body: unknown, uid: string, deps: Deps) {
 export async function phonepeWebhook(authorization: string | undefined, rawBody: string,
   creds: { username: string; password: string }, deps: Deps): Promise<[number, { result: string }]> {
   if (!webhookAuthorized(authorization, creds.username, creds.password)) return [401, { result: "unauthorized" }];
-  let body: { event?: unknown; type?: unknown; payload?: Record<string, unknown> } = {};
+  let body: { event?: unknown; type?: unknown; payload?: unknown } = {};
   try {
-    body = JSON.parse(rawBody) ?? {};
+    body = (JSON.parse(rawBody) as typeof body | null) ?? {};
   } catch { /* not JSON */ }
   // "checkout.order.completed", or the SDKs' type CHECKOUT_ORDER_COMPLETED for the same thing
   const event = typeof body.event === "string" ? body.event : typeof body.type === "string" ? body.type.toLowerCase().replace(/_/g, ".") : null;
-  const payload = body.payload;
-  if (!event || typeof payload !== "object" || !payload) return [400, { result: "bad_request" }];
+  if (!event || typeof body.payload !== "object" || body.payload === null) return [400, { result: "bad_request" }];
+  const payload = body.payload as Record<string, unknown>;
 
   const refund = event.startsWith("pg.refund.");
   if (!refund && !event.startsWith("checkout.")) return [200, { result: "ignored" }];
@@ -194,12 +200,13 @@ export async function phonepeWebhook(authorization: string | undefined, rawBody:
 
 // PaymentError here, HttpsError details.reason from orders/settlement.ts
 const reasonOf = (e: unknown): string | null =>
-  e instanceof PaymentError ? e.reason : ((e as { details?: { reason?: unknown } })?.details?.reason as string | undefined) ?? null;
+  e instanceof PaymentError ? e.reason : ((e as { details?: { reason?: unknown } } | null)?.details?.reason as string | undefined) ?? null;
 
 // Refunds ----------------------------------------------------------------------------------------------------------
 
 // {orderId, itemIds?, restock?} -> {refundId, amountPaise, status, retry}. Staff only: the handler checks the claim.
-// One refund in flight per order (orders.pendingRefundId). Our refund id is PhonePe's merchantRefundId; a retry asks
+// One refund in flight per order (orders.pendingRefundId): REFUND_IN_PROGRESS once PhonePe has accepted it (its
+// gatewayRefundId is recorded). Our refund id is PhonePe's merchantRefundId; a retry of one PhonePe never confirmed asks
 // PhonePe for that refund first and sends it only if PhonePe has never heard of it, so it never pays out twice.
 export async function startRefund(body: unknown, staffUid: string, deps: Deps) {
   const now = deps.now?.() ?? Date.now();
@@ -215,6 +222,9 @@ export async function startRefund(body: unknown, staffUid: string, deps: Deps) {
     if (!o) throw new PaymentError(404, "NOT_FOUND", "Order not found.");
     if (o.pendingRefundId) {
       const r = (await tx.get(deps.db.doc(`orders/${id}/refunds/${o.pendingRefundId}`))).data() as Refund | undefined;
+      if (r?.gatewayRefundId) {
+        throw new PaymentError(409, "REFUND_IN_PROGRESS", "A refund for this order is already with PhonePe. Wait until it’s done, then refresh.");
+      }
       if (r && o.payment) return { refundId: o.pendingRefundId, amountPaise: r.amountPaise, merchantOrderId: o.payment.merchantOrderId, retry: true };
     }
     const processed = await tx.get(deps.db.collection(`orders/${id}/refunds`).where("status", "==", "processed"));
@@ -222,9 +232,10 @@ export async function startRefund(body: unknown, staffUid: string, deps: Deps) {
     const plan = planRefund(o, refunded, itemIds as string[] | null);
     const refundId = merchantRefundId(o.number, hex(deps));
     tx.create(deps.db.doc(`orders/${id}/refunds/${refundId}`), {
-      amountPaise: plan.amountPaise, fullRefund: plan.fullRefund,
+      amountPaise: plan.amountPaise, fullRefund: plan.fullRefund, itemIds: plan.lineIds,
       restock: restock && o.status !== "cancelled", // a cancel already restocked
       status: "pending", gatewayRefundId: null, failure: null, createdBy: staffUid, createdAt: new Date(now), updatedAt: new Date(now),
+      purgeAt: purgeAt(now),
     });
     tx.update(orderRef, {
       pendingRefundId: refundId, updatedAt: new Date(now),
@@ -249,7 +260,16 @@ export async function startRefund(body: unknown, staffUid: string, deps: Deps) {
     throw new PaymentError(502, "REFUND_UNCONFIRMED",
       "PhonePe didn't confirm the refund. Tap Refund again: it retries this same refund, never a second one.");
   }
-  await settleWith({ ...r, failure: null });
+  if (r.state === "pending") {
+    // accepted, not paid out yet: its id marks it in flight; the webhook settles it
+    const refundRef = deps.db.doc(`orders/${id}/refunds/${start.refundId}`);
+    await deps.db.runTransaction(async (tx) => {
+      const f = (await tx.get(refundRef)).data() as Refund | undefined;
+      if (f?.status === "pending" && r.gatewayRefundId) tx.update(refundRef, { gatewayRefundId: r.gatewayRefundId, updatedAt: new Date(now) });
+    });
+  } else {
+    await settleWith({ ...r, failure: null });
+  }
   const after = (await deps.db.doc(`orders/${id}/refunds/${start.refundId}`).get()).data() as Refund;
   return { refundId: start.refundId, amountPaise: start.amountPaise, status: after.status, retry: start.retry };
 }

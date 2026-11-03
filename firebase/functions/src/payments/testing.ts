@@ -18,9 +18,9 @@ export function fakeFetch(reply: (call: Call) => Response | Promise<Response>) {
   const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
     const call = {
       method: init?.method ?? "GET",
-      url: String(input),
+      url: typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
       headers: new Headers(init?.headers),
-      body: init?.body instanceof URLSearchParams ? Object.fromEntries(init.body) : init?.body ? JSON.parse(String(init.body)) : undefined,
+      body: init?.body instanceof URLSearchParams ? Object.fromEntries(init.body) : typeof init?.body === "string" ? JSON.parse(init.body) as unknown : undefined,
     };
     calls.push(call);
     return await reply(call);
@@ -29,6 +29,16 @@ export function fakeFetch(reply: (call: Call) => Response | Promise<Response>) {
 }
 
 export const ok = (body: unknown) => Response.json(body);
+
+/** What [p] rejected with; fails the test if it resolved. */
+export async function rejection(p: Promise<unknown>): Promise<Record<string, unknown>> {
+  try {
+    await p;
+  } catch (e) {
+    return e as Record<string, unknown>;
+  }
+  throw new Error("expected a rejection");
+}
 export const token = (accessToken = "pp_access_fake") => {
   const now = Math.floor(Date.now() / 1000);
   return ok({ access_token: accessToken, token_type: "O-Bearer", issued_at: now, expires_at: now + 3600 });
@@ -47,12 +57,15 @@ export function fakeFirestore(seed: Record<string, Data> = {}) {
   const copy = (d: Data | undefined) => (d === undefined ? undefined : structuredClone(d));
   const snap = (path: string) => {
     const d = copy(docs.get(path));
-    return { id: path.split("/").pop()!, ref: ref(path), exists: d !== undefined, data: () => copy(d) };
+    return { id: path.slice(path.lastIndexOf("/") + 1), ref: ref(path), exists: d !== undefined, data: () => copy(d) };
   };
   const ref = (path: string) => ({
-    path, id: path.split("/").pop()!, kind: "doc" as const,
-    get: async () => snap(path),
-    update: async (d: Data) => write(path, d, "update"),
+    path, id: path.slice(path.lastIndexOf("/") + 1), kind: "doc" as const,
+    get: () => Promise.resolve(snap(path)),
+    update: (d: Data) => new Promise<void>((resolve) => {
+      write(path, d, "update");
+      resolve();
+    }),
   });
   const query = (collection: string, where: Where[] = [], max = Infinity) => {
     const run = () => {
@@ -64,7 +77,7 @@ export function fakeFirestore(seed: Record<string, Data> = {}) {
       kind: "query" as const,
       where: (field: string, _op: "==", value: unknown) => query(collection, [...where, [field, value]], max),
       limit: (n: number) => query(collection, where, n),
-      get: async () => run(),
+      get: () => Promise.resolve(run()),
       run,
     };
   };
@@ -82,17 +95,23 @@ export function fakeFirestore(seed: Record<string, Data> = {}) {
     runTransaction<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
       const go = async () => {
         const writes: (() => void)[] = [];
-        const later = (f: () => void) => void writes.push(f);
+        const later = (f: () => void) => {
+          writes.push(f);
+        };
         const tx = {
-          async get(r: ReturnType<typeof ref> | ReturnType<typeof query>) {
-            if (writes.length) throw new Error("transaction read after a write");
-            return r.kind === "doc" ? snap(r.path) : r.run();
+          get(r: ReturnType<typeof ref> | ReturnType<typeof query>) {
+            if (writes.length) return Promise.reject(new Error("transaction read after a write"));
+            return Promise.resolve(r.kind === "doc" ? snap(r.path) : r.run());
           },
-          create: (r: { path: string }, d: Data) => later(() => write(r.path, d, "create")),
-          set: (r: { path: string }, d: Data) => later(() => write(r.path, d, "set")),
+          create: (r: { path: string }, d: Data) => {
+            later(() => { write(r.path, d, "create"); });
+          },
+          set: (r: { path: string }, d: Data) => {
+            later(() => { write(r.path, d, "set"); });
+          },
           update: (r: { path: string }, d: Data) => {
             if (!Object.keys(d).length) throw new Error("empty update"); // Firestore refuses these
-            later(() => write(r.path, d, "update"));
+            later(() => { write(r.path, d, "update"); });
           },
         };
         const result = await fn(tx as unknown as Transaction);
@@ -130,7 +149,7 @@ export function fakeSettlement(now: number) {
         if (o.paymentStatus === "pending") tx.update(fs.doc(`orders/${orderId}`), { paymentStatus: "failed", updatedAt: at });
         return;
       }
-      if (p.amountPaise !== o.totalPaise) throw new PaymentError(409, "AMOUNT_MISMATCH", "amount differs");
+      if (p.amountPaise !== o.totalPaise) throw new PaymentError(409, "PAYMENT_MISMATCH", "amount differs");
       tx.update(fs.doc(aPath), { state: "completed", transactionId: p.transactionId, updatedAt: at });
       const events = [...(o.events ?? [])];
       if (o.paymentStatus === "paid" || o.paymentStatus === "refunded") {

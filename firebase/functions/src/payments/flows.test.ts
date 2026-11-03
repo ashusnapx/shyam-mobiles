@@ -4,7 +4,7 @@ import { fakeGateway } from "./fake_gateway.js";
 import { createPayment, type Deps, phonepeWebhook, startRefund, verifyPayment } from "./flows.js";
 import { GatewayError } from "./gateway.js";
 import { PaymentError } from "./service.js";
-import { fakeFirestore, fakeSettlement } from "./testing.js";
+import { fakeFirestore, fakeSettlement, rejection } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 3, 10, 0, 0);
 const MIN = 60_000;
@@ -29,6 +29,7 @@ function world(seed: Record<string, Record<string, unknown>> = { "orders/o1": or
   const settlement = fakeSettlement(NOW);
   const randoms = ["aaaaaaaa-1111", "bbbbbbbb-2222", "cccccccc-3333", "dddddddd-4444"];
   const deps: Deps = { db: fs.firestore, gateway: pp.gateway, settlement: settlement.make(fs.firestore), now: () => NOW, random: () => randoms.shift()! };
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- a typed peek at the fake's docs
   const doc = <T = Record<string, unknown>>(path: string) => fs.db.docs.get(path) as T;
   const pay = (id = "o1", uid = "u1") => createPayment({ orderId: id }, uid, deps);
   const hook = (event: string, payload: Record<string, unknown>, auth = AUTH) => phonepeWebhook(auth, JSON.stringify({ event, payload }), CREDS, deps);
@@ -38,8 +39,8 @@ function world(seed: Record<string, Record<string, unknown>> = { "orders/o1": or
 }
 
 async function reason(p: Promise<unknown>) {
-  const e = await p.then(() => null, (x) => x);
-  assert.ok(e instanceof PaymentError, `expected a PaymentError, got ${e}`);
+  const e = await p.then(() => null, (x: unknown) => x);
+  assert.ok(e instanceof PaymentError, `expected a PaymentError, got ${String(e)}`);
   return e.reason;
 }
 
@@ -67,7 +68,7 @@ test("createPayment: a PhonePe order for the order's own total, window = the sto
   assert.deepEqual(w.pp.orders.get(MID), { state: "pending", amountPaise: 129900, transactionId: null });
   assert.deepEqual(w.doc(`orders/o1/payments/${MID}`), {
     state: "pending", amountPaise: 129900, phonepeOrderId: "OMO1", token: "tok1", expireAt: new Date(NOW + 10 * MIN),
-    transactionId: null, createdAt: new Date(NOW), updatedAt: new Date(NOW),
+    transactionId: null, createdAt: new Date(NOW), updatedAt: new Date(NOW), purgeAt: new Date(NOW + 8 * 366 * 86_400_000),
   });
 });
 
@@ -120,7 +121,7 @@ test("two taps at once: one PhonePe order", async () => {
   const results = await Promise.allSettled([w.pay(), w.pay()]);
   assert.equal(w.pp.made, 1);
   const refusedOne = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
-  assert.equal(refusedOne.reason.reason, "PAYMENT_IN_PROGRESS");
+  assert.equal((refusedOne.reason as PaymentError).reason, "PAYMENT_IN_PROGRESS");
 });
 
 // verifyPayment ------------------------------------------------------------------------------------------------------
@@ -141,7 +142,7 @@ test("verifyPayment: the settlement's refusal (an amount that doesn't match) rea
   const w = world();
   await w.pay();
   w.completed(MID, 100);
-  assert.equal(await reason(verifyPayment({ orderId: "o1" }, "u1", w.deps)), "AMOUNT_MISMATCH");
+  assert.equal(await reason(verifyPayment({ orderId: "o1" }, "u1", w.deps)), "PAYMENT_MISMATCH");
   assert.equal(w.doc<{ paymentStatus: string }>("orders/o1").paymentStatus, "pending");
 });
 
@@ -184,7 +185,7 @@ test("webhook: an amount mismatch is acknowledged; PhonePe unreachable throws, s
   const w = world();
   await w.pay();
   w.completed(MID, 100);
-  assert.deepEqual(await w.hook("checkout.order.completed", { merchantOrderId: MID }), [200, { result: "amount_mismatch" }]);
+  assert.deepEqual(await w.hook("checkout.order.completed", { merchantOrderId: MID }), [200, { result: "payment_mismatch" }]);
   w.pp.fail = () => new GatewayError(0, "UNREACHABLE", "timed out");
   assert.equal(await reason(w.hook("checkout.order.completed", { merchantOrderId: MID })), "GATEWAY_ERROR");
 });
@@ -205,9 +206,10 @@ test("startRefund: everything left, our id as merchantRefundId, then the webhook
   assert.deepEqual(await startRefund({ orderId: "o1" }, "staff1", w.deps), { refundId: RID, amountPaise: 129900, status: "pending", retry: false });
   assert.deepEqual(w.pp.refunds.get(RID), { state: "pending", gatewayRefundId: "OMR1", amountPaise: 129900 });
   assert.deepEqual(w.doc(`orders/o1/refunds/${RID}`), {
-    amountPaise: 129900, fullRefund: true, restock: false, status: "pending", gatewayRefundId: null, failure: null,
-    createdBy: "staff1", createdAt: new Date(NOW), updatedAt: new Date(NOW),
+    amountPaise: 129900, fullRefund: true, itemIds: ["v1", "v2"], restock: false, status: "pending", gatewayRefundId: "OMR1",
+    failure: null, createdBy: "staff1", createdAt: new Date(NOW), updatedAt: new Date(NOW), purgeAt: new Date(NOW + 8 * 366 * 86_400_000),
   });
+  assert.equal(await reason(startRefund({ orderId: "o1" }, "staff1", w.deps)), "REFUND_IN_PROGRESS", "PhonePe has it: one in flight");
   const o = w.doc<{ pendingRefundId: string; items: { refundId?: string }[] }>("orders/o1");
   assert.deepEqual([o.pendingRefundId, o.items.map((i) => i.refundId)], [RID, [RID, RID]]);
 
@@ -254,7 +256,7 @@ test("startRefund refused by PhonePe: settled failed with PhonePe's reason; 'dup
   const w = world();
   await paid(w, "confirmed");
   w.pp.fail = (m) => (m === "refund" ? new GatewayError(400, "INSUFFICIENT_BALANCE", "Not enough balance for this refund") : null);
-  const e = await startRefund({ orderId: "o1", itemIds: ["v2"] }, "staff1", w.deps).catch((x) => x);
+  const e = await rejection(startRefund({ orderId: "o1", itemIds: ["v2"] }, "staff1", w.deps));
   assert.deepEqual([e.reason, e.message], ["REFUND_REFUSED", "PhonePe refused the refund: Not enough balance for this refund"]);
   assert.deepEqual(w.settlement.calls.at(-1), `refund ${RID} failed`);
   assert.equal(w.doc<{ failure: string }>(`orders/o1/refunds/${RID}`).failure, "Not enough balance for this refund");
