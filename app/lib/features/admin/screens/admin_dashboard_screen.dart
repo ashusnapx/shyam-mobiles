@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import '../../../core/env.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
@@ -243,12 +244,13 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     // by how often the shop uses them; the rest under "More"
     // each in the colour of the part of the app it opens; the one create action is ink
-    const daily = [
+    final daily = [
       (PhosphorIconsRegular.plus, 'Add product', '/admin/products/new', (BrandColors.ink, Colors.white)),
       (PhosphorIconsRegular.package, 'Products & stock', '/admin/catalogue', Worlds.admin),
       (PhosphorIconsRegular.receipt, 'Orders', '/admin/orders', Worlds.shop),
       (PhosphorIconsRegular.wrench, 'Repairs', '/admin/repairs', Worlds.repairs),
-      (PhosphorIconsRegular.link, 'Payment link', '/admin/payment-links', Worlds.cart),
+      // PhonePe has no payment links yet
+      if (Env.paymentGateway != 'phonepe') (PhosphorIconsRegular.link, 'Payment link', '/admin/payment-links', Worlds.cart),
       (PhosphorIconsRegular.sealPercent, 'Offers', '/admin/offers', Worlds.offers),
     ];
     const more = [

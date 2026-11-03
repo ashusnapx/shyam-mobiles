@@ -412,9 +412,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 value: PaymentMethod.razorpay,
                 selected: method == PaymentMethod.razorpay,
                 enabled: !busy,
-                subtitle: 'UPI, cards, netbanking, EMI',
+                subtitle: 'UPI, cards, netbanking',
                 onTap: () => setState(() => _method = PaymentMethod.razorpay),
-                footnote: 'EMI bank charges, if any, are shown by Razorpay before you pay.',
                 extra: Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -423,14 +422,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       (PhosphorIconsBold.qrCode, 'UPI'),
                       (PhosphorIconsBold.creditCard, 'Cards'),
                       (PhosphorIconsBold.bank, 'Netbanking'),
-                      (null, 'EMI'),
                     ])
                       DecoratedBox(
                         decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(Radii.xs)),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xs),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            if (icon != null) ...[Icon(icon, size: 13), const SizedBox(width: Space.xs)],
+                            Icon(icon, size: 13),
+                            const SizedBox(width: Space.xs),
                             Text(name, style: t.labelSmall),
                           ]),
                         ),
@@ -464,7 +463,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     const SizedBox(width: Space.sm),
                     Expanded(
                       child: Text(
-                        'Payments go through Razorpay. Shyam Mobiles never sees your card details or UPI PIN.',
+                        'Pay securely by UPI, card or netbanking. Shyam Mobiles never sees your card details or UPI PIN.',
                         style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
                       ),
                     ),
@@ -504,7 +503,6 @@ class _PayOption extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.extra,
-    this.footnote,
     this.icon,
   });
 
@@ -514,7 +512,6 @@ class _PayOption extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final Widget? extra;
-  final String? footnote;
   final IconData? icon;
 
   @override
@@ -545,10 +542,6 @@ class _PayOption extends StatelessWidget {
                         Text(value.label, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: muted)),
                         Text(subtitle, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
                         if (extra != null) ...[const SizedBox(height: Space.sm), extra!],
-                        if (footnote != null) ...[
-                          const SizedBox(height: Space.sm),
-                          Text(footnote!, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
-                        ],
                       ],
                     ),
                   ),

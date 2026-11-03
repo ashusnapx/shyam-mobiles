@@ -185,17 +185,19 @@ void main() {
       expect(find.text('Fix your cart to continue'), findsOneWidget);
       final bottom = tester.getBottomLeft(find.byType(FilledButton)).dy;
       expect(bottom, lessThanOrEqualTo(800 - 48));
-      for (final text in [
-        'Rahul Kumar',
-        'EMI bank charges, if any, are shown by Razorpay before you pay.',
-        'Not available for orders above ₹25,000',
-        '6 items',
-      ]) {
+      // Deliver to, Your order, then Pay with
+      for (final text in ['Rahul Kumar', '6 items']) {
         await tester.scrollUntilVisible(find.text(text), 200, scrollable: find.byType(Scrollable).first);
       }
       await tester.tap(find.text('6 items'));
       await tester.pump(const Duration(seconds: 1));
-      await tester.scrollUntilVisible(find.text('To pay'), 200, scrollable: find.byType(Scrollable).first);
+      for (final text in [
+        'To pay',
+        'Not available for orders above ₹25,000',
+        'Pay securely by UPI, card or netbanking. Shyam Mobiles never sees your card details or UPI PIN.',
+      ]) {
+        await tester.scrollUntilVisible(find.text(text), 200, scrollable: find.byType(Scrollable).first);
+      }
     });
 
     testWidgets('orders list and detail ($b)', (tester) async {
