@@ -178,7 +178,11 @@ class Deploy:
             password = self.state[f'{role}_password']
             if email in by_email:
                 uid = by_email[email]
-                r = http('PUT', f'{self.url}/auth/v1/admin/users/{uid}', key, {'password': password, 'email_confirm': True})
+                # an admin password update signs the user out everywhere (the demo phone too): only when it changed
+                ok = http('POST', f'{self.url}/auth/v1/token?grant_type=password', self.env['SUPABASE_PUBLISHABLE_KEY'],
+                          {'email': email, 'password': password})
+                r = ok if isinstance(ok, dict) and ok.get('access_token') else http(
+                    'PUT', f'{self.url}/auth/v1/admin/users/{uid}', key, {'password': password, 'email_confirm': True})
             else:
                 r = http('POST', f'{self.url}/auth/v1/admin/users', key,
                          {'email': email, 'password': password, 'email_confirm': True, 'user_metadata': {'full_name': name}})
