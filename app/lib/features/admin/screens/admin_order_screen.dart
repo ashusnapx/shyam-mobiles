@@ -299,12 +299,7 @@ class _Body extends StatelessWidget {
           ),
         if (canCancel) ...[
           const SizedBox(height: Space.lg),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(foregroundColor: c.error, side: BorderSide(color: c.error)),
-            onPressed: busy ? null : onCancel,
-            icon: const Icon(PhosphorIconsRegular.xCircle),
-            label: const Text('Cancel order'),
-          ),
+          CancelButton(label: 'Cancel order', onPressed: busy ? null : onCancel),
         ],
       ],
     );

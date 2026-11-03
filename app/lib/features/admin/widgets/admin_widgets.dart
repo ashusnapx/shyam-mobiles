@@ -32,9 +32,24 @@ TagTone orderTone(OrderStatus s) => switch (s) {
       OrderStatus.pendingPayment => TagTone.deal,
       OrderStatus.confirmed || OrderStatus.packed || OrderStatus.shipped => TagTone.info,
       OrderStatus.delivered => TagTone.ok,
-      OrderStatus.cancelled => TagTone.bad,
-      OrderStatus.refunded => TagTone.info,
+      OrderStatus.cancelled || OrderStatus.refunded => TagTone.neutral, // closed, nothing went wrong
     };
+
+/// Every in-page Cancel (an order, a booking): quiet red text with an x, last on the screen, the confirm dialog after.
+class CancelButton extends StatelessWidget {
+  const CancelButton({super.key, required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+        style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error, minimumSize: const Size.fromHeight(48)),
+        onPressed: onPressed,
+        icon: const Icon(PhosphorIconsRegular.xCircle),
+        label: Text(label),
+      );
+}
 
 /// "Pixel 9a", "Pixel 9a +2 more"
 String itemsSummary(Order o) => o.items.isEmpty

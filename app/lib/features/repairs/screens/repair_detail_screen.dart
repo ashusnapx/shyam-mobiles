@@ -11,6 +11,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../admin/widgets/admin_widgets.dart' show CancelButton;
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../data/repairs.dart';
 import '../widgets/repair_widgets.dart';
@@ -196,12 +197,7 @@ class _Body extends StatelessWidget {
         StoreContactButtons(message: 'Hi, about repair ${b.number}'),
         if (b.canCancel) ...[
           const SizedBox(height: Space.sm),
-          TextButton.icon(
-            style: TextButton.styleFrom(foregroundColor: c.error),
-            onPressed: busy ? null : onCancel,
-            icon: const Icon(PhosphorIconsRegular.xCircle),
-            label: const Text('Cancel booking'),
-          ),
+          CancelButton(label: 'Cancel booking', onPressed: busy ? null : onCancel),
         ],
         const SizedBox(height: Space.sm),
         Text(

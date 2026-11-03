@@ -201,18 +201,23 @@ void main() {
     testWidgets('orders list and detail ($b)', (tester) async {
       await _pump(tester, const OrdersScreen(), brightness: b);
       expect(find.text('SM100023'), findsNWidgets(2));
+      expect(find.text('My orders'), findsOneWidget, reason: 'the same name as the Account row');
 
       final order = _order(OrderStatus.pendingPayment, pay: PaymentStatus.pending);
       await _pump(tester, const OrderDetailScreen(orderId: 'o1'), brightness: b, orders: [order]);
+      expect(find.text('My orders'), findsNothing);
+      expect(find.text('Pay ₹1,29,999'), findsOneWidget, reason: 'the next step sits right under the status');
       for (final f in [
         find.textContaining('Handed to Delhivery'),
         find.text('Check it: dial *#06# on the phone and match the box label.'),
-        find.text('Pay ₹1,29,999'),
-        find.text('WhatsApp'),
       ]) {
         await tester.scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
       }
       expect(find.byType(SelectableText), findsNWidgets(2), reason: 'one IMEI per unit');
+      await tester.pump(const Duration(seconds: 1)); // the loading skeleton has faded out
+      for (final f in [find.text('Need help with this order?'), find.text('Call shop'), find.text('Cancel order')]) {
+        await tester.scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
+      }
     });
 
     testWidgets('result screens ($b)', (tester) async {

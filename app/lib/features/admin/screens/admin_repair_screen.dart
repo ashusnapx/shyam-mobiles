@@ -195,12 +195,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Text(blocker, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
             ),
           const SizedBox(height: Space.sm),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(foregroundColor: c.error, side: BorderSide(color: c.error)),
-            onPressed: _busy ? null : () => _once(_cancel),
-            icon: const Icon(PhosphorIconsRegular.xCircle),
-            label: const Text('Cancel booking'),
-          ),
+          CancelButton(label: 'Cancel booking', onPressed: _busy ? null : () => _once(_cancel)),
         ],
         if (canQuoteRepair(b.status)) ...[
           const ListSection('Quote'),

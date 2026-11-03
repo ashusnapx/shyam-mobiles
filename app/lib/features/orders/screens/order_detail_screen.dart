@@ -13,7 +13,10 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/data/profile.dart';
+import '../../admin/widgets/admin_widgets.dart' show CancelButton, orderTone;
 import '../../cart/data/cart.dart';
 import '../../checkout/data/payment.dart';
 import '../../checkout/screens/widgets.dart';
@@ -51,9 +54,7 @@ IconData _stepIcon(OrderStatus s) => switch (s) {
       OrderStatus.refunded => PhosphorIconsBold.arrowCounterClockwise,
     };
 
-void _say(ScaffoldMessengerState m, String text) => m
-  ..hideCurrentSnackBar()
-  ..showSnackBar(SnackBar(content: Text(text)));
+void _say(ScaffoldMessengerState m, String text) => showMessageOn(m, text);
 
 class OrderDetailScreen extends ConsumerWidget {
   const OrderDetailScreen({super.key, required this.orderId});
@@ -94,15 +95,17 @@ class _OrderBody extends StatelessWidget {
       padding: EdgeInsets.only(bottom: Space.xxl + MediaQuery.paddingOf(context).bottom),
       children: [
         _StatusHero(order: o),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
-          child: _Timeline(steps: buildTimeline(o)),
-        ),
+        // the one thing to do next sits right under the status
+        if (o.canRetryPayment) _Actions(order: o, primary: true),
         if (o.status == OrderStatus.delivered)
           Padding(
             padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
             child: RateCard(title: 'How was your order?', orderId: o.id),
           ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
+          child: _Timeline(steps: buildTimeline(o)),
+        ),
         const SectionHeader('Items'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.lg),
@@ -170,6 +173,18 @@ class _OrderBody extends StatelessWidget {
             ],
           ),
         ),
+        const SectionHeader('Need help with this order?'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          child: Consumer(
+            builder: (context, ref, _) {
+              final name = firstName(ref.watch(profileProvider).value?.fullName);
+              return StoreContactButtons(
+                message: name == null ? 'Hi, about order ${o.number}' : 'Hi, I’m $name, about order ${o.number}',
+              );
+            },
+          ),
+        ),
         const SectionHeader('Delivery address'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.lg),
@@ -213,7 +228,7 @@ class _OrderBody extends StatelessWidget {
           ),
         ),
         OrderRefunds(orderId: o.id),
-        _Actions(order: o),
+        if (o.canCancel || o.status == OrderStatus.cancelled) _Actions(order: o, primary: false),
       ],
     );
   }
@@ -229,17 +244,18 @@ class _StatusHero extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
     final o = order;
-    final fg = c.onPrimaryContainer;
+    // the status tag's tone, so the list and the detail agree
+    final (bg, fg) = toneColors(o.needsRefund ? TagTone.deal : orderTone(o.status));
     final tracking = o.trackingNumber;
     return Container(
       margin: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, 0),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: c.primaryContainer, borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.all(Space.lg),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.hero)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(_kicker(o).toUpperCase(), style: t.labelSmall?.copyWith(color: fg, letterSpacing: 1)),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.xs),
           Semantics(
             header: true,
             child: Text(o.status.label, style: t.displaySmall?.copyWith(color: fg)),
@@ -328,7 +344,7 @@ class _Timeline extends StatelessWidget {
                           color: !s.done
                               ? c.surfaceContainer
                               : s.status == OrderStatus.cancelled
-                                  ? c.error
+                                  ? BrandColors.graphite // closed, not an error
                                   : c.secondary,
                           border: s.done ? null : Border.all(color: c.outlineVariant, width: 2),
                         ),
@@ -340,7 +356,7 @@ class _Timeline extends StatelessWidget {
                             color: !s.done
                                 ? c.onSurfaceVariant
                                 : s.status == OrderStatus.cancelled
-                                    ? c.onError
+                                    ? Colors.white
                                     : c.onSecondary,
                           ),
                         ),
@@ -384,10 +400,13 @@ class _Timeline extends StatelessWidget {
   }
 }
 
+/// [primary]: Pay while the payment is pending, right under the status. Otherwise the quiet ones at the bottom:
+/// Reorder, then Cancel order.
 class _Actions extends ConsumerStatefulWidget {
-  const _Actions({required this.order});
+  const _Actions({required this.order, required this.primary});
 
   final Order order;
+  final bool primary;
 
   @override
   ConsumerState<_Actions> createState() => _ActionsState();
@@ -462,77 +481,34 @@ class _ActionsState extends ConsumerState<_Actions> {
     }
   }
 
-  Future<void> _open(Uri uri, String fallback) async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (!await launchExternal(uri)) _say(messenger, fallback);
-  }
-
   @override
   Widget build(BuildContext context) {
     final stage = ref.watch(paymentFlowProvider);
-    final store = ref.watch(storeSettingsProvider).value;
-    final c = Theme.of(context).colorScheme;
+    if (widget.primary) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
+        child: FilledButton(
+          onPressed: stage == PayStage.idle && !_busy ? _retry : null,
+          child: Text(
+            stage == PayStage.idle ? 'Pay ${formatInr(o.totalPaise)}' : stage.label,
+            style: const TextStyle(fontFeatures: tabularFigures),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.xl, Space.lg, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (o.canRetryPayment) ...[
-            FilledButton(
-              onPressed: stage == PayStage.idle && !_busy ? _retry : null,
-              child: Text(
-                stage == PayStage.idle ? 'Pay ${formatInr(o.totalPaise)}' : stage.label,
-                style: const TextStyle(fontFeatures: tabularFigures),
-              ),
-            ),
-            const SizedBox(height: Space.md),
-          ],
-          if (o.canCancel) ...[
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: c.error),
-              onPressed: _busy || stage != PayStage.idle ? null : _cancel,
-              child: Text(_busy ? 'Cancelling…' : 'Cancel order'),
-            ),
-            const SizedBox(height: Space.md),
-          ],
-          if (o.status == OrderStatus.cancelled) ...[
+          if (o.status == OrderStatus.cancelled)
             OutlinedButton.icon(
               onPressed: _busy ? null : _reorder,
               icon: const Icon(PhosphorIconsRegular.arrowClockwise),
               label: const Text('Reorder'),
             ),
-            const SizedBox(height: Space.md),
-          ],
-          if (store != null)
-            Row(
-              children: [
-                for (final (i, (icon, label, uri, fallback)) in [
-                  (
-                    const Icon(PhosphorIconsRegular.phone, size: 20) as Widget,
-                    'Call store',
-                    Uri(scheme: 'tel', path: store.storePhone),
-                    'Couldn’t open the phone app. Call ${displayPhone(store.storePhone)}.',
-                  ),
-                  (
-                    const WhatsAppIcon(size: 20),
-                    'WhatsApp',
-                    Uri.https('wa.me', '/${store.storePhone.replaceAll(RegExp(r'\D'), '')}', {
-                      'text': 'Hi, about order ${o.number}',
-                    }),
-                    'Couldn’t open WhatsApp. Message ${displayPhone(store.storePhone)}.',
-                  ),
-                ].indexed) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _open(uri, fallback),
-                      icon: icon,
-                      label: Text(label, textAlign: TextAlign.center),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+          // destructive, so quiet and last: out of the main path
+          if (o.canCancel) CancelButton(label: _busy ? 'Cancelling…' : 'Cancel order', onPressed: _busy || stage != PayStage.idle ? null : _cancel),
         ],
       ),
     );

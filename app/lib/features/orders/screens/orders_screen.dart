@@ -9,6 +9,7 @@ import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../admin/widgets/admin_widgets.dart' show orderTone;
 import '../../checkout/screens/widgets.dart';
 import '../data/orders.dart';
 
@@ -21,12 +22,7 @@ class OrderStatusTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (order.needsRefund) return const Tag('Refund due', tone: TagTone.deal);
-    return Tag(order.status.label, tone: switch (order.status) {
-      OrderStatus.pendingPayment => TagTone.deal,
-      OrderStatus.delivered => TagTone.ok,
-      OrderStatus.cancelled || OrderStatus.refunded => TagTone.bad,
-      _ => TagTone.info,
-    });
+    return Tag(order.status.label, tone: orderTone(order.status));
   }
 }
 
@@ -45,7 +41,7 @@ class OrdersScreen extends ConsumerWidget {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Orders'),
+          title: const Text('My orders'),
           leading: canPop ? null : BackButton(onPressed: () => context.go('/account')),
         ),
         body: AsyncBody(
