@@ -220,7 +220,12 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               product: product.slug,
               style: IconButton.styleFrom(backgroundColor: c.surface),
             ),
-            HeartButton(product.id),
+            HeartButton(product.id,
+                waitFor: product.activeVariants.every((v) => !v.inStock)
+                    ? '*'
+                    : variant != null && !variant.inStock
+                        ? variant.id
+                        : null),
           ],
           CartButton(style: IconButton.styleFrom(backgroundColor: c.surface)),
           const SizedBox(width: Space.xs),

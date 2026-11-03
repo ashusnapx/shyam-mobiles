@@ -75,7 +75,7 @@ class ProductTile extends StatelessWidget {
               card.inStock ? photo : Opacity(opacity: 0.45, child: photo),
               if (!card.inStock)
                 const Positioned(left: Space.sm, top: Space.sm, child: Tag('Out of stock', tone: TagTone.neutral)),
-              Positioned(top: 0, right: 0, child: HeartButton(card.id)),
+              Positioned(top: 0, right: 0, child: HeartButton(card.id, waitFor: card.inStock ? null : '*')),
             ],
           ),
           Padding(
@@ -133,9 +133,12 @@ class SliverProductGrid extends StatelessWidget {
 }
 
 class HeartButton extends ConsumerWidget {
-  const HeartButton(this.productId, {super.key});
+  const HeartButton(this.productId, {this.waitFor, super.key});
 
   final String productId;
+
+  /// Sold out: saving it also asks for the back-in-stock alert (a variant id, or '*' for any variant).
+  final String? waitFor;
 
   Future<void> _toggle(BuildContext context, WidgetRef ref) async {
     if (ref.read(currentUserIdProvider) == null) {
@@ -144,7 +147,7 @@ class HeartButton extends ConsumerWidget {
     }
     unawaited(HapticFeedback.selectionClick());
     try {
-      await ref.read(wishlistProvider.notifier).toggle(productId);
+      await ref.read(wishlistProvider.notifier).toggle(productId, waitFor: waitFor);
     } catch (e) {
       if (context.mounted) showMessage(context, friendlyError(e));
     }

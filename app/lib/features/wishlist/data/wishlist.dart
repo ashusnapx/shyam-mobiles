@@ -19,18 +19,27 @@ class WishlistNotifier extends AsyncNotifier<Set<String>> {
   }
 
   /// Optimistic; on failure only this product flips back (other toggles in flight are kept) and the error rethrows.
-  Future<void> toggle(String productId) async {
+  /// [waitFor]: saving a sold-out item also asks to hear when it's back (see [WishlistRepository.add]).
+  Future<void> toggle(String productId, {String? waitFor}) async {
     final uid = ref.read(currentUserIdProvider);
     if (uid == null) throw const AuthException('Sign in to save to your wishlist');
     final saved = state.value?.contains(productId) ?? false;
     _set(productId, !saved);
     try {
       final api = ref.read(wishlistRepositoryProvider);
-      saved ? await api.remove(uid, productId) : await api.add(uid, productId);
+      saved ? await api.remove(uid, productId) : await api.add(uid, productId, waitFor: waitFor);
     } catch (_) {
       _set(productId, saved);
       rethrow;
     }
+  }
+
+  /// Notify me (docs/FIREBASE.md §6): saves the product, or marks the saved entry, to hear when [waitFor] is back.
+  Future<void> notifyWhenBack(String productId, String waitFor) async {
+    final uid = ref.read(currentUserIdProvider);
+    if (uid == null) throw const AuthException('Sign in to hear when it’s back in stock');
+    await ref.read(wishlistRepositoryProvider).add(uid, productId, waitFor: waitFor);
+    _set(productId, true);
   }
 
   void _set(String productId, bool saved) {

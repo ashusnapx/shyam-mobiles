@@ -20,7 +20,8 @@ class FakeWishlistApi implements WishlistRepository {
   @override
   Future<List<String>> productIds(String uid) async => [...ids];
   @override
-  Future<void> add(String userId, String productId) => _write('add $userId $productId', productId);
+  Future<void> add(String userId, String productId, {String? waitFor}) =>
+      _write('add $userId $productId${waitFor == null ? '' : ' $waitFor'}', productId);
   @override
   Future<void> remove(String userId, String productId) => _write('remove $userId $productId', productId);
 }
@@ -82,5 +83,18 @@ void main() {
     expect(await container.read(wishlistProvider.future), isEmpty);
     await expectLater(container.read(wishlistProvider.notifier).toggle('a'), throwsA(isA<AuthException>()));
     expect(api.calls, isEmpty);
+  });
+
+  test('saving a sold-out item asks for the back-in-stock alert; Notify me marks it', () async {
+    container = make('u1');
+    await container.read(wishlistProvider.future);
+    final done = container.read(wishlistProvider.notifier).toggle('b', waitFor: '*');
+    api.pending['b']!.complete();
+    await done;
+    final notify = container.read(wishlistProvider.notifier).notifyWhenBack('c', 'v9');
+    api.pending['c']!.complete();
+    await notify;
+    expect(api.calls, ['add u1 b *', 'add u1 c v9']);
+    expect(container.read(wishlistProvider).value, containsAll(['b', 'c']));
   });
 }

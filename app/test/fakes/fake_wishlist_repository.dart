@@ -11,9 +11,12 @@ class FakeWishlistRepository with Fake implements WishlistRepository {
     return [...?saved[uid]];
   }
 
+  final marks = <String, String>{}; // productId → waitVariant
+
   @override
-  Future<void> add(String uid, String productId) async {
-    record('add $productId');
+  Future<void> add(String uid, String productId, {String? waitFor}) async {
+    record('add $productId${waitFor == null ? '' : ' wait $waitFor'}');
+    if (waitFor != null) marks[productId] = waitFor;
     final ids = saved.putIfAbsent(uid, () => []);
     if (!ids.contains(productId)) ids.insert(0, productId);
   }

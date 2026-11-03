@@ -11,8 +11,9 @@ abstract interface class WishlistRepository {
   /// Newest first.
   Future<List<String>> productIds(String uid);
 
-  /// No-op when already saved.
-  Future<void> add(String uid, String productId);
+  /// No-op when already saved, except that a [waitFor] (the back-in-stock mark: a sold-out variant's id, or '*' when
+  /// every variant is) replaces the entry's mark. Only the Firebase build keeps the mark (docs/FIREBASE.md §6).
+  Future<void> add(String uid, String productId, {String? waitFor});
 
   Future<void> remove(String uid, String productId);
 }

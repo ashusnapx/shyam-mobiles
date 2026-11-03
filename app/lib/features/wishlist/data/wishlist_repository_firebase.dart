@@ -15,12 +15,15 @@ class FirebaseWishlistRepository implements WishlistRepository {
   Future<List<String>> productIds(String uid) async =>
       [for (final d in (await _of(uid).orderBy('addedAt', descending: true).get()).docs) d.id];
 
-  /// A doc already there keeps its addedAt and its back-in-stock mark.
+  /// A doc already there keeps its addedAt; Rules let it change only its mark.
   @override
-  Future<void> add(String uid, String productId) async {
+  Future<void> add(String uid, String productId, {String? waitFor}) async {
     final ref = _of(uid).doc(productId);
-    if ((await ref.get()).exists) return;
-    await ref.set({'productId': productId, 'addedAt': FieldValue.serverTimestamp(), 'waitVariant': null});
+    if ((await ref.get()).exists) {
+      if (waitFor != null) await ref.update({'waitVariant': waitFor});
+      return;
+    }
+    await ref.set({'productId': productId, 'addedAt': FieldValue.serverTimestamp(), 'waitVariant': waitFor});
   }
 
   @override

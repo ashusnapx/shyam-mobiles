@@ -106,7 +106,7 @@ class FakeWishlistApi implements WishlistRepository {
   @override
   Future<List<String>> productIds(String uid) async => ['s25', 'case'];
   @override
-  Future<void> add(String userId, String productId) async {}
+  Future<void> add(String userId, String productId, {String? waitFor}) async {}
   @override
   Future<void> remove(String userId, String productId) async {}
 }
