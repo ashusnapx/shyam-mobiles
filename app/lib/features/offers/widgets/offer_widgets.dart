@@ -417,8 +417,9 @@ void openAppLink(BuildContext context, String link) {
   }
 }
 
-/// One home banner on its own deep colours, made from its id ([deepPalette]: white text passes 4.5:1 on every stop),
-/// with its photo when set. The admin's tone is no longer used: the maths picks the colours.
+/// One home banner on its own deep, calm colours, made from its id ([deepPalette]: white text passes 4.5:1 on every
+/// stop): the words on a glass panel, its photo beside them when set, the same build as Home's product slides. The
+/// admin's tone is no longer used: the maths picks the colours.
 class PromoBannerCard extends StatelessWidget {
   const PromoBannerCard(this.banner, {super.key, this.onTap});
 
@@ -431,70 +432,88 @@ class PromoBannerCard extends StatelessWidget {
   Widget _card(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final palette = deepPalette(banner.id);
+    const white = Colors.white;
     return MergeSemantics(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
-        child: AuroraBackground(
-          palette: palette,
-          seed: banner.id,
-          still: true,
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.all(14), // compact: it's a slide in Home's carousel
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            banner.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: t.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
-                          ),
-                          if (banner.subtitle.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              banner.subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          // looks like the product slides' white button; the whole card is the tap target
-                          DecoratedBox(
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+      child: DecoratedBox(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.hero), boxShadow: Shadows.raised),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(Radii.hero),
+          // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
+          child: AuroraBackground(
+            palette: palette,
+            seed: banner.id,
+            still: true,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: onTap,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 184), // a product slide's height: the carousel doesn't jump
+                  child: Padding(
+                    padding: const EdgeInsets.all(Space.lg),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GlassSurface(
+                            kind: GlassKind.onDeep,
+                            radius: Radii.lg,
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 5),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                spacing: Space.xs,
+                              padding: const EdgeInsets.all(Space.md),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Flexible(
-                                    child: Text(banner.ctaLabel, style: t.labelMedium?.copyWith(color: palette.stops.first)),
+                                  Text('OFFER',
+                                      style: t.labelSmall?.copyWith(color: white, letterSpacing: 1.3, fontWeight: FontWeight.w700)),
+                                  const SizedBox(height: Space.xs),
+                                  Text(
+                                    banner.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: t.titleLarge?.copyWith(color: white),
                                   ),
-                                  Icon(PhosphorIconsBold.arrowRight, size: 14, color: palette.stops.first),
+                                  if (banner.subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: Space.xs),
+                                    // labelLarge at least: the smallest white text glass on a deep colour allows
+                                    Text(
+                                      banner.subtitle,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: t.labelLarge?.copyWith(color: white),
+                                    ),
+                                  ],
+                                  const SizedBox(height: Space.md),
+                                  // the product slides' white pill; the whole card is the tap target
+                                  DecoratedBox(
+                                    decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(Radii.xl)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        spacing: Space.xs,
+                                        children: [
+                                          Flexible(
+                                            child: Text(banner.ctaLabel, style: t.labelMedium?.copyWith(color: BrandColors.ink)),
+                                          ),
+                                          const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.ink),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
+                        ),
+                        if (banner.imagePath != null) ...[
+                          const SizedBox(width: Space.md),
+                          SizedBox(
+                            width: 96,
+                            child: ProductImage(banner.imagePath, radius: Radii.lg, padding: 0, fit: BoxFit.cover),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-                    if (banner.imagePath != null) ...[
-                      const SizedBox(width: Space.md),
-                      SizedBox(
-                        width: 76,
-                        child: ProductImage(banner.imagePath, radius: Radii.md, padding: 0, fit: BoxFit.cover),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ),
