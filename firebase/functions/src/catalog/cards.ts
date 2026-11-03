@@ -19,11 +19,14 @@ export function cardsFor(
   collectionIds: string[],
 ): { public: CatalogCard | null; staff: StaffCatalogCard | null } {
   if (product === null) return { public: null, staff: null };
+  // Docs written by hand or by an older shape (tests, the import) may lack lists or stamps: treat them as empty.
+  const { images = [], specs = [] } = product as Partial<ProductDoc>;
+  const ms = (t: { toMillis(): number } | undefined) => t?.toMillis() ?? 0;
   const all = [...variants].sort(bySort);
   const active = all.filter((v) => v.isActive);
   const cheapest = active.reduce<WithId<VariantDoc> | null>((best, v) => (best === null || v.pricePaise < best.pricePaise ? v : best), null);
-  const cover = [...product.images].sort((a, b) => a.sort - b.sort)[0]?.path ?? null;
-  const fits = product.specs.filter((s) => s.label === "Fits").map((s) => s.value);
+  const cover = [...images].sort((a, b) => a.sort - b.sort)[0]?.path ?? null;
+  const fits = specs.filter((s) => s.label === "Fits").map((s) => s.value);
   const card: CatalogCard = {
     n: product.name,
     s: id,
@@ -38,13 +41,13 @@ export function cardsFor(
     f: product.isFeatured,
     cv: cover,
     col: [...collectionIds].sort(),
-    t: product.createdAt.toMillis(),
+    t: ms(product.createdAt),
     ...(fits.length > 0 ? { ft: fits } : {}),
   };
-  const rows: StaffVariantRow[] = all.map((v) => ({ id: v.id, sku: v.sku, n: v.name, p: v.pricePaise, m: v.mrpPaise, st: v.stock, a: v.isActive, u: v.updatedAt.toMillis() }));
+  const rows: StaffVariantRow[] = all.map((v) => ({ id: v.id, sku: v.sku, n: v.name, p: v.pricePaise, m: v.mrpPaise, st: v.stock, a: v.isActive, u: ms(v.updatedAt) }));
   return {
     public: product.isActive && cheapest !== null ? card : null,
-    staff: { ...card, active: product.isActive, u: product.updatedAt.toMillis(), variants: rows },
+    staff: { ...card, active: product.isActive, u: ms(product.updatedAt), variants: rows },
   };
 }
 

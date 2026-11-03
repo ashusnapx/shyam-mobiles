@@ -54,6 +54,10 @@ describe("cardsFor: one product's index entries", () => {
     expect(cardsFor("s25", product(), [], []).staff).not.toBeNull();
     expect(cardsFor("s25", null, [variant("a")], [])).toEqual({ public: null, staff: null });
   });
+  test("a partial product doc (no specs, images or stamps) still gets entries", () => {
+    const partial = { name: "X", brandId: "b", brandName: "B", categoryId: "c", categoryKind: "phone", isActive: true, isFeatured: false } as unknown as ProductDoc;
+    expect(cardsFor("x", partial, [variant("a", { updatedAt: undefined as never })], []).public).toMatchObject({ cv: null, t: 0 });
+  });
   test("sameCard ignores key order", () => {
     expect(sameCard({ a: 1, b: [{ x: 1, y: 2 }] }, { b: [{ y: 2, x: 1 }], a: 1 })).toBe(true);
     expect(sameCard({ a: 1 }, { a: 2 })).toBe(false);
