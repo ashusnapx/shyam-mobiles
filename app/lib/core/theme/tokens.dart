@@ -2,8 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 /// Ink + colour (docs/palette-ideas.html, option 4 with 1–3 folded in): black buttons and text stay, and colour
 /// comes from the peacock feather in the logo. Peacock teal for information, emerald for savings and anything done,
-/// saffron for repairs, gold for deals. Plum, indigo and rose widen the range for slides, categories and section
-/// bands, and sand is the quiet warm neutral behind premium touches. The app is light-only by product decision.
+/// saffron for repairs, gold for deals. Plum, indigo and ocean widen the range for slides, categories and section
+/// bands, and sand is the quiet warm neutral behind premium touches. The app is light-only by product decision. No
+/// red anywhere: red means an error.
 abstract final class BrandColors {
   static const ink = Color(0xFF0A0A0A);
   static const graphite = Color(0xFF262626);
@@ -38,16 +39,16 @@ abstract final class BrandColors {
   static const indigoMist = Color(0xFFEEF0FF);
   static const indigoInk = Color(0xFF3730A3);
 
-  static const rose = Color(0xFFBE123C);
-  static const roseDeep = Color(0xFF4C0519);
-  static const roseMist = Color(0xFFFFE8EE);
-  static const roseInk = Color(0xFF9F1239);
+  static const ocean = Color(0xFF0369A1);
+  static const oceanDeep = Color(0xFF082F49);
+  static const oceanMist = Color(0xFFE0F2FE);
+  static const oceanInk = Color(0xFF075985);
 
   static const sand = Color(0xFFF7F0E3);
   static const sandInk = Color(0xFF7A5B2E);
 }
 
-/// One gradient per featured slide, in turn: peacock, marigold, emerald, plum, indigo, rose. White text passes AA on
+/// One gradient per featured slide, in turn: peacock, marigold, emerald, plum, indigo, ocean. White text passes AA on
 /// every stop. Banners store their tone as this index (0..5, a DB check).
 const heroGradients = [
   [BrandColors.peacockDeep, BrandColors.peacock, Color(0xFF155E75)],
@@ -55,7 +56,7 @@ const heroGradients = [
   [BrandColors.emeraldDeep, BrandColors.emerald, Color(0xFF0E7490)],
   [BrandColors.plumDeep, Color(0xFF701A75), BrandColors.plum],
   [BrandColors.indigoDeep, BrandColors.indigoInk, BrandColors.indigo],
-  [BrandColors.roseDeep, BrandColors.roseInk, BrandColors.rose],
+  [BrandColors.oceanDeep, BrandColors.oceanInk, BrandColors.ocean],
 ];
 
 /// The dot under each slide and the glow behind it, matched to [heroGradients].
@@ -65,7 +66,7 @@ const heroAccents = [
   Color(0xFFB7EB4F),
   Color(0xFFF0ABFC),
   Color(0xFFA5B4FC),
-  Color(0xFFFDA4AF),
+  Color(0xFF7DD3FC),
 ];
 
 /// Category tile tints (background, icon), so the home grid reads at a glance. Each icon passes 3:1 on its tint
@@ -74,13 +75,12 @@ const tileTints = [
   (BrandColors.peacockMist, BrandColors.peacock),
   (BrandColors.cream, BrandColors.saffron),
   (BrandColors.mint, BrandColors.emerald),
-  (Color(0xFFE0F2FE), Color(0xFF0369A1)),
+  (BrandColors.oceanMist, BrandColors.ocean),
   (Color(0xFFFEF3C7), Color(0xFF92400E)),
   (Color(0xFFEDE9FE), Color(0xFF6D28D9)),
   (Color(0xFFFCE7F3), Color(0xFFBE185D)),
   (BrandColors.plumMist, BrandColors.plum),
   (BrandColors.indigoMist, BrandColors.indigo),
-  (BrandColors.roseMist, BrandColors.rose),
   (BrandColors.sand, BrandColors.sandInk),
 ];
 
@@ -91,7 +91,7 @@ const sectionTints = (
   phones: (BrandColors.indigoMist, BrandColors.indigo),
   recent: (BrandColors.plumMist, BrandColors.plum),
   explore: (BrandColors.sand, BrandColors.sandInk),
-  offers: (BrandColors.roseMist, BrandColors.rose),
+  offers: (BrandColors.mint, BrandColors.emerald),
   fits: (BrandColors.peacockMist, BrandColors.peacock),
 );
 

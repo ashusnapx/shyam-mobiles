@@ -86,6 +86,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
   String? _variantId; // the shopper's pick; until then the cheapest in-stock variant
   bool _zoomed = false; // a gallery photo is zoomed in: one-finger drags pan it instead of scrolling the page
   bool _busy = false;
+  bool _scrolled = false; // past the gallery: the top bar turns solid and shows the name
   bool _readRoute = false;
   ({bool buy, String variantId})? _resume; // add/buy to finish after the sign-in round trip
 
@@ -182,6 +183,18 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        // solid once the photos scroll away, so the page never runs under the buttons
+        flexibleSpace: AnimatedOpacity(
+          opacity: _scrolled ? 1 : 0,
+          duration: Motion.fast,
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.outlineVariant))),
+          ),
+        ),
+        title: _scrolled && product != null
+            ? Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))
+            : null,
         systemOverlayStyle: Theme.of(context).brightness == Brightness.light
             ? SystemUiOverlayStyle.dark
             : SystemUiOverlayStyle.light,
@@ -206,7 +219,16 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
         ],
       ),
       body: switch (async) {
-        AsyncValue(value: final p?) when variant != null => _details(p, variants, variant),
+        AsyncValue(value: final p?) when variant != null => NotificationListener<ScrollUpdateNotification>(
+            onNotification: (n) {
+              if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+                final past = n.metrics.pixels > MediaQuery.sizeOf(context).width - kToolbarHeight;
+                if (past != _scrolled) setState(() => _scrolled = past);
+              }
+              return false;
+            },
+            child: _details(p, variants, variant),
+          ),
         AsyncValue(hasValue: true) => EmptyState(
             icon: PhosphorIconsRegular.smileySad,
             title: 'This product isn’t available',
@@ -432,18 +454,18 @@ class _OfferChips extends ConsumerWidget {
         children: [
           for (final o in offers)
             ActionChip(
-              // a coupon in rose (roseInk on roseMist ≈ 7:1), a sale in gold
+              // a coupon in emerald, the savings colour (mintInk on mint ≈ 9:1), a sale in gold
               avatar: Icon(PhosphorIconsFill.sealPercent, size: 16,
-                  color: o.code == null ? c.onTertiaryContainer : BrandColors.roseInk),
+                  color: o.code == null ? c.onTertiaryContainer : BrandColors.mintInk),
               label: Text(
                 o.code == null ? '${offerHeadline(o)} · ${o.title}' : '${offerHeadline(o)} with ${o.code}',
                 overflow: TextOverflow.ellipsis,
               ),
               labelStyle: TextStyle(
-                color: o.code == null ? c.onTertiaryContainer : BrandColors.roseInk,
+                color: o.code == null ? c.onTertiaryContainer : BrandColors.mintInk,
                 fontWeight: FontWeight.w700,
               ),
-              backgroundColor: o.code == null ? c.tertiaryContainer : BrandColors.roseMist,
+              backgroundColor: o.code == null ? c.tertiaryContainer : BrandColors.mint,
               side: BorderSide.none,
               onPressed: () => context.push('/offers/${o.id}'),
             ),

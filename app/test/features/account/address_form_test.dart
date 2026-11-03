@@ -172,6 +172,7 @@ void main() {
   test('account header helpers', () {
     expect(initials('Asha Kumari Rao'), 'AR');
     expect(initials('ravi'), 'R');
+    expect(initials('Demo Admin (staff)'), 'DA');
     expect(initials('   '), isNull);
     expect(initials(null), isNull);
     expect(accountPhone('919876543210', null), '+91 98765 43210');

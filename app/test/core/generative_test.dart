@@ -24,6 +24,20 @@ void main() {
     }
   });
 
+  test('no palette colour reads as red, which is kept for errors', () {
+    bool red(Color c) {
+      final hsv = HSVColor.fromColor(c);
+      return hsv.saturation > 0.35 && (hsv.hue < 15 || hsv.hue > 345);
+    }
+
+    for (var i = 0; i < 400; i++) {
+      final deep = deepPalette('seed-$i'), soft = softPalette('cat-$i');
+      for (final c in [...deep.stops, ...deep.glows, deep.accent, soft.accent, ...soft.glows]) {
+        expect(red(c), isFalse, reason: 'seed $i: $c');
+      }
+    }
+  });
+
   test('oklch stays in gamut and matches known points', () {
     expect(oklch(1, 0, 0), const Color(0xFFFFFFFF));
     expect(oklch(0, 0, 0), const Color(0xFF000000));

@@ -35,6 +35,16 @@ const _harmonies = [
   [0.0, -25.0, 165.0],
 ];
 
+/// Red means an error in this app, so a hue in the red band (OKLCH 340°–50°: wine, crimson, red, rust) is folded out of
+/// it across its nearer edge, to raspberry or amber.
+double _noRed(double hue) {
+  final h = hue % 360;
+  if (h >= 15 && h < 50) return 100 - h;
+  if (h < 15) return 340 - h;
+  if (h >= 340) return 680 - h;
+  return h;
+}
+
 GenPalette deepPalette(String seed) {
   final h = seedHash(seed);
   var hue = (h % 360).toDouble();
@@ -43,19 +53,19 @@ GenPalette deepPalette(String seed) {
   final offsets = _harmonies[(h >> 9) % _harmonies.length];
   final chroma = 0.10 + ((h >> 13) % 5) * 0.01; // 0.10..0.14
   final stops = [
-    for (final (i, o) in offsets.indexed) _readableOnWhite(oklch(0.30 + i * 0.05, chroma, hue + o)),
+    for (final (i, o) in offsets.indexed) _readableOnWhite(oklch(0.30 + i * 0.05, chroma, _noRed(hue + o))),
   ];
   return GenPalette(
     stops: stops,
-    glows: [for (final o in offsets) oklch(0.78, 0.13, hue + o + 12)],
-    accent: oklch(0.82, 0.14, hue + offsets[1]),
-    band: oklch(0.965, 0.02, hue),
+    glows: [for (final o in offsets) oklch(0.78, 0.13, _noRed(hue + o + 12))],
+    accent: oklch(0.82, 0.14, _noRed(hue + offsets[1])),
+    band: oklch(0.965, 0.02, _noRed(hue)),
   );
 }
 
 GenPalette softPalette(String seed) {
   final h = seedHash(seed);
-  final hue = (h % 360).toDouble();
+  final hue = _noRed((h % 360).toDouble());
   final offsets = _harmonies[(h >> 9) % _harmonies.length];
   final band = oklch(0.96, 0.04, hue);
   var accent = oklch(0.52, 0.15, hue);
@@ -63,8 +73,8 @@ GenPalette softPalette(String seed) {
     accent = oklch(l, 0.15, hue);
   }
   return GenPalette(
-    stops: [band, oklch(0.965, 0.035, hue + offsets[1]), oklch(0.975, 0.03, hue + offsets[2])],
-    glows: [for (final o in offsets) oklch(0.88, 0.09, hue + o).withValues(alpha: 0.7)],
+    stops: [band, oklch(0.965, 0.035, _noRed(hue + offsets[1])), oklch(0.975, 0.03, _noRed(hue + offsets[2]))],
+    glows: [for (final o in offsets) oklch(0.88, 0.09, _noRed(hue + o)).withValues(alpha: 0.7)],
     accent: accent,
     band: band,
   );

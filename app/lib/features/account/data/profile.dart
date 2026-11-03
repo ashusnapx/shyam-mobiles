@@ -24,9 +24,10 @@ Future<void> saveFullName(WidgetRef ref, String name) async {
   await ref.read(profileProvider.future);
 }
 
-/// "Asha Kumari Rao" → "AR"; null when there's no name.
+/// "Asha Kumari Rao" → "AR"; null when there's no name. Words that don't start with a letter ("(staff)") are skipped.
 String? initials(String? name) {
-  final words = (name ?? '').trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  final letter = RegExp(r'^\p{L}', unicode: true);
+  final words = (name ?? '').trim().split(RegExp(r'\s+')).where(letter.hasMatch).toList();
   if (words.isEmpty) return null;
   return (words.first[0] + (words.length > 1 ? words.last[0] : '')).toUpperCase();
 }
