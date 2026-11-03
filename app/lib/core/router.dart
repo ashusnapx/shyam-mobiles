@@ -266,7 +266,13 @@ class AppShell extends ConsumerWidget {
         ),
     ];
     final selected = shell.currentIndex < destinations.length ? shell.currentIndex : 0;
-    return Scaffold(
+    // Back on another tab's first screen goes Home (as YouTube and Instagram do); only Back on Home leaves the app
+    return PopScope(
+      canPop: shell.currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) shell.goBranch(0);
+      },
+      child: Scaffold(
       body: shell,
       // Home and Search scroll under the frosted nav (they pad their ends for it); other tabs stop above it
       extendBody: selected <= 1,
@@ -282,6 +288,7 @@ class AppShell extends ConsumerWidget {
         },
         destinations: destinations,
         ),
+      ),
       ),
     );
   }
