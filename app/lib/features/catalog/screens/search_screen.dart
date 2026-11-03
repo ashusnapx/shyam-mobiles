@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -9,8 +10,11 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
+import '../../../core/models/models.dart';
 import '../../../core/network.dart';
+import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/catalog.dart';
@@ -21,12 +25,14 @@ const _priceCaps = [150000, 500000, 1500000, 3000000, 5000000];
 /// Route params seed the filters once; after that they live in local state. Updating the route per keystroke
 /// would recreate this screen (the route is keyed by its query) and drop keyboard focus.
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key, this.query, this.category, this.brand, this.sort});
+  const SearchScreen({super.key, this.query, this.category, this.brand, this.sort, this.minPrice, this.maxPrice});
 
   final String? query;
   final String? category;
   final String? brand;
   final String? sort;
+  final int? minPrice; // paise; Home's budget bands
+  final int? maxPrice;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -42,11 +48,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   static String _clip(String q) => String.fromCharCodes(q.runes.take(MaxLen.search));
   late String? _category = widget.category;
   late String? _brand = widget.brand;
-  int? _maxPrice;
+  late int? _minPrice = (widget.minPrice ?? 0) > 0 ? widget.minPrice : null;
+  late int? _maxPrice = (widget.maxPrice ?? 0) > 0 ? widget.maxPrice : null;
+  bool _inStock = false;
   late SearchSort _sort = SearchSort.parse(widget.sort);
 
-  SearchParams get _params => (q: _q, category: _category, brand: _brand, maxPricePaise: _maxPrice, sort: _sort);
-  bool get _filtered => _category != null || _brand != null || _maxPrice != null;
+  SearchParams get _params => (
+        q: _q,
+        category: _category,
+        brand: _brand,
+        minPricePaise: _minPrice,
+        maxPricePaise: _maxPrice,
+        inStock: _inStock,
+        sort: _sort,
+      );
+  bool get _filtered => _category != null || _brand != null || _minPrice != null || _maxPrice != null || _inStock;
 
   @override
   void dispose() {
@@ -68,7 +84,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _clearFilters() => setState(() {
         _category = null;
         _brand = null;
+        _minPrice = null;
         _maxPrice = null;
+        _inStock = false;
       });
 
   /// Bottom-sheet picker. [options] pairs a value with its label; a null value means "any".
@@ -92,7 +110,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final results = ref.watch(searchProvider(params));
     final categories = ref.watch(categoriesProvider).value ?? const [];
     final brands = ref.watch(brandsProvider).value ?? const [];
-    final categoryName = categories.where((c) => c.slug == _category).firstOrNull?.name ?? _category;
+    final category = categories.where((c) => c.slug == _category).firstOrNull;
+    final categoryName = category?.name ?? _category;
     final brandName = brands.where((b) => b.slug == _brand).firstOrNull?.name ?? _brand;
 
     return Scaffold(
@@ -101,12 +120,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.lg, 6, Space.lg, 0),
+              padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
               child: ValueListenableBuilder(
                 valueListenable: _text,
                 builder: (context, value, _) => TextField(
                   controller: _text,
-                  autofocus: widget.query == null && widget.category == null && widget.brand == null && widget.sort == null,
+                  // only from the Search tab itself, not from a link into a list
+                  autofocus: GoRouterState.of(context).uri.query.isEmpty,
                   textInputAction: TextInputAction.search,
                   inputFormatters: textInput(MaxLen.search),
                   onChanged: _onChanged,
@@ -162,14 +182,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                   ),
                   PickerChip(
-                    label: _maxPrice == null ? 'Price' : 'Under ${formatInr(_maxPrice!)}',
-                    selected: _maxPrice != null,
+                    label: _priceLabel ?? 'Price',
+                    selected: _minPrice != null || _maxPrice != null,
                     onTap: () => _pick<int>(
                       'Price',
                       Future.value([(null, 'Any price'), for (final p in _priceCaps) (p, 'Under ${formatInr(p)}')]),
-                      _maxPrice,
-                      (v) => _maxPrice = v,
+                      _minPrice == null ? _maxPrice : null,
+                      (v) {
+                        _minPrice = null;
+                        _maxPrice = v;
+                      },
                     ),
+                  ),
+                  FilterChip(
+                    label: const Text('In stock'),
+                    selected: _inStock,
+                    showCheckmark: false,
+                    onSelected: (v) => setState(() => _inStock = v),
                   ),
                   PickerChip(
                     label: _sort.label,
@@ -187,7 +216,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             Expanded(
               child: switch (results) {
-                AsyncValue(value: final r?) => _results(params, r),
+                AsyncValue(value: final r?) => _results(params, r, category),
                 AsyncValue(:final error?) => ErrorView(
                     error: error,
                     onRetry: () => ref.invalidate(searchProvider(params)),
@@ -201,7 +230,31 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _results(SearchParams params, SearchResults r) {
+  /// "Under ₹15,000", "₹10,000 – ₹25,000", "Above ₹25,000"; null with no price filter.
+  String? get _priceLabel => switch ((_minPrice, _maxPrice)) {
+        (null, null) => null,
+        (null, final max?) => 'Under ${formatInr(max)}',
+        (final min?, null) => 'Above ${formatInr(min)}',
+        (final min?, final max?) => '${formatInr(min)} – ${formatInr(max)}',
+      };
+
+  /// "35 products"; in a category, "11 phones" or "18 accessories".
+  static String _count(int n, Category? category) {
+    final (one, many) = switch (category?.kind) {
+      CategoryKind.phone => ('phone', 'phones'),
+      CategoryKind.accessory => ('accessory', 'accessories'),
+      _ => ('product', 'products'),
+    };
+    return '$n ${n == 1 ? one : many}';
+  }
+
+  Future<void> _askOnWhatsApp() async {
+    final phone = (await ref.read(storeSettingsProvider.future)).storePhone;
+    final what = _q.isEmpty ? 'a product I couldn’t find in the app' : '“$_q”';
+    if (mounted) await openUri(context, whatsAppUri(phone, text: 'Hi, do you have $what?'));
+  }
+
+  Widget _results(SearchParams params, SearchResults r, Category? category) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final notifier = ref.read(searchProvider(params).notifier);
@@ -226,11 +279,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             SliverToBoxAdapter(
               key: const ValueKey('count'),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(Space.lg, 10, Space.lg, Space.md),
-                child: Text(
-                  r.total == 1 ? '1 result' : '${r.total} results',
-                  style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
-                ),
+                padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
+                child: Text(_count(r.total, category), style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
               ),
             ),
             if (r.items.isEmpty)
@@ -239,11 +289,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 hasScrollBody: false,
                 child: EmptyState(
                   icon: PhosphorIconsRegular.magnifyingGlass,
-                  title: 'Nothing matches that',
-                  message: _filtered ? 'Try fewer filters or a different word.' : 'Try a different word.',
-                  action: _filtered
-                      ? OutlinedButton(onPressed: _clearFilters, child: const Text('Clear filters'))
-                      : null,
+                  tone: Worlds.search,
+                  title: 'We couldn’t find that',
+                  message: 'Try another word, or ask us. We may be able to get it for you.',
+                  action: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: Space.sm,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _askOnWhatsApp,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: BrandColors.whatsapp,
+                          foregroundColor: BrandColors.ink,
+                        ),
+                        icon: const Icon(PhosphorIconsFill.whatsappLogo),
+                        label: const Text('Ask on WhatsApp'),
+                      ),
+                      if (_filtered) OutlinedButton(onPressed: _clearFilters, child: const Text('Clear filters')),
+                    ],
+                  ),
                 ),
               )
             else
@@ -279,7 +344,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       physics: const NeverScrollableScrollPhysics(),
       slivers: [
         const SliverToBoxAdapter(
-          child: Padding(padding: EdgeInsets.fromLTRB(Space.lg, 10, Space.lg, Space.md), child: Text('20 results')),
+          child: Padding(padding: EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md), child: Text('20 products')),
         ),
         SliverProductGrid(fakeCards(6)),
       ],

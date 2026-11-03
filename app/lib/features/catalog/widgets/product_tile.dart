@@ -14,7 +14,8 @@ import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../wishlist/data/wishlist.dart';
 
-/// "Samsung Galaxy S25" → "Galaxy S25". Names start with the brand (schema convention) and the brand shows above.
+/// "Samsung Galaxy S25" → "Galaxy S25". Names start with the brand (schema convention). Only for matching "Fits"
+/// specs: everywhere a customer reads a name, it's the full one ("OnePlus 13", never "13").
 String shortName(String name, String brand) =>
     name.length > brand.length + 1 && name.toLowerCase().startsWith('${brand.toLowerCase()} ')
         ? name.substring(brand.length + 1)
@@ -35,6 +36,8 @@ List<ProductCard> fakeCards(int n) => [
         ),
     ];
 
+/// The same card in rails, grids and search: photo, the full name on exactly two lines, then the price and the
+/// MRP with "% off" on fixed-height lines, so every tile in a row is the same height.
 class ProductTile extends StatelessWidget {
   const ProductTile(this.card, {super.key});
 
@@ -45,7 +48,6 @@ class ProductTile extends StatelessWidget {
 
   Widget _tile(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final c = Theme.of(context).colorScheme;
     final nameStyle = t.bodyMedium!.copyWith(fontWeight: FontWeight.w600, height: 1.3);
     return InkWell(
       onTap: () => context.push('/product/${card.slug}'),
@@ -55,9 +57,11 @@ class ProductTile extends StatelessWidget {
         children: [
           Stack(
             children: [
-              card.inStock ? ProductImage(card.coverPath) : Opacity(opacity: 0.45, child: ProductImage(card.coverPath)),
+              card.inStock
+                  ? ProductImage(card.coverPath, radius: Radii.md)
+                  : Opacity(opacity: 0.45, child: ProductImage(card.coverPath, radius: Radii.md)),
               if (!card.inStock)
-                const Positioned(left: Space.sm, top: Space.sm, child: Tag('Out of stock', tone: TagTone.bad)),
+                const Positioned(left: Space.sm, top: Space.sm, child: Tag('Out of stock', tone: TagTone.neutral)),
               Positioned(top: 0, right: 0, child: HeartButton(card.id)),
             ],
           ),
@@ -66,20 +70,13 @@ class ProductTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  card.brandName.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.labelSmall?.copyWith(color: c.onSurfaceVariant, letterSpacing: 0.7),
-                ),
-                const SizedBox(height: 2),
                 // always two lines tall so prices line up across a row
                 SizedBox(
                   height: MediaQuery.textScalerOf(context).scale(nameStyle.fontSize!) * nameStyle.height! * 2,
-                  child: Text(shortName(card.name, card.brandName), maxLines: 2, overflow: TextOverflow.ellipsis, style: nameStyle),
+                  child: Text(card.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: nameStyle),
                 ),
                 const SizedBox(height: Space.xs),
-                PriceTag(pricePaise: card.minPricePaise, mrpPaise: card.mrpPaise),
+                PriceTag(pricePaise: card.minPricePaise, mrpPaise: card.mrpPaise, stacked: true),
               ],
             ),
           ),
@@ -147,13 +144,14 @@ class HeartButton extends ConsumerWidget {
       icon: DecoratedBox(
         decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
         child: Padding(
-          padding: const EdgeInsets.all(Space.sm),
+          padding: const EdgeInsets.all(9), // a 36 dp circle
           child: Bump(
             trigger: saved,
+            // plum, never red: saving something is not an error
             child: Icon(
               saved ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
               size: 18,
-              color: saved ? c.error : c.onSurface,
+              color: saved ? BrandColors.plum : c.onSurface,
             ),
           ),
         ),

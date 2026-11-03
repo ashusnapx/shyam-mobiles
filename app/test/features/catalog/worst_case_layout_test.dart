@@ -22,7 +22,7 @@ class _Search extends SearchNotifier {
 }
 
 SearchParams _params(String category) =>
-    (q: '', category: category, brand: null, maxPricePaise: null, sort: SearchSort.relevance);
+    (q: '', category: category, brand: null, minPricePaise: null, maxPricePaise: null, inStock: false, sort: SearchSort.relevance);
 
 void main() {
   setUpAll(loadRoboto);
@@ -45,7 +45,7 @@ void main() {
           )),
     ]);
     await scrollThrough(tester);
-    expect(find.text('Visit the store'), findsOneWidget);
+    expect(find.text('Visit the shop'), findsOneWidget);
   });
 
   testWidgets('search: 200-character names, all out of stock', (tester) async {

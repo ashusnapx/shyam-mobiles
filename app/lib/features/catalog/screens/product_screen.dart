@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -13,6 +14,7 @@ import '../../../core/links.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
 import '../../cart/widgets/cart_button.dart';
@@ -20,13 +22,13 @@ import '../../feedback/widgets/feedback_widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../../payments/widgets/emi_line.dart';
+import '../data/best_offer.dart';
 import '../data/catalog.dart';
 import '../data/rails.dart';
 import '../data/variant_options.dart';
 import '../widgets/gallery.dart';
 import '../widgets/product_rail.dart';
 import '../widgets/product_tile.dart';
-import '../widgets/store_links.dart';
 
 const _specIcons = [
   (['display', 'screen'], PhosphorIconsRegular.deviceMobile),
@@ -88,6 +90,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
   bool _busy = false;
   bool _scrolled = false; // past the gallery: the top bar turns solid and shows the name
   bool _readRoute = false;
+  bool _allSpecs = false; // "Show all N specs" tapped
   ({bool buy, String variantId})? _resume; // add/buy to finish after the sign-in round trip
 
   @override
@@ -153,12 +156,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       if (buy) {
         unawaited(router.push('/checkout'));
       } else if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: const Text('Added to cart'),
-            action: SnackBarAction(label: 'View cart', onPressed: () => router.go('/cart')),
-          ));
+        showMessage(context, 'Added to cart', action: SnackBarAction(label: 'View cart', onPressed: () => router.go('/cart')));
       }
     } catch (e) {
       if (mounted) showMessage(context, friendlyError(e));
@@ -176,6 +174,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     final variant = variants.where((v) => v.id == _variantId).firstOrNull ?? initialVariant(variants);
     final canBuy = variant != null && variant.inStock && !_busy;
     final alternative = variant == null ? null : inStockAlternative(variants, variant);
+    final settings = ref.watch(storeSettingsProvider).value;
     ref.watch(currentUserIdProvider); // rebuild on sign-in so a pending add/buy can resume
     _maybeResume(variants);
 
@@ -183,6 +182,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0, // its own solid layer below
         // solid once the photos scroll away, so the page never runs under the buttons
         flexibleSpace: AnimatedOpacity(
           opacity: _scrolled ? 1 : 0,
@@ -222,7 +222,9 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
         AsyncValue(value: final p?) when variant != null => NotificationListener<ScrollUpdateNotification>(
             onNotification: (n) {
               if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
-                final past = n.metrics.pixels > MediaQuery.sizeOf(context).width - kToolbarHeight;
+                // solid before the page reaches the bar's bottom edge (status bar included)
+                final bar = kToolbarHeight + MediaQuery.paddingOf(context).top;
+                final past = n.metrics.pixels > MediaQuery.sizeOf(context).width - bar;
                 if (past != _scrolled) setState(() => _scrolled = past);
               }
               return false;
@@ -246,44 +248,47 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       },
       bottomNavigationBar: variant == null || product == null
           ? null
-          : DecoratedBox(
-              decoration: BoxDecoration(
-                color: c.surface,
-                border: Border(top: BorderSide(color: c.outlineVariant)),
-              ),
-              // edge-to-edge: keeps the buttons above the gesture / nav bar
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.sm),
-                  child: variant.inStock
-                      ? Row(
-                          spacing: 10,
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: canBuy ? () => _add(variant, buy: false) : null,
-                                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.md)),
-                                icon: const Icon(PhosphorIconsRegular.shoppingBag, size: 20),
-                                label: const Text('Add to cart'),
-                              ),
+          : StickyBar(
+              child: variant.inStock
+                  ? Row(
+                      spacing: Space.sm,
+                      children: [
+                        if (settings != null)
+                          IconButton.outlined(
+                            tooltip: 'Ask on WhatsApp',
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(48, 52),
+                              side: BorderSide(color: c.outline),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
                             ),
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: canBuy ? () => _add(variant, buy: true) : null,
-                                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.md)),
-                                child: const Text('Buy now'),
-                              ),
+                            onPressed: () => openUri(
+                              context,
+                              whatsAppUri(settings.storePhone, text: 'Hi, I’m interested in ${product.name} (${variant.name})'),
                             ),
-                          ],
-                        )
-                      : _SoldOutBar(
-                          variant: variant,
-                          alternative: alternative,
-                          onSwitch: alternative == null ? null : () => setState(() => _variantId = alternative.id),
+                            icon: const WhatsAppIcon(),
+                          ),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: canBuy ? () => _add(variant, buy: false) : null,
+                            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.sm)),
+                            child: const Text('Add to cart', maxLines: 1),
+                          ),
                         ),
-                ),
-              ),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: canBuy ? () => _add(variant, buy: true) : null,
+                            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.sm)),
+                            child: const Text('Buy now', maxLines: 1),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _SoldOutBar(
+                      item: '${product.name} (${variant.name})',
+                      variant: variant,
+                      alternative: alternative,
+                      onSwitch: alternative == null ? null : () => setState(() => _variantId = alternative.id),
+                    ),
             ),
     );
   }
@@ -295,8 +300,10 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     final memories = memoryOptions(variants);
     final colors = colorOptions(variants);
     final muted = t.bodySmall?.copyWith(color: c.onSurfaceVariant);
+    final phone = p.category.kind == CategoryKind.phone;
+    final item = '${p.name} (${v.name})';
     Widget label(String text, [String? value]) => Padding(
-          padding: const EdgeInsets.only(top: 18, bottom: Space.sm),
+          padding: const EdgeInsets.only(top: Space.lg, bottom: Space.sm),
           child: Text.rich(
             TextSpan(text: text, children: [
               if (value != null) TextSpan(text: ' · $value', style: TextStyle(color: c.onSurfaceVariant, fontWeight: FontWeight.w500)),
@@ -308,6 +315,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           _variantId = pickVariant(variants, v, memory: memory, color: color).id;
           _zoomed = false; // the gallery starts over on the new colour's photos
         });
+    const side = EdgeInsets.symmetric(horizontal: Space.lg);
+    final specs = _allSpecs ? p.specs : p.specs.take(6).toList();
 
     return ListView(
       padding: EdgeInsets.zero,
@@ -318,34 +327,55 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           onZoom: (zoomed) => setState(() => _zoomed = zoomed),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, Space.xl),
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      p.brand.name.toUpperCase(),
-                      style: t.labelMedium?.copyWith(color: c.onSurfaceVariant, letterSpacing: 0.8, fontWeight: FontWeight.w700),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      // the brand opens everything it makes
+                      child: InkWell(
+                        onTap: p.brand.slug.isEmpty ? null : () => context.go('/search?brand=${p.brand.slug}'),
+                        borderRadius: BorderRadius.circular(Radii.sm),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  p.brand.name.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: t.labelMedium
+                                      ?.copyWith(color: c.onSurfaceVariant, letterSpacing: 0.8, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              Icon(PhosphorIconsBold.caretRight, size: IconSizes.xs, color: c.onSurfaceVariant),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   if (!v.inStock)
-                    const Tag('Out of stock', tone: TagTone.bad)
+                    const Tag('Out of stock', tone: TagTone.neutral)
                   else if (v.stock <= 3)
                     Tag('Only ${v.stock} left', tone: TagTone.deal)
                   else
                     const Tag('In stock', tone: TagTone.ok, icon: PhosphorIconsBold.check),
                 ],
               ),
-              const SizedBox(height: Space.xs),
-              Text(shortName(p.name, p.brand.name), style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+              Text(p.name, style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: Space.sm),
-              PriceTag(pricePaise: v.pricePaise, mrpPaise: v.mrpPaise, large: true),
+              PriceTag(pricePaise: v.pricePaise, mrpPaise: v.mrpPaise, large: true, showSaving: true),
               EmiLine(pricePaise: v.pricePaise), // "EMI from ₹X/month"; nothing when EMI doesn't apply
               const SizedBox(height: 2),
-              Text('Inclusive of all taxes · EMI options at checkout', style: muted),
-              if (p.id.isNotEmpty) _OfferChips(productId: p.id),
+              Text('Inclusive of all taxes', style: muted),
+              // the pick sets the price above and the offer below
               if (memories.isNotEmpty) ...[
                 label('Memory & storage'),
                 Wrap(
@@ -384,24 +414,30 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                   ],
                 ),
               ],
+              if (p.id.isNotEmpty) _BestOffer(productId: p.id, pricePaise: v.pricePaise),
               if (settings != null) ...[
-                const SizedBox(height: 18),
-                _DeliveryCard(settings),
                 const SizedBox(height: Space.md),
-                _StoreRows(settings: settings, item: '${p.name} (${v.name})'),
+                _DeliveryCard(settings),
+                const SectionHeader('Why buy from us', inset: false),
+                _WhyBuy(settings: settings, product: p),
               ],
+            ],
+          ),
+        ),
+        if (p.id.isNotEmpty && phone)
+          ProductRail(title: 'Fits this phone', band: sectionTints.fits, value: ref.watch(fitsProvider(p.slug))),
+        Padding(
+          padding: side,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               if (p.description.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text(p.description, style: t.bodyMedium),
+                SectionHeader(phone ? 'About this phone' : 'About this product', inset: false),
+                _Description(p.description),
               ],
               if (p.specs.isNotEmpty) ...[
-                const SizedBox(height: 22),
-                Semantics(
-                  header: true,
-                  child: Text('Specifications', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(height: Space.sm),
-                for (final s in p.specs)
+                const SectionHeader('Specifications', inset: false),
+                for (final s in specs)
                   DecoratedBox(
                     decoration: BoxDecoration(border: Border(top: BorderSide(color: c.outlineVariant))),
                     child: Padding(
@@ -409,14 +445,14 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(specIcon(s.label), size: 20, color: c.onSurfaceVariant),
+                          Icon(specIcon(s.label), size: IconSizes.md, color: c.onSurfaceVariant),
                           const SizedBox(width: Space.md),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(s.label, style: t.titleSmall?.copyWith(fontSize: 13)),
-                                Text(s.value, style: t.bodyMedium?.copyWith(fontSize: 13, color: c.onSurfaceVariant)),
+                                Text(s.label, style: t.titleSmall),
+                                Text(s.value, style: t.bodyMedium?.copyWith(color: c.onSurfaceVariant)),
                               ],
                             ),
                           ),
@@ -424,52 +460,149 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       ),
                     ),
                   ),
+                if (p.specs.length > specs.length)
+                  TextButton.icon(
+                    onPressed: () => setState(() => _allSpecs = true),
+                    iconAlignment: IconAlignment.end,
+                    icon: const Icon(PhosphorIconsBold.caretDown, size: 14),
+                    label: Text('Show all ${p.specs.length} specs'),
+                  ),
               ],
-              if (p.id.isNotEmpty) ReportListingLink(productId: p.id),
+              if (settings != null) ...[
+                const SizedBox(height: Space.lg),
+                _StoreRows(settings: settings, item: item),
+              ],
             ],
           ),
         ),
-        if (p.id.isNotEmpty) ProductRails(product: p),
+        if (p.id.isNotEmpty)
+          ProductRail(title: 'Similar products', band: sectionTints.similar, value: ref.watch(similarProvider(p.slug))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.xl),
+          child: p.id.isEmpty ? const SizedBox.shrink() : ReportListingLink(productId: p.id),
+        ),
       ],
     );
   }
 }
 
-/// One gold chip per running offer that covers this product (`offers_for_product`); tap for its terms.
-class _OfferChips extends ConsumerWidget {
-  const _OfferChips({required this.productId});
+/// The description, with lines that start with "• " as a bulleted list.
+class _Description extends StatelessWidget {
+  const _Description(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodyMedium;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: Space.xs,
+      children: [
+        for (final line in text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty))
+          if (line.startsWith('• '))
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('•  ', style: style),
+                Expanded(child: Text(line.substring(2), style: style)),
+              ],
+            )
+          else
+            Text(line, style: style),
+      ],
+    );
+  }
+}
+
+/// One line for the offer that saves the most on this pick, with the price after it, then "+N more offers".
+/// Running offers that cover this product come from `offers_for_product`.
+class _BestOffer extends ConsumerWidget {
+  const _BestOffer({required this.productId, required this.pricePaise});
 
   final String productId;
+  final int pricePaise;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = Theme.of(context).colorScheme;
     final offers = ref.watch(productOffersProvider(productId)).value ?? const <Offer>[];
     if (offers.isEmpty) return const SizedBox.shrink();
+    final t = Theme.of(context).textTheme;
+    final best = bestOffer(offers, pricePaise);
+    final o = best?.offer ?? offers.first;
+    final (bg, fg) = Worlds.offers;
+    final line = [
+      if (best == null)
+        o.code == null ? '${offerHeadline(o)} · ${o.title}' : '${offerHeadline(o)} with code ${o.code}'
+      else if (o.code == null)
+        'Pay ${formatInr(pricePaise - best.saving)} at checkout'
+      else
+        'Pay ${formatInr(pricePaise - best.saving)} with code ${o.code}',
+      if (best != null && o.code == null) ...[o.title, 'No code needed'],
+      if (o.onlineOnly) 'Pay online',
+      if (o.firstOrderOnly) 'First order',
+      if (o.endsAt != null) 'Ends ${DateFormat('d MMM').format(o.endsAt!.toLocal())}',
+    ];
+    final more = offers.length - 1;
     return Padding(
-      padding: const EdgeInsets.only(top: Space.md),
-      child: Wrap(
-        spacing: Space.sm,
-        runSpacing: Space.xs,
-        children: [
-          for (final o in offers)
-            ActionChip(
-              // a coupon in emerald, the savings colour (mintInk on mint ≈ 9:1), a sale in gold
-              avatar: Icon(PhosphorIconsFill.sealPercent, size: 16,
-                  color: o.code == null ? c.onTertiaryContainer : BrandColors.mintInk),
-              label: Text(
-                o.code == null ? '${offerHeadline(o)} · ${o.title}' : '${offerHeadline(o)} with ${o.code}',
-                overflow: TextOverflow.ellipsis,
+      padding: const EdgeInsets.only(top: Space.lg),
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => context.push('/offers/${o.id}'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(Space.md, Space.md, Space.xs, Space.md),
+                child: Row(
+                  children: [
+                    Icon(PhosphorIconsFill.sealPercent, size: IconSizes.lg, color: fg),
+                    const SizedBox(width: Space.md),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(children: [
+                          TextSpan(text: line.first, style: const TextStyle(fontWeight: FontWeight.w800)),
+                          if (line.length > 1) TextSpan(text: ' · ${line.skip(1).join(' · ')}'),
+                        ]),
+                        style: t.bodyMedium?.copyWith(color: BrandColors.ink),
+                      ),
+                    ),
+                    if (o.code != null)
+                      TextButton(
+                        onPressed: () => copyCode(context, o.code!),
+                        style: TextButton.styleFrom(foregroundColor: fg),
+                        child: const Text('Copy code'),
+                      ),
+                  ],
+                ),
               ),
-              labelStyle: TextStyle(
-                color: o.code == null ? c.onTertiaryContainer : BrandColors.mintInk,
-                fontWeight: FontWeight.w700,
-              ),
-              backgroundColor: o.code == null ? c.tertiaryContainer : BrandColors.mint,
-              side: BorderSide.none,
-              onPressed: () => context.push('/offers/${o.id}'),
             ),
-        ],
+            if (more > 0) ...[
+              Divider(height: 1, color: fg.withValues(alpha: 0.15)),
+              InkWell(
+                onTap: () => context.push('/offers'),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text('+$more more offer${more == 1 ? '' : 's'}',
+                              style: t.labelLarge?.copyWith(color: fg, fontWeight: FontWeight.w700)),
+                        ),
+                        Icon(PhosphorIconsBold.caretRight, size: IconSizes.sm, color: fg),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -534,19 +667,22 @@ class _Swatch extends StatelessWidget {
   }
 }
 
-/// The sticky bar for a sold-out pick: says so instead of Add to cart / Buy now, and offers the nearest one in stock.
-class _SoldOutBar extends StatelessWidget {
-  const _SoldOutBar({required this.variant, required this.alternative, required this.onSwitch});
+/// The sticky bar for a sold-out pick: says so instead of Add to cart / Buy now, and offers the nearest one in stock,
+/// or a WhatsApp message asking to hear when it's back.
+class _SoldOutBar extends ConsumerWidget {
+  const _SoldOutBar({required this.item, required this.variant, required this.alternative, required this.onSwitch});
 
+  final String item; // "Samsung Galaxy S25 (12 GB · 256 GB · Navy)"
   final Variant variant;
   final Variant? alternative;
   final VoidCallback? onSwitch;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final alt = alternative;
+    final phone = ref.watch(storeSettingsProvider).value?.storePhone;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -556,17 +692,13 @@ class _SoldOutBar extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(PhosphorIconsRegular.prohibit, size: 20, color: c.error),
+              Icon(PhosphorIconsRegular.prohibit, size: IconSizes.md, color: c.onSurfaceVariant),
               const SizedBox(width: Space.sm),
               Expanded(
                 child: Text.rich(
-                  TextSpan(children: [
-                    const TextSpan(text: 'Out of stock', style: TextStyle(fontWeight: FontWeight.w700)),
-                    TextSpan(
-                      text: alt == null
-                          ? ' · this one is sold out for now. Ask us on WhatsApp when it’s back.'
-                          : ' · this one is sold out right now.',
-                    ),
+                  const TextSpan(children: [
+                    TextSpan(text: 'Out of stock', style: TextStyle(fontWeight: FontWeight.w700)),
+                    TextSpan(text: ' · this one is sold out right now.'),
                   ]),
                   style: t.bodyMedium,
                 ),
@@ -574,10 +706,18 @@ class _SoldOutBar extends StatelessWidget {
             ],
           ),
         ),
-        if (alt != null) ...[
-          const SizedBox(height: Space.sm),
-          FilledButton(onPressed: onSwitch, child: Text('See ${switchLabel(alt, variant)} in stock')),
-        ],
+        const SizedBox(height: Space.sm),
+        if (alt != null)
+          FilledButton(onPressed: onSwitch, child: Text('See ${switchLabel(alt, variant)} in stock'))
+        else
+          FilledButton.icon(
+            onPressed: phone == null
+                ? null
+                : () => openUri(context, whatsAppUri(phone, text: 'Hi, please tell me when $item is back in stock.')),
+            style: FilledButton.styleFrom(backgroundColor: BrandColors.whatsapp, foregroundColor: BrandColors.ink),
+            icon: const Icon(PhosphorIconsFill.whatsappLogo),
+            label: const Text('Ask on WhatsApp when it’s back'),
+          ),
       ],
     );
   }
@@ -592,39 +732,111 @@ String deliveryTerms(StoreSettings s) => [
       if (s.codEnabled) ' · Cash on delivery up to ${formatInr(s.codMaxPaise)}',
     ].join();
 
+/// Free delivery and cash on delivery, on mint: good news about money.
 class _DeliveryCard extends StatelessWidget {
   const _DeliveryCard(this.s);
 
   final StoreSettings s;
 
   @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: Space.md),
-        child: Row(
-          children: [
-            Icon(PhosphorIconsRegular.truck, size: 22, color: c.secondary),
-            const SizedBox(width: Space.md),
-            Expanded(
-              child: Text.rich(
-                TextSpan(children: [
-                  const TextSpan(text: 'Free delivery', style: TextStyle(fontWeight: FontWeight.w700)),
-                  TextSpan(text: deliveryTerms(s)),
-                ]),
-                style: Theme.of(context).textTheme.bodySmall,
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(color: BrandColors.mint, borderRadius: BorderRadius.circular(Radii.lg)),
+        child: Padding(
+          padding: const EdgeInsets.all(Space.md),
+          child: Row(
+            children: [
+              const Icon(PhosphorIconsRegular.truck, size: IconSizes.lg, color: BrandColors.emerald),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(
+                      text: 'Free delivery',
+                      style: TextStyle(color: BrandColors.mintInk, fontWeight: FontWeight.w700),
+                    ),
+                    TextSpan(text: deliveryTerms(s)),
+                  ]),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: BrandColors.ink),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      );
+}
+
+/// The returns & warranty policy from the shop's settings, in a sheet.
+void showReturnsSheet(BuildContext context, StoreSettings settings) => showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Returns & warranty', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: Space.md),
+              Text(settings.returnsPolicy, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      ),
+    );
+
+/// "Why buy from us": genuine (and the IMEI check, for a phone), the warranty from the specs, the policy, the shop.
+class _WhyBuy extends StatelessWidget {
+  const _WhyBuy({required this.settings, required this.product});
+
+  final StoreSettings settings;
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    const chevron = Icon(PhosphorIconsBold.caretRight, size: IconSizes.sm);
+    final warranty = product.specs.where((s) => s.label.toLowerCase() == 'warranty').firstOrNull?.value;
+    final rows = [
+      ListTile(
+        leading: const IconWell(PhosphorIconsRegular.sealCheck, tint: Worlds.shop),
+        title: const Text('Genuine and sealed'),
+        subtitle: product.category.kind == CategoryKind.phone
+            ? const Text('Check the IMEI with *#06# when it arrives')
+            : null,
+      ),
+      if (warranty != null && warranty.isNotEmpty)
+        ListTile(
+          leading: const IconWell(PhosphorIconsRegular.shieldCheck, tint: Worlds.shop),
+          title: Text('Warranty: $warranty'),
+        ),
+      if (settings.returnsPolicy.isNotEmpty)
+        ListTile(
+          leading: const IconWell(PhosphorIconsRegular.arrowUUpLeft, tint: Worlds.shop),
+          title: const Text('Returns & warranty policy'),
+          trailing: chevron,
+          onTap: () => showReturnsSheet(context, settings),
+        ),
+      if (settings.mapsDestination.isNotEmpty)
+        ListTile(
+          leading: const IconWell(PhosphorIconsRegular.storefront, tint: Worlds.shop),
+          title: const Text('See it at our shop'),
+          subtitle: settings.storeAddress.isEmpty ? null : Text(settings.storeAddress, maxLines: 2, overflow: TextOverflow.ellipsis),
+          trailing: chevron,
+          onTap: () => openUri(context, directionsUri(settings.mapsDestination)),
+        ),
+    ];
+    return Card(
+      child: Column(
+        children: [
+          for (final (i, r) in rows.indexed) ...[if (i > 0) const Divider(), r],
+        ],
       ),
     );
   }
 }
 
-/// "Returns & warranty", "WhatsApp" (prefilled with the product and variant) and a wholesale enquiry:
-/// the shop sells wholesale too, and dealers ask for bulk prices over WhatsApp.
+/// "Ask on WhatsApp" (prefilled with the product and variant) and a wholesale enquiry: the shop sells wholesale too,
+/// and dealers ask for bulk prices over WhatsApp.
 class _StoreRows extends StatelessWidget {
   const _StoreRows({required this.settings, required this.item});
 
@@ -638,57 +850,27 @@ class _StoreRows extends StatelessWidget {
       builder: (context) => const _BulkSheet(),
     );
     if (qty == null || !context.mounted) return;
-    await openExternal(context, whatsappUri(settings.storePhone, 'Hi, I’d like your wholesale price for $qty+ units of $item.'),
-        'Couldn’t open WhatsApp.');
+    await openUri(context, whatsAppUri(settings.storePhone, text: 'Hi, I’d like your wholesale price for $qty+ units of $item.'));
   }
-
-  void _showReturns(BuildContext context) => showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder: (context) => SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Returns & warranty', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: Space.md),
-                Text(settings.returnsPolicy, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
-          ),
-        ),
-      );
 
   @override
   Widget build(BuildContext context) {
-    const chevron = Icon(PhosphorIconsBold.caretRight, size: 16);
+    const chevron = Icon(PhosphorIconsBold.caretRight, size: IconSizes.sm);
     return Card(
       child: Column(
         children: [
-          if (settings.returnsPolicy.isNotEmpty) ...[
-            ListTile(
-              leading: const Icon(PhosphorIconsRegular.shieldCheck),
-              title: const Text('Returns & warranty'),
-              trailing: chevron,
-              onTap: () => _showReturns(context),
-            ),
-            const Divider(),
-          ],
           ListTile(
-            leading: const WhatsAppIcon(),
-            title: const Text('WhatsApp'),
-            subtitle: const Text('Ask us about this product'),
+            leading: const SizedBox.square(dimension: 36, child: Center(child: WhatsAppIcon(size: 24))),
+            title: const Text('Ask on WhatsApp'),
+            subtitle: const Text('Price, colours, stock: we reply during shop hours'),
             trailing: chevron,
-            onTap: () => openExternal(
-                context, whatsappUri(settings.storePhone, 'Hi, I’m interested in $item'), 'Couldn’t open WhatsApp.'),
+            onTap: () => openUri(context, whatsAppUri(settings.storePhone, text: 'Hi, I’m interested in $item')),
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(PhosphorIconsRegular.package),
-            title: const Text('Buying in bulk?'),
-            subtitle: const Text('Get our wholesale price on WhatsApp'),
+            leading: const IconWell(PhosphorIconsRegular.package, tint: Worlds.admin),
+            title: const Text('Buying 10 or more?'),
+            subtitle: const Text('Ask for our wholesale price'),
             trailing: chevron,
             onTap: () => _askBulk(context),
           ),

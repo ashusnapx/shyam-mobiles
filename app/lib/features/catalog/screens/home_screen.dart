@@ -13,6 +13,7 @@ import '../../../core/network.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/generative.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../offers/data/offers.dart';
@@ -22,11 +23,11 @@ import '../data/catalog.dart';
 import '../data/rails.dart';
 import '../widgets/product_rail.dart';
 import '../widgets/product_tile.dart';
-import '../widgets/store_links.dart';
 import '../widgets/store_photos.dart';
 
-/// Products first: a pinned bar (brand, call, search), one carousel of offers and featured products, a row of
-/// categories, a one-line repair strip, then rails of products and a grid; the shop's card last.
+/// Products first: a pinned bar (brand, WhatsApp, call, search), one carousel of offers and featured products, why
+/// to buy here, the categories, then what this customer viewed, the phones, one repair strip, budgets, deals, brands
+/// and the newest products; the shop's card last.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -113,44 +114,49 @@ class HomeScreen extends ConsumerWidget {
     ];
     final phoneSlugs = {for (final c in d.categories) if (c.kind == CategoryKind.phone) c.slug};
     final phones = [for (final c in d.featured) if (phoneSlugs.contains(c.categorySlug)) c];
+    final phoneCategory = phones.firstOrNull?.categorySlug ?? 'smartphones';
     return [
       if (slides.isNotEmpty)
         SliverToBoxAdapter(
           key: const ValueKey('hero'),
           child: PullScale(child: _HeroCarousel(slides, saver: saver)).enter(context),
         ),
-      SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryRow(d.categories).enter(context, index: 1)),
-      SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairStrip().enter(context, index: 2)),
-      if (d.accessories.isNotEmpty)
-        SliverToBoxAdapter(
-          key: const ValueKey('deals'),
-          child: ProductRail(
-            title: 'Deals under ₹1,500',
-            band: 'deals',
-            value: AsyncData(d.accessories),
-            onSeeAll: () => context.go('/search?sort=price_asc'),
-          ).enter(context, index: 3),
-        ),
+      if (settings != null)
+        SliverToBoxAdapter(key: const ValueKey('trust'), child: _TrustStrip(settings).enter(context, index: 1)),
+      SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryRow(d.categories).enter(context, index: 2)),
+      const SliverToBoxAdapter(key: ValueKey('recent'), child: RecentlyViewedRail()),
       if (phones.isNotEmpty)
         SliverToBoxAdapter(
           key: const ValueKey('phones'),
+          child: ProductRail(
+            title: 'Featured phones',
+            band: sectionTints.phones,
+            value: AsyncData(phones),
+            onSeeAll: () => context.go('/search?category=$phoneCategory'),
+          ).enter(context, index: 3),
+        ),
+      SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairStrip().enter(context, index: 4)),
+      SliverToBoxAdapter(key: const ValueKey('budget'), child: RevealOnScroll(child: _BudgetRow(phoneCategory))),
+      if (d.accessories.isNotEmpty)
+        SliverToBoxAdapter(
+          key: const ValueKey('deals'),
           child: RevealOnScroll(
             child: ProductRail(
-              title: 'Featured phones',
-              band: 'phones',
-              value: AsyncData(phones),
-              onSeeAll: () => context.go('/search?category=${phones.first.categorySlug}'),
+              title: 'Deals under ₹1,500',
+              band: sectionTints.deals,
+              value: AsyncData(d.accessories),
+              onSeeAll: () => context.go('/search?max=150000'),
             ),
           ),
         ),
-      const SliverToBoxAdapter(key: ValueKey('recent'), child: RevealOnScroll(child: RecentlyViewedRail())),
+      SliverToBoxAdapter(key: const ValueKey('brands'), child: RevealOnScroll(child: _BrandRow(phones))),
       ..._moreGrid(context, ref),
       if (settings != null) SliverToBoxAdapter(key: const ValueKey('store'), child: _StoreCard(settings)),
       const SliverPadding(key: ValueKey('end'), padding: EdgeInsets.only(bottom: Space.xl)),
     ];
   }
 
-  /// "More to explore": the newest products, two to a row on their own band. Hidden while loading, empty or failing.
+  /// "New in the shop": the newest products, two to a row on their own band. Hidden while loading, empty or failing.
   List<Widget> _moreGrid(BuildContext context, WidgetRef ref) {
     final more = ref.watch(latestProvider).value ?? const <ProductCard>[];
     if (more.isEmpty) return const [];
@@ -168,10 +174,10 @@ class HomeScreen extends ConsumerWidget {
         key: const ValueKey('more'),
         child: RevealOnScroll(
             child: SectionBand(
-              seed: 'explore',
+              tint: sectionTints.explore,
               child: Column(
                 children: [
-                  RailHeader('More to explore', accent: softPalette('explore').accent,
+                  SectionHeader('New in the shop', accent: sectionTints.explore.$2,
                       onSeeAll: () => context.go('/search?sort=newest')),
                   for (var i = 0; i < more.length; i += 2)
                     Padding(
@@ -206,8 +212,7 @@ class HomeScreen extends ConsumerWidget {
           for (var i = 0; i < 6; i++)
             Category(id: '$i', slug: 'skeleton-$i', name: 'Category', kind: CategoryKind.accessory),
         ]),
-        const _RepairStrip(),
-        ProductRail(title: 'Deals under ₹1,500', value: AsyncData(fakeCards(3))),
+        ProductRail(title: 'Featured phones', value: AsyncData(fakeCards(3))),
       ],
     ),
   );
@@ -256,16 +261,23 @@ class _TopBar extends SliverPersistentHeaderDelegate {
                       'Shyam Mobiles',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      // the wordmark is a logo: it keeps its size when the phone's text is larger
+                      textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.1),
                       style: t.displaySmall?.copyWith(fontSize: 22, height: 1),
                     ),
                   ),
                   const NotificationBell(), // left of Call; nothing when signed out
                   IconButton(
-                    tooltip: 'Call the store',
-                    icon: const Icon(PhosphorIconsRegular.phone),
+                    tooltip: 'WhatsApp the shop',
+                    icon: const WhatsAppIcon(),
                     onPressed: s == null
                         ? null
-                        : () => openExternal(context, Uri(scheme: 'tel', path: s.storePhone), 'Couldn’t open the dialer.'),
+                        : () => openUri(context, whatsAppUri(s.storePhone, text: 'Hi, I have a question.')),
+                  ),
+                  IconButton(
+                    tooltip: 'Call the shop',
+                    icon: const Icon(PhosphorIconsRegular.phone),
+                    onPressed: s == null ? null : () => openUri(context, telUri(s.storePhone)),
                   ),
                 ],
               ),
@@ -418,7 +430,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
     if (_count == 1) return Padding(padding: const EdgeInsets.only(top: Space.xs), child: _slide(0));
     final c = Theme.of(context).colorScheme;
     final key = widget.slides[_index].key;
-    final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 500);
+    final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.slide;
     return Padding(
       padding: const EdgeInsets.only(top: Space.xs),
       child: Column(
@@ -538,7 +550,7 @@ class _ProductSlide extends StatelessWidget {
     final off = discountPercent(card.minPricePaise, card.mrpPaise);
     return Pressable(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(Radii.hero),
         // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
         child: AuroraBackground(
           palette: palette,
@@ -562,7 +574,7 @@ class _ProductSlide extends StatelessWidget {
                             Semantics(
                               header: true,
                               child: Text(
-                                shortName(card.name, card.brandName),
+                                card.name,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: t.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
@@ -576,7 +588,7 @@ class _ProductSlide extends StatelessWidget {
                             const SizedBox(height: 10),
                             // looks like the banners' white button; the whole card is the tap target
                             DecoratedBox(
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.md)),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 5),
                                 child: Row(
@@ -614,13 +626,7 @@ class _ProductSlide extends StatelessWidget {
   }
 }
 
-/// Short one-line label and icon per category. Its colours come from its slug ([softPalette]); saffron is kept for
-/// Repairs.
-(Color, Color) _tint(String slug) {
-  final p = softPalette(slug);
-  return (p.band, p.accent);
-}
-
+/// Short one-line label and icon per category; its colours are fixed ([categoryTint]).
 const _categoryLooks = {
   'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile),
   'keypad-phones': ('Keypad', PhosphorIconsRegular.deviceMobileSpeaker),
@@ -631,8 +637,8 @@ const _categoryLooks = {
   'power-banks': ('Power bank', PhosphorIconsRegular.batteryCharging),
 };
 
-/// One row of round category tiles that scrolls sideways (the next tile peeks out), with All first and See all last,
-/// so every category is a tap away without a swipe.
+/// One row of round category tiles that scrolls sideways (the next tile peeks out), with All first. Repairs has its
+/// own tab and strip.
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow(this.categories);
 
@@ -646,16 +652,9 @@ class _CategoryRow extends StatelessWidget {
         _CategoryTile(
           label: _categoryLooks[cat.slug]?.$1 ?? cat.name,
           icon: _categoryLooks[cat.slug]?.$2 ?? PhosphorIconsRegular.tag,
-          tint: _tint(cat.slug),
+          tint: categoryTint(cat.slug),
           onTap: () => context.go('/search?category=${cat.slug}'),
         ),
-      _CategoryTile(
-        label: 'Repairs',
-        icon: PhosphorIconsRegular.wrench,
-        tint: (BrandColors.cream, BrandColors.saffron),
-        onTap: () => context.go('/repairs'),
-      ),
-      _CategoryTile(label: 'See all', icon: PhosphorIconsRegular.arrowRight, onTap: () => context.go('/search')),
     ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -674,7 +673,7 @@ class _CategoryTile extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  final (Color, Color)? tint; // background and icon; null is the neutral All / See all tile
+  final Tint? tint; // background and icon; null is the neutral All tile
 
   @override
   Widget build(BuildContext context) {
@@ -707,7 +706,7 @@ class _CategoryTile extends StatelessWidget {
   }
 }
 
-/// One slim line (48 dp) to book a repair: saffron on cream, like the Repairs tile.
+/// The one repair entry on Home's first screens: two lines on cream, "Book free" in saffron.
 class _RepairStrip extends StatelessWidget {
   const _RepairStrip();
 
@@ -715,42 +714,207 @@ class _RepairStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, 10, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
       child: Material(
         color: BrandColors.cream,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.button),
         child: InkWell(
           onTap: () => context.push('/repairs/new'),
-          borderRadius: BorderRadius.circular(14),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: Space.xs),
-              child: Row(
-                children: [
-                  const Icon(PhosphorIconsFill.wrench, size: 20, color: BrandColors.saffron),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text.rich(
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      const TextSpan(children: [
-                        TextSpan(text: 'Screen or battery trouble? '),
-                        TextSpan(
-                          text: 'Book a repair',
-                          style: TextStyle(color: BrandColors.saffron, fontWeight: FontWeight.w800),
-                        ),
-                      ]),
-                      style: t.bodySmall?.copyWith(color: BrandColors.creamInk, fontWeight: FontWeight.w600),
-                    ),
+          borderRadius: BorderRadius.circular(Radii.button),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.md),
+            child: Row(
+              children: [
+                const IconWell(PhosphorIconsFill.wrench, tint: (Colors.white, BrandColors.saffron), size: 40),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Phone repair at our shop',
+                          style: t.titleSmall?.copyWith(color: BrandColors.creamInk, fontWeight: FontWeight.w700)),
+                      Text('Screen, battery, charging port · You approve the price first',
+                          style: t.bodySmall?.copyWith(color: BrandColors.creamInk)),
+                    ],
                   ),
-                  const Icon(PhosphorIconsBold.arrowRight, size: 16, color: BrandColors.saffron),
-                ],
-              ),
+                ),
+                const SizedBox(width: Space.sm),
+                Text('Book free', style: t.labelLarge?.copyWith(color: BrandColors.saffron, fontWeight: FontWeight.w800)),
+                const SizedBox(width: Space.xs),
+                const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.saffron),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Why buy here, in one row under the carousel: what the shop promises, from its settings. Tap for the details.
+class _TrustStrip extends StatelessWidget {
+  const _TrustStrip(this.settings);
+
+  final StoreSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = settings;
+    final free = s.freeDeliveryMinPaise == 0 || s.deliveryFeePaise == 0
+        ? 'Free delivery'
+        : 'Free delivery over ${formatInr(s.freeDeliveryMinPaise)}';
+    final items = [
+      (PhosphorIconsRegular.sealCheck, 'Genuine products'),
+      if (s.codEnabled) (PhosphorIconsRegular.money, 'Cash on delivery'),
+      (PhosphorIconsRegular.truck, free),
+    ];
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.sm, Space.sm, Space.sm, 0),
+      child: Semantics(
+        button: true,
+        label: '${items.map((i) => i.$2).join(', ')}. Why buy from us',
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: () => showWhyBuySheet(context, s),
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Row(
+              children: [
+                for (final (icon, label) in items)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+                      child: Row(
+                        children: [
+                          Icon(icon, size: IconSizes.md, color: BrandColors.peacock),
+                          const SizedBox(width: Space.xs),
+                          Expanded(
+                            child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                style: t.labelSmall?.copyWith(height: 1.2)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Why buy from us": the promises behind the trust strip, each from the shop's real settings.
+Future<void> showWhyBuySheet(BuildContext context, StoreSettings s) => showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) {
+        final t = Theme.of(context).textTheme;
+        Widget row(IconData icon, String text, {Widget? trailing}) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: IconWell(icon, tint: Worlds.shop),
+              title: Text(text, style: t.bodyMedium),
+              trailing: trailing,
+            );
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Why buy from us', style: t.displaySmall?.copyWith(fontSize: 22)),
+                const SizedBox(height: Space.sm),
+                row(PhosphorIconsRegular.sealCheck, 'Genuine, sealed-box products'),
+                row(PhosphorIconsRegular.deviceMobile, 'IMEI shown on your order: check it with *#06#'),
+                if (s.codEnabled) row(PhosphorIconsRegular.money, 'Cash on delivery up to ${formatInr(s.codMaxPaise)}'),
+                row(PhosphorIconsRegular.receipt, 'No platform, COD or packing fees'),
+                if (s.storeAddress.isNotEmpty)
+                  row(
+                    PhosphorIconsRegular.storefront,
+                    'A real shop: ${s.storeAddress}',
+                    trailing: s.mapsDestination.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Directions to the shop',
+                            icon: const Icon(PhosphorIconsRegular.navigationArrow),
+                            onPressed: () => openUri(context, directionsUri(s.mapsDestination)),
+                          ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+/// "Shop by budget": phone price bands, each opening the phones in it.
+class _BudgetRow extends StatelessWidget {
+  const _BudgetRow(this.category);
+
+  final String category;
+
+  static const _bands = [
+    ('Under ₹10,000', 'max=1000000'),
+    ('Under ₹15,000', 'max=1500000'),
+    ('Under ₹25,000', 'max=2500000'),
+    ('Above ₹25,000', 'min=2500000'),
+  ];
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionHeader('Shop by budget'),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+            child: Row(
+              spacing: Space.sm,
+              children: [
+                for (final (label, q) in _bands)
+                  ActionChip(label: Text(label), onPressed: () => context.go('/search?category=$category&$q')),
+              ],
+            ),
+          ),
+        ],
+      );
+}
+
+/// "Shop by brand": every brand as a chip, phone brands first. Hidden until the brands load.
+class _BrandRow extends ConsumerWidget {
+  const _BrandRow(this.phones);
+
+  final List<ProductCard> phones; // their brands go first
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final brands = ref.watch(brandsProvider).value ?? const <Brand>[];
+    if (brands.isEmpty) return const SizedBox.shrink();
+    final phoneBrands = {for (final p in phones) p.brandName};
+    final sorted = [
+      ...brands.where((b) => phoneBrands.contains(b.name)),
+      ...brands.where((b) => !phoneBrands.contains(b.name)),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionHeader('Shop by brand'),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          child: Row(
+            spacing: Space.sm,
+            children: [
+              for (final b in sorted)
+                ActionChip(label: Text(b.name), onPressed: () => context.go('/search?brand=${b.slug}')),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -770,7 +934,7 @@ class _StoreCard extends StatelessWidget {
     ].where((s) => s.isNotEmpty).join(' · ');
     final listing = settings.mapsListingUri;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, 22, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.xl, Space.lg, 0),
       child: Card(
         clipBehavior: Clip.antiAlias, // rounds the photos' top corners
         child: Column(
@@ -787,23 +951,21 @@ class _StoreCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Visit the store', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        Text('Visit the shop', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                         Text(details, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
                       ],
                     ),
                   ),
                   if (settings.mapsDestination.isNotEmpty)
                     IconButton(
-                      tooltip: 'Directions to the store',
+                      tooltip: 'Directions to the shop',
                       icon: const Icon(PhosphorIconsRegular.navigationArrow),
-                      onPressed: () =>
-                          openExternal(context, directionsUri(settings.mapsDestination), 'Couldn’t open Google Maps.'),
+                      onPressed: () => openUri(context, directionsUri(settings.mapsDestination)),
                     ),
                   IconButton(
-                    tooltip: 'WhatsApp the store',
-                    color: c.secondary,
+                    tooltip: 'WhatsApp the shop',
                     icon: const WhatsAppIcon(),
-                    onPressed: () => openExternal(context, whatsappUri(settings.storePhone), 'Couldn’t open WhatsApp.'),
+                    onPressed: () => openUri(context, whatsAppUri(settings.storePhone)),
                   ),
                 ],
               ),
@@ -816,7 +978,7 @@ class _StoreCard extends StatelessWidget {
                 leading: const Icon(PhosphorIconsRegular.mapTrifold),
                 title: const Text('Photos, reviews & hours on Google Maps'),
                 trailing: const Icon(PhosphorIconsRegular.arrowSquareOut, size: 18),
-                onTap: () => openExternal(context, listing, 'Couldn’t open Google Maps.'),
+                onTap: () => openUri(context, listing),
               ),
           ],
         ),

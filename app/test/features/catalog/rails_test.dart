@@ -98,16 +98,15 @@ void main() {
     expect(find.byTooltip('Share'), findsOneWidget);
     // Navy is picked (cheapest in stock): its photo, then the untagged box shot
     expect(find.bySemanticsLabel('Photo 1 of 2, opens full screen'), findsOneWidget);
+    await scrollTo(tester, find.text('Fits this phone')); // right after why-buy, before the reading
+    await scrollTo(tester, find.text('Spigen Ultra Hybrid Case for iPhone 16'));
     await scrollTo(tester, find.text('Similar products'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Fits this phone'), findsOneWidget);
-    expect(api.calls, containsAll(['fits Galaxy S25 | Samsung Galaxy S25', 'similar smartphones 7499900 p']));
-    await scrollTo(tester, find.text('Ultra Hybrid Case for iPhone 16'));
     await tester.pumpAndSettle();
+    expect(api.calls, containsAll(['fits Galaxy S25 | Samsung Galaxy S25', 'similar smartphones 7499900 p']));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('rails hide when empty or failing; Home shows Recently viewed only once something was opened',
+  testWidgets('rails hide when empty or failing; Home shows Recently viewed once two things were opened',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(ProviderScope(
@@ -129,8 +128,11 @@ void main() {
     final container = ProviderScope.containerOf(tester.element(find.byType(ListView)));
     await container.read(recentlyViewedProvider.notifier).add('pixel');
     await tester.pump();
+    expect(find.text('Recently viewed'), findsNothing, reason: 'one product is just a visit');
+    await container.read(recentlyViewedProvider.notifier).add('s25');
+    await tester.pump();
     await tester.pumpAndSettle(); // the rail rises in
     expect(find.text('Recently viewed'), findsOneWidget);
-    expect(find.text('Pixel 9a'), findsOneWidget);
+    expect(find.text('Google Pixel 9a'), findsOneWidget);
   });
 }

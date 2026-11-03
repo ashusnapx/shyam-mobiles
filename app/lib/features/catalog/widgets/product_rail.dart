@@ -18,17 +18,16 @@ class ProductRail extends StatelessWidget {
 
   final String title;
   final AsyncValue<List<ProductCard>> value;
-  final VoidCallback? onSeeAll; // the header's "See all"
-  final String? band; // a [SectionBand] seed: 'deals', 'phones', 'fits'…
+  final VoidCallback? onSeeAll; // the header's "See all": the full list of what the rail shows
+  final Tint? band; // one of [sectionTints]
 
   @override
   Widget build(BuildContext context) {
     if (value.hasError || (value.hasValue && value.value!.isEmpty)) return const SizedBox.shrink();
-    final palette = band == null ? null : softPalette(band!);
     final rail = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        RailHeader(title, onSeeAll: onSeeAll, accent: palette?.accent),
+        SectionHeader(title, onSeeAll: onSeeAll, accent: band?.$2),
         AsyncBody<List<ProductCard>>(
           value: value,
           loading: Skeletonizer(child: _Row(fakeCards(3))),
@@ -36,24 +35,23 @@ class ProductRail extends StatelessWidget {
         ),
       ],
     );
-    return band == null ? rail : SectionBand(seed: band!, child: rail);
+    return band == null ? rail : SectionBand(tint: band!, child: rail);
   }
 }
 
-/// A section on its own soft band, its colours made by maths from [seed] ([softPalette]): full width and still (a big
-/// band never drifts). The section's title pill takes the palette's accent.
+/// A section on its own soft band of a fixed [tint] ([sectionTints]): full width and still (a big band never
+/// drifts). The section's title pill takes the tint's accent.
 class SectionBand extends StatelessWidget {
-  const SectionBand({super.key, required this.seed, required this.child});
+  const SectionBand({super.key, required this.tint, required this.child});
 
-  final String seed;
+  final Tint tint;
   final Widget child;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: Space.md), // a white gap between bands
     child: AuroraBackground(
-      palette: softPalette(seed),
-      seed: seed,
+      palette: tintPalette(tint),
       still: true,
       child: Padding(
         padding: const EdgeInsets.only(bottom: Space.lg),
@@ -61,53 +59,6 @@ class SectionBand extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// A compact section title in the brand face, with an [accent] pill before it on a band and an optional "See all".
-class RailHeader extends StatelessWidget {
-  const RailHeader(this.title, {super.key, this.onSeeAll, this.accent});
-
-  final String title;
-  final VoidCallback? onSeeAll;
-  final Color? accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(Space.lg, Space.md, Space.xs, onSeeAll == null ? Space.sm : 0),
-      child: Row(
-        children: [
-          if (accent != null) ...[
-            DecoratedBox(
-              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
-              child: const SizedBox(width: 4, height: 16),
-            ),
-            const SizedBox(width: Space.sm),
-          ],
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(
-                title,
-                style: t.displaySmall?.copyWith(fontSize: t.titleLarge?.fontSize, letterSpacing: -0.3, height: 1.2),
-              ),
-            ),
-          ),
-          if (onSeeAll != null)
-            TextButton(
-              onPressed: onSeeAll,
-              style: TextButton.styleFrom(
-                minimumSize: const Size(48, 40),
-                padding: const EdgeInsets.symmetric(horizontal: Space.md),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text('See all'),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _Row extends StatelessWidget {
@@ -142,33 +93,13 @@ class _Row extends StatelessWidget {
   );
 }
 
-/// Home's "Recently viewed"; nothing until a product has been opened on this phone.
+/// Home's "Recently viewed"; nothing until two products have been opened on this phone (one is just a visit).
 class RecentlyViewedRail extends ConsumerWidget {
   const RecentlyViewedRail({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (ref.watch(recentlyViewedProvider).value?.isEmpty ?? true) return const SizedBox.shrink();
-    return ProductRail(title: 'Recently viewed', band: 'recent', value: ref.watch(recentCardsProvider));
+    if ((ref.watch(recentlyViewedProvider).value?.length ?? 0) < 2) return const SizedBox.shrink();
+    return ProductRail(title: 'Recently viewed', band: sectionTints.recent, value: ref.watch(recentCardsProvider));
   }
-}
-
-/// The product page's rails: "Fits this phone" (phones only) and "Similar".
-class ProductRails extends ConsumerWidget {
-  const ProductRails({super.key, required this.product});
-
-  final Product product;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => Padding(
-    padding: const EdgeInsets.only(bottom: Space.xl),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (product.category.kind == CategoryKind.phone)
-          ProductRail(title: 'Fits this phone', band: 'fits', value: ref.watch(fitsProvider(product.slug))),
-        ProductRail(title: 'Similar products', band: 'similar', value: ref.watch(similarProvider(product.slug))),
-      ],
-    ),
-  );
 }

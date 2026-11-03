@@ -97,6 +97,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 category: s.uri.queryParameters['category'],
                 brand: s.uri.queryParameters['brand'],
                 sort: s.uri.queryParameters['sort'],
+                minPrice: int.tryParse(s.uri.queryParameters['min'] ?? ''),
+                maxPrice: int.tryParse(s.uri.queryParameters['max'] ?? ''),
               ),
             ),
           ]),

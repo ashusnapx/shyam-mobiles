@@ -18,8 +18,16 @@ Future<Map<String, String>> paramsFor(SearchParams p, {int offset = 0}) async {
   return url.queryParameters;
 }
 
-SearchParams params({String q = '', String? category, String? brand, int? max, SearchSort sort = SearchSort.relevance}) =>
-    (q: q, category: category, brand: brand, maxPricePaise: max, sort: sort);
+SearchParams params({
+  String q = '',
+  String? category,
+  String? brand,
+  int? min,
+  int? max,
+  bool inStock = false,
+  SearchSort sort = SearchSort.relevance,
+}) =>
+    (q: q, category: category, brand: brand, minPricePaise: min, maxPricePaise: max, inStock: inStock, sort: sort);
 
 void main() {
   test('sort param round-trips and unknown values fall back to relevance', () {
@@ -35,7 +43,8 @@ void main() {
     final qp = await paramsFor(params());
     expect(qp['select'], cardColumns.replaceAll(' ', ''));
     expect(qp.containsKey('search'), isFalse);
-    expect(qp['order'], 'is_featured.desc.nullslast,name.asc.nullslast,id.asc.nullslast');
+    expect(qp['order'], 'in_stock.desc.nullslast,is_featured.desc.nullslast,name.asc.nullslast,id.asc.nullslast');
+    expect(qp.containsKey('in_stock'), isFalse, reason: 'sold-out items still show, after the rest');
     expect(qp['offset'], '0');
     expect(qp['limit'], '20');
   });
@@ -49,17 +58,26 @@ void main() {
     expect(qp['category_slug'], 'eq.smartphones');
     expect(qp['brand_slug'], 'eq.samsung');
     expect(qp['min_price_paise'], 'lte.3000000');
-    expect(qp['order'], 'min_price_paise.asc.nullslast,id.asc.nullslast');
+    expect(qp['order'], 'in_stock.desc.nullslast,min_price_paise.asc.nullslast,id.asc.nullslast');
     expect(qp['offset'], '40');
     expect(qp['limit'], '20');
   });
 
   test('each sort maps to its order, always ending on id', () async {
-    expect((await paramsFor(params(sort: SearchSort.newest)))['order'], 'created_at.desc.nullslast,id.asc.nullslast');
+    expect(
+      (await paramsFor(params(sort: SearchSort.newest)))['order'],
+      'in_stock.desc.nullslast,created_at.desc.nullslast,id.asc.nullslast',
+    );
     expect(
       (await paramsFor(params(sort: SearchSort.priceDesc)))['order'],
-      'min_price_paise.desc.nullslast,id.asc.nullslast',
+      'in_stock.desc.nullslast,min_price_paise.desc.nullslast,id.asc.nullslast',
     );
+  });
+
+  test('a budget band and the in-stock toggle become gte / eq filters', () async {
+    final qp = await paramsFor(params(min: 2500000, inStock: true));
+    expect(qp['min_price_paise'], 'gte.2500000');
+    expect(qp['in_stock'], 'eq.true');
   });
 
   test('prefix query: partial words match, tsquery syntax is stripped', () {

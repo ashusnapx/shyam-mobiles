@@ -326,7 +326,7 @@ class MultiPickerField<T> extends FormField<Set<T>> {
         );
 }
 
-/// Filter chip that opens [showPickerSheet]: a caret (or [icon]) marks it as a list, tinted while a filter is set.
+/// Filter chip that opens [showPickerSheet]: a caret (or [icon]) marks it as a list, solid ink while a filter is set.
 class PickerChip extends StatelessWidget {
   const PickerChip({super.key, required this.label, required this.selected, required this.onTap, this.icon});
 
@@ -338,11 +338,10 @@ class PickerChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
-    final fg = selected ? c.onPrimaryContainer : c.onSurface;
+    final fg = selected ? c.onPrimary : c.onSurface;
     return FilterChip(
       selected: selected,
       showCheckmark: false,
-      selectedColor: c.primaryContainer,
       side: selected ? BorderSide.none : null,
       avatar: icon == null ? null : Icon(icon, size: 16, color: fg),
       label: Row(

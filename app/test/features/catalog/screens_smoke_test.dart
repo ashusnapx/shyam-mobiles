@@ -144,7 +144,7 @@ Future<void> pump(
       storeSettingsProvider.overrideWith((ref) async => store),
       categoriesProvider.overrideWith((ref) async => [
             for (final (i, s) in ['smartphones', 'cases-covers', 'screen-guards', 'chargers-cables', 'earbuds-headphones', 'power-banks'].indexed)
-              Category(id: '$i', slug: s, name: s, kind: CategoryKind.accessory),
+              Category(id: '$i', slug: s, name: s, kind: i == 0 ? CategoryKind.phone : CategoryKind.accessory),
           ]),
       brandsProvider.overrideWith((ref) async => const [Brand(id: 'b', slug: 'samsung', name: 'Samsung')]),
       ...overrides,
@@ -177,9 +177,9 @@ void main() {
   for (final scheme in [lightScheme]) {
     testWidgets('home renders without overflow (${scheme.brightness.name})', (tester) async {
       await pump(tester, '/', scheme: scheme, overrides: [homeProvider.overrideWith((ref) async => homeData)]);
-      expect(find.text('Galaxy S25'), findsWidgets);
+      expect(find.text('Samsung Galaxy S25'), findsWidgets);
       await scrollThrough(tester);
-      expect(find.text('Visit the store'), findsOneWidget);
+      expect(find.text('Visit the shop'), findsOneWidget);
     });
   }
 
@@ -200,7 +200,7 @@ void main() {
     );
     await pump(tester, '/', store: withPhotos, overrides: [homeProvider.overrideWith((ref) async => homeData)]);
     await scrollThrough(tester);
-    expect(find.text('Visit the store'), findsOneWidget);
+    expect(find.text('Visit the shop'), findsOneWidget);
     expect(find.text('Photos, reviews & hours on Google Maps'), findsOneWidget);
     expect(find.bySemanticsLabel('Photo of the shop, 1 of 3'), findsOneWidget);
 
@@ -214,24 +214,24 @@ void main() {
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
     expect(find.text('2 of 3'), findsNothing);
-    expect(find.text('Visit the store'), findsOneWidget);
+    expect(find.text('Visit the shop'), findsOneWidget);
   });
 
   testWidgets('featured hero slides to the next product on its own and swipes back', (tester) async {
     final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
     await tester.pumpAndSettle(); // the sections' entrance
-    expect(find.text('Galaxy S25').hitTestable(), findsOneWidget);
+    expect(find.text('Samsung Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Slide 1 of 3'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 4600));
     await tester.pumpAndSettle();
-    expect(find.text('Redmi Note 14 Pro 5G').hitTestable(), findsOneWidget);
-    expect(find.text('Galaxy S25').hitTestable(), findsNothing);
+    expect(find.text('Xiaomi Redmi Note 14 Pro 5G').hitTestable(), findsOneWidget);
+    expect(find.text('Samsung Galaxy S25').hitTestable(), findsNothing);
 
-    await tester.fling(find.text('Redmi Note 14 Pro 5G').hitTestable(), const Offset(400, 0), 1200);
+    await tester.fling(find.text('Xiaomi Redmi Note 14 Pro 5G').hitTestable(), const Offset(400, 0), 1200);
     await tester.pumpAndSettle();
-    expect(find.text('Galaxy S25').hitTestable(), findsOneWidget);
+    expect(find.text('Samsung Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Slide 1 of 3'), findsOneWidget);
     await tester.pumpWidget(const SizedBox()); // dispose, so the carousel's timer is cancelled
   });
@@ -273,9 +273,17 @@ void main() {
   });
 
   testWidgets('search renders results, chips and count', (tester) async {
-    const SearchParams initial = (q: '', category: 'smartphones', brand: null, maxPricePaise: null, sort: SearchSort.relevance);
+    const SearchParams initial = (
+      q: '',
+      category: 'smartphones',
+      brand: null,
+      minPricePaise: null,
+      maxPricePaise: null,
+      inStock: false,
+      sort: SearchSort.relevance,
+    );
     await pump(tester, '/search?category=smartphones', overrides: [searchProvider(initial).overrideWith(() => FakeSearch(initial))]);
-    expect(find.text('30 results'), findsOneWidget);
+    expect(find.text('30 phones'), findsOneWidget);
     expect(find.text('smartphones'), findsOneWidget); // selected category chip shows its name
     expect(find.text('Out of stock'), findsOneWidget);
     expect(find.byTooltip('Save to wishlist'), findsWidgets);
@@ -283,15 +291,17 @@ void main() {
 
   testWidgets('product renders picker, delivery, specs and sticky bar', (tester) async {
     await pump(tester, '/product/s25', overrides: [productProvider.overrideWith((ref, slug) async => product)]);
-    expect(find.text('Galaxy S25'), findsOneWidget);
+    expect(find.text('Samsung Galaxy S25'), findsOneWidget);
     expect(find.text('Add to cart'), findsOneWidget);
     expect(find.text('Buy now'), findsOneWidget);
     expect(find.textContaining('+₹12,000', findRichText: true), findsOneWidget);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -300)); // the pickers sit under the price block
+    await tester.pump();
     await tester.tap(find.textContaining('512 GB', findRichText: true));
     await tester.pump();
     expect(find.text('Only 2 left'), findsOneWidget);
     await scrollThrough(tester);
-    expect(find.text('WhatsApp'), findsOneWidget);
+    expect(find.text('Ask on WhatsApp'), findsOneWidget);
     expect(find.text('Battery'), findsOneWidget);
   });
 
@@ -319,7 +329,7 @@ void main() {
     await pump(tester, '/wishlist', userId: 'u1', overrides: [
       wishlistCardsProvider.overrideWithBuild((ref, _) async => (items: [cards[0], cards[3]], hasMore: false, moreFailed: false)),
     ]);
-    expect(find.text('Galaxy S25'), findsOneWidget);
+    expect(find.text('Samsung Galaxy S25'), findsOneWidget);
     expect(find.byTooltip('Remove from wishlist'), findsNWidgets(2));
   });
 }

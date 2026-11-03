@@ -43,6 +43,7 @@ final homeProvider = FutureProvider<HomeData>((ref) {
           .from('product_cards')
           .select(cardColumns)
           .eq('category_kind', 'accessory')
+          .eq('in_stock', true) // a deal you can't buy isn't one
           .lte('min_price_paise', 150000)
           .order('min_price_paise', ascending: true)
           .order('id', ascending: true)
@@ -91,7 +92,16 @@ enum SearchSort {
   static SearchSort parse(String? param) => values.firstWhere((s) => s.param == param, orElse: () => relevance);
 }
 
-typedef SearchParams = ({String q, String? category, String? brand, int? maxPricePaise, SearchSort sort});
+/// [inStock]: only what can be bought now. Whatever the filters, in-stock rows come first.
+typedef SearchParams = ({
+  String q,
+  String? category,
+  String? brand,
+  int? minPricePaise,
+  int? maxPricePaise,
+  bool inStock,
+  SearchSort sort,
+});
 
 /// One page of `product_cards` for [p], starting at row [offset]. Always ends on `id` so paging is stable.
 PostgrestTransformBuilder<PostgrestList> searchQuery(
@@ -105,13 +115,16 @@ PostgrestTransformBuilder<PostgrestList> searchQuery(
   if (tsquery != null) q = q.textSearch('search', tsquery, config: 'simple');
   if (p.category != null) q = q.eq('category_slug', p.category!);
   if (p.brand != null) q = q.eq('brand_slug', p.brand!);
+  if (p.minPricePaise != null) q = q.gte('min_price_paise', p.minPricePaise!);
   if (p.maxPricePaise != null) q = q.lte('min_price_paise', p.maxPricePaise!);
+  if (p.inStock) q = q.eq('in_stock', true);
+  final stocked = q.order('in_stock'); // what can be bought first, in every sort
   final sorted = switch (p.sort) {
     // shortcut: no ts_rank through PostgREST, so "relevance" is featured first; needs an RPC for real ranking
-    SearchSort.relevance => q.order('is_featured').order('name', ascending: true),
-    SearchSort.newest => q.order('created_at'),
-    SearchSort.priceAsc => q.order('min_price_paise', ascending: true),
-    SearchSort.priceDesc => q.order('min_price_paise'),
+    SearchSort.relevance => stocked.order('is_featured').order('name', ascending: true),
+    SearchSort.newest => stocked.order('created_at'),
+    SearchSort.priceAsc => stocked.order('min_price_paise', ascending: true),
+    SearchSort.priceDesc => stocked.order('min_price_paise'),
   };
   return sorted.order('id', ascending: true).range(offset, offset + pageSize - 1);
 }
