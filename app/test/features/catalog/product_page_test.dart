@@ -76,6 +76,17 @@ void main() {
     expect(tester.widget<ListView>(find.byType(ListView).first).physics, isNot(isA<NeverScrollableScrollPhysics>()));
   });
 
+  testWidgets('scrolled past the photos, the top bar paints a solid background under its buttons', (tester) async {
+    await _pump(tester);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -800));
+    await tester.pumpAndSettle();
+    final layer = find.descendant(
+        of: find.descendant(of: find.byType(AppBar), matching: find.byType(AnimatedOpacity)),
+        matching: find.byType(DecoratedBox));
+    expect(tester.widget<AnimatedOpacity>(find.descendant(of: find.byType(AppBar), matching: find.byType(AnimatedOpacity))).opacity, 1);
+    expect(tester.getSize(layer).height, greaterThanOrEqualTo(kToolbarHeight), reason: 'a zero-height layer paints nothing');
+  });
+
   testWidgets('the zoom hint shows the first time only', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await _pump(tester);

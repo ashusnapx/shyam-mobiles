@@ -187,8 +187,11 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
         flexibleSpace: AnimatedOpacity(
           opacity: _scrolled ? 1 : 0,
           duration: Motion.fast,
-          child: DecoratedBox(
-            decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.outlineVariant))),
+          // expand: a childless DecoratedBox in the app bar's stack sizes to zero height and paints nothing
+          child: SizedBox.expand(
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.outlineVariant))),
+            ),
           ),
         ),
         title: _scrolled && product != null
