@@ -4,22 +4,18 @@ import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
+import 'profile_repository.dart';
 
-/// The signed-in user's `profiles` row (own-row RLS). Null when signed out.
+/// The signed-in user's profile. Null when signed out.
 final profileProvider = FutureProvider<Profile?>((ref) async {
   final uid = ref.watch(currentUserIdProvider);
   if (uid == null) return null;
-  final row = await ref.watch(supabaseProvider).from('profiles').select().eq('id', uid).maybeSingle();
-  return row == null ? null : Profile.fromJson(row);
+  return ref.watch(profileRepositoryProvider).profile(uid);
 });
 
-/// Blank clears the name. Max 80 chars with a letter (DB check), tidied like every typed value.
+/// Blank clears the name. Tidied like every typed value; the caller checked it (validatePersonName).
 Future<void> saveFullName(WidgetRef ref, String name) async {
-  final trimmed = tidy(name);
-  await ref
-      .read(supabaseProvider)
-      .from('profiles')
-      .update({'full_name': trimmed.isEmpty ? null : trimmed}).eq('id', ref.read(currentUserIdProvider)!);
+  await ref.read(profileRepositoryProvider).saveFullName(ref.read(currentUserIdProvider)!, tidy(name));
   ref.invalidate(profileProvider);
   await ref.read(profileProvider.future);
 }

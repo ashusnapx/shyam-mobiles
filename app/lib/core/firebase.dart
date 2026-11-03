@@ -4,9 +4,11 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend.dart';
 import 'env.dart';
@@ -53,27 +55,27 @@ Future<void> initFirebase() async {
       providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
     );
   }
-  // Ads stay off for good. Collection itself starts off (AndroidManifest.xml) until [setAnalyticsConsent].
+  // Ads stay off for good. Collection itself starts off (AndroidManifest.xml) until Telemetry.setAnalyticsConsent.
   await FirebaseAnalytics.instance.setConsent(
     adStorageConsentGranted: false,
     adUserDataConsentGranted: false,
     adPersonalizationSignalsConsentGranted: false,
   );
+  // Crash reports (docs/SECURITY.md §4.4): no user id, allowlisted keys only, on unless switched off in Privacy.
+  final crashlytics = FirebaseCrashlytics.instance;
+  await crashlytics.setCrashlyticsCollectionEnabled(await crashReportsEnabled());
+  await crashlytics.setCustomKey('backend', backend.name);
+  await crashlytics.setCustomKey('build', kReleaseMode ? 'release' : 'debug');
+  FlutterError.onError = crashlytics.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    crashlytics.recordError(error, stack, fatal: true);
+    return true;
+  };
 }
 
-/// The customer's "Help improve the app" choice (Account → Privacy, docs/SECURITY.md §4.2). Firebase remembers it on
-/// the phone; withdrawing also wipes this install's analytics data.
-Future<void> setAnalyticsConsent(bool granted) async {
-  final analytics = FirebaseAnalytics.instance;
-  await analytics.setConsent(
-    analyticsStorageConsentGranted: granted,
-    adStorageConsentGranted: false,
-    adUserDataConsentGranted: false,
-    adPersonalizationSignalsConsentGranted: false,
-  );
-  await analytics.setAnalyticsCollectionEnabled(granted);
-  if (!granted) await analytics.resetAnalyticsData();
-}
+/// Account → Privacy's crash-report switch, kept on the phone (the default is on).
+Future<bool> crashReportsEnabled() async => (await SharedPreferences.getInstance()).getBool(crashReportsKey) ?? true;
+const crashReportsKey = 'crash_reports';
 
 // The SDK entry points, as providers so Firebase repositories take them from ref and tests can swap them.
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);

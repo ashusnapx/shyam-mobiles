@@ -17,20 +17,27 @@ Future<void> _ensureInit() => _init ??= GoogleSignIn.instance.initialize(
       clientId: _isIos ? Env.googleIosClientId : null, // untested: v1 ships on Android only
     );
 
-/// Native Google sheet, then a Supabase session from its ID token. Returns false if the user backed out.
-Future<bool> signInWithGoogle(GoTrueClient auth) async {
+/// The native Google sheet's ID token, or null if the user backed out. Each backend turns it into a session.
+Future<String?> googleIdToken() async {
   await _ensureInit();
   final GoogleSignInAccount account;
   try {
     account = await GoogleSignIn.instance.authenticate();
   } on GoogleSignInException catch (e) {
-    if (e.code == GoogleSignInExceptionCode.canceled) return false;
+    if (e.code == GoogleSignInExceptionCode.canceled) return null;
     rethrow;
   }
   final idToken = account.authentication.idToken;
   if (idToken == null) {
     throw const GoogleSignInException(code: GoogleSignInExceptionCode.unknownError, description: 'No ID token');
   }
+  return idToken;
+}
+
+/// Native Google sheet, then a Supabase session from its ID token. Returns false if the user backed out.
+Future<bool> signInWithGoogle(GoTrueClient auth) async {
+  final idToken = await googleIdToken();
+  if (idToken == null) return false;
   await auth.signInWithIdToken(provider: OAuthProvider.google, idToken: idToken);
   return true;
 }

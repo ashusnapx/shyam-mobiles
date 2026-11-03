@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- shortcut: Crashlytics starts without the build ID its Gradle plugin injects; add the plugin with
+     `flutterfire configure` (google-services.json, owner step) and delete this file. -->
+<resources>
+    <bool name="com.crashlytics.RequireBuildId">false</bool>
+</resources>

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart' show FirebaseFunctionsException;
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuthException;
 import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -163,6 +164,8 @@ String friendlyError(Object e) {
       if (reason == 'INVALID_PROMOTION' && _promotionRules[detail] != null) return _promotionRules[detail]!;
       if (_codes[reason] case final copy?) return copy;
       return code == 'unavailable' || code == 'deadline-exceeded' ? _offline : fallbackError;
+    case FirebaseAuthException(code: 'network-request-failed'):
+      return _offline;
     case TimeoutException():
       return 'That took too long. Check your connection and try again.';
     case SocketException() || HttpException() || ClientException() || HandshakeException():

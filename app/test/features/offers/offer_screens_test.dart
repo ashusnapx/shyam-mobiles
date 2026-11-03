@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
-import 'package:shyam_mobiles/core/supabase.dart';
 import 'package:shyam_mobiles/features/account/data/addresses.dart';
 import 'package:shyam_mobiles/features/account/data/profile.dart';
 import 'package:shyam_mobiles/features/account/screens/account_screen.dart';
@@ -20,6 +19,7 @@ import 'package:shyam_mobiles/features/checkout/screens/checkout_screen.dart';
 import 'package:shyam_mobiles/features/offers/data/offers.dart';
 import 'package:shyam_mobiles/features/offers/screens/offers_screen.dart';
 import 'package:shyam_mobiles/features/offers/screens/refer_screen.dart';
+import 'package:shyam_mobiles/features/auth/data/auth_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../repairs/layout_harness.dart';
@@ -312,7 +312,7 @@ void main() {
   });
 
   testWidgets('account: Offers & coupons always, Refer & earn only while it runs', (tester) async {
-    const user = User(id: 'user-1', appMetadata: {}, userMetadata: {}, aud: 'authenticated', createdAt: '2026-10-29T00:00:00Z', email: 'asha@example.com');
+    const user = AppUser(id: 'user-1', email: 'asha@example.com');
     final overrides = [currentUserProvider.overrideWithValue(user), profileProvider.overrideWithValue(const AsyncData(null))];
     await pumpScreen(tester, const AccountScreen(), overrides: overrides);
     expect(find.text('Offers & coupons'), findsOneWidget);

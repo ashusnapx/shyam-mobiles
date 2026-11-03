@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
+import 'profile_repository.dart';
 
 /// The address the next order goes to, picked in the cart or at checkout (they share it). Null: the default.
 final selectedAddressProvider = NotifierProvider<SelectedAddress, Address?>(SelectedAddress.new);
@@ -22,48 +22,39 @@ class SelectedAddress extends Notifier<Address?> {
 Address? deliveryAddressFrom(List<Address> list, Address? picked) =>
     picked == null ? list.firstOrNull : list.where((a) => a.id == picked.id).firstOrNull ?? picked;
 
-/// The signed-in user's addresses, default first. Setting `is_default` on one unsets the others (DB trigger).
+/// The signed-in user's addresses, default first.
 final addressesProvider = AsyncNotifierProvider<AddressesNotifier, List<Address>>(AddressesNotifier.new);
 
 class AddressesNotifier extends AsyncNotifier<List<Address>> {
-  SupabaseClient get _db => ref.read(supabaseProvider);
+  ProfileRepository get _repo => ref.read(profileRepositoryProvider);
+  String get _uid => ref.read(currentUserIdProvider)!;
 
   @override
   Future<List<Address>> build() async {
-    if (ref.watch(currentUserIdProvider) == null) return const [];
-    final rows = await _db
-        .from('addresses')
-        .select()
-        .order('is_default', ascending: false)
-        .order('created_at', ascending: false);
-    return [for (final r in rows) Address.fromJson(r)];
+    final uid = ref.watch(currentUserIdProvider);
+    if (uid == null) return const [];
+    return ref.watch(profileRepositoryProvider).addresses(uid);
   }
 
-  /// Inserts when `address.id` is null, else updates. Returns the saved row.
+  /// Creates when `address.id` is null, else updates. Returns the saved address.
   Future<Address> save(Address address) async {
-    final row = address.id == null
-        ? await _db
-            .from('addresses')
-            .insert({...address.toJson(), 'user_id': ref.read(currentUserIdProvider)})
-            .select()
-            .single()
-        : await _db.from('addresses').update(address.toJson()).eq('id', address.id!).select().single();
+    final saved = await _repo.saveAddress(_uid, address);
     ref.invalidateSelf();
     // Saved: a failed reload must not look like a failed save, or a second tap inserts a duplicate.
     try {
       await future;
     } catch (_) {} // the list screen shows the reload error with a retry
-    return Address.fromJson(row);
+    return saved;
   }
 
   Future<void> setDefault(String id) async {
-    await _db.from('addresses').update({'is_default': true}).eq('id', id);
+    await _repo.setDefaultAddress(_uid, id);
     ref.invalidateSelf();
     await future;
   }
 
   Future<void> delete(String id) async {
-    await _db.from('addresses').delete().eq('id', id);
+    await _repo.deleteAddress(_uid, id);
     ref.invalidateSelf();
     await future;
   }

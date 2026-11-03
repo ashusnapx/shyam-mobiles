@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shyam_mobiles/core/callable.dart';
 import 'package:shyam_mobiles/core/errors.dart';
@@ -28,6 +29,10 @@ void main() {
     expect(isSessionError(fails('unauthenticated', {'reason': 'UNAUTHORIZED'})), isTrue);
     expect(isSessionError(fails('unauthenticated', {'reason': 'REAUTH_REQUIRED'})), isFalse);
     expect(friendlyError(fails('unauthenticated', {'reason': 'REAUTH_REQUIRED'})), 'For your security, sign in again to do this.');
+  });
+
+  test('Firebase Auth offline reads as offline', () {
+    expect(friendlyError(FirebaseAuthException(code: 'network-request-failed')), contains('offline'));
   });
 
   test('reasonOf', () {

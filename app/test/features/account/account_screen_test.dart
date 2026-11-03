@@ -2,10 +2,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:shyam_mobiles/core/supabase.dart';
 import 'package:shyam_mobiles/features/account/data/profile.dart';
 import 'package:shyam_mobiles/features/account/screens/account_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shyam_mobiles/features/auth/data/auth_repository.dart';
 
 import '../repairs/layout_harness.dart';
 
@@ -20,14 +19,7 @@ void main() {
 
   testWidgets('signing out asks first, with staying signed in as the filled choice', (tester) async {
     await pumpScreen(tester, const AccountScreen(), overrides: [
-      currentUserProvider.overrideWithValue(const User(
-        id: 'user-1',
-        appMetadata: {},
-        userMetadata: {},
-        aud: 'authenticated',
-        createdAt: '2026-10-29T00:00:00Z',
-        email: 'rahul@example.com',
-      )),
+      currentUserProvider.overrideWithValue(const AppUser(id: 'user-1', email: 'rahul@example.com')),
       profileProvider.overrideWithValue(const AsyncData(null)),
     ]);
     expect(find.text('Data saver'), findsNothing);

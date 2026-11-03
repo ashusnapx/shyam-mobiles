@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/backend.dart';
+import '../../../core/firebase.dart';
 import '../../../core/supabase.dart';
+import 'auth_repository_firebase.dart';
 import 'auth_repository_supabase.dart';
 
 /// The signed-in person as the app needs them: no Supabase or Firebase types past this file.
@@ -62,5 +64,22 @@ abstract interface class AuthRepository {
 /// The DI seam. Phase 1 (engineer A) returns SupabaseAuthRepository or FirebaseAuthRepository by `backend`; tests
 /// override it with test/fakes/fake_auth_repository.dart.
 final authRepositoryProvider = Provider<AuthRepository>((ref) => backend == Backend.firebase
-    ? throw UnimplementedError('Phase 1: FirebaseAuthRepository')
+    ? FirebaseAuthRepository(ref.watch(firebaseAuthProvider))
     : SupabaseAuthRepository(ref.watch(supabaseProvider)));
+
+final _authChangesProvider = StreamProvider<AppUser?>((ref) => ref.watch(authRepositoryProvider).userChanges());
+
+/// The signed-in person, or null. Changes on sign-in and sign-out (core/supabase.dart re-exports it until Phase 2).
+final currentUserProvider = Provider<AppUser?>((ref) {
+  ref.watch(_authChangesProvider);
+  return ref.watch(authRepositoryProvider).currentUser;
+});
+
+/// For data that belongs to the user: only changes on sign-in and sign-out, so data isn't refetched needlessly.
+final currentUserIdProvider = Provider<String?>((ref) => ref.watch(currentUserProvider)?.id);
+
+/// Staff screens are shown only to staff; the server checks again on every call.
+final isAdminProvider = FutureProvider<bool>((ref) async {
+  if (ref.watch(currentUserIdProvider) == null) return false;
+  return await ref.watch(authRepositoryProvider).staffRole() != null;
+});

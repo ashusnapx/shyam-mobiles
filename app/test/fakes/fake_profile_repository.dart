@@ -59,6 +59,12 @@ class FakeProfileRepository with Fake implements ProfileRepository {
     if (hasActiveOrders) throw reason('ACTIVE_ORDERS');
   }
 
+  @override
+  Future<Map<String, Object?>> exportMyData(String uid) async {
+    record('exportMyData $uid');
+    return {'profile': profiles[uid]?.fullName, 'addresses': addressBook[uid]?.length ?? 0};
+  }
+
   static Address _withId(Address a, String id, {required bool isDefault}) => Address(
         id: id,
         name: a.name,

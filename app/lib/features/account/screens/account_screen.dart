@@ -9,13 +9,14 @@ import '../../../core/format.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../auth/data/google.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../feedback/data/feedback.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../notifications/data/notifications.dart';
 import '../widgets/policies.dart';
 import '../widgets/store_card.dart';
 import '../data/profile.dart';
+import '../data/profile_repository.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
@@ -27,11 +28,8 @@ class AccountScreen extends ConsumerStatefulWidget {
 class _AccountScreenState extends ConsumerState<AccountScreen> {
   bool _deleting = false;
 
-  Future<void> _signOut() async {
-    await signOutOfGoogle();
-    // gotrue clears the local session before calling the server, so a failed call still signs out here.
-    await ref.read(supabaseProvider).auth.signOut().catchError((_) {});
-  }
+  // The session is cleared on the phone first, so a failed server call still signs out here.
+  Future<void> _signOut() => ref.read(authRepositoryProvider).signOut().catchError((_) {});
 
   // Signing back in costs a new code (an SMS for phone users), so a stray tap shouldn't sign anyone out.
   Future<void> _confirmSignOut() async {
@@ -62,7 +60,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     if (!ok || !mounted) return;
     setState(() => _deleting = true);
     try {
-      await ref.read(supabaseProvider).functions.invoke('delete-account', body: const <String, dynamic>{});
+      await ref.read(profileRepositoryProvider).deleteAccount();
       await _signOut(); // the user is gone server-side; this clears the local session
       if (!mounted) return;
       showMessage(context, 'Your account was deleted.');
@@ -146,6 +144,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 subtitle: switch (ref.watch(unreadCountProvider)) { 0 => null, final n => '$n unread' }),
             row(PhosphorIconsRegular.userCircle, 'Profile', () => context.push('/account/profile'),
                 tint: (BrandColors.slateMist, BrandColors.slate)),
+            row(PhosphorIconsRegular.shieldCheck, 'Privacy', () => context.push('/account/privacy'),
+                tint: (BrandColors.slateMist, BrandColors.slate), subtitle: 'Usage data, crash reports, your data'),
             row(
               PhosphorIconsRegular.chatCircleText,
               'Send feedback',

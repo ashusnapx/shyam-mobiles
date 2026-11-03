@@ -10,7 +10,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/env.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
-import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/widgets/policies.dart';

@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../features/account/data/profile.dart';
 import '../features/account/screens/account_screen.dart';
 import '../features/account/screens/address_form_screen.dart';
 import '../features/account/screens/addresses_screen.dart';
 import '../features/account/screens/policy_screen.dart';
+import '../features/account/screens/privacy_screen.dart';
 import '../features/account/screens/profile_screen.dart';
 import '../features/admin/screens/admin_banners_screen.dart';
 import '../features/admin/screens/admin_catalogue_screen.dart';
@@ -46,7 +48,6 @@ import '../features/repairs/screens/repairs_screen.dart';
 import '../features/wishlist/screens/wishlist_screen.dart';
 import 'deep_links.dart';
 import 'links.dart';
-import 'supabase.dart';
 import 'theme/tokens.dart';
 import 'widgets/widgets.dart';
 
@@ -61,9 +62,10 @@ String? safeReturnPath(String? from) =>
     from != null && from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/sign-in') ? from : null;
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(supabaseProvider).auth;
-  final refresh = _StreamListenable(auth.onAuthStateChange);
+  final auth = ref.watch(authRepositoryProvider);
+  final refresh = _StreamListenable(auth.userChanges());
   ref.onDispose(refresh.dispose);
+  ref.listen(profileProvider, (_, _) => refresh.ping()); // the name guard below waits for the profile
 
   GoRoute sub(String path, Widget Function(GoRouterState s) build, {List<RouteBase> routes = const []}) =>
       GoRoute(path: path, parentNavigatorKey: rootNavigatorKey, builder: (_, s) => build(s), routes: routes);
@@ -86,13 +88,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (link.code case final code?) unawaited(ref.read(pendingReferralProvider.notifier).remember(code));
         return link.to;
       }
-      final signedIn = auth.currentSession != null;
+      final user = auth.currentUser;
+      final signedIn = user != null;
       final path = state.matchedLocation;
       if (!signedIn && _authOnly.any(path.startsWith)) {
         return '/sign-in?from=${Uri.encodeComponent(state.uri.toString())}';
       }
       if (signedIn && path.startsWith('/sign-in')) {
-        return afterSignInPath(state.uri.queryParameters['from'], byPhone: auth.currentUser?.phone?.isNotEmpty ?? false);
+        return afterSignInPath(state.uri.queryParameters['from'], byPhone: user.phone != null);
+      }
+      // docs/FIREBASE.md §4: a phone sign-up whose name was never saved (the app was killed on /welcome) is asked again.
+      if (signedIn && user.phone != null && !path.startsWith('/welcome') && !path.startsWith('/sign-in')) {
+        if (ref.read(profileProvider) case AsyncData(:final value) when value?.fullName == null) {
+          return Uri(path: '/welcome', queryParameters: {'from': state.uri.toString()}).toString();
+        }
       }
       // Server enforces admin rights; this just keeps non-staff out of screens they can't use.
       if (path.startsWith('/admin') && ref.read(isAdminProvider).value == false) return '/';
@@ -116,6 +125,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: '/account', builder: (_, _) => const AccountScreen(), routes: [
               sub('profile', (_) => const ProfileScreen()),
+              sub('privacy', (_) => const PrivacyScreen()),
               sub('refer', (_) => const ReferScreen()),
               sub('addresses', (_) => const AddressesScreen(), routes: [
                 sub('new', (_) => const AddressFormScreen()),
@@ -231,6 +241,8 @@ class _StreamListenable extends ChangeNotifier {
   }
 
   late final StreamSubscription<dynamic> _sub;
+
+  void ping() => notifyListeners();
 
   @override
   void dispose() {

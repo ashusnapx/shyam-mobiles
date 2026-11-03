@@ -9,6 +9,9 @@ import 'env.dart';
 import 'models/models.dart';
 import 'network.dart';
 
+// The session moved behind AuthRepository; re-exported so the app's imports stay put until Phase 2 deletes this file.
+export '../features/auth/data/auth_repository.dart' show currentUserProvider, currentUserIdProvider, isAdminProvider;
+
 const _secure = FlutterSecureStorage();
 
 /// Keeps the session in Keychain/Keystore instead of SharedPreferences.
@@ -91,22 +94,6 @@ String? thumbPathFor(String path) =>
     path.endsWith('.webp') ? '${path.substring(0, path.length - '.webp'.length)}@thumb.webp' : null;
 
 final supabaseProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
-
-final authStateProvider = StreamProvider<AuthState>((ref) => ref.watch(supabaseProvider).auth.onAuthStateChange);
-
-/// For UI that shows email/phone. Rebuilds on every auth event, including token refreshes.
-final currentUserProvider = Provider<User?>((ref) {
-  ref.watch(authStateProvider);
-  return ref.watch(supabaseProvider).auth.currentUser;
-});
-
-/// For data that belongs to the user. Only changes on sign-in/sign-out, so data isn't refetched on token refresh.
-final currentUserIdProvider = Provider<String?>((ref) => ref.watch(currentUserProvider)?.id);
-
-final isAdminProvider = FutureProvider<bool>((ref) async {
-  if (ref.watch(currentUserIdProvider) == null) return false;
-  return await ref.watch(supabaseProvider).rpc<bool>('is_admin');
-});
 
 /// Saved on the phone: a cold start (or no signal) shows the last copy at once and refreshes in the background.
 final storeSettingsProvider = FutureProvider<StoreSettings>((ref) {
