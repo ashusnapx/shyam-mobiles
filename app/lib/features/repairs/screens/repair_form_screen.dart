@@ -17,6 +17,7 @@ import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/booking_days.dart';
 import '../data/repairs.dart';
+import '../data/repairs_repository.dart';
 import '../widgets/repair_widgets.dart';
 
 // what sells in Waidhan, most common first; keypad phones are mostly Nokia and LAVA
@@ -76,8 +77,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
     if (!fieldsOk) return;
     setState(() => _busy = true);
     try {
-      final id = await bookRepair(
-        ref.read(supabaseProvider),
+      final id = await ref.read(repairsRepositoryProvider).book(
         deviceBrand: _brand == 'Other' ? tidy(_otherBrand.text) : _brand!,
         deviceModel: tidy(_model.text),
         issue: _issue!,

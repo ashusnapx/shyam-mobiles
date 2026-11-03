@@ -2,12 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
+import '../data/repairs_repository.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
-import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
@@ -64,11 +63,11 @@ class _RepairDetailScreenState extends ConsumerState<RepairDetailScreen> {
   }
 
   /// Runs [write], says [done], and reloads the booking and the list either way (a refusal means it changed).
-  Future<void> _write(String done, Future<void> Function(SupabaseClient db) write) async {
+  Future<void> _write(String done, Future<void> Function(RepairsRepository repo) write) async {
     // The container outlives this screen: the lists still refresh if the customer goes back mid-call.
     final container = ProviderScope.containerOf(context, listen: false);
     try {
-      await write(container.read(supabaseProvider));
+      await write(container.read(repairsRepositoryProvider));
       if (mounted) showMessage(context, done);
     } catch (e) {
       if (mounted) showMessage(context, friendlyError(e));
@@ -89,7 +88,7 @@ class _RepairDetailScreenState extends ConsumerState<RepairDetailScreen> {
       destructive: true,
     );
     if (!ok || !mounted) return;
-    await _write('Booking cancelled', (db) => cancelRepair(db, widget.bookingId));
+    await _write('Booking cancelled', (repo) => repo.cancel(widget.bookingId));
   }
 
   Future<void> _approve(RepairBooking b) async {
@@ -102,7 +101,7 @@ class _RepairDetailScreenState extends ConsumerState<RepairDetailScreen> {
       keep: 'Not now',
     );
     if (!ok || !mounted) return;
-    await _write('Price approved', (db) => approveRepairQuote(db, b));
+    await _write('Price approved', (repo) => repo.approveQuote(b));
   }
 
   Future<void> _decline(RepairBooking b) async {
@@ -117,7 +116,7 @@ class _RepairDetailScreenState extends ConsumerState<RepairDetailScreen> {
       maxLength: 300,
     );
     if (reason == null || !mounted) return;
-    await _write('Declined. We’ll call you.', (db) => declineRepairQuote(db, b.id, reason));
+    await _write('Declined. We’ll call you.', (repo) => repo.declineQuote(b.id, reason));
   }
 
   @override

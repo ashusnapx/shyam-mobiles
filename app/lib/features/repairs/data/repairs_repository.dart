@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart';
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart';
+import 'repairs_repository_firebase.dart';
+import 'repairs_repository_supabase.dart';
 
 /// Repair bookings, the customer's and the staff side (docs/FIREBASE.md §1: bookRepair … adminSetRepairQuote).
 /// Owner: engineer D.
@@ -45,4 +50,13 @@ abstract interface class RepairsRepository {
   Future<void> setQuote(String id, int paise, {String? note, bool approved = false});
 }
 
-final repairsRepositoryProvider = Provider<RepairsRepository>((ref) => throw UnimplementedError('Phase 1: RepairsRepository'));
+final repairsRepositoryProvider = Provider<RepairsRepository>((ref) => backend == Backend.firebase
+    ? FirebaseRepairsRepository(ref.watch(firestoreProvider), ref.watch(functionsProvider))
+    : SupabaseRepairsRepository(ref.watch(supabaseProvider)));
+
+/// Staff lists: open bookings soonest first; finished ones (and "all") newest first.
+bool upcomingFirst(String filter) => switch (filter) {
+      'all' => false,
+      'open' || 'awaiting_approval' => true,
+      _ => RepairStatus.parse(filter).isOpen,
+    };

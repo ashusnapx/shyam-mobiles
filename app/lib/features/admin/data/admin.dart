@@ -12,6 +12,7 @@ import 'photos.dart';
 import 'rules.dart';
 import '../../repairs/data/booking_days.dart' show istMidnight;
 import '../../repairs/data/repairs.dart';
+import '../../repairs/data/repairs_repository.dart';
 
 // Reads rely on RLS: admins can select every row (incl. inactive products) via the "admin write" policies.
 
@@ -37,12 +38,12 @@ final needsActionProvider = FutureProvider.autoDispose<NeedsAction>((ref) async 
         .inFilter('status', ['confirmed', 'packed'])
         .order('created_at')
         .limit(30),
-    db.from('repair_bookings').select().eq('status', 'requested').order('preferred_date').order('slot').limit(30),
+    ref.read(repairsRepositoryProvider).toConfirm(),
   ).wait;
   final list = [for (final r in orders) Order.fromJson(r)];
   // packing comes before shipping
   list.sort((a, b) => a.status.index.compareTo(b.status.index));
-  return (orders: list, repairs: [for (final r in repairs) RepairBooking.fromJson(r)]);
+  return (orders: list, repairs: repairs);
 });
 
 // Orders ----------------------------------------------------------------------
@@ -152,26 +153,7 @@ class AdminRepairsNotifier extends PagedNotifier<RepairBooking> {
 
   @override
   Future<List<RepairBooking>> fetch(int from, int size) async {
-    final open = [for (final s in RepairStatus.values) if (s.isOpen) s.value];
-    var q = ref.read(supabaseProvider).from('repair_bookings').select();
-    q = switch (filter) {
-      'all' => q,
-      'open' => q.inFilter('status', open),
-      // same rule as admin_dashboard's repairs_awaiting_approval
-      'awaiting_approval' => q.inFilter('status', open).eq('quote_status', 'pending'),
-      _ => q.eq('status', filter),
-    };
-    final upcoming = switch (filter) {
-      'all' => false,
-      'open' || 'awaiting_approval' => true,
-      _ => RepairStatus.parse(filter).isOpen,
-    };
-    final rows = await q
-        .order('preferred_date', ascending: upcoming)
-        .order('slot', ascending: upcoming)
-        .order('id') // ties: no booking repeats or goes missing between pages
-        .range(from, from + size - 1);
-    return [for (final r in rows) RepairBooking.fromJson(r)];
+    return ref.read(repairsRepositoryProvider).adminRepairs(filter, from, size);
   }
 }
 
@@ -186,15 +168,14 @@ void _repairsChanged(WidgetRef ref, String id) {
 /// `admin_update_repair`: one step forward or a cancel (rules.dart mirrors the steps); the current status only
 /// adds [note] to the timeline.
 Future<void> updateRepairStatus(WidgetRef ref, String id, RepairStatus status, {String? note}) async {
-  await _db(ref).rpc<void>('admin_update_repair', params: {'p_booking_id': id, 'p_status': status.value, 'p_note': note});
+  await ref.read(repairsRepositoryProvider).updateStatus(id, status, note: note);
   _repairsChanged(ref, id);
 }
 
 /// `admin_set_repair_quote`: sends or changes the quote, which then waits for the customer; [approved] records a
 /// yes given at the counter or on the phone.
 Future<void> setRepairQuote(WidgetRef ref, String id, int paise, {String? note, bool approved = false}) async {
-  await _db(ref).rpc<void>('admin_set_repair_quote',
-      params: {'p_booking_id': id, 'p_quote_paise': paise, 'p_note': note, 'p_approved': approved});
+  await ref.read(repairsRepositoryProvider).setQuote(id, paise, note: note, approved: approved);
   _repairsChanged(ref, id);
 }
 
