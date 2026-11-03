@@ -1,0 +1,4531 @@
+{
+  "about": "Coupon codes and automatic sales: every COUPON_* error, hidden and personal codes, paused offers, item targets (product, category, brand, collection), percent caps, free_delivery, best offer (a sale that saves more beats a typed code: COUPON_BETTER_OFFER from quoteOrder only, placeOrder just charges the lower price), usage counting (a cancelled order frees its use), the coupon rate limit (10 failed lookups per 10 minutes), listing visibility (offerOpenFor = private.offer_open) and savePromotion validation. Ported from supabase/tests/offers.test.sql, supabase/tests/best_offer.test.sql and scripts/api_e2e.py offers_checks, with the semantics of evaluate_promotion / price_lines (20261030000260_best_offer.sql). Code checks run in this order: COUPON_RATE_LIMIT, COUPON_NOT_FOUND (unknown, paused, someone else's personal code), COUPON_NOT_STARTED, COUPON_EXPIRED, COUPON_USED_UP, COUPON_LIMIT_REACHED, COUPON_FIRST_ORDER, COUPON_ONLINE_ONLY, COUPON_NOT_APPLICABLE (no covered line), COUPON_MIN_ORDER (on covered lines), then COUPON_NOT_APPLICABLE again when the saving (base fee + discount − fee) is not positive. A use = a redemption whose order is not cancelled (redemptions.active, promotions.usesActive). Automatic sales p31-p37 (offers.test.sql:268) and the best-offer pair p40/p41 (v5/v6 here are best_offer.test.sql's phone and cable) appear only in the cases that use them; startsAt \"@now-1h\" stands for the SQL's now(). Conventions beyond vector-format.md: a doc in \"given\" replaces the world doc of the same path whole (every given doc is written in full). A field expected as null matches null or absent. orders items[] are listed in variant-id order; match them by id. \"$orderId\" / \"$id\" = the id the call returned. A \"then\" key ending in \"/*\" means the one doc in that collection (the case starts with none there); \"<collection>/*\": null means the call creates none. Where an expected value was not asserted by the SQL test but re-derived from the SQL code (price_lines, evaluate_promotion, offer_open, reward_referral, apply_referral_code), the case \"about\" says \"derived\".",
+  "now": "2026-11-03T12:00:00+05:30",
+  "world": {
+    "settings/store": {
+      "deliveryFeePaise": 4900,
+      "freeDeliveryMinPaise": 99900,
+      "codEnabled": true,
+      "codMaxPaise": 2500000,
+      "onlinePaymentEnabled": true,
+      "referral": {
+        "enabled": true,
+        "friendPaise": 20000,
+        "rewardPaise": 20000,
+        "minOrderPaise": 199900,
+        "monthlyCap": 10
+      }
+    },
+    "users/alice": {
+      "fullName": "Alice"
+    },
+    "users/bob": {
+      "fullName": "Bob"
+    },
+    "users/carol": {
+      "fullName": "Carol"
+    },
+    "users/dave": {
+      "fullName": "Dave"
+    },
+    "users/erin": {
+      "fullName": "Erin"
+    },
+    "users/ravi": {
+      "fullName": "Ravi Kumar"
+    },
+    "users/staff": {
+      "fullName": "Staff",
+      "role": "staff"
+    },
+    "users/alice/addresses/a0": {
+      "name": "Alice",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/bob/addresses/a0": {
+      "name": "Bob",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/carol/addresses/a0": {
+      "name": "Carol",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/dave/addresses/a0": {
+      "name": "Dave",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/erin/addresses/a0": {
+      "name": "Erin",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/ravi/addresses/a0": {
+      "name": "Ravi Kumar",
+      "phone": "+919811122233",
+      "line1": "Main Road",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "categories/test-phones": {
+      "name": "Test phones",
+      "kind": "phone"
+    },
+    "categories/test-acc": {
+      "name": "Test accessories",
+      "kind": "accessory"
+    },
+    "categories/best-offer-phones": {
+      "name": "Best offer phones",
+      "kind": "phone"
+    },
+    "brands/test-b1": {
+      "name": "B1"
+    },
+    "brands/test-b2": {
+      "name": "B2"
+    },
+    "brands/best-offer-brand": {
+      "name": "Bestbrand"
+    },
+    "products/test-phone": {
+      "name": "Test Phone",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "test-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/test-case": {
+      "name": "Test Case",
+      "brandId": "test-b2",
+      "brandName": "B2",
+      "categoryId": "test-acc",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/test-charger": {
+      "name": "Test Charger",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "test-acc",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/test-cable": {
+      "name": "Test Cable",
+      "brandId": "test-b2",
+      "brandName": "B2",
+      "categoryId": "test-acc",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/best-offer-phone": {
+      "name": "Bestbrand Phone",
+      "brandId": "best-offer-brand",
+      "brandName": "Bestbrand",
+      "categoryId": "best-offer-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/best-offer-cable": {
+      "name": "Bestbrand Cable",
+      "brandId": "best-offer-brand",
+      "brandName": "Bestbrand",
+      "categoryId": "best-offer-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "variants/v1": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-PHONE",
+      "name": "Phone",
+      "pricePaise": 1000000,
+      "mrpPaise": 1000000,
+      "stock": 50
+    },
+    "variants/v2": {
+      "productId": "test-case",
+      "productName": "Test Case",
+      "sku": "T-CASE",
+      "name": "Case",
+      "pricePaise": 50000,
+      "mrpPaise": 50000,
+      "stock": 50
+    },
+    "variants/v3": {
+      "productId": "test-charger",
+      "productName": "Test Charger",
+      "sku": "T-CHARGER",
+      "name": "Charger",
+      "pricePaise": 30000,
+      "mrpPaise": 30000,
+      "stock": 50
+    },
+    "variants/v4": {
+      "productId": "test-cable",
+      "productName": "Test Cable",
+      "sku": "T-CABLE",
+      "name": "Cable",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 50
+    },
+    "variants/v5": {
+      "productId": "best-offer-phone",
+      "productName": "Bestbrand Phone",
+      "sku": "BEST-PHONE",
+      "name": "Black",
+      "pricePaise": 5000000,
+      "mrpPaise": 5000000,
+      "stock": 5
+    },
+    "variants/v6": {
+      "productId": "best-offer-cable",
+      "productName": "Bestbrand Cable",
+      "sku": "BEST-CABLE",
+      "name": "White",
+      "pricePaise": 150000,
+      "mrpPaise": 150000,
+      "stock": 5
+    },
+    "collections/test-picks": {
+      "name": "Test picks",
+      "productIds": [
+        "test-charger"
+      ]
+    },
+    "promotions/p1": {
+      "title": "Welcome",
+      "description": "",
+      "code": "WELCOME",
+      "kind": "flat",
+      "value": 10000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 99900,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": 1,
+      "firstOrderOnly": true,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/WELCOME": {
+      "promotionId": "p1"
+    },
+    "promotions/p2": {
+      "title": "Accessories",
+      "description": "",
+      "code": "ACCX",
+      "kind": "percent",
+      "value": 20,
+      "maxDiscountPaise": 10000,
+      "minSubtotalPaise": 60000,
+      "appliesTo": "items",
+      "targets": [
+        {
+          "type": "category",
+          "id": "test-acc"
+        }
+      ],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/ACCX": {
+      "promotionId": "p2"
+    },
+    "promotions/p3": {
+      "title": "Hidden",
+      "description": "",
+      "code": "HIDDEN1",
+      "kind": "percent",
+      "value": 5,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": false,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/HIDDEN1": {
+      "promotionId": "p3"
+    },
+    "promotions/p4": {
+      "title": "Bob only",
+      "description": "",
+      "code": "BOBONLY",
+      "kind": "flat",
+      "value": 5000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": 1,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": false,
+      "uid": "bob",
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/BOBONLY": {
+      "promotionId": "p4"
+    },
+    "promotions/p5": {
+      "title": "Paused",
+      "description": "",
+      "code": "PAUSED1",
+      "kind": "flat",
+      "value": 5000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": false,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/PAUSED1": {
+      "promotionId": "p5"
+    },
+    "promotions/p6": {
+      "title": "Soon",
+      "description": "",
+      "code": "SOON1",
+      "kind": "flat",
+      "value": 5000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now+1d",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/SOON1": {
+      "promotionId": "p6"
+    },
+    "promotions/p7": {
+      "title": "Over",
+      "description": "",
+      "code": "OLD1",
+      "kind": "flat",
+      "value": 5000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-2d",
+      "endsAt": "@now-1d",
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/OLD1": {
+      "promotionId": "p7"
+    },
+    "promotions/p8": {
+      "title": "Product",
+      "description": "",
+      "code": "PROD1",
+      "kind": "percent",
+      "value": 10,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "items",
+      "targets": [
+        {
+          "type": "product",
+          "id": "test-case"
+        }
+      ],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/PROD1": {
+      "promotionId": "p8"
+    },
+    "promotions/p9": {
+      "title": "Brand",
+      "description": "",
+      "code": "BRAND1",
+      "kind": "percent",
+      "value": 10,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "items",
+      "targets": [
+        {
+          "type": "brand",
+          "id": "test-b1"
+        }
+      ],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/BRAND1": {
+      "promotionId": "p9"
+    },
+    "promotions/p10": {
+      "title": "Group",
+      "description": "",
+      "code": "GROUP1",
+      "kind": "percent",
+      "value": 10,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "items",
+      "targets": [
+        {
+          "type": "collection",
+          "id": "test-picks"
+        }
+      ],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/GROUP1": {
+      "promotionId": "p10"
+    },
+    "promotions/p11": {
+      "title": "Ship free",
+      "description": "",
+      "code": "SHIPFREE",
+      "kind": "free_delivery",
+      "value": 0,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/SHIPFREE": {
+      "promotionId": "p11"
+    },
+    "promotions/p12": {
+      "title": "Flat 500",
+      "description": "",
+      "code": "FLAT500",
+      "kind": "flat",
+      "value": 50000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/FLAT500": {
+      "promotionId": "p12"
+    },
+    "promotions/p13": {
+      "title": "Online",
+      "description": "",
+      "code": "ONLINE1",
+      "kind": "flat",
+      "value": 5000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": true,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/ONLINE1": {
+      "promotionId": "p13"
+    },
+    "promotions/p14": {
+      "title": "Once",
+      "description": "",
+      "code": "ONCE1",
+      "kind": "flat",
+      "value": 5000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": 1,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/ONCE1": {
+      "promotionId": "p14"
+    },
+    "promotions/p15": {
+      "title": "Mine",
+      "description": "",
+      "code": "MINE1",
+      "kind": "flat",
+      "value": 5000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": 1,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/MINE1": {
+      "promotionId": "p15"
+    },
+    "promotions/p16": {
+      "title": "Split",
+      "description": "",
+      "code": "SPLIT1",
+      "kind": "flat",
+      "value": 1001,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/SPLIT1": {
+      "promotionId": "p16"
+    },
+    "promotions/p17": {
+      "title": "One percent",
+      "description": "",
+      "code": "PCT1",
+      "kind": "percent",
+      "value": 1,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/PCT1": {
+      "promotionId": "p17"
+    },
+    "promotions/p18": {
+      "title": "Flat 100",
+      "description": "",
+      "code": "FLAT100",
+      "kind": "flat",
+      "value": 10000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/FLAT100": {
+      "promotionId": "p18"
+    }
+  },
+  "cases": [
+    {
+      "id": "code-is-trimmed-and-uppercased",
+      "source": "supabase/tests/offers.test.sql:146",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": " welCOME "
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 10000,
+        "totalPaise": 990000,
+        "promotion": {
+          "id": "p1",
+          "title": "Welcome",
+          "code": "WELCOME",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "unknown-code-not-found",
+      "source": "supabase/tests/offers.test.sql:147",
+      "about": "A failed lookup is recorded for the rate limit (price_lines inserts a coupon_attempts row).",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "NOPE"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_FOUND",
+        "couponErrorDetail": null
+      },
+      "then": {
+        "rateLimits/alice": {
+          "couponFails": [
+            "@now"
+          ]
+        }
+      }
+    },
+    {
+      "id": "someone-elses-personal-code-looks-unknown",
+      "source": "supabase/tests/offers.test.sql:148",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "BOBONLY"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_FOUND",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "paused-code-looks-unknown",
+      "source": "supabase/tests/offers.test.sql:149",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "PAUSED1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_FOUND",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "code-not-started",
+      "source": "supabase/tests/offers.test.sql:150",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "SOON1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_STARTED",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "code-expired",
+      "source": "supabase/tests/offers.test.sql:151",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "OLD1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_EXPIRED",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "hidden-code-works-when-typed",
+      "source": "supabase/tests/offers.test.sql:152",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "HIDDEN1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 50000,
+        "totalPaise": 950000,
+        "promotion": {
+          "id": "p3",
+          "title": "Hidden",
+          "code": "HIDDEN1",
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "code-with-no-eligible-line-not-applicable",
+      "source": "supabase/tests/offers.test.sql:153",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "PROD1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_APPLICABLE",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "min-order-counts-eligible-lines-only",
+      "source": "supabase/tests/offers.test.sql:159",
+      "about": "₹500 of accessories < the ₹600 minimum, though the cart is ₹10,500; detail = the minimum in paise (offers.test.sql:160).",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "ACCX"
+      },
+      "expect": {
+        "subtotalPaise": 1050000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1050000,
+        "promotion": null,
+        "couponError": "COUPON_MIN_ORDER",
+        "couponErrorDetail": 60000
+      }
+    },
+    {
+      "id": "category-target-percent-capped",
+      "source": "supabase/tests/offers.test.sql:162",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v3": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "ACCX"
+      },
+      "expect": {
+        "subtotalPaise": 1080000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 10000,
+        "totalPaise": 1070000,
+        "promotion": {
+          "id": "p2",
+          "title": "Accessories",
+          "code": "ACCX",
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "product-target",
+      "source": "supabase/tests/offers.test.sql:163",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v3": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "PROD1"
+      },
+      "expect": {
+        "subtotalPaise": 1080000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 5000,
+        "totalPaise": 1075000,
+        "promotion": {
+          "id": "p8",
+          "title": "Product",
+          "code": "PROD1",
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "brand-target",
+      "source": "supabase/tests/offers.test.sql:164",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v3": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "BRAND1"
+      },
+      "expect": {
+        "subtotalPaise": 1080000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 103000,
+        "totalPaise": 977000,
+        "promotion": {
+          "id": "p9",
+          "title": "Brand",
+          "code": "BRAND1",
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "collection-target",
+      "source": "supabase/tests/offers.test.sql:165",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v3": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "GROUP1"
+      },
+      "expect": {
+        "subtotalPaise": 1080000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 3000,
+        "totalPaise": 1077000,
+        "promotion": {
+          "id": "p10",
+          "title": "Group",
+          "code": "GROUP1",
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "free-delivery-code-waives-the-fee",
+      "source": "supabase/tests/offers.test.sql:171",
+      "about": "kind free_delivery: discount 0, fee 0 (saving = the 4900 fee).",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "SHIPFREE"
+      },
+      "expect": {
+        "subtotalPaise": 50000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 50000,
+        "promotion": {
+          "id": "p11",
+          "title": "Ship free",
+          "code": "SHIPFREE",
+          "kind": "free_delivery"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "online-only-code-refused-for-cod",
+      "source": "supabase/tests/offers.test.sql:181",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "ONLINE1",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_ONLINE_ONLY",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "online-only-code-paying-online",
+      "source": "supabase/tests/offers.test.sql:182",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "ONLINE1",
+        "paymentMethod": "online"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 5000,
+        "totalPaise": 995000,
+        "promotion": {
+          "id": "p13",
+          "title": "Online",
+          "code": "ONLINE1",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "online-only-code-before-a-method-is-picked",
+      "source": "supabase/tests/offers.test.sql:183",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "ONLINE1",
+        "paymentMethod": null
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 5000,
+        "totalPaise": 995000,
+        "promotion": {
+          "id": "p13",
+          "title": "Online",
+          "code": "ONLINE1",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-refuses-online-only-code-for-cod",
+      "source": "supabase/tests/offers.test.sql:184",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "ONLINE1"
+      },
+      "error": "COUPON_ONLINE_ONLY"
+    },
+    {
+      "id": "first-order-code-refused-once-an-order-exists",
+      "source": "supabase/tests/offers.test.sql:203",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "WELCOME"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_FIRST_ORDER",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "first-order-code-ignores-cancelled-orders",
+      "source": "supabase/migrations/20261030000000_offers.sql:246",
+      "about": "Derived: evaluate_promotion counts only orders whose status is not cancelled.",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "cancelled",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "WELCOME"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 10000,
+        "totalPaise": 990000,
+        "promotion": {
+          "id": "p1",
+          "title": "Welcome",
+          "code": "WELCOME",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "per-user-limit-reached",
+      "source": "supabase/tests/offers.test.sql:209",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "promotion": {
+            "id": "p15",
+            "title": "Mine",
+            "code": "MINE1",
+            "kind": "flat"
+          }
+        },
+        "redemptions/o1": {
+          "promotionId": "p15",
+          "uid": "alice",
+          "discountPaise": 5000,
+          "active": true
+        },
+        "promotions/p15": {
+          "title": "Mine",
+          "description": "",
+          "code": "MINE1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 1,
+          "discountTotalPaise": 5000
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "MINE1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_LIMIT_REACHED",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "cancelled-order-gives-the-per-user-use-back",
+      "source": "supabase/tests/offers.test.sql:211",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "cancelled",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "promotion": {
+            "id": "p15",
+            "title": "Mine",
+            "code": "MINE1",
+            "kind": "flat"
+          }
+        },
+        "redemptions/o1": {
+          "promotionId": "p15",
+          "uid": "alice",
+          "discountPaise": 5000,
+          "active": false
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "MINE1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 5000,
+        "totalPaise": 995000,
+        "promotion": {
+          "id": "p15",
+          "title": "Mine",
+          "code": "MINE1",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "usage-limit-counts-the-whole-shop",
+      "source": "supabase/tests/offers.test.sql:217",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "bob",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "promotion": {
+            "id": "p14",
+            "title": "Once",
+            "code": "ONCE1",
+            "kind": "flat"
+          }
+        },
+        "redemptions/o1": {
+          "promotionId": "p14",
+          "uid": "bob",
+          "discountPaise": 5000,
+          "active": true
+        },
+        "promotions/p14": {
+          "title": "Once",
+          "description": "",
+          "code": "ONCE1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": 1,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 1,
+          "discountTotalPaise": 5000
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "ONCE1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_USED_UP",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-refuses-a-used-up-code",
+      "source": "supabase/tests/offers.test.sql:218",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "bob",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "promotion": {
+            "id": "p14",
+            "title": "Once",
+            "code": "ONCE1",
+            "kind": "flat"
+          }
+        },
+        "redemptions/o1": {
+          "promotionId": "p14",
+          "uid": "bob",
+          "discountPaise": 5000,
+          "active": true
+        },
+        "promotions/p14": {
+          "title": "Once",
+          "description": "",
+          "code": "ONCE1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": 1,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 1,
+          "discountTotalPaise": 5000
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "ONCE1"
+      },
+      "error": "COUPON_USED_UP"
+    },
+    {
+      "id": "used-up-code-free-again-once-that-order-is-cancelled",
+      "source": "supabase/tests/offers.test.sql:222",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "bob",
+          "status": "cancelled",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "promotion": {
+            "id": "p14",
+            "title": "Once",
+            "code": "ONCE1",
+            "kind": "flat"
+          }
+        },
+        "redemptions/o1": {
+          "promotionId": "p14",
+          "uid": "bob",
+          "discountPaise": 5000,
+          "active": false
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "ONCE1"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 5000,
+        "totalPaise": 995000,
+        "promotion": {
+          "id": "p14",
+          "title": "Once",
+          "code": "ONCE1",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "cancel-frees-the-use-and-its-discount-total",
+      "source": "scripts/api_e2e.py:1061",
+      "about": "Uses count only orders that are not cancelled (promotion_uses); admin_promotions then shows uses 0 (api_e2e.py \"admin_promotions counts uses over orders that are not cancelled\"); its discount total sums the same orders (derived).",
+      "as": "bob",
+      "given": {
+        "orders/o1": {
+          "uid": "bob",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "subtotalPaise": 50000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 49900,
+          "promotion": {
+            "id": "p14",
+            "title": "Once",
+            "code": "ONCE1",
+            "kind": "flat"
+          },
+          "couponCode": "ONCE1",
+          "items": [
+            {
+              "id": "v2",
+              "productId": "test-case",
+              "productName": "Test Case",
+              "variantName": "Case",
+              "unitPricePaise": 50000,
+              "qty": 1,
+              "gstRateBp": 1800,
+              "discountPaise": 5000,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "byUid": "bob",
+              "at": "@now-1h"
+            }
+          ]
+        },
+        "redemptions/o1": {
+          "promotionId": "p14",
+          "uid": "bob",
+          "discountPaise": 5000,
+          "active": true
+        },
+        "promotions/p14": {
+          "title": "Once",
+          "description": "",
+          "code": "ONCE1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": 1,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 1,
+          "discountTotalPaise": 5000
+        },
+        "variants/v2": {
+          "productId": "test-case",
+          "productName": "Test Case",
+          "sku": "T-CASE",
+          "name": "Case",
+          "pricePaise": 50000,
+          "mrpPaise": 50000,
+          "stock": 49
+        }
+      },
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o1"
+      },
+      "then": {
+        "orders/o1": {
+          "status": "cancelled"
+        },
+        "redemptions/o1": {
+          "active": false
+        },
+        "promotions/p14": {
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        }
+      }
+    },
+    {
+      "id": "place-raises-an-unknown-code",
+      "source": "supabase/tests/offers.test.sql:236",
+      "about": "No silent fallback to plain prices. SQL rolls the failed lookup back, so placeOrder does not count it toward the rate limit.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "NOPE"
+      },
+      "error": "COUPON_NOT_FOUND"
+    },
+    {
+      "id": "place-min-order-error-names-the-minimum",
+      "source": "supabase/tests/offers.test.sql:237",
+      "about": "The refused checkout leaves the cart alone (offers.test.sql:238).",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "ACCX"
+      },
+      "error": "COUPON_MIN_ORDER",
+      "errorDetail": 60000,
+      "then": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        },
+        "orders/*": null
+      }
+    },
+    {
+      "id": "wrong-guess-is-recorded",
+      "source": "supabase/tests/offers.test.sql:256",
+      "about": "The tenth wrong guess in 10 minutes is still answered COUPON_NOT_FOUND and recorded.",
+      "as": "dave",
+      "given": {
+        "rateLimits/dave": {
+          "couponFails": [
+            "@now-9m",
+            "@now-8m",
+            "@now-7m",
+            "@now-6m",
+            "@now-5m",
+            "@now-4m",
+            "@now-3m",
+            "@now-2m",
+            "@now-1m"
+          ],
+          "expireAt": "@now+10m"
+        },
+        "carts/dave": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "GUESS10"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_FOUND",
+        "couponErrorDetail": null
+      },
+      "then": {
+        "rateLimits/dave": {
+          "couponFails": [
+            "@now-9m",
+            "@now-8m",
+            "@now-7m",
+            "@now-6m",
+            "@now-5m",
+            "@now-4m",
+            "@now-3m",
+            "@now-2m",
+            "@now-1m",
+            "@now"
+          ]
+        }
+      }
+    },
+    {
+      "id": "eleventh-lookup-rate-limited-even-for-a-good-code",
+      "source": "supabase/tests/offers.test.sql:257",
+      "as": "dave",
+      "given": {
+        "rateLimits/dave": {
+          "couponFails": [
+            "@now-9m",
+            "@now-8m",
+            "@now-7m",
+            "@now-6m",
+            "@now-5m",
+            "@now-4m",
+            "@now-3m",
+            "@now-2m",
+            "@now-1m",
+            "@now-30s"
+          ],
+          "expireAt": "@now+10m"
+        },
+        "carts/dave": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "WELCOME"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_RATE_LIMIT",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-is-rate-limited-too",
+      "source": "supabase/tests/offers.test.sql:258",
+      "as": "dave",
+      "given": {
+        "rateLimits/dave": {
+          "couponFails": [
+            "@now-9m",
+            "@now-8m",
+            "@now-7m",
+            "@now-6m",
+            "@now-5m",
+            "@now-4m",
+            "@now-3m",
+            "@now-2m",
+            "@now-1m",
+            "@now-30s"
+          ],
+          "expireAt": "@now+10m"
+        },
+        "carts/dave": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "WELCOME"
+      },
+      "error": "COUPON_RATE_LIMIT"
+    },
+    {
+      "id": "rate-limited-user-quotes-without-a-code",
+      "source": "supabase/tests/offers.test.sql:259",
+      "as": "dave",
+      "given": {
+        "rateLimits/dave": {
+          "couponFails": [
+            "@now-9m",
+            "@now-8m",
+            "@now-7m",
+            "@now-6m",
+            "@now-5m",
+            "@now-4m",
+            "@now-3m",
+            "@now-2m",
+            "@now-1m",
+            "@now-30s"
+          ],
+          "expireAt": "@now+10m"
+        },
+        "carts/dave": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "rate-limit-lifts-after-ten-minutes",
+      "source": "supabase/tests/offers.test.sql:263",
+      "as": "dave",
+      "given": {
+        "rateLimits/dave": {
+          "couponFails": [
+            "@now-20m",
+            "@now-19m",
+            "@now-18m",
+            "@now-17m",
+            "@now-16m",
+            "@now-15m",
+            "@now-14m",
+            "@now-13m",
+            "@now-12m",
+            "@now-11m"
+          ],
+          "expireAt": "@now+10m"
+        },
+        "carts/dave": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "WELCOME"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 10000,
+        "totalPaise": 990000,
+        "promotion": {
+          "id": "p1",
+          "title": "Welcome",
+          "code": "WELCOME",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "best-automatic-sale-tie-broken-by-earliest-end",
+      "source": "supabase/tests/offers.test.sql:281",
+      "about": "Phones 5% and Ends soon both save 50000; Ends soon ends first. First order deal is out (alice has an order), Online deal is out (COD), the paused and future sales never count.",
+      "as": "alice",
+      "given": {
+        "promotions/p31": {
+          "title": "Phones 5%",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-phones"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p32": {
+          "title": "Flat 400",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 40000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p33": {
+          "title": "Ends soon",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 50000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+1d",
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p34": {
+          "title": "Online deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 60000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": true,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p35": {
+          "title": "First order deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 70000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p36": {
+          "title": "Paused sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": false,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p37": {
+          "title": "Later sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now+1d",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "orders/o0": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 50000,
+        "totalPaise": 950000,
+        "promotion": {
+          "id": "p33",
+          "title": "Ends soon",
+          "code": null,
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "online-only-sale-when-paying-online",
+      "source": "supabase/tests/offers.test.sql:282",
+      "as": "alice",
+      "given": {
+        "promotions/p31": {
+          "title": "Phones 5%",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-phones"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p32": {
+          "title": "Flat 400",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 40000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p33": {
+          "title": "Ends soon",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 50000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+1d",
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p34": {
+          "title": "Online deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 60000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": true,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p35": {
+          "title": "First order deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 70000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p36": {
+          "title": "Paused sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": false,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p37": {
+          "title": "Later sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now+1d",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "orders/o0": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "paymentMethod": "online"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 60000,
+        "totalPaise": 940000,
+        "promotion": {
+          "id": "p34",
+          "title": "Online deal",
+          "code": null,
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "weaker-code-gives-way-to-a-bigger-sale",
+      "source": "supabase/tests/offers.test.sql:283",
+      "as": "alice",
+      "given": {
+        "promotions/p31": {
+          "title": "Phones 5%",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-phones"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p32": {
+          "title": "Flat 400",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 40000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p33": {
+          "title": "Ends soon",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 50000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+1d",
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p34": {
+          "title": "Online deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 60000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": true,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p35": {
+          "title": "First order deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 70000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p36": {
+          "title": "Paused sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": false,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p37": {
+          "title": "Later sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now+1d",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "orders/o0": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "FLAT100",
+        "paymentMethod": "online"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 60000,
+        "totalPaise": 940000,
+        "promotion": {
+          "id": "p34",
+          "title": "Online deal",
+          "code": null,
+          "kind": "flat"
+        },
+        "couponError": "COUPON_BETTER_OFFER",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "bad-code-reports-its-error-and-falls-back-to-the-sale",
+      "source": "supabase/tests/offers.test.sql:284",
+      "as": "alice",
+      "given": {
+        "promotions/p31": {
+          "title": "Phones 5%",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-phones"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p32": {
+          "title": "Flat 400",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 40000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p33": {
+          "title": "Ends soon",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 50000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+1d",
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p34": {
+          "title": "Online deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 60000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": true,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p35": {
+          "title": "First order deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 70000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p36": {
+          "title": "Paused sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": false,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p37": {
+          "title": "Later sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now+1d",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "orders/o0": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "NOPE2",
+        "paymentMethod": "online"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 60000,
+        "totalPaise": 940000,
+        "promotion": {
+          "id": "p34",
+          "title": "Online deal",
+          "code": null,
+          "kind": "flat"
+        },
+        "couponError": "COUPON_NOT_FOUND",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-with-an-automatic-sale",
+      "source": "supabase/tests/offers.test.sql:285",
+      "about": "Recorded with its promotion and no code (offers.test.sql:286-287); the redemption and counters are derived from place_order.",
+      "as": "alice",
+      "given": {
+        "promotions/p31": {
+          "title": "Phones 5%",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-phones"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p32": {
+          "title": "Flat 400",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 40000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p33": {
+          "title": "Ends soon",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 50000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+1d",
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p34": {
+          "title": "Online deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 60000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": true,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p35": {
+          "title": "First order deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 70000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p36": {
+          "title": "Paused sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": false,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p37": {
+          "title": "Later sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now+1d",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "orders/o0": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "discountPaise": 50000,
+          "totalPaise": 950000,
+          "promotion": {
+            "id": "p33",
+            "title": "Ends soon",
+            "code": null,
+            "kind": "flat"
+          },
+          "couponCode": null,
+          "items": [
+            {
+              "id": "v1",
+              "discountPaise": 50000
+            }
+          ]
+        },
+        "redemptions/$orderId": {
+          "promotionId": "p33",
+          "uid": "alice",
+          "discountPaise": 50000,
+          "active": true
+        },
+        "promotions/p33": {
+          "usesActive": 1,
+          "discountTotalPaise": 50000
+        }
+      }
+    },
+    {
+      "id": "first-order-sale-for-a-new-customer",
+      "source": "supabase/tests/offers.test.sql:290",
+      "as": "carol",
+      "given": {
+        "promotions/p31": {
+          "title": "Phones 5%",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-phones"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p32": {
+          "title": "Flat 400",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 40000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p33": {
+          "title": "Ends soon",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 50000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+1d",
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p34": {
+          "title": "Online deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 60000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": true,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p35": {
+          "title": "First order deal",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 70000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p36": {
+          "title": "Paused sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": false,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p37": {
+          "title": "Later sale",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 90000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now+1d",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/carol": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 70000,
+        "totalPaise": 930000,
+        "promotion": {
+          "id": "p35",
+          "title": "First order deal",
+          "code": null,
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "sale-without-a-code",
+      "source": "supabase/tests/best_offer.test.sql:30",
+      "about": "5% of 5000000 capped at maxDiscountPaise 200000; total derived.",
+      "as": "ravi",
+      "given": {
+        "promotions/p40": {
+          "title": "Best phone sale",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": 200000,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "product",
+              "id": "best-offer-phone"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p41": {
+          "title": "Rs 100 off",
+          "description": "",
+          "code": "BESTCODE100",
+          "kind": "flat",
+          "value": 10000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promoCodes/BESTCODE100": {
+          "promotionId": "p41"
+        },
+        "carts/ravi": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 5000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 200000,
+        "totalPaise": 4800000,
+        "promotion": {
+          "id": "p40",
+          "title": "Best phone sale",
+          "code": null,
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "weaker-code-still-gets-the-sale-price",
+      "source": "supabase/tests/best_offer.test.sql:31",
+      "about": "The quote charges the sale (offers.test.sql:31-33: discount, title, COUPON_BETTER_OFFER).",
+      "as": "ravi",
+      "given": {
+        "promotions/p40": {
+          "title": "Best phone sale",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": 200000,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "product",
+              "id": "best-offer-phone"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p41": {
+          "title": "Rs 100 off",
+          "description": "",
+          "code": "BESTCODE100",
+          "kind": "flat",
+          "value": 10000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promoCodes/BESTCODE100": {
+          "promotionId": "p41"
+        },
+        "carts/ravi": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "BESTCODE100"
+      },
+      "expect": {
+        "subtotalPaise": 5000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 200000,
+        "totalPaise": 4800000,
+        "promotion": {
+          "id": "p40",
+          "title": "Best phone sale",
+          "code": null,
+          "kind": "percent"
+        },
+        "couponError": "COUPON_BETTER_OFFER",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-with-a-weaker-code-charges-the-sale-and-keeps-the-code-unused",
+      "source": "supabase/tests/best_offer.test.sql:37",
+      "about": "placeOrder never raises COUPON_BETTER_OFFER: it charges the lower price. Order discount 200000 with no code; the code has no redemption (best_offer.test.sql:38-41).",
+      "as": "ravi",
+      "given": {
+        "promotions/p40": {
+          "title": "Best phone sale",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": 200000,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "product",
+              "id": "best-offer-phone"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p41": {
+          "title": "Rs 100 off",
+          "description": "",
+          "code": "BESTCODE100",
+          "kind": "flat",
+          "value": 10000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promoCodes/BESTCODE100": {
+          "promotionId": "p41"
+        },
+        "carts/ravi": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online",
+        "couponCode": "BESTCODE100"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "pending_payment",
+          "discountPaise": 200000,
+          "totalPaise": 4800000,
+          "couponCode": null,
+          "promotion": {
+            "id": "p40",
+            "title": "Best phone sale",
+            "code": null,
+            "kind": "percent"
+          },
+          "reservedUntil": "@now+15m"
+        },
+        "redemptions/$orderId": {
+          "promotionId": "p40",
+          "discountPaise": 200000,
+          "active": true
+        },
+        "promotions/p41": {
+          "usesActive": 0
+        }
+      }
+    },
+    {
+      "id": "code-applies-where-the-sale-does-not-reach",
+      "source": "supabase/tests/best_offer.test.sql:45",
+      "about": "The sale covers only best-offer-phone; on the cable alone the code is the better offer, with no complaint (best_offer.test.sql:46). Total derived.",
+      "as": "ravi",
+      "given": {
+        "promotions/p40": {
+          "title": "Best phone sale",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": 200000,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "product",
+              "id": "best-offer-phone"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promotions/p41": {
+          "title": "Rs 100 off",
+          "description": "",
+          "code": "BESTCODE100",
+          "kind": "flat",
+          "value": 10000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promoCodes/BESTCODE100": {
+          "promotionId": "p41"
+        },
+        "carts/ravi": {
+          "lines": {
+            "v6": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "BESTCODE100"
+      },
+      "expect": {
+        "subtotalPaise": 150000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 10000,
+        "totalPaise": 140000,
+        "promotion": {
+          "id": "p41",
+          "title": "Rs 100 off",
+          "code": "BESTCODE100",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "listing-anon-sees-a-public-first-order-code",
+      "source": "supabase/tests/offers.test.sql:297",
+      "about": "Signed out, the per-user and first-order rules do not apply.",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Welcome",
+          "description": "",
+          "code": "WELCOME",
+          "kind": "flat",
+          "value": 10000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 99900,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": true
+      }
+    },
+    {
+      "id": "listing-anon-sees-a-public-items-code",
+      "source": "supabase/tests/offers.test.sql:297",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Accessories",
+          "description": "",
+          "code": "ACCX",
+          "kind": "percent",
+          "value": 20,
+          "maxDiscountPaise": 10000,
+          "minSubtotalPaise": 60000,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-acc"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": true
+      }
+    },
+    {
+      "id": "listing-anon-sees-a-free-delivery-code",
+      "source": "supabase/tests/offers.test.sql:297",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Ship free",
+          "description": "",
+          "code": "SHIPFREE",
+          "kind": "free_delivery",
+          "value": 0,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": true
+      }
+    },
+    {
+      "id": "listing-anon-never-sees-a-hidden-code",
+      "source": "supabase/tests/offers.test.sql:298",
+      "about": "A hidden offer has uid null and so does the signed-out caller: SQL p.uid = p_uid is NULL (not true) here, so uid null never matches a null caller.",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Hidden",
+          "description": "",
+          "code": "HIDDEN1",
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-anon-never-sees-a-personal-code",
+      "source": "supabase/tests/offers.test.sql:298",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Bob only",
+          "description": "",
+          "code": "BOBONLY",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": "bob",
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-anon-never-sees-a-paused-code",
+      "source": "supabase/tests/offers.test.sql:298",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Paused",
+          "description": "",
+          "code": "PAUSED1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": false,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-anon-never-sees-a-future-code",
+      "source": "supabase/tests/offers.test.sql:298",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Soon",
+          "description": "",
+          "code": "SOON1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now+1d",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-anon-never-sees-an-ended-code",
+      "source": "supabase/tests/offers.test.sql:298",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Over",
+          "description": "",
+          "code": "OLD1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-2d",
+          "endsAt": "@now-1d",
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-owner-sees-a-personal-code",
+      "source": "supabase/tests/offers.test.sql:302",
+      "as": "bob",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Bob only",
+          "description": "",
+          "code": "BOBONLY",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": "bob",
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": "bob",
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": true
+      }
+    },
+    {
+      "id": "listing-others-never-see-a-personal-code",
+      "source": "supabase/tests/offers.test.sql:304",
+      "as": "alice",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Bob only",
+          "description": "",
+          "code": "BOBONLY",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": "bob",
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": "alice",
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": true
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-signed-in-never-sees-a-hidden-code",
+      "source": "supabase/tests/offers.test.sql:304",
+      "as": "alice",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Hidden",
+          "description": "",
+          "code": "HIDDEN1",
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": "alice",
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": true
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-hides-a-first-order-code-after-an-order",
+      "source": "supabase/tests/offers.test.sql:304",
+      "as": "alice",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Welcome",
+          "description": "",
+          "code": "WELCOME",
+          "kind": "flat",
+          "value": 10000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 99900,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": "alice",
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": true
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-hides-a-used-up-offer",
+      "source": "supabase/migrations/20261030000000_offers.sql:373",
+      "about": "Derived from offer_open: usesTotal ≥ usageLimit.",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Once",
+          "description": "",
+          "code": "ONCE1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": 1,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 1,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-hides-an-offer-the-user-has-used-up",
+      "source": "supabase/migrations/20261030000000_offers.sql:375",
+      "about": "Derived from offer_open: usesByUser ≥ perUserLimit (signed in only).",
+      "as": "alice",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Mine",
+          "description": "",
+          "code": "MINE1",
+          "kind": "flat",
+          "value": 5000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": "alice",
+        "usesTotal": 1,
+        "usesByUser": 1,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "listing-automatic-sales-are-listed",
+      "source": "supabase/migrations/20261030000000_offers.sql:568",
+      "about": "Derived: offer_open has no code condition, so a running public sale is listed.",
+      "as": "anon",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Flat 400",
+          "description": "",
+          "code": null,
+          "kind": "flat",
+          "value": 40000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": null,
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": true
+      }
+    },
+    {
+      "id": "save-items-offer-needs-a-target",
+      "source": "supabase/tests/offers.test.sql:444",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Cases",
+        "kind": "percent",
+        "value": 10,
+        "appliesTo": "items"
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "items needs a target"
+    },
+    {
+      "id": "save-percent-is-1-to-90",
+      "source": "supabase/tests/offers.test.sql:446",
+      "about": "Detail = the SQL constraint name; the other value rules under it: flat ≥ 100, free_delivery = 0.",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Too much",
+        "kind": "percent",
+        "value": 95
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "promotions_value_check"
+    },
+    {
+      "id": "save-targets-must-exist",
+      "source": "supabase/tests/offers.test.sql:449",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Ghost",
+        "kind": "flat",
+        "value": 1000,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "product",
+            "id": "ghost-phone"
+          }
+        ]
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "unknown target"
+    },
+    {
+      "id": "save-unknown-kind",
+      "source": "supabase/tests/offers.test.sql:451",
+      "about": "SQL detail is Postgres's \"invalid input value for enum ...\" text, so no errorDetail is fixed here.",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Bad",
+        "kind": "nope",
+        "value": 1
+      },
+      "error": "INVALID_PROMOTION"
+    },
+    {
+      "id": "save-code-in-use",
+      "source": "supabase/tests/offers.test.sql:453",
+      "about": "Codes are compared trimmed and uppercased: \"welcome\" is WELCOME.",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Dup",
+        "code": "welcome",
+        "kind": "flat",
+        "value": 1000
+      },
+      "error": "CODE_TAKEN"
+    },
+    {
+      "id": "save-new-offer-with-defaults",
+      "source": "supabase/tests/offers.test.sql:457",
+      "about": "Defaults from the promotions table: perUserLimit 1 (not unlimited), isPublic, isActive, startsAt now; the code is trimmed and uppercased.",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "New cases",
+        "code": " new10 ",
+        "kind": "percent",
+        "value": 10,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "category",
+            "id": "test-acc"
+          },
+          {
+            "type": "collection",
+            "id": "test-picks"
+          }
+        ]
+      },
+      "then": {
+        "promotions/$id": {
+          "code": "NEW10",
+          "perUserLimit": 1,
+          "isPublic": true,
+          "isActive": true,
+          "startsAt": "@now",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-acc"
+            },
+            {
+              "type": "collection",
+              "id": "test-picks"
+            }
+          ]
+        },
+        "promoCodes/NEW10": {
+          "promotionId": "$id"
+        }
+      }
+    },
+    {
+      "id": "save-with-just-the-id-keeps-the-rest",
+      "source": "supabase/tests/offers.test.sql:458",
+      "about": "Left-out keys and targets are kept (offers.test.sql:459-460).",
+      "as": "staff",
+      "given": {
+        "promotions/p20": {
+          "title": "New cases",
+          "description": "",
+          "code": "NEW10",
+          "kind": "percent",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-acc"
+            },
+            {
+              "type": "collection",
+              "id": "test-picks"
+            }
+          ],
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promoCodes/NEW10": {
+          "promotionId": "p20"
+        }
+      },
+      "call": "savePromotion",
+      "input": {
+        "id": "p20",
+        "isActive": false
+      },
+      "then": {
+        "promotions/p20": {
+          "isActive": false,
+          "value": 10,
+          "targets": [
+            {
+              "type": "category",
+              "id": "test-acc"
+            },
+            {
+              "type": "collection",
+              "id": "test-picks"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "save-unknown-id",
+      "source": "supabase/tests/offers.test.sql:461",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "id": "p99",
+        "isActive": false
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "save-customers-cannot-save-promotions",
+      "source": "supabase/tests/offers.test.sql:438",
+      "as": "alice",
+      "call": "savePromotion",
+      "input": {
+        "title": "Mine",
+        "kind": "flat",
+        "value": 100000
+      },
+      "error": "FORBIDDEN"
+    }
+  ],
+  "notExpressed": [
+    {
+      "source": "supabase/tests/offers.test.sql:307",
+      "why": "offers_for_product = offer_open + covers(promotion, product); the call list has no pure covers() call. covers() itself is exercised by the product/category/brand/collection quote cases."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:310",
+      "why": "offer_products (the /offers/:id product list, hidden/personal offers empty except for their owner) is a catalogue listing, not a callable in the contract list."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:300",
+      "why": "available_offers row shape (id, title, description, code, kind, value, maxDiscountPaise, minSubtotalPaise, startsAt, endsAt, appliesTo, automatic): publicOffers is a stored doc shape, no call returns it."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:154",
+      "why": "Covered by every quote case (promotion is always {id, title, code, kind}); no separate case."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:465",
+      "why": "admin_promotions status (paused, ended, scheduled, running) is derived from isActive/startsAt/endsAt on the staff screen; no call in the contract returns it."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:324",
+      "why": "Promotion banner sync (offers.test.sql:319-362) is not a money rule; not ported in this file."
+    },
+    {
+      "source": "scripts/api_e2e.py:1053",
+      "why": "Concurrency (the promotion lock): needs parallel callers against the emulator. The sequential effect is usage-limit-counts-the-whole-shop / place-refuses-a-used-up-code."
+    },
+    {
+      "source": "scripts/api_e2e.py:1073",
+      "why": "Razorpay create-payment / webhook amount checks on a discounted order: dropped (decision D4)."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:480",
+      "why": "RLS/grant checks (promotions, targets, redemptions, coupon_attempts, referral tables) are ported with the rules tests."
+    }
+  ]
+}

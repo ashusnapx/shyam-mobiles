@@ -1,0 +1,2446 @@
+{
+  "about": "Pricing and placing: subtotal, delivery fee and the free-delivery threshold (judged on subtotal − discount once an offer applies), the ₹1 floor (discount ≤ subtotal − 100), the per-line discount split, COD rules, stock, caps (10 lines per order, 2 unpaid online orders), ORDER_TOO_LARGE, and what placeOrder writes. Ported from supabase/tests/offers.test.sql (pricing parts), supabase/tests/orders.test.sql (place_order parts) and scripts/api_e2e.py money_checks / offers_checks / caps_checks, with the semantics of private.price_lines (20261030000260_best_offer.sql) and public.place_order (20261030000000_offers.sql). placeOrder checks in this order: CART_EMPTY, CART_LIMIT, ADDRESS_NOT_FOUND, PENDING_LIMIT (online only), OUT_OF_STOCK, the coupon error, ORDER_TOO_LARGE, COD_UNAVAILABLE. Variants v1-v3 are offers.test.sql's, v5-v9 orders.test.sql's (T-CHEAP, T-PRICEY, T-OFF, T-EMPTY, T-RETIRED), va..vretired and l01..l11 api_e2e.py's; cases from api_e2e.py override settings/store with its free-delivery minimum of 100000. Conventions beyond vector-format.md: a doc in \"given\" replaces the world doc of the same path whole (every given doc is written in full). A field expected as null matches null or absent. orders items[] are listed in variant-id order; match them by id. \"$orderId\" / \"$id\" = the id the call returned. A \"then\" key ending in \"/*\" means the one doc in that collection (the case starts with none there); \"<collection>/*\": null means the call creates none. Where an expected value was not asserted by the SQL test but re-derived from the SQL code (price_lines, evaluate_promotion, offer_open, reward_referral, apply_referral_code), the case \"about\" says \"derived\".",
+  "now": "2026-11-03T12:00:00+05:30",
+  "world": {
+    "settings/store": {
+      "deliveryFeePaise": 4900,
+      "freeDeliveryMinPaise": 99900,
+      "codEnabled": true,
+      "codMaxPaise": 2500000,
+      "onlinePaymentEnabled": true,
+      "referral": {
+        "enabled": true,
+        "friendPaise": 20000,
+        "rewardPaise": 20000,
+        "minOrderPaise": 199900,
+        "monthlyCap": 10
+      }
+    },
+    "users/alice": {
+      "fullName": "Alice"
+    },
+    "users/bob": {
+      "fullName": "Bob"
+    },
+    "users/staff": {
+      "fullName": "Staff",
+      "role": "staff"
+    },
+    "users/alice/addresses/a0": {
+      "name": "Alice",
+      "phone": "+919876543210",
+      "line1": "1 MG Road",
+      "line2": "Flat 2",
+      "city": "Danapur",
+      "district": "Patna",
+      "state": "Bihar",
+      "stateCode": "10",
+      "pincode": "801503",
+      "label": "work"
+    },
+    "users/bob/addresses/a1": {
+      "name": "Bob",
+      "phone": "+919876543211",
+      "line1": "2 MG Road",
+      "city": "Patna",
+      "state": "Bihar",
+      "stateCode": "10",
+      "pincode": "800001",
+      "label": "home"
+    },
+    "categories/test-phones": {
+      "name": "Test phones",
+      "kind": "phone"
+    },
+    "categories/test-acc": {
+      "name": "Test accessories",
+      "kind": "accessory"
+    },
+    "categories/e2e": {
+      "name": "E2E",
+      "kind": "phone"
+    },
+    "brands/test-b1": {
+      "name": "B1"
+    },
+    "brands/test-b2": {
+      "name": "B2"
+    },
+    "brands/e2e": {
+      "name": "E2E"
+    },
+    "products/test-phone": {
+      "name": "Test Phone",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "test-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": [
+        {
+          "path": "test/second.webp",
+          "sort": 1
+        },
+        {
+          "path": "test/cover.webp",
+          "sort": 0
+        }
+      ]
+    },
+    "products/test-case": {
+      "name": "Test Case",
+      "brandId": "test-b2",
+      "brandName": "B2",
+      "categoryId": "test-acc",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/test-charger": {
+      "name": "Test Charger",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "test-acc",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/test-retired": {
+      "name": "Test Retired",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "test-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": false,
+      "images": []
+    },
+    "products/e2e-phone": {
+      "name": "E2E phone",
+      "brandId": "e2e",
+      "brandName": "E2E",
+      "categoryId": "e2e",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/e2e-acc": {
+      "name": "E2E acc",
+      "brandId": "e2e",
+      "brandName": "E2E",
+      "categoryId": "e2e",
+      "categoryKind": "phone",
+      "gstRateBp": 1200,
+      "isActive": true,
+      "images": []
+    },
+    "products/e2e-retired": {
+      "name": "E2E retired",
+      "brandId": "e2e",
+      "brandName": "E2E",
+      "categoryId": "e2e",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": false,
+      "images": []
+    },
+    "variants/v1": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-PHONE",
+      "name": "Phone",
+      "pricePaise": 1000000,
+      "mrpPaise": 1000000,
+      "stock": 50
+    },
+    "variants/v2": {
+      "productId": "test-case",
+      "productName": "Test Case",
+      "sku": "T-CASE",
+      "name": "Case",
+      "pricePaise": 50000,
+      "mrpPaise": 50000,
+      "stock": 50
+    },
+    "variants/v3": {
+      "productId": "test-charger",
+      "productName": "Test Charger",
+      "sku": "T-CHARGER",
+      "name": "Charger",
+      "pricePaise": 30000,
+      "mrpPaise": 30000,
+      "stock": 50
+    },
+    "variants/v5": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-CHEAP",
+      "name": "4 GB",
+      "pricePaise": 50000,
+      "mrpPaise": 60000,
+      "stock": 5
+    },
+    "variants/v6": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-PRICEY",
+      "name": "12 GB",
+      "pricePaise": 1500000,
+      "mrpPaise": 1600000,
+      "stock": 10
+    },
+    "variants/v7": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-OFF",
+      "name": "Off",
+      "pricePaise": 10000,
+      "mrpPaise": 10000,
+      "stock": 10,
+      "isActive": false
+    },
+    "variants/v8": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-EMPTY",
+      "name": "Empty",
+      "pricePaise": 20000,
+      "mrpPaise": 20000,
+      "stock": 0
+    },
+    "variants/v9": {
+      "productId": "test-retired",
+      "productName": "Test Retired",
+      "sku": "T-RETIRED",
+      "name": "Retired",
+      "pricePaise": 10000,
+      "mrpPaise": 10000,
+      "stock": 5,
+      "productActive": false
+    },
+    "variants/va": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-A",
+      "name": "a",
+      "pricePaise": 99999,
+      "mrpPaise": 120000,
+      "stock": 50
+    },
+    "variants/vb": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-B",
+      "name": "b",
+      "pricePaise": 100000,
+      "mrpPaise": 120000,
+      "stock": 50
+    },
+    "variants/vc": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-C",
+      "name": "c",
+      "pricePaise": 20000,
+      "mrpPaise": 30000,
+      "stock": 100
+    },
+    "variants/vcheap": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-CHEAP",
+      "name": "cheap",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 50
+    },
+    "variants/vlast": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-LAST",
+      "name": "last",
+      "pricePaise": 30000,
+      "mrpPaise": 30000,
+      "stock": 1
+    },
+    "variants/voff": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-OFF",
+      "name": "off",
+      "pricePaise": 10000,
+      "mrpPaise": 10000,
+      "stock": 5,
+      "isActive": false
+    },
+    "variants/vbig": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-BIG",
+      "name": "big",
+      "pricePaise": 2147483647,
+      "mrpPaise": 2147483647,
+      "stock": 10
+    },
+    "variants/vg12": {
+      "productId": "e2e-acc",
+      "productName": "E2E acc",
+      "sku": "E2E-G12",
+      "name": "g12",
+      "pricePaise": 49900,
+      "mrpPaise": 59900,
+      "stock": 20
+    },
+    "variants/vretired": {
+      "productId": "e2e-retired",
+      "productName": "E2E retired",
+      "sku": "E2E-RETIRED",
+      "name": "retired",
+      "pricePaise": 10000,
+      "mrpPaise": 10000,
+      "stock": 5,
+      "productActive": false
+    },
+    "variants/l01": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L01",
+      "name": "l01",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l02": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L02",
+      "name": "l02",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l03": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L03",
+      "name": "l03",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l04": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L04",
+      "name": "l04",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l05": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L05",
+      "name": "l05",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l06": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L06",
+      "name": "l06",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l07": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L07",
+      "name": "l07",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l08": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L08",
+      "name": "l08",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l09": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L09",
+      "name": "l09",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l10": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L10",
+      "name": "l10",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "variants/l11": {
+      "productId": "e2e-phone",
+      "productName": "E2E phone",
+      "sku": "E2E-L11",
+      "name": "l11",
+      "pricePaise": 100,
+      "mrpPaise": 100,
+      "stock": 10
+    },
+    "promotions/p12": {
+      "title": "Flat 500",
+      "description": "",
+      "code": "FLAT500",
+      "kind": "flat",
+      "value": 50000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/FLAT500": {
+      "promotionId": "p12"
+    },
+    "promotions/p16": {
+      "title": "Split",
+      "description": "",
+      "code": "SPLIT1",
+      "kind": "flat",
+      "value": 1001,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/SPLIT1": {
+      "promotionId": "p16"
+    },
+    "promotions/p17": {
+      "title": "One percent",
+      "description": "",
+      "code": "PCT1",
+      "kind": "percent",
+      "value": 1,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/PCT1": {
+      "promotionId": "p17"
+    },
+    "promotions/p18": {
+      "title": "Flat 100",
+      "description": "",
+      "code": "FLAT100",
+      "kind": "flat",
+      "value": 10000,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "order",
+      "targets": [],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/FLAT100": {
+      "promotionId": "p18"
+    },
+    "promotions/p20": {
+      "title": "E2E phone 10%",
+      "description": "",
+      "code": "E2EP",
+      "kind": "percent",
+      "value": 10,
+      "maxDiscountPaise": null,
+      "minSubtotalPaise": 0,
+      "appliesTo": "items",
+      "targets": [
+        {
+          "type": "product",
+          "id": "e2e-phone"
+        }
+      ],
+      "startsAt": "@now-1h",
+      "endsAt": null,
+      "usageLimit": null,
+      "perUserLimit": null,
+      "firstOrderOnly": false,
+      "onlineOnly": false,
+      "isPublic": true,
+      "uid": null,
+      "isActive": true,
+      "showBanner": false,
+      "usesActive": 0,
+      "discountTotalPaise": 0
+    },
+    "promoCodes/E2EP": {
+      "promotionId": "p20"
+    }
+  },
+  "cases": [
+    {
+      "id": "quote-empty-cart",
+      "source": "supabase/tests/offers.test.sql:143",
+      "as": "alice",
+      "call": "quoteOrder",
+      "input": {},
+      "error": "CART_EMPTY"
+    },
+    {
+      "id": "quote-plain-totals-without-a-code",
+      "source": "supabase/tests/offers.test.sql:145",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "quote-below-free-delivery-minimum-pays-the-fee",
+      "source": "supabase/tests/offers.test.sql:170",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 50000,
+        "deliveryFeePaise": 4900,
+        "discountPaise": 0,
+        "totalPaise": 54900,
+        "promotion": null,
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "quote-flat-discount-stops-at-one-rupee-before-delivery",
+      "source": "supabase/tests/offers.test.sql:172",
+      "about": "Flat ₹500 on a ₹500 cart: discount clamped to subtotal − 100 = 49900; 100 < free minimum so the fee stays.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "FLAT500"
+      },
+      "expect": {
+        "subtotalPaise": 50000,
+        "deliveryFeePaise": 4900,
+        "discountPaise": 49900,
+        "totalPaise": 5000,
+        "promotion": {
+          "id": "p12",
+          "title": "Flat 500",
+          "code": "FLAT500",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "quote-at-free-delivery-minimum-is-free",
+      "source": "supabase/tests/offers.test.sql:174",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 100000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 100000,
+        "promotion": null,
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "quote-free-delivery-judged-on-subtotal-minus-discount",
+      "source": "supabase/tests/offers.test.sql:175",
+      "about": "100000 − 10000 = 90000 < 99900 brings the 4900 fee back; saving 10000 − 4900 > 0 so the code still applies.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "FLAT100"
+      },
+      "expect": {
+        "subtotalPaise": 100000,
+        "deliveryFeePaise": 4900,
+        "discountPaise": 10000,
+        "totalPaise": 94900,
+        "promotion": {
+          "id": "p18",
+          "title": "Flat 100",
+          "code": "FLAT100",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "quote-code-that-would-raise-the-total-does-not-apply",
+      "source": "supabase/tests/offers.test.sql:176",
+      "about": "1% = 1000 off would add the 4900 fee back (saving −3900 ≤ 0): COUPON_NOT_APPLICABLE, plain totals.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "PCT1"
+      },
+      "expect": {
+        "subtotalPaise": 100000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 100000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_APPLICABLE",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "quote-split-before-placing",
+      "source": "supabase/tests/offers.test.sql:189",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v3": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "split1",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "subtotalPaise": 80000,
+        "deliveryFeePaise": 4900,
+        "discountPaise": 1001,
+        "totalPaise": 83899,
+        "promotion": {
+          "id": "p16",
+          "title": "Split",
+          "code": "SPLIT1",
+          "kind": "flat"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-splits-the-discount-by-line-total",
+      "source": "supabase/tests/offers.test.sql:190",
+      "about": "1001 over 50000/30000: floor 625 + 375, remainder 1 to the largest line (v2). Also asserted: the redemption (offers.test.sql:199) and admin_promotions uses 1 / discount total 1001 for SPLIT1 (offers.test.sql:462). Stock 50 → 49 and the cleared cart are derived from place_order.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v3": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "split1"
+      },
+      "then": {
+        "orders/$orderId": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "subtotalPaise": 80000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 1001,
+          "totalPaise": 83899,
+          "couponCode": "SPLIT1",
+          "promotion": {
+            "id": "p16",
+            "title": "Split",
+            "code": "SPLIT1",
+            "kind": "flat"
+          },
+          "reservedUntil": null,
+          "items": [
+            {
+              "id": "v2",
+              "qty": 1,
+              "unitPricePaise": 50000,
+              "discountPaise": 626
+            },
+            {
+              "id": "v3",
+              "qty": 1,
+              "unitPricePaise": 30000,
+              "discountPaise": 375
+            }
+          ]
+        },
+        "redemptions/$orderId": {
+          "promotionId": "p16",
+          "uid": "alice",
+          "discountPaise": 1001,
+          "active": true
+        },
+        "promotions/p16": {
+          "usesActive": 1,
+          "discountTotalPaise": 1001
+        },
+        "variants/v2": {
+          "stock": 49
+        },
+        "variants/v3": {
+          "stock": 49
+        },
+        "carts/alice": {
+          "lines": {}
+        }
+      }
+    },
+    {
+      "id": "cod-refused-when-the-total-passes-cod-max",
+      "source": "supabase/tests/offers.test.sql:229",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": true,
+          "codMaxPaise": 990000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "COD_UNAVAILABLE",
+      "then": {
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        },
+        "variants/v1": {
+          "stock": 50
+        },
+        "orders/*": null
+      }
+    },
+    {
+      "id": "cod-allowed-once-the-discount-brings-the-total-to-cod-max",
+      "source": "supabase/tests/offers.test.sql:230",
+      "about": "COD compares subtotal + fee − discount (990000) with codMaxPaise (990000): equal is allowed.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": true,
+          "codMaxPaise": 990000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "FLAT100"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "confirmed",
+          "subtotalPaise": 1000000,
+          "deliveryFeePaise": 0,
+          "discountPaise": 10000,
+          "totalPaise": 990000,
+          "couponCode": "FLAT100",
+          "items": [
+            {
+              "id": "v1",
+              "discountPaise": 10000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "place-empty-cart",
+      "source": "supabase/tests/orders.test.sql:65",
+      "as": "alice",
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "CART_EMPTY"
+    },
+    {
+      "id": "place-someone-elses-address",
+      "source": "supabase/tests/orders.test.sql:68",
+      "about": "a1 exists only under users/bob/addresses; alice has a0 only.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a1",
+        "paymentMethod": "cod"
+      },
+      "error": "ADDRESS_NOT_FOUND"
+    },
+    {
+      "id": "place-unknown-address",
+      "source": "supabase/tests/orders.test.sql:69",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a9",
+        "paymentMethod": "cod"
+      },
+      "error": "ADDRESS_NOT_FOUND"
+    },
+    {
+      "id": "place-out-of-stock-not-enough-stock",
+      "source": "supabase/tests/orders.test.sql:72",
+      "about": "errorDetail: the unavailable variant ids (SQL: comma-separated detail). A refused checkout changes nothing (orders.test.sql:85-86).",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v8": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "OUT_OF_STOCK",
+      "errorDetail": [
+        "v8"
+      ],
+      "then": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v8": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        },
+        "variants/v5": {
+          "stock": 5
+        },
+        "variants/v8": {
+          "stock": 0
+        },
+        "orders/*": null
+      }
+    },
+    {
+      "id": "place-out-of-stock-inactive-variant",
+      "source": "supabase/tests/orders.test.sql:76",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v7": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "OUT_OF_STOCK",
+      "errorDetail": [
+        "v7"
+      ]
+    },
+    {
+      "id": "place-out-of-stock-inactive-product",
+      "source": "supabase/tests/orders.test.sql:80",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v9": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "OUT_OF_STOCK",
+      "errorDetail": [
+        "v9"
+      ]
+    },
+    {
+      "id": "place-online-below-free-minimum",
+      "source": "supabase/tests/orders.test.sql:91",
+      "about": "Totals from variant prices plus the fee; stock held 15 minutes; address and item snapshots (first image by sort); first event; stock 5 → 4; cart cleared (orders.test.sql:92-108).",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "subtotalPaise": 50000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 0,
+          "totalPaise": 54900,
+          "reservedUntil": "@now+15m",
+          "promotion": null,
+          "couponCode": null,
+          "address": {
+            "name": "Alice",
+            "phone": "+919876543210",
+            "line1": "1 MG Road",
+            "line2": "Flat 2",
+            "landmark": null,
+            "city": "Danapur",
+            "district": "Patna",
+            "state": "Bihar",
+            "pincode": "801503"
+          },
+          "items": [
+            {
+              "id": "v5",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "4 GB",
+              "imagePath": "test/cover.webp",
+              "unitPricePaise": 50000,
+              "qty": 1,
+              "gstRateBp": 1800,
+              "discountPaise": 0
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment"
+            }
+          ]
+        },
+        "variants/v5": {
+          "stock": 4
+        },
+        "carts/alice": {
+          "lines": {}
+        }
+      }
+    },
+    {
+      "id": "place-cod-at-free-minimum",
+      "source": "supabase/tests/orders.test.sql:113",
+      "about": "COD starts confirmed with no hold; 100000 ≥ 99900 so delivery is free; stock 4 → 2 (orders.test.sql:114-118).",
+      "as": "alice",
+      "given": {
+        "variants/v5": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-CHEAP",
+          "name": "4 GB",
+          "pricePaise": 50000,
+          "mrpPaise": 60000,
+          "stock": 4
+        },
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "confirmed",
+          "paymentStatus": "pending",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 0,
+          "totalPaise": 100000,
+          "reservedUntil": null
+        },
+        "variants/v5": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "cod-refused-above-cod-max",
+      "source": "supabase/tests/orders.test.sql:122",
+      "about": "3100000 > codMaxPaise 2500000.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            },
+            "v6": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "COD_UNAVAILABLE"
+    },
+    {
+      "id": "cod-refused-when-disabled",
+      "source": "supabase/tests/orders.test.sql:127",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": false,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v6": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "COD_UNAVAILABLE"
+    },
+    {
+      "id": "cod-disabled-same-cart-pays-online",
+      "source": "supabase/tests/orders.test.sql:128",
+      "about": "The online order holds stock: T-PRICEY 10 → 9 (orders.test.sql:169). v5 5 → 4 derived.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": false,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v6": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "pending_payment",
+          "subtotalPaise": 1550000,
+          "deliveryFeePaise": 0,
+          "totalPaise": 1550000,
+          "reservedUntil": "@now+15m"
+        },
+        "variants/v6": {
+          "stock": 9
+        },
+        "variants/v5": {
+          "stock": 4
+        }
+      }
+    },
+    {
+      "id": "fee-one-paisa-under-free-minimum",
+      "source": "scripts/api_e2e.py:547",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "va": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 99999,
+          "deliveryFeePaise": 4900,
+          "totalPaise": 104899
+        }
+      }
+    },
+    {
+      "id": "fee-free-at-exactly-free-minimum",
+      "source": "scripts/api_e2e.py:549",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vb": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 0,
+          "totalPaise": 100000
+        }
+      }
+    },
+    {
+      "id": "fee-free-above-free-minimum",
+      "source": "scripts/api_e2e.py:551",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vb": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 100100,
+          "deliveryFeePaise": 0,
+          "totalPaise": 100100
+        }
+      }
+    },
+    {
+      "id": "one-rupee-order-plus-delivery",
+      "source": "scripts/api_e2e.py:553",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 100,
+          "deliveryFeePaise": 4900,
+          "totalPaise": 5000
+        }
+      }
+    },
+    {
+      "id": "cod-allowed-when-total-equals-cod-max",
+      "source": "scripts/api_e2e.py:557",
+      "about": "e2e run settings: fee 4900, free delivery from 100000. COD compares the total including delivery: 99999 + 4900 = 104899 = codMaxPaise.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 104899,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "va": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "confirmed",
+          "paymentStatus": "pending",
+          "reservedUntil": null,
+          "totalPaise": 104899
+        }
+      }
+    },
+    {
+      "id": "cod-refused-when-delivery-pushes-total-over-cod-max",
+      "source": "scripts/api_e2e.py:562",
+      "about": "e2e run settings: fee 4900, free delivery from 100000. Subtotal 99999 < 104898 but 104899 > 104898. The cart survives (api_e2e.py: \"the cart survives\").",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 104898,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "va": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "COD_UNAVAILABLE",
+      "then": {
+        "carts/alice": {
+          "lines": {
+            "va": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cod-allowed-for-free-delivery-total-under-limit",
+      "source": "scripts/api_e2e.py:564",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 104898,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vb": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "confirmed",
+          "totalPaise": 100000
+        }
+      }
+    },
+    {
+      "id": "cod-refused-when-disabled-one-rupee-cart",
+      "source": "scripts/api_e2e.py:567",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": false,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "COD_UNAVAILABLE"
+    },
+    {
+      "id": "price-at-checkout-wins-over-price-when-added",
+      "source": "scripts/api_e2e.py:577",
+      "about": "e2e run settings: fee 4900, free delivery from 100000. The cart line was added at 20000; the variant now costs 25000. Carts never hold prices.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "variants/vc": {
+          "productId": "e2e-phone",
+          "productName": "E2E phone",
+          "sku": "E2E-C",
+          "name": "c",
+          "pricePaise": 25000,
+          "mrpPaise": 30000,
+          "stock": 100
+        },
+        "carts/alice": {
+          "lines": {
+            "vc": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 50000,
+          "items": [
+            {
+              "id": "vc",
+              "unitPricePaise": 25000,
+              "qty": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "out-of-stock-names-the-variant-off",
+      "source": "scripts/api_e2e.py:581",
+      "about": "inactive variant: OUT_OF_STOCK whose detail names only that variant, not the good line.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "voff": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "OUT_OF_STOCK",
+      "errorDetail": [
+        "voff"
+      ]
+    },
+    {
+      "id": "out-of-stock-names-the-variant-retired",
+      "source": "scripts/api_e2e.py:581",
+      "about": "variant of an inactive product: OUT_OF_STOCK whose detail names only that variant, not the good line.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vretired": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "OUT_OF_STOCK",
+      "errorDetail": [
+        "vretired"
+      ]
+    },
+    {
+      "id": "out-of-stock-names-the-variant-last",
+      "source": "scripts/api_e2e.py:582",
+      "about": "qty above stock: OUT_OF_STOCK whose detail names only that variant, not the good line.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vlast": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "OUT_OF_STOCK",
+      "errorDetail": [
+        "vlast"
+      ]
+    },
+    {
+      "id": "order-too-large",
+      "source": "scripts/api_e2e.py:594",
+      "about": "Orders store 32-bit paise: subtotal + fee (before the discount) > 2147483647 fails with ORDER_TOO_LARGE; no order, stock and cart untouched.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vbig": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "error": "ORDER_TOO_LARGE",
+      "then": {
+        "variants/vbig": {
+          "stock": 10
+        },
+        "carts/alice": {
+          "lines": {
+            "vbig": {
+              "qty": 2,
+              "addedAt": "@now-1h"
+            }
+          }
+        },
+        "orders/*": null
+      }
+    },
+    {
+      "id": "one-unit-at-int-max-places",
+      "source": "scripts/api_e2e.py:598",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vbig": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 2147483647,
+          "deliveryFeePaise": 0,
+          "totalPaise": 2147483647
+        }
+      }
+    },
+    {
+      "id": "each-line-keeps-its-product-gst-rate",
+      "source": "scripts/api_e2e.py:602",
+      "about": "e2e run settings: fee 4900, free delivery from 100000.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vg12": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "items": [
+            {
+              "id": "vcheap",
+              "gstRateBp": 1800
+            },
+            {
+              "id": "vg12",
+              "gstRateBp": 1200
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "quote-item-code-discounts-only-the-targeted-line",
+      "source": "scripts/api_e2e.py:1024",
+      "about": "e2e run settings: fee 4900, free delivery from 100000. 10% of the e2e-phone line (20000) = 2000; 69900 stays under the free minimum.",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vc": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg12": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": " e2ep "
+      },
+      "expect": {
+        "subtotalPaise": 69900,
+        "deliveryFeePaise": 4900,
+        "discountPaise": 2000,
+        "totalPaise": 72800,
+        "promotion": {
+          "id": "p20",
+          "title": "E2E phone 10%",
+          "code": "E2EP",
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-item-code-charges-the-quote-and-puts-it-on-that-line",
+      "source": "scripts/api_e2e.py:1028",
+      "about": "e2e run settings: fee 4900, free delivery from 100000. The line not covered by the offer gets 0 (api_e2e.py: \"the discount sits on the phone line\").",
+      "as": "alice",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 100000,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        },
+        "carts/alice": {
+          "lines": {
+            "vc": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg12": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": " e2ep "
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 69900,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 2000,
+          "totalPaise": 72800,
+          "couponCode": "E2EP",
+          "items": [
+            {
+              "id": "vc",
+              "discountPaise": 2000
+            },
+            {
+              "id": "vg12",
+              "discountPaise": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "second-unpaid-online-order-allowed",
+      "source": "scripts/api_e2e.py:1103",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "reservedUntil": "@now+10m"
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "pending_payment",
+          "reservedUntil": "@now+15m"
+        }
+      }
+    },
+    {
+      "id": "third-unpaid-online-order-pending-limit",
+      "source": "scripts/api_e2e.py:1103",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "reservedUntil": "@now+10m"
+        },
+        "orders/o2": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "reservedUntil": "@now+10m"
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "error": "PENDING_LIMIT",
+      "then": {
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cod-is-not-pending-capped",
+      "source": "scripts/api_e2e.py:1106",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "reservedUntil": "@now+10m"
+        },
+        "orders/o2": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "reservedUntil": "@now+10m"
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "confirmed"
+        }
+      }
+    },
+    {
+      "id": "expired-hold-no-longer-counts-toward-pending-limit",
+      "source": "scripts/api_e2e.py:1111",
+      "about": "o1 is still pending_payment but its reservedUntil has passed (the expiry job has not run yet).",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "reservedUntil": "@now-1m"
+        },
+        "orders/o2": {
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "reservedUntil": "@now+10m"
+        },
+        "carts/alice": {
+          "lines": {
+            "vcheap": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "online"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "pending_payment"
+        }
+      }
+    },
+    {
+      "id": "eleven-lines-cart-limit",
+      "source": "scripts/api_e2e.py:1117",
+      "about": "SQL detail text; checked before the address.",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "l01": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l02": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l03": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l04": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l05": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l06": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l07": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l08": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l09": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l10": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l11": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "CART_LIMIT",
+      "errorDetail": "at most 10 lines per order"
+    },
+    {
+      "id": "ten-lines-place",
+      "source": "scripts/api_e2e.py:1120",
+      "as": "alice",
+      "given": {
+        "carts/alice": {
+          "lines": {
+            "l01": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l02": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l03": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l04": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l05": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l06": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l07": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l08": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l09": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "l10": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "confirmed",
+          "subtotalPaise": 1000
+        }
+      }
+    }
+  ],
+  "notExpressed": [
+    {
+      "source": "supabase/tests/offers.test.sql:244",
+      "why": "Direct-insert CHECK constraints (total = subtotal + fee − discount, discount ≤ subtotal − 100, discount ≥ 0, line discount ≤ line total, offers.test.sql:243-250). Firebase has no client order writes; the same rules are assertOrderTotals() before every order write, exercised by every placeOrder vector here."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:504",
+      "why": "An invariant over every order in the database, not one call (also api_e2e.py audit_numbers). Consumers should assert Σ items[].discountPaise = discountPaise, Σ unitPricePaise × qty = subtotalPaise, totalPaise = subtotalPaise + deliveryFeePaise − discountPaise and 1 ≤ qty ≤ 5 after every placeOrder case."
+    },
+    {
+      "source": "supabase/tests/orders.test.sql:98",
+      "why": "Pattern ^SM[0-9]{6}$; the format has no pattern matcher and the counters/orders numbering start is not fixed by the SQL test."
+    },
+    {
+      "source": "supabase/tests/orders.test.sql:101",
+      "why": "\"Exactly these keys\" cannot be said with a deep-partial match; the case lists the values only. Firebase adds stateCode (§3), so the key set changes anyway."
+    },
+    {
+      "source": "supabase/tests/orders.test.sql:85",
+      "why": "Rules check (clients never write variants), ported with the rules tests."
+    },
+    {
+      "source": "scripts/api_e2e.py:415",
+      "why": "Cart qty 1..5 and the 20-line cart cap (api_e2e.py caps_checks \"a 21st cart line\") are Rules checks on carts/{uid} writes, not callable calls."
+    },
+    {
+      "source": "scripts/api_e2e.py:597",
+      "why": "Variant price validation belongs to saveProduct, not pricing."
+    },
+    {
+      "source": "scripts/api_e2e.py:642",
+      "why": "Concurrency (also the 25 add-to-cart races): needs parallel callers against the emulator, not data. The sequential effect is the OUT_OF_STOCK cases."
+    },
+    {
+      "source": "scripts/api_e2e.py:609",
+      "why": "Cancel/expiry restock and their timeline notes are order state-machine rules, outside this pricing file."
+    },
+    {
+      "source": "scripts/api_e2e.py:1035",
+      "why": "PostgREST signature check (PGRST202). The Firebase equivalent is the zod input schema; the error for an unknown input key is not fixed by the SQL."
+    },
+    {
+      "source": "scripts/api_e2e.py:1071",
+      "why": "Razorpay create-payment and webhook amount checks: dropped (decision D4)."
+    }
+  ]
+}

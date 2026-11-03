@@ -1,0 +1,1092 @@
+{
+  "about": "Referrals: myReferral, applyReferralCode (REFERRAL_OFF, REFERRAL_USED, REFERRAL_TOO_LATE, REFERRAL_INVALID, REFERRAL_SELF, checked in that order; the welcome coupon it returns), the welcome coupon at checkout, and the referrer's reward when the referee's first qualifying order (subtotalPaise ≥ referral.minOrderPaise) is delivered through adminUpdateOrder: once, only for a pending referral, void when the referrer already has referral.monthlyCap rewards this IST month (users/{referrer}.referralRewards[\"yyyymm\"]). Ported from supabase/tests/offers.test.sql (Referrals) and scripts/api_e2e.py offers_checks, with the semantics of my_referral, apply_referral_code and reward_referral (20261030000000_offers.sql). The SQL walks an order through packed and shipped first; here each delivery case starts from a shipped order. This world holds no promotions, so \"promotions/*\" in \"then\" is the one the call created. Conventions beyond vector-format.md: a doc in \"given\" replaces the world doc of the same path whole (every given doc is written in full). A field expected as null matches null or absent. orders items[] are listed in variant-id order; match them by id. \"$orderId\" / \"$id\" = the id the call returned. A \"then\" key ending in \"/*\" means the one doc in that collection (the case starts with none there); \"<collection>/*\": null means the call creates none. Where an expected value was not asserted by the SQL test but re-derived from the SQL code (price_lines, evaluate_promotion, offer_open, reward_referral, apply_referral_code), the case \"about\" says \"derived\".",
+  "now": "2026-11-03T12:00:00+05:30",
+  "world": {
+    "settings/store": {
+      "deliveryFeePaise": 4900,
+      "freeDeliveryMinPaise": 99900,
+      "codEnabled": true,
+      "codMaxPaise": 2500000,
+      "onlinePaymentEnabled": true,
+      "referral": {
+        "enabled": true,
+        "friendPaise": 20000,
+        "rewardPaise": 20000,
+        "minOrderPaise": 199900,
+        "monthlyCap": 10
+      }
+    },
+    "users/alice": {
+      "fullName": "Alice",
+      "referralCode": "ALICE123"
+    },
+    "users/carol": {
+      "fullName": "Carol",
+      "referralCode": "CAROL123"
+    },
+    "users/dave": {
+      "fullName": "Dave"
+    },
+    "users/erin": {
+      "fullName": "Erin"
+    },
+    "users/staff": {
+      "fullName": "Staff",
+      "role": "staff"
+    },
+    "referralCodes/ALICE123": {
+      "uid": "alice"
+    },
+    "referralCodes/CAROL123": {
+      "uid": "carol"
+    },
+    "categories/test-phones": {
+      "name": "Test phones",
+      "kind": "phone"
+    },
+    "categories/test-acc": {
+      "name": "Test accessories",
+      "kind": "accessory"
+    },
+    "brands/test-b1": {
+      "name": "B1"
+    },
+    "brands/test-b2": {
+      "name": "B2"
+    },
+    "products/test-phone": {
+      "name": "Test Phone",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "test-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/test-case": {
+      "name": "Test Case",
+      "brandId": "test-b2",
+      "brandName": "B2",
+      "categoryId": "test-acc",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "variants/v1": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-PHONE",
+      "name": "Phone",
+      "pricePaise": 1000000,
+      "mrpPaise": 1000000,
+      "stock": 50
+    },
+    "variants/v2": {
+      "productId": "test-case",
+      "productName": "Test Case",
+      "sku": "T-CASE",
+      "name": "Case",
+      "pricePaise": 50000,
+      "mrpPaise": 50000,
+      "stock": 50
+    },
+    "users/alice/addresses/a0": {
+      "name": "Alice",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/carol/addresses/a0": {
+      "name": "Carol",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/dave/addresses/a0": {
+      "name": "Dave",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    },
+    "users/erin/addresses/a0": {
+      "name": "Erin",
+      "phone": "+919876543210",
+      "line1": "1 Rajeev Complex",
+      "city": "Waidhan",
+      "state": "Madhya Pradesh",
+      "stateCode": "23",
+      "pincode": "486886",
+      "label": "home"
+    }
+  },
+  "cases": [
+    {
+      "id": "my-referral-makes-a-code-on-first-call",
+      "source": "supabase/tests/offers.test.sql:367",
+      "about": "The new code is random, ^[A-Z0-9]{8}$ (api_e2e.py: 6..10 chars), saved as referralCodes/{code} {uid: dave} and users/dave.referralCode (see notExpressed).",
+      "as": "dave",
+      "call": "myReferral",
+      "input": {},
+      "expect": {
+        "enabled": true,
+        "friendPaise": 20000,
+        "rewardPaise": 20000,
+        "minOrderPaise": 199900,
+        "joined": 0,
+        "rewarded": 0,
+        "canEnterCode": true
+      }
+    },
+    {
+      "id": "my-referral-keeps-the-same-code",
+      "source": "supabase/tests/offers.test.sql:368",
+      "about": "Contract keys (offers.test.sql:369); alice has an order so she cannot enter a friend's code (offers.test.sql:371).",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        }
+      },
+      "call": "myReferral",
+      "input": {},
+      "expect": {
+        "code": "ALICE123",
+        "enabled": true,
+        "friendPaise": 20000,
+        "rewardPaise": 20000,
+        "minOrderPaise": 199900,
+        "joined": 0,
+        "rewarded": 0,
+        "canEnterCode": false
+      }
+    },
+    {
+      "id": "my-referral-new-customer-can-enter-a-code",
+      "source": "supabase/tests/offers.test.sql:376",
+      "as": "carol",
+      "call": "myReferral",
+      "input": {},
+      "expect": {
+        "code": "CAROL123",
+        "canEnterCode": true
+      }
+    },
+    {
+      "id": "apply-own-code-refused",
+      "source": "supabase/tests/offers.test.sql:377",
+      "as": "carol",
+      "call": "applyReferralCode",
+      "input": {
+        "code": "CAROL123"
+      },
+      "error": "REFERRAL_SELF",
+      "then": {
+        "referrals/carol": null
+      }
+    },
+    {
+      "id": "apply-unknown-code-refused",
+      "source": "supabase/tests/offers.test.sql:378",
+      "as": "carol",
+      "call": "applyReferralCode",
+      "input": {
+        "code": "ZZZZZZZZ"
+      },
+      "error": "REFERRAL_INVALID"
+    },
+    {
+      "id": "apply-friends-code-gives-a-welcome-coupon",
+      "source": "supabase/tests/offers.test.sql:382",
+      "about": "The code is trimmed and uppercased. The returned offer is asserted minus id, code, startsAt, endsAt; the promotion fields in \"then\" come from apply_referral_code's insert (derived): a personal, hidden, one-use, first-order-only flat coupon for friendPaise with minOrderPaise, ending in 90 days, code FRIEND + 10 hex chars.",
+      "as": "carol",
+      "call": "applyReferralCode",
+      "input": {
+        "code": " alice123 "
+      },
+      "expect": {
+        "title": "Welcome gift from a friend",
+        "description": "",
+        "kind": "flat",
+        "value": 20000,
+        "maxDiscountPaise": null,
+        "minSubtotalPaise": 199900,
+        "appliesTo": "order",
+        "automatic": false,
+        "onlineOnly": false,
+        "firstOrderOnly": true
+      },
+      "then": {
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "pending"
+        },
+        "promotions/*": {
+          "title": "Welcome gift from a friend",
+          "kind": "flat",
+          "value": 20000,
+          "minSubtotalPaise": 199900,
+          "endsAt": "@now+90d",
+          "usageLimit": 1,
+          "perUserLimit": 1,
+          "firstOrderOnly": true,
+          "isPublic": false,
+          "uid": "carol",
+          "isActive": true
+        },
+        "users/carol/coupons/*": {
+          "title": "Welcome gift from a friend",
+          "kind": "flat",
+          "value": 20000,
+          "minSubtotalPaise": 199900,
+          "firstOrderOnly": true
+        }
+      }
+    },
+    {
+      "id": "apply-a-second-code-refused",
+      "source": "supabase/tests/offers.test.sql:383",
+      "as": "carol",
+      "given": {
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "pending"
+        }
+      },
+      "call": "applyReferralCode",
+      "input": {
+        "code": "ALICE123"
+      },
+      "error": "REFERRAL_USED"
+    },
+    {
+      "id": "my-referral-stops-offering-code-entry-once-referred",
+      "source": "supabase/tests/offers.test.sql:384",
+      "as": "carol",
+      "given": {
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "pending"
+        }
+      },
+      "call": "myReferral",
+      "input": {},
+      "expect": {
+        "canEnterCode": false
+      }
+    },
+    {
+      "id": "apply-after-an-order-too-late",
+      "source": "supabase/tests/offers.test.sql:388",
+      "about": "The order check runs before the code lookup, so even her own code answers REFERRAL_TOO_LATE.",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        }
+      },
+      "call": "applyReferralCode",
+      "input": {
+        "code": "ALICE123"
+      },
+      "error": "REFERRAL_TOO_LATE"
+    },
+    {
+      "id": "apply-with-only-a-cancelled-order-is-allowed",
+      "source": "supabase/migrations/20261030000000_offers.sql:636",
+      "about": "Derived: apply_referral_code ignores cancelled orders.",
+      "as": "dave",
+      "given": {
+        "orders/o1": {
+          "uid": "dave",
+          "status": "cancelled",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        }
+      },
+      "call": "applyReferralCode",
+      "input": {
+        "code": "ALICE123"
+      },
+      "expect": {
+        "title": "Welcome gift from a friend"
+      },
+      "then": {
+        "referrals/dave": {
+          "referrerUid": "alice",
+          "status": "pending"
+        }
+      }
+    },
+    {
+      "id": "friend-coupon-not-listed-for-others",
+      "source": "supabase/tests/offers.test.sql:389",
+      "as": "alice",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Welcome gift from a friend",
+          "description": "",
+          "code": "FRIEND0A1B2C3D4E",
+          "kind": "flat",
+          "value": 20000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 199900,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+90d",
+          "usageLimit": 1,
+          "perUserLimit": 1,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": "carol",
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": "alice",
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": true
+      },
+      "expect": {
+        "open": false
+      }
+    },
+    {
+      "id": "friend-coupon-unusable-by-others",
+      "source": "supabase/tests/offers.test.sql:391",
+      "as": "alice",
+      "given": {
+        "promotions/p1": {
+          "title": "Welcome gift from a friend",
+          "description": "",
+          "code": "FRIEND0A1B2C3D4E",
+          "kind": "flat",
+          "value": 20000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 199900,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+90d",
+          "usageLimit": 1,
+          "perUserLimit": 1,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": "carol",
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promoCodes/FRIEND0A1B2C3D4E": {
+          "promotionId": "p1"
+        },
+        "users/carol/coupons/p1": {
+          "title": "Welcome gift from a friend",
+          "description": "",
+          "code": "FRIEND0A1B2C3D4E",
+          "kind": "flat",
+          "value": 20000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 199900,
+          "appliesTo": "order",
+          "startsAt": "@now-1h",
+          "endsAt": "@now+90d",
+          "onlineOnly": false,
+          "firstOrderOnly": true
+        },
+        "carts/alice": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {
+        "couponCode": "FRIEND0A1B2C3D4E"
+      },
+      "expect": {
+        "subtotalPaise": 1000000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1000000,
+        "promotion": null,
+        "couponError": "COUPON_NOT_FOUND",
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "referee-sees-her-welcome-coupon",
+      "source": "supabase/tests/offers.test.sql:393",
+      "as": "carol",
+      "call": "offerOpenFor",
+      "input": {
+        "promotion": {
+          "title": "Welcome gift from a friend",
+          "description": "",
+          "code": "FRIEND0A1B2C3D4E",
+          "kind": "flat",
+          "value": 20000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 199900,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+90d",
+          "usageLimit": 1,
+          "perUserLimit": 1,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": "carol",
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "uid": "carol",
+        "usesTotal": 0,
+        "usesByUser": 0,
+        "hasPlacedOrder": false
+      },
+      "expect": {
+        "open": true
+      }
+    },
+    {
+      "id": "referee-first-order-uses-the-welcome-coupon",
+      "source": "supabase/tests/offers.test.sql:396",
+      "about": "No reward before delivery (offers.test.sql:398). Total derived.",
+      "as": "carol",
+      "given": {
+        "promotions/p1": {
+          "title": "Welcome gift from a friend",
+          "description": "",
+          "code": "FRIEND0A1B2C3D4E",
+          "kind": "flat",
+          "value": 20000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 199900,
+          "appliesTo": "order",
+          "targets": [],
+          "startsAt": "@now-1h",
+          "endsAt": "@now+90d",
+          "usageLimit": 1,
+          "perUserLimit": 1,
+          "firstOrderOnly": true,
+          "onlineOnly": false,
+          "isPublic": false,
+          "uid": "carol",
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "promoCodes/FRIEND0A1B2C3D4E": {
+          "promotionId": "p1"
+        },
+        "users/carol/coupons/p1": {
+          "title": "Welcome gift from a friend",
+          "description": "",
+          "code": "FRIEND0A1B2C3D4E",
+          "kind": "flat",
+          "value": 20000,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 199900,
+          "appliesTo": "order",
+          "startsAt": "@now-1h",
+          "endsAt": "@now+90d",
+          "onlineOnly": false,
+          "firstOrderOnly": true
+        },
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "pending"
+        },
+        "carts/carol": {
+          "lines": {
+            "v1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod",
+        "couponCode": "FRIEND0A1B2C3D4E"
+      },
+      "then": {
+        "orders/$orderId": {
+          "discountPaise": 20000,
+          "totalPaise": 980000,
+          "couponCode": "FRIEND0A1B2C3D4E",
+          "promotion": {
+            "id": "p1",
+            "title": "Welcome gift from a friend",
+            "code": "FRIEND0A1B2C3D4E",
+            "kind": "flat"
+          }
+        },
+        "referrals/carol": {
+          "status": "pending"
+        }
+      }
+    },
+    {
+      "id": "delivery-pays-the-referrer",
+      "source": "supabase/tests/offers.test.sql:402",
+      "about": "The referee's order (subtotal 1000000 ≥ minOrderPaise 199900, compared before the discount) is delivered: alice gets a personal hidden flat coupon for rewardPaise, code REWARD + 10 hex chars (regex not expressible), and the referral is marked rewarded (offers.test.sql:403-404). Limits and 90-day end come from reward_referral's insert (derived); the referralRewards month key is the IST month of \"now\".",
+      "as": "staff",
+      "given": {
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "pending"
+        },
+        "orders/c1": {
+          "uid": "carol",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "subtotalPaise": 1000000,
+          "deliveryFeePaise": 0,
+          "discountPaise": 20000,
+          "totalPaise": 980000,
+          "items": [
+            {
+              "id": "v1",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "Phone",
+              "unitPricePaise": 1000000,
+              "qty": 1,
+              "gstRateBp": 1800,
+              "discountPaise": 20000,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "byUid": "carol",
+              "at": "@now-3h"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-2h"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-1h"
+            }
+          ]
+        }
+      },
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "c1",
+        "status": "delivered"
+      },
+      "then": {
+        "referrals/carol": {
+          "status": "rewarded",
+          "rewardedAt": "@now"
+        },
+        "promotions/*": {
+          "title": "Thanks for referring a friend",
+          "kind": "flat",
+          "value": 20000,
+          "minSubtotalPaise": 199900,
+          "endsAt": "@now+90d",
+          "usageLimit": 1,
+          "perUserLimit": 1,
+          "firstOrderOnly": false,
+          "isPublic": false,
+          "uid": "alice",
+          "isActive": true
+        },
+        "users/alice/coupons/*": {
+          "title": "Thanks for referring a friend",
+          "kind": "flat",
+          "value": 20000,
+          "minSubtotalPaise": 199900
+        },
+        "users/alice": {
+          "referralRewards": {
+            "202611": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "second-delivery-pays-nothing-more",
+      "source": "supabase/tests/offers.test.sql:410",
+      "as": "staff",
+      "given": {
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "rewarded",
+          "rewardedAt": "@now-1h"
+        },
+        "users/alice": {
+          "fullName": "Alice",
+          "referralCode": "ALICE123",
+          "referralRewards": {
+            "202611": 1
+          }
+        },
+        "orders/c2": {
+          "uid": "carol",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "subtotalPaise": 1000000,
+          "deliveryFeePaise": 0,
+          "discountPaise": 0,
+          "totalPaise": 1000000,
+          "items": [
+            {
+              "id": "v1",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "Phone",
+              "unitPricePaise": 1000000,
+              "qty": 1,
+              "gstRateBp": 1800,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "byUid": "carol",
+              "at": "@now-3h"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-2h"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-1h"
+            }
+          ]
+        }
+      },
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "c2",
+        "status": "delivered"
+      },
+      "then": {
+        "promotions/*": null,
+        "referrals/carol": {
+          "status": "rewarded",
+          "rewardedAt": "@now-1h"
+        },
+        "users/alice": {
+          "referralRewards": {
+            "202611": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "order-under-the-minimum-pays-nothing-yet",
+      "source": "supabase/tests/offers.test.sql:419",
+      "about": "Subtotal 50000 < 199900. The minimum is checked before the monthly cap (cap 1 is already reached here), so the referral stays pending, not void.",
+      "as": "staff",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 1
+          }
+        },
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "rewarded",
+          "rewardedAt": "@now-1h"
+        },
+        "users/alice": {
+          "fullName": "Alice",
+          "referralCode": "ALICE123",
+          "referralRewards": {
+            "202611": 1
+          }
+        },
+        "referrals/erin": {
+          "referrerUid": "alice",
+          "status": "pending"
+        },
+        "orders/e1": {
+          "uid": "erin",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "subtotalPaise": 50000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 0,
+          "totalPaise": 54900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "test-case",
+              "productName": "Test Case",
+              "variantName": "Case",
+              "unitPricePaise": 50000,
+              "qty": 1,
+              "gstRateBp": 1800,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "byUid": "erin",
+              "at": "@now-3h"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-2h"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-1h"
+            }
+          ]
+        }
+      },
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "e1",
+        "status": "delivered"
+      },
+      "then": {
+        "referrals/erin": {
+          "status": "pending"
+        },
+        "promotions/*": null,
+        "users/alice": {
+          "referralRewards": {
+            "202611": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "monthly-cap-reached-voids-the-referral",
+      "source": "supabase/tests/offers.test.sql:425",
+      "about": "alice already has 1 reward this IST month and monthlyCap is 1: void, and no second reward (offers.test.sql:426).",
+      "as": "staff",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": true,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 1
+          }
+        },
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "rewarded",
+          "rewardedAt": "@now-1h"
+        },
+        "users/alice": {
+          "fullName": "Alice",
+          "referralCode": "ALICE123",
+          "referralRewards": {
+            "202611": 1
+          }
+        },
+        "referrals/erin": {
+          "referrerUid": "alice",
+          "status": "pending"
+        },
+        "orders/e2": {
+          "uid": "erin",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "subtotalPaise": 1000000,
+          "deliveryFeePaise": 0,
+          "discountPaise": 0,
+          "totalPaise": 1000000,
+          "items": [
+            {
+              "id": "v1",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "Phone",
+              "unitPricePaise": 1000000,
+              "qty": 1,
+              "gstRateBp": 1800,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "byUid": "erin",
+              "at": "@now-3h"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-2h"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-1h"
+            }
+          ]
+        }
+      },
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "e2",
+        "status": "delivered"
+      },
+      "then": {
+        "referrals/erin": {
+          "status": "void"
+        },
+        "promotions/*": null,
+        "users/alice": {
+          "referralRewards": {
+            "202611": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "void-referral-never-pays-later",
+      "source": "supabase/migrations/20261030000000_offers.sql:422",
+      "about": "Derived: reward_referral only pays a pending referral.",
+      "as": "staff",
+      "given": {
+        "referrals/erin": {
+          "referrerUid": "alice",
+          "status": "void"
+        },
+        "orders/e3": {
+          "uid": "erin",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "subtotalPaise": 1000000,
+          "deliveryFeePaise": 0,
+          "discountPaise": 0,
+          "totalPaise": 1000000,
+          "items": [
+            {
+              "id": "v1",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "Phone",
+              "unitPricePaise": 1000000,
+              "qty": 1,
+              "gstRateBp": 1800,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "byUid": "erin",
+              "at": "@now-3h"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-2h"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now-1h"
+            }
+          ]
+        }
+      },
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "e3",
+        "status": "delivered"
+      },
+      "then": {
+        "referrals/erin": {
+          "status": "void"
+        },
+        "promotions/*": null
+      }
+    },
+    {
+      "id": "my-referral-counts-joined-and-rewarded",
+      "source": "supabase/tests/offers.test.sql:428",
+      "about": "joined counts every referral naming alice (pending, rewarded or void); rewarded only the rewarded ones.",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "uid": "alice",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending"
+        },
+        "referrals/carol": {
+          "referrerUid": "alice",
+          "status": "rewarded",
+          "rewardedAt": "@now-1h"
+        },
+        "referrals/erin": {
+          "referrerUid": "alice",
+          "status": "void"
+        }
+      },
+      "call": "myReferral",
+      "input": {},
+      "expect": {
+        "joined": 2,
+        "rewarded": 1
+      }
+    },
+    {
+      "id": "apply-while-referrals-are-off",
+      "source": "supabase/tests/offers.test.sql:432",
+      "as": "dave",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": false,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        }
+      },
+      "call": "applyReferralCode",
+      "input": {
+        "code": "ALICE123"
+      },
+      "error": "REFERRAL_OFF"
+    },
+    {
+      "id": "my-referral-no-code-entry-while-off",
+      "source": "supabase/tests/offers.test.sql:433",
+      "as": "dave",
+      "given": {
+        "settings/store": {
+          "deliveryFeePaise": 4900,
+          "freeDeliveryMinPaise": 99900,
+          "codEnabled": true,
+          "codMaxPaise": 2500000,
+          "onlinePaymentEnabled": true,
+          "referral": {
+            "enabled": false,
+            "friendPaise": 20000,
+            "rewardPaise": 20000,
+            "minOrderPaise": 199900,
+            "monthlyCap": 10
+          }
+        }
+      },
+      "call": "myReferral",
+      "input": {},
+      "expect": {
+        "enabled": false,
+        "canEnterCode": false
+      }
+    }
+  ],
+  "notExpressed": [
+    {
+      "source": "supabase/tests/offers.test.sql:367",
+      "why": "The generated referral code is random: assert ^[A-Z0-9]{8}$ (api_e2e.py \"my_referral gives a code\": 6..10 chars) and that referralCodes/{code}.uid and users/{uid}.referralCode match it. The format has no pattern matcher."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:401",
+      "why": "Generated coupon codes: reward ^REWARD[0-9A-F]{10}$, welcome ^FRIEND[0-9A-F]{10}$ (md5 hex, uppercased); pattern only, so the cases assert the other fields."
+    },
+    {
+      "source": "supabase/tests/offers.test.sql:491",
+      "why": "RLS/grant checks on referrals, referral_codes and store_settings are ported with the rules tests."
+    }
+  ]
+}

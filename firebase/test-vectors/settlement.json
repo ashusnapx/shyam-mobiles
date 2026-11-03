@@ -1,0 +1,2839 @@
+{
+  "about": "The gateway-neutral settlement state machine (orders/settlement.ts): settleOnlinePayment for online payments and startRefund/settleRefund for refunds. Ported from supabase/tests/payments.test.sql (mark_order_paid, mark_payment_failed, late payments after expiry or cancel), supabase/tests/refunds.test.sql (admin_start_refund, settle_refund) and scripts/api_e2e.py lifecycle/payments_checks, with the SQL in supabase/migrations/20261028000200_rpcs.sql and 20261030000500_refunds.sql. Everything Razorpay-only is dropped (decision D4) and listed in notExpressed. Payment attempts live at orders/{id}/payments/{merchantOrderId} (§3). \"outcome\" names (paid, revived, needs_refund, already_paid, failed) are this file's proposal: the SQL returned nothing, so the doc state in \"then\" is what it asserted. settleRefund's \"status\" is what settle_refund returned. startRefund returns {refundId, amountPaise, retry}; \"$refundId\" in \"then\" = the refundId it returned. Refund amounts come from the order: an item line is unitPricePaise x qty - its discountPaise; a full refund is totalPaise minus processed refunds. Event notes use the SQL inr() format: \"₹\" + whole rupees with Indian grouping, plus \".pp\" only when there are paise. Arrays in \"expect\"/\"then\" match element by element, in order, and must have the same length (so a listed events[] also says how many events there are); each element is itself a deep-partial match. In \"then\", null means the field is absent or null. \"given\" docs are whole documents (they replace the world doc).",
+  "now": "2026-11-03T12:00:00+05:30",
+  "world": {
+    "users/alice": {
+      "fullName": "Alice",
+      "phone": "+919876543210"
+    },
+    "users/bob": {
+      "fullName": "Bob",
+      "phone": "+919876543211"
+    },
+    "users/staff": {
+      "fullName": "Staff",
+      "role": "staff"
+    },
+    "products/test-phone": {
+      "name": "Test Phone",
+      "brandId": "test-brand",
+      "categoryId": "test-cat",
+      "categoryKind": "phone"
+    },
+    "products/rf-phone": {
+      "name": "Rf Phone",
+      "brandId": "rf-brand",
+      "categoryId": "rf-cat",
+      "categoryKind": "phone"
+    },
+    "variants/v1": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-PAY",
+      "name": "8 GB",
+      "pricePaise": 50000,
+      "mrpPaise": 50000,
+      "stock": 2
+    },
+    "variants/v2": {
+      "productId": "rf-phone",
+      "productName": "Rf Phone",
+      "sku": "RF-A",
+      "name": "A",
+      "pricePaise": 30000,
+      "mrpPaise": 30000,
+      "stock": 5
+    },
+    "variants/v3": {
+      "productId": "rf-phone",
+      "productName": "Rf Phone",
+      "sku": "RF-B",
+      "name": "B",
+      "pricePaise": 40000,
+      "mrpPaise": 40000,
+      "stock": 5
+    },
+    "orders/o1": {
+      "number": "SM100001",
+      "uid": "alice",
+      "status": "pending_payment",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "8 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        }
+      ],
+      "reservedUntil": "@now+10m"
+    },
+    "orders/o1/payments/SM100001-aaaaaaaa": {
+      "state": "pending",
+      "amountPaise": 54900,
+      "token": "tok-1-a",
+      "expireAt": "@now+10m"
+    },
+    "orders/o2": {
+      "number": "SM100002",
+      "uid": "alice",
+      "status": "pending_payment",
+      "paymentMethod": "online",
+      "paymentStatus": "failed",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "8 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        }
+      ],
+      "reservedUntil": "@now+10m"
+    },
+    "orders/o2/payments/SM100002-aaaaaaaa": {
+      "state": "failed",
+      "amountPaise": 54900,
+      "token": "tok-2-a",
+      "expireAt": "@now+10m"
+    },
+    "orders/o2/payments/SM100002-bbbbbbbb": {
+      "state": "pending",
+      "amountPaise": 54900,
+      "token": "tok-2-b",
+      "expireAt": "@now+10m"
+    },
+    "orders/o3": {
+      "number": "SM100003",
+      "uid": "alice",
+      "status": "confirmed",
+      "paymentMethod": "online",
+      "paymentStatus": "paid",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "8 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        }
+      ],
+      "reservedUntil": null,
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100003-aaaaaaaa",
+        "transactionId": "TX3",
+        "paidAt": "@now-50m"
+      }
+    },
+    "orders/o3/payments/SM100003-aaaaaaaa": {
+      "state": "completed",
+      "amountPaise": 54900,
+      "token": "tok-3-a",
+      "expireAt": "@now+10m",
+      "transactionId": "TX3"
+    },
+    "orders/o3/payments/SM100003-bbbbbbbb": {
+      "state": "pending",
+      "amountPaise": 54900,
+      "token": "tok-3-b",
+      "expireAt": "@now+10m"
+    },
+    "orders/o4": {
+      "number": "SM100004",
+      "uid": "alice",
+      "status": "cancelled",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "8 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "cancelled",
+          "note": "Payment not received in time",
+          "by": "system",
+          "at": "@now-30m"
+        }
+      ],
+      "reservedUntil": "@now-30m",
+      "cancelledBy": "expiry"
+    },
+    "orders/o4/payments/SM100004-aaaaaaaa": {
+      "state": "pending",
+      "amountPaise": 54900,
+      "token": "tok-4-a",
+      "expireAt": "@now+10m"
+    },
+    "orders/o5": {
+      "number": "SM100005",
+      "uid": "alice",
+      "status": "cancelled",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "8 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "cancelled",
+          "note": "Cancelled by you.",
+          "by": "customer",
+          "at": "@now-30m"
+        }
+      ],
+      "reservedUntil": null,
+      "cancelledBy": "customer"
+    },
+    "orders/o5/payments/SM100005-aaaaaaaa": {
+      "state": "pending",
+      "amountPaise": 54900,
+      "token": "tok-5-a",
+      "expireAt": "@now+10m"
+    },
+    "orders/o6": {
+      "number": "SM100006",
+      "uid": "alice",
+      "status": "cancelled",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "8 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "cancelled",
+          "note": "Customer called",
+          "by": "staff",
+          "at": "@now-30m"
+        }
+      ],
+      "reservedUntil": null,
+      "cancelledBy": "staff"
+    },
+    "orders/o6/payments/SM100006-aaaaaaaa": {
+      "state": "pending",
+      "amountPaise": 54900,
+      "token": "tok-6-a",
+      "expireAt": "@now+10m"
+    },
+    "orders/o7": {
+      "number": "SM100007",
+      "uid": "bob",
+      "status": "confirmed",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "8 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-1h"
+        }
+      ]
+    },
+    "orders/o8": {
+      "number": "SM100008",
+      "uid": "alice",
+      "status": "delivered",
+      "paymentMethod": "online",
+      "paymentStatus": "paid",
+      "subtotalPaise": 100000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 5000,
+      "totalPaise": 99900,
+      "items": [
+        {
+          "id": "v2",
+          "productId": "rf-phone",
+          "productName": "Phone A",
+          "variantName": "A",
+          "unitPricePaise": 30000,
+          "qty": 2,
+          "discountPaise": 5000,
+          "imeis": []
+        },
+        {
+          "id": "v3",
+          "productId": "rf-phone",
+          "productName": "Phone B",
+          "variantName": "B",
+          "unitPricePaise": 40000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        },
+        {
+          "status": "packed",
+          "by": "staff",
+          "at": "@now-40m"
+        },
+        {
+          "status": "shipped",
+          "by": "staff",
+          "at": "@now-30m"
+        },
+        {
+          "status": "delivered",
+          "by": "staff",
+          "at": "@now-20m"
+        }
+      ],
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100008-aaaaaaaa",
+        "transactionId": "TX8",
+        "paidAt": "@now-50m"
+      },
+      "pendingRefundId": null
+    },
+    "orders/o9": {
+      "number": "SM100009",
+      "uid": "alice",
+      "status": "confirmed",
+      "paymentStatus": "paid",
+      "subtotalPaise": 40000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 40000,
+      "items": [
+        {
+          "id": "v3",
+          "productId": "rf-phone",
+          "productName": "Phone B",
+          "variantName": "B",
+          "unitPricePaise": 40000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        }
+      ],
+      "paymentMethod": "online",
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100009-aaaaaaaa",
+        "transactionId": "TX9",
+        "paidAt": "@now-50m"
+      },
+      "pendingRefundId": null
+    },
+    "orders/o10": {
+      "number": "SM100010",
+      "uid": "alice",
+      "status": "confirmed",
+      "paymentStatus": "pending",
+      "subtotalPaise": 40000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 40000,
+      "items": [
+        {
+          "id": "v3",
+          "productId": "rf-phone",
+          "productName": "Phone B",
+          "variantName": "B",
+          "unitPricePaise": 40000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-1h"
+        }
+      ],
+      "paymentMethod": "cod"
+    },
+    "orders/o11": {
+      "number": "SM100011",
+      "uid": "alice",
+      "status": "cancelled",
+      "paymentStatus": "paid",
+      "subtotalPaise": 40000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 40000,
+      "items": [
+        {
+          "id": "v3",
+          "productId": "rf-phone",
+          "productName": "Phone B",
+          "variantName": "B",
+          "unitPricePaise": 40000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        },
+        {
+          "status": "cancelled",
+          "note": "Cancelled by you. A full refund to your original payment method is on its way; banks usually take 5–7 working days.",
+          "by": "customer",
+          "at": "@now-30m"
+        }
+      ],
+      "paymentMethod": "online",
+      "cancelledBy": "customer",
+      "reservedUntil": null,
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100011-aaaaaaaa",
+        "transactionId": "TX11",
+        "paidAt": "@now-50m"
+      },
+      "pendingRefundId": null
+    }
+  },
+  "cases": [
+    {
+      "id": "failed-attempt-keeps-the-order-payable",
+      "source": "supabase/tests/payments.test.sql:69",
+      "about": "payments.test.sql:70.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o1",
+        "merchantOrderId": "SM100001-aaaaaaaa",
+        "transactionId": "TX1",
+        "amountPaise": 54900,
+        "state": "failed"
+      },
+      "expect": {
+        "outcome": "failed"
+      },
+      "then": {
+        "orders/o1": {
+          "status": "pending_payment",
+          "paymentStatus": "failed",
+          "events": [
+            {
+              "status": "pending_payment"
+            }
+          ]
+        },
+        "orders/o1/payments/SM100001-aaaaaaaa": {
+          "state": "failed"
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "payment-after-a-failed-attempt-confirms-the-order",
+      "source": "supabase/tests/payments.test.sql:71",
+      "about": "payments.test.sql:72-73, :77 (two events in all), :80 (stock taken once, at placeOrder).",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o2",
+        "merchantOrderId": "SM100002-bbbbbbbb",
+        "transactionId": "TX2",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "paid"
+      },
+      "then": {
+        "orders/o2": {
+          "status": "confirmed",
+          "paymentStatus": "paid",
+          "reservedUntil": null,
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100002-bbbbbbbb",
+            "transactionId": "TX2"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system"
+            }
+          ]
+        },
+        "orders/o2/payments/SM100002-bbbbbbbb": {
+          "state": "completed",
+          "transactionId": "TX2"
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "payment-on-time-confirms-the-order",
+      "source": "supabase/tests/payments.test.sql:71",
+      "about": "The same as above from a fresh order: pending_payment -> confirmed, paid, hold cleared.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o1",
+        "merchantOrderId": "SM100001-aaaaaaaa",
+        "transactionId": "TX1",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "paid"
+      },
+      "then": {
+        "orders/o1": {
+          "status": "confirmed",
+          "paymentStatus": "paid",
+          "reservedUntil": null,
+          "payment": {
+            "merchantOrderId": "SM100001-aaaaaaaa",
+            "transactionId": "TX1"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system"
+            }
+          ]
+        },
+        "orders/o1/payments/SM100001-aaaaaaaa": {
+          "state": "completed"
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "repeated-payment-report-changes-nothing",
+      "source": "supabase/tests/payments.test.sql:74",
+      "about": "payments.test.sql:76-77, :80: no second event, stock untouched.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o3",
+        "merchantOrderId": "SM100003-aaaaaaaa",
+        "transactionId": "TX3",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "already_paid"
+      },
+      "then": {
+        "orders/o3": {
+          "status": "confirmed",
+          "paymentStatus": "paid",
+          "payment": {
+            "transactionId": "TX3"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "second-payment-on-a-paid-order-changes-nothing",
+      "source": "supabase/tests/payments.test.sql:75",
+      "about": "payments.test.sql:76-77: the first payment is kept and no event is added. The SQL notes this as a shortcut (refund the extra payment from the gateway dashboard).",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o3",
+        "merchantOrderId": "SM100003-bbbbbbbb",
+        "transactionId": "TX3-other",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "already_paid"
+      },
+      "then": {
+        "orders/o3": {
+          "status": "confirmed",
+          "paymentStatus": "paid",
+          "payment": {
+            "merchantOrderId": "SM100003-aaaaaaaa",
+            "transactionId": "TX3"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "late-failure-on-a-paid-order-is-harmless",
+      "source": "supabase/tests/payments.test.sql:78",
+      "about": "payments.test.sql:79.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o3",
+        "merchantOrderId": "SM100003-bbbbbbbb",
+        "transactionId": "TX3",
+        "amountPaise": 54900,
+        "state": "failed"
+      },
+      "expect": {},
+      "then": {
+        "orders/o3": {
+          "status": "confirmed",
+          "paymentStatus": "paid",
+          "payment": {
+            "transactionId": "TX3"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "payment-for-an-unknown-order-is-not-found",
+      "source": "supabase/tests/payments.test.sql:81",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o99",
+        "merchantOrderId": "SM100099-aaaaaaaa",
+        "transactionId": "TX99",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "cod-orders-are-not-paid-online",
+      "source": "supabase/tests/payments.test.sql:86",
+      "about": "The attempt doc is in \"given\" only so the method check is what fails.",
+      "as": "system",
+      "given": {
+        "orders/o7/payments/SM100007-aaaaaaaa": {
+          "state": "pending",
+          "amountPaise": 54900,
+          "token": "tok-7-a",
+          "expireAt": "@now+10m"
+        }
+      },
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o7",
+        "merchantOrderId": "SM100007-aaaaaaaa",
+        "transactionId": "TX7",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "error": "INVALID_TRANSITION",
+      "then": {
+        "orders/o7": {
+          "status": "confirmed",
+          "paymentStatus": "pending"
+        }
+      }
+    },
+    {
+      "id": "payment-below-the-total-is-a-mismatch",
+      "source": "supabase/functions/verify-payment/index.ts:28",
+      "about": "Also supabase/functions/razorpay-webhook/handler_test.ts:95 (\"amount mismatch is acknowledged but not marked paid\"). Completed counts only when amountPaise equals totalPaise.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o1",
+        "merchantOrderId": "SM100001-aaaaaaaa",
+        "transactionId": "TX1",
+        "amountPaise": 100,
+        "state": "completed"
+      },
+      "error": "PAYMENT_MISMATCH",
+      "then": {
+        "orders/o1": {
+          "status": "pending_payment",
+          "paymentStatus": "pending",
+          "events": [
+            {
+              "status": "pending_payment"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "payment-above-the-total-is-a-mismatch",
+      "source": "supabase/functions/verify-payment/index.ts:28",
+      "about": "Exact amount only, both ways.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o1",
+        "merchantOrderId": "SM100001-aaaaaaaa",
+        "transactionId": "TX1",
+        "amountPaise": 55000,
+        "state": "completed"
+      },
+      "error": "PAYMENT_MISMATCH",
+      "then": {
+        "orders/o1": {
+          "status": "pending_payment",
+          "paymentStatus": "pending"
+        }
+      }
+    },
+    {
+      "id": "late-payment-revives-an-expired-order-while-stock-lasts",
+      "source": "supabase/tests/payments.test.sql:105",
+      "about": "payments.test.sql:106-107; api_e2e.py:862-863 (exact timeline). Stock is taken again.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o4",
+        "merchantOrderId": "SM100004-aaaaaaaa",
+        "transactionId": "TX4",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "revived"
+      },
+      "then": {
+        "orders/o4": {
+          "status": "confirmed",
+          "paymentStatus": "paid",
+          "reservedUntil": null,
+          "payment": {
+            "transactionId": "TX4"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled",
+              "note": "Payment not received in time"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 1
+        }
+      }
+    },
+    {
+      "id": "late-payment-without-stock-leaves-it-cancelled-and-paid",
+      "source": "supabase/tests/payments.test.sql:118",
+      "about": "payments.test.sql:119-120; api_e2e.py:877-879. Cancelled + paid = needs refund. Stock never goes negative.",
+      "as": "system",
+      "given": {
+        "variants/v1": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-PAY",
+          "name": "8 GB",
+          "pricePaise": 50000,
+          "mrpPaise": 50000,
+          "stock": 0
+        }
+      },
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o4",
+        "merchantOrderId": "SM100004-aaaaaaaa",
+        "transactionId": "TX4",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "needs_refund"
+      },
+      "then": {
+        "orders/o4": {
+          "status": "cancelled",
+          "paymentStatus": "paid",
+          "payment": {
+            "transactionId": "TX4"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled"
+            },
+            {
+              "status": "cancelled",
+              "note": "Payment received after cancellation. A refund is due.",
+              "by": "system"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 0
+        }
+      }
+    },
+    {
+      "id": "payment-after-customer-cancel-is-never-revived",
+      "source": "supabase/tests/payments.test.sql:128",
+      "about": "payments.test.sql:129-130; api_e2e.py:890. Stock is there, but only an expiry (cancelledBy \"expiry\") revives.",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o5",
+        "merchantOrderId": "SM100005-aaaaaaaa",
+        "transactionId": "TX5",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "needs_refund"
+      },
+      "then": {
+        "orders/o5": {
+          "status": "cancelled",
+          "paymentStatus": "paid",
+          "payment": {
+            "transactionId": "TX5"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled"
+            },
+            {
+              "status": "cancelled",
+              "note": "Payment received after cancellation. A refund is due.",
+              "by": "system"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "payment-after-staff-cancel-is-never-revived",
+      "source": "supabase/migrations/20261028000200_rpcs.sql:244",
+      "about": "mark_order_paid: \"customer/admin cancels clear it and are never revived\" (no test asserts it).",
+      "as": "system",
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o6",
+        "merchantOrderId": "SM100006-aaaaaaaa",
+        "transactionId": "TX6",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "needs_refund"
+      },
+      "then": {
+        "orders/o6": {
+          "status": "cancelled",
+          "paymentStatus": "paid",
+          "payment": {
+            "transactionId": "TX6"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled"
+            },
+            {
+              "status": "cancelled",
+              "note": "Payment received after cancellation. A refund is due.",
+              "by": "system"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "start-refund-signed-out-is-unauthorized",
+      "source": "scripts/api_e2e.py:1258",
+      "as": "anon",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8"
+      },
+      "error": "UNAUTHORIZED"
+    },
+    {
+      "id": "start-refund-by-a-customer-is-forbidden",
+      "source": "supabase/tests/refunds.test.sql:52",
+      "about": "api_e2e.py:1260 too.",
+      "as": "alice",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8"
+      },
+      "error": "FORBIDDEN",
+      "then": {
+        "orders/o8": {
+          "pendingRefundId": null
+        }
+      }
+    },
+    {
+      "id": "start-refund-unknown-order-not-found",
+      "source": "supabase/tests/refunds.test.sql:55",
+      "as": "staff",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o99"
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "no-refund-on-unpaid-cod",
+      "source": "supabase/tests/refunds.test.sql:56",
+      "about": "api_e2e.py:1277 too.",
+      "as": "staff",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o10"
+      },
+      "error": "REFUND_NOT_ALLOWED",
+      "errorDetail": "Only an order paid online, and not yet refunded, can be refunded here."
+    },
+    {
+      "id": "full-refund-needs-a-cancelled-or-delivered-order",
+      "source": "supabase/tests/refunds.test.sql:57",
+      "as": "staff",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o9"
+      },
+      "error": "REFUND_NOT_ALLOWED",
+      "errorDetail": "Cancel the order first, or refund single items.",
+      "then": {
+        "orders/o9": {
+          "pendingRefundId": null
+        }
+      }
+    },
+    {
+      "id": "cancelled-order-is-refunded-in-full-not-by-item",
+      "source": "supabase/tests/refunds.test.sql:59",
+      "as": "staff",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o11",
+        "itemIds": [
+          "v3"
+        ]
+      },
+      "error": "REFUND_NOT_ALLOWED",
+      "errorDetail": "A cancelled order is refunded in full."
+    },
+    {
+      "id": "item-refund-needs-an-item-of-this-order",
+      "source": "supabase/tests/refunds.test.sql:61",
+      "about": "The SQL passed a line of another order; items are keyed by variant id now, so v1 (not in o8) stands in.",
+      "as": "staff",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8",
+        "itemIds": [
+          "v1"
+        ]
+      },
+      "error": "BAD_REQUEST",
+      "errorDetail": "Pick items of this order that aren’t refunded yet."
+    },
+    {
+      "id": "item-refund-is-what-was-paid-for-the-line",
+      "source": "supabase/tests/refunds.test.sql:66",
+      "about": "refunds.test.sql:68 (the line points at its refund) and :76 (nothing restocked before it is processed). Line A: 2 x 30000 - 5000 discount = 55000. \"$refundId\" = the refundId the call returned. api_e2e.py:1285 too.",
+      "as": "staff",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8",
+        "itemIds": [
+          "v2"
+        ],
+        "restock": true
+      },
+      "expect": {
+        "amountPaise": 55000,
+        "retry": false
+      },
+      "then": {
+        "orders/o8": {
+          "status": "delivered",
+          "paymentStatus": "paid",
+          "pendingRefundId": "$refundId",
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "$refundId"
+            },
+            {
+              "id": "v3",
+              "refundId": null
+            }
+          ]
+        },
+        "orders/o8/refunds/$refundId": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "pending",
+          "createdBy": "staff"
+        },
+        "variants/v2": {
+          "stock": 5
+        }
+      }
+    },
+    {
+      "id": "unanswered-refund-is-retried-not-repeated",
+      "source": "supabase/tests/refunds.test.sql:70",
+      "about": "refunds.test.sql:72: the gateway never answered (no gatewayRefundId), so any new request hands back the same refund (same id = same idempotency key) and makes no second one.",
+      "as": "staff",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": "rf1"
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "pending",
+          "createdBy": "staff"
+        }
+      },
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8"
+      },
+      "expect": {
+        "refundId": "rf1",
+        "amountPaise": 55000,
+        "retry": true
+      },
+      "then": {
+        "orders/o8": {
+          "pendingRefundId": "rf1",
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": null
+            }
+          ]
+        },
+        "orders/o8/refunds/rf1": {
+          "status": "pending",
+          "fullRefund": false
+        }
+      }
+    },
+    {
+      "id": "one-refund-in-flight-per-order",
+      "source": "supabase/tests/refunds.test.sql:75",
+      "about": "The gateway took rf1 (gatewayRefundId set) and it is still pending.",
+      "as": "staff",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": "rf1"
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "pending",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        }
+      },
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8"
+      },
+      "error": "REFUND_IN_PROGRESS",
+      "then": {
+        "orders/o8": {
+          "pendingRefundId": "rf1",
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "processed-item-refund-restocks-and-leaves-the-order-as-it-was",
+      "source": "supabase/tests/refunds.test.sql:77",
+      "about": "refunds.test.sql:78 (staff chose restock: 2 back), :79-80 (still delivered and paid), :81-82 (timeline copy).",
+      "as": "system",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": "rf1"
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "pending",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        }
+      },
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o8",
+        "refundId": "rf1",
+        "state": "processed",
+        "gatewayRefundId": "GW-RF1"
+      },
+      "expect": {
+        "status": "processed"
+      },
+      "then": {
+        "orders/o8": {
+          "status": "delivered",
+          "paymentStatus": "paid",
+          "pendingRefundId": null,
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": null
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "delivered"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system"
+            }
+          ]
+        },
+        "orders/o8/refunds/rf1": {
+          "status": "processed",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "stock": 7
+        },
+        "variants/v3": {
+          "stock": 5
+        }
+      }
+    },
+    {
+      "id": "replayed-processed-refund-is-harmless",
+      "source": "supabase/tests/refunds.test.sql:86",
+      "about": "refunds.test.sql:87 (no second restock); payments.test.sql:139 (refund is idempotent).",
+      "as": "system",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system",
+              "at": "@now-10m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": null
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "productId": "rf-phone",
+          "productName": "Rf Phone",
+          "sku": "RF-A",
+          "name": "A",
+          "pricePaise": 30000,
+          "mrpPaise": 30000,
+          "stock": 7
+        }
+      },
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o8",
+        "refundId": "rf1",
+        "state": "processed",
+        "gatewayRefundId": "GW-RF1"
+      },
+      "expect": {
+        "status": "processed"
+      },
+      "then": {
+        "orders/o8": {
+          "status": "delivered",
+          "paymentStatus": "paid",
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "delivered"
+            },
+            {
+              "status": "delivered"
+            }
+          ]
+        },
+        "variants/v2": {
+          "stock": 7
+        }
+      }
+    },
+    {
+      "id": "refunded-line-cannot-be-refunded-again",
+      "source": "supabase/tests/refunds.test.sql:88",
+      "as": "staff",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system",
+              "at": "@now-10m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": null
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "productId": "rf-phone",
+          "productName": "Rf Phone",
+          "sku": "RF-A",
+          "name": "A",
+          "pricePaise": 30000,
+          "mrpPaise": 30000,
+          "stock": 7
+        }
+      },
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8",
+        "itemIds": [
+          "v2"
+        ]
+      },
+      "error": "BAD_REQUEST",
+      "errorDetail": "Pick items of this order that aren’t refunded yet.",
+      "then": {
+        "orders/o8": {
+          "pendingRefundId": null
+        }
+      }
+    },
+    {
+      "id": "full-refund-is-the-total-minus-what-is-back",
+      "source": "supabase/tests/refunds.test.sql:93",
+      "about": "refunds.test.sql:94 (line B flagged). 99900 - 55000 = 44900, delivery included. api_e2e.py:1298 too.",
+      "as": "staff",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system",
+              "at": "@now-10m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": null
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "productId": "rf-phone",
+          "productName": "Rf Phone",
+          "sku": "RF-A",
+          "name": "A",
+          "pricePaise": 30000,
+          "mrpPaise": 30000,
+          "stock": 7
+        }
+      },
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8"
+      },
+      "expect": {
+        "amountPaise": 44900,
+        "retry": false
+      },
+      "then": {
+        "orders/o8": {
+          "pendingRefundId": "$refundId",
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": "$refundId"
+            }
+          ]
+        },
+        "orders/o8/refunds/$refundId": {
+          "amountPaise": 44900,
+          "fullRefund": true,
+          "restock": false,
+          "status": "pending"
+        }
+      }
+    },
+    {
+      "id": "failed-refund-frees-its-lines",
+      "source": "supabase/tests/refunds.test.sql:95",
+      "about": "refunds.test.sql:97 (line B free again). The order is unchanged.",
+      "as": "system",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": [],
+              "refundId": "rf2"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system",
+              "at": "@now-10m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": "rf2"
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "productId": "rf-phone",
+          "productName": "Rf Phone",
+          "sku": "RF-A",
+          "name": "A",
+          "pricePaise": 30000,
+          "mrpPaise": 30000,
+          "stock": 7
+        },
+        "orders/o8/refunds/rf2": {
+          "amountPaise": 44900,
+          "fullRefund": true,
+          "restock": false,
+          "status": "pending",
+          "createdBy": "staff"
+        }
+      },
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o8",
+        "refundId": "rf2",
+        "state": "failed",
+        "failure": "Your account does not have enough balance to carry out the refund operation."
+      },
+      "expect": {
+        "status": "failed"
+      },
+      "then": {
+        "orders/o8": {
+          "status": "delivered",
+          "paymentStatus": "paid",
+          "pendingRefundId": null,
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": null
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "delivered"
+            },
+            {
+              "status": "delivered"
+            }
+          ]
+        },
+        "orders/o8/refunds/rf2": {
+          "status": "failed",
+          "failure": "Your account does not have enough balance to carry out the refund operation."
+        }
+      }
+    },
+    {
+      "id": "settled-refund-stays-settled",
+      "source": "supabase/tests/refunds.test.sql:100",
+      "about": "A processed report after a failure changes nothing.",
+      "as": "system",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system",
+              "at": "@now-10m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": null
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "productId": "rf-phone",
+          "productName": "Rf Phone",
+          "sku": "RF-A",
+          "name": "A",
+          "pricePaise": 30000,
+          "mrpPaise": 30000,
+          "stock": 7
+        },
+        "orders/o8/refunds/rf2": {
+          "amountPaise": 44900,
+          "fullRefund": true,
+          "restock": false,
+          "status": "failed",
+          "createdBy": "staff",
+          "failure": "Your account does not have enough balance to carry out the refund operation."
+        }
+      },
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o8",
+        "refundId": "rf2",
+        "state": "processed",
+        "gatewayRefundId": "GW-LATE"
+      },
+      "expect": {
+        "status": "failed"
+      },
+      "then": {
+        "orders/o8": {
+          "status": "delivered",
+          "paymentStatus": "paid",
+          "pendingRefundId": null,
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": null
+            }
+          ]
+        },
+        "orders/o8/refunds/rf2": {
+          "status": "failed",
+          "gatewayRefundId": null
+        }
+      }
+    },
+    {
+      "id": "refund-after-a-failed-one-asks-the-same-amount",
+      "source": "supabase/tests/refunds.test.sql:102",
+      "about": "Failed refunds do not count as money back. (The SQL retried with instant speed; instant is dropped.)",
+      "as": "staff",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system",
+              "at": "@now-10m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": null
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "productId": "rf-phone",
+          "productName": "Rf Phone",
+          "sku": "RF-A",
+          "name": "A",
+          "pricePaise": 30000,
+          "mrpPaise": 30000,
+          "stock": 7
+        },
+        "orders/o8/refunds/rf2": {
+          "amountPaise": 44900,
+          "fullRefund": true,
+          "restock": false,
+          "status": "failed",
+          "createdBy": "staff",
+          "failure": "Your account does not have enough balance to carry out the refund operation."
+        }
+      },
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8"
+      },
+      "expect": {
+        "amountPaise": 44900,
+        "retry": false
+      },
+      "then": {
+        "orders/o8": {
+          "pendingRefundId": "$refundId",
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": "$refundId"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "all-money-back-makes-a-delivered-order-refunded",
+      "source": "supabase/tests/refunds.test.sql:103",
+      "about": "refunds.test.sql:105-106 (refunded/refunded) and :109 (no restock unless staff ask). The SQL asserted the instant-refund copy; this is the normal copy from 20261030000500_refunds.sql:161.",
+      "as": "system",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": [],
+              "refundId": "rf3"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system",
+              "at": "@now-10m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": "rf3"
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "productId": "rf-phone",
+          "productName": "Rf Phone",
+          "sku": "RF-A",
+          "name": "A",
+          "pricePaise": 30000,
+          "mrpPaise": 30000,
+          "stock": 7
+        },
+        "orders/o8/refunds/rf3": {
+          "amountPaise": 44900,
+          "fullRefund": true,
+          "restock": false,
+          "status": "pending",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF3"
+        }
+      },
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o8",
+        "refundId": "rf3",
+        "state": "processed",
+        "gatewayRefundId": "GW-RF3"
+      },
+      "expect": {
+        "status": "processed"
+      },
+      "then": {
+        "orders/o8": {
+          "status": "refunded",
+          "paymentStatus": "refunded",
+          "pendingRefundId": null,
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "delivered"
+            },
+            {
+              "status": "delivered"
+            },
+            {
+              "status": "refunded",
+              "note": "Refund of ₹449 issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system"
+            }
+          ]
+        },
+        "orders/o8/refunds/rf3": {
+          "status": "processed"
+        },
+        "variants/v2": {
+          "stock": 7
+        },
+        "variants/v3": {
+          "stock": 5
+        }
+      }
+    },
+    {
+      "id": "nothing-left-to-refund",
+      "source": "supabase/tests/refunds.test.sql:110",
+      "about": "api_e2e.py:1304 too.",
+      "as": "staff",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "refunded",
+          "paymentMethod": "online",
+          "paymentStatus": "refunded",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": [],
+              "refundId": "rf3"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": null
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "orders/o8/refunds/rf3": {
+          "amountPaise": 44900,
+          "fullRefund": true,
+          "restock": false,
+          "status": "processed",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF3"
+        }
+      },
+      "call": "startRefund",
+      "input": {
+        "orderId": "o8"
+      },
+      "error": "REFUND_NOT_ALLOWED",
+      "errorDetail": "Only an order paid online, and not yet refunded, can be refunded here."
+    },
+    {
+      "id": "needs-refund-order-is-refunded-in-full-never-restocked-twice",
+      "source": "supabase/tests/refunds.test.sql:114",
+      "about": "refunds.test.sql:115: staff asked for restock, but the cancel already restocked.",
+      "as": "staff",
+      "call": "startRefund",
+      "input": {
+        "orderId": "o11",
+        "restock": true
+      },
+      "expect": {
+        "amountPaise": 40000,
+        "retry": false
+      },
+      "then": {
+        "orders/o11": {
+          "status": "cancelled",
+          "pendingRefundId": "$refundId",
+          "items": [
+            {
+              "id": "v3",
+              "refundId": "$refundId"
+            }
+          ]
+        },
+        "orders/o11/refunds/$refundId": {
+          "amountPaise": 40000,
+          "fullRefund": true,
+          "restock": false,
+          "status": "pending"
+        }
+      }
+    },
+    {
+      "id": "full-refund-of-a-cancelled-order-keeps-it-cancelled",
+      "source": "supabase/migrations/20261030000500_refunds.sql:163",
+      "about": "settle_refund: once everything is back paymentStatus = refunded and only a delivered order changes status. api_e2e.py:847 checked (cancelled, refunded) through the Razorpay webhook.",
+      "as": "system",
+      "given": {
+        "orders/o11": {
+          "number": "SM100011",
+          "uid": "alice",
+          "status": "cancelled",
+          "paymentStatus": "paid",
+          "subtotalPaise": 40000,
+          "deliveryFeePaise": 0,
+          "discountPaise": 0,
+          "totalPaise": 40000,
+          "items": [
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": [],
+              "refundId": "rf4"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "cancelled",
+              "note": "Cancelled by you. A full refund to your original payment method is on its way; banks usually take 5–7 working days.",
+              "by": "customer",
+              "at": "@now-30m"
+            }
+          ],
+          "paymentMethod": "online",
+          "cancelledBy": "customer",
+          "reservedUntil": null,
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100011-aaaaaaaa",
+            "transactionId": "TX11",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": "rf4"
+        },
+        "orders/o11/refunds/rf4": {
+          "amountPaise": 40000,
+          "fullRefund": true,
+          "restock": false,
+          "status": "pending",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF4"
+        }
+      },
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o11",
+        "refundId": "rf4",
+        "state": "processed",
+        "gatewayRefundId": "GW-RF4"
+      },
+      "expect": {
+        "status": "processed"
+      },
+      "then": {
+        "orders/o11": {
+          "status": "cancelled",
+          "paymentStatus": "refunded",
+          "pendingRefundId": null,
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "cancelled"
+            },
+            {
+              "status": "cancelled",
+              "note": "Refund of ₹400 issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system"
+            }
+          ]
+        },
+        "variants/v3": {
+          "stock": 5
+        }
+      }
+    },
+    {
+      "id": "settle-unknown-refund-not-found",
+      "source": "supabase/tests/payments.test.sql:141",
+      "about": "mark_order_refunded raised NOT_FOUND for an unknown payment; settle_refund (20261030000500_refunds.sql:125) does the same.",
+      "as": "system",
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o8",
+        "refundId": "rf99",
+        "state": "processed"
+      },
+      "error": "NOT_FOUND"
+    }
+  ],
+  "notExpressed": [
+    {
+      "source": "supabase/tests/payments.test.sql:138",
+      "why": "mark_order_refunded(razorpay_payment_id): refunds made in the Razorpay dashboard, found by payment id (Razorpay only, D4). With PhonePe: startRefund/settleRefund, or staff Mark refunded (orders-state.json)."
+    },
+    {
+      "source": "supabase/tests/payments.test.sql:133",
+      "why": "admin_dashboard needs_refund counts (also :143): no dashboard call in the contract. Needs refund = cancelled and paid, which the cases above assert per order."
+    },
+    {
+      "source": "supabase/tests/payments.test.sql:57",
+      "why": "payments.test.sql:57-64 and refunds.test.sql:49-50: service_role-only RPCs. settleOnlinePayment/settleRefund are internal; startRefund is a staff callable (cases above)."
+    },
+    {
+      "source": "supabase/tests/refunds.test.sql:73",
+      "why": "settle_refund(id, gateway id, 'pending'): the gateway accepted the refund but has not processed it; we record its id and stay pending. The settleRefund contract has no 'pending' state, so who writes refunds/{id}.gatewayRefundId on acceptance (D's gateway layer or settleRefund) is open; one-refund-in-flight-per-order assumes it is set."
+    },
+    {
+      "source": "supabase/tests/refunds.test.sql:77",
+      "why": "settle_refund found by the Razorpay refund id when our id was missing from the webhook notes. Our contract always passes refundId (= merchantRefundId)."
+    },
+    {
+      "source": "supabase/tests/refunds.test.sql:83",
+      "why": "refunds.test.sql:83-85 and :98-99: the customer notification and the staff \"refund failed\" notice. Notices come from triggers (notifications vectors: refundNotice)."
+    },
+    {
+      "source": "supabase/tests/refunds.test.sql:102",
+      "why": "refunds.test.sql:102-108: instant refunds and the \"sent instantly\" copy (Razorpay only, D4)."
+    },
+    {
+      "source": "supabase/tests/refunds.test.sql:119",
+      "why": "refunds.test.sql:119-124: who reads refunds (owner and staff) and no client writes: Rules tests."
+    },
+    {
+      "source": "supabase/tests/refunds.test.sql:70",
+      "why": "admin_start_refund also returned payment_id (Razorpay payment), instant and order_number; only refundId, amountPaise and retry are kept."
+    },
+    {
+      "source": "scripts/api_e2e.py:832",
+      "why": "api_e2e.py:832-851: signed Razorpay webhooks (signature, event ids, refund.processed with and without the payment entity, partial_refund). Razorpay only, D4; the gateway-neutral rules are the cases above."
+    },
+    {
+      "source": "scripts/api_e2e.py:1250",
+      "why": "api_e2e.py:1250-1264: EMI plans and payment-link function auth (Razorpay only, D4)."
+    },
+    {
+      "source": "scripts/api_e2e.py:1262",
+      "why": "refund-payment {order_id: 'x'} -> BAD_REQUEST relied on uuid ids; 'x' is a valid Firestore id (it would be NOT_FOUND)."
+    },
+    {
+      "source": "scripts/api_e2e.py:1278",
+      "why": "api_e2e.py:1278-1283: Razorpay test API refusing the refund (REFUND_REFUSED, its reason kept). The failed-refund-frees-its-lines case covers the state change."
+    },
+    {
+      "source": "scripts/api_e2e.py:1306",
+      "why": "api_e2e.py:1306-1359: disputes, payment links and saved cards (Razorpay only, D4)."
+    },
+    {
+      "source": "supabase/functions/verify-payment/index.ts:17",
+      "why": "BAD_SIGNATURE (Razorpay checkout signature) and the captured/authorized status check (Razorpay only, D4). PhonePe status is fetched server-side."
+    },
+    {
+      "source": "supabase/migrations/20261028000200_rpcs.sql:274",
+      "why": "No source covers state 'pending' (a payment still in progress): mark_payment_failed and mark_order_paid had no such input. No case is written for it."
+    }
+  ]
+}

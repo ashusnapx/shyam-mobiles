@@ -1,0 +1,1691 @@
+{
+  "about": "The order state machine (orders/state.ts) as used by cancelOrder, adminUpdateOrder, adminSetImeis and expireUnpaidOrders. Ported from supabase/tests/orders.test.sql (cancel_order, admin_update_order, admin_set_imeis), supabase/tests/refund_by_staff.test.sql (Mark refunded), supabase/tests/payments.test.sql (expiry, paid cancel) and scripts/api_e2e.py lifecycle and input checks, with the SQL in supabase/migrations/20261028000200_rpcs.sql and 20261030000350_refund_by_staff.sql. Transitions: pending_payment->cancelled; confirmed->packed|cancelled; packed->shipped|cancelled; shipped->delivered; delivered->refunded; cancelled+paid->refunded (paymentStatus only); same status = courier/tracking edit. Every world order belongs to alice. \"expect\": {} means the call succeeds and nothing in its reply is asserted. Arrays in \"expect\"/\"then\" match element by element, in order, and must have the same length (so a listed events[] also says how many events there are); each element is itself a deep-partial match. In \"then\", null means the field is absent or null. \"given\" docs are whole documents (they replace the world doc).",
+  "now": "2026-11-03T12:00:00+05:30",
+  "world": {
+    "users/alice": {
+      "fullName": "Alice",
+      "phone": "+919876543210"
+    },
+    "users/bob": {
+      "fullName": "Bob",
+      "phone": "+919876543211"
+    },
+    "users/staff": {
+      "fullName": "Staff",
+      "role": "staff"
+    },
+    "products/test-phone": {
+      "name": "Test Phone",
+      "brandId": "test-brand",
+      "brandName": "Test",
+      "categoryId": "test-cat",
+      "categoryKind": "phone",
+      "isActive": true
+    },
+    "variants/v1": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-CHEAP",
+      "name": "4 GB",
+      "pricePaise": 50000,
+      "mrpPaise": 60000,
+      "stock": 2
+    },
+    "variants/v2": {
+      "productId": "test-phone",
+      "productName": "Test Phone",
+      "sku": "T-PRICEY",
+      "name": "12 GB",
+      "pricePaise": 1500000,
+      "mrpPaise": 1600000,
+      "stock": 9
+    },
+    "orders/o1": {
+      "number": "SM100001",
+      "uid": "alice",
+      "status": "pending_payment",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        }
+      ],
+      "reservedUntil": "@now+15m"
+    },
+    "orders/o2": {
+      "number": "SM100002",
+      "uid": "alice",
+      "status": "confirmed",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotalPaise": 100000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 100000,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 2,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-3h"
+        }
+      ]
+    },
+    "orders/o3": {
+      "number": "SM100003",
+      "uid": "alice",
+      "status": "pending_payment",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 1500000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 1500000,
+      "items": [
+        {
+          "id": "v2",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "12 GB",
+          "unitPricePaise": 1500000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        }
+      ],
+      "reservedUntil": "@now+15m"
+    },
+    "orders/o4": {
+      "number": "SM100004",
+      "uid": "alice",
+      "status": "packed",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotalPaise": 100000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 100000,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 2,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-3h"
+        },
+        {
+          "status": "packed",
+          "by": "staff",
+          "at": "@now-2h"
+        }
+      ]
+    },
+    "orders/o5": {
+      "number": "SM100005",
+      "uid": "alice",
+      "status": "shipped",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotalPaise": 100000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 100000,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 2,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-3h"
+        },
+        {
+          "status": "packed",
+          "by": "staff",
+          "at": "@now-2h"
+        },
+        {
+          "status": "shipped",
+          "note": "Out for delivery",
+          "by": "staff",
+          "at": "@now-90m"
+        }
+      ],
+      "courier": "Delhivery",
+      "trackingNumber": "DL123"
+    },
+    "orders/o6": {
+      "number": "SM100006",
+      "uid": "alice",
+      "status": "shipped",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotalPaise": 100000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 100000,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 2,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-3h"
+        },
+        {
+          "status": "packed",
+          "by": "staff",
+          "at": "@now-2h"
+        },
+        {
+          "status": "shipped",
+          "note": "Out for delivery",
+          "by": "staff",
+          "at": "@now-90m"
+        },
+        {
+          "status": "shipped",
+          "note": "Courier and tracking updated: Delhivery · DL124",
+          "by": "staff",
+          "at": "@now-80m"
+        }
+      ],
+      "courier": "Delhivery",
+      "trackingNumber": "DL124"
+    },
+    "orders/o7": {
+      "number": "SM100007",
+      "uid": "alice",
+      "status": "delivered",
+      "paymentMethod": "cod",
+      "paymentStatus": "paid",
+      "subtotalPaise": 100000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 100000,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 2,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-3h"
+        },
+        {
+          "status": "packed",
+          "by": "staff",
+          "at": "@now-2h"
+        },
+        {
+          "status": "shipped",
+          "note": "Out for delivery",
+          "by": "staff",
+          "at": "@now-90m"
+        },
+        {
+          "status": "shipped",
+          "note": "Courier and tracking updated: Delhivery · DL124",
+          "by": "staff",
+          "at": "@now-80m"
+        },
+        {
+          "status": "delivered",
+          "by": "staff",
+          "at": "@now-30m"
+        }
+      ],
+      "courier": "Delhivery",
+      "trackingNumber": "DL124"
+    },
+    "orders/o8": {
+      "number": "SM100008",
+      "uid": "alice",
+      "status": "cancelled",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "cancelled",
+          "note": "Cancelled by you.",
+          "by": "customer",
+          "at": "@now-40m"
+        }
+      ],
+      "reservedUntil": null,
+      "cancelledBy": "customer"
+    },
+    "orders/o9": {
+      "number": "SM100009",
+      "uid": "alice",
+      "status": "cancelled",
+      "paymentMethod": "online",
+      "paymentStatus": "paid",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        },
+        {
+          "status": "cancelled",
+          "note": "Cancelled by you. A full refund to your original payment method is on its way; banks usually take 5–7 working days.",
+          "by": "customer",
+          "at": "@now-40m"
+        }
+      ],
+      "reservedUntil": null,
+      "cancelledBy": "customer",
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100009-aaaaaaaa",
+        "transactionId": "TX9",
+        "paidAt": "@now-50m"
+      }
+    },
+    "orders/o10": {
+      "number": "SM100010",
+      "uid": "alice",
+      "status": "cancelled",
+      "paymentMethod": "online",
+      "paymentStatus": "refunded",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        },
+        {
+          "status": "cancelled",
+          "note": "Cancelled by you. A full refund to your original payment method is on its way; banks usually take 5–7 working days.",
+          "by": "customer",
+          "at": "@now-40m"
+        },
+        {
+          "status": "cancelled",
+          "note": "Refund issued. Banks usually take 5–7 working days to show it.",
+          "by": "staff",
+          "at": "@now-10m"
+        }
+      ],
+      "reservedUntil": null,
+      "cancelledBy": "customer",
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100010-aaaaaaaa",
+        "transactionId": "TX10",
+        "paidAt": "@now-50m"
+      }
+    },
+    "orders/o11": {
+      "number": "SM100011",
+      "uid": "alice",
+      "status": "confirmed",
+      "paymentMethod": "online",
+      "paymentStatus": "paid",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        }
+      ],
+      "reservedUntil": null,
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100011-aaaaaaaa",
+        "transactionId": "TX11",
+        "paidAt": "@now-50m"
+      }
+    },
+    "orders/o12": {
+      "number": "SM100012",
+      "uid": "alice",
+      "status": "packed",
+      "paymentMethod": "online",
+      "paymentStatus": "paid",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-1h"
+        },
+        {
+          "status": "confirmed",
+          "note": "Payment received",
+          "by": "system",
+          "at": "@now-50m"
+        },
+        {
+          "status": "packed",
+          "by": "staff",
+          "at": "@now-2h"
+        }
+      ],
+      "reservedUntil": null,
+      "payment": {
+        "gateway": "phonepe",
+        "merchantOrderId": "SM100012-aaaaaaaa",
+        "transactionId": "TX12",
+        "paidAt": "@now-50m"
+      }
+    },
+    "orders/o13": {
+      "number": "SM100013",
+      "uid": "alice",
+      "status": "pending_payment",
+      "paymentMethod": "online",
+      "paymentStatus": "pending",
+      "subtotalPaise": 50000,
+      "deliveryFeePaise": 4900,
+      "discountPaise": 0,
+      "totalPaise": 54900,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 1,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "pending_payment",
+          "by": "customer",
+          "at": "@now-16m"
+        }
+      ],
+      "reservedUntil": "@now-1m"
+    },
+    "orders/o14": {
+      "number": "SM100014",
+      "uid": "alice",
+      "status": "refunded",
+      "paymentMethod": "cod",
+      "paymentStatus": "refunded",
+      "subtotalPaise": 100000,
+      "deliveryFeePaise": 0,
+      "discountPaise": 0,
+      "totalPaise": 100000,
+      "items": [
+        {
+          "id": "v1",
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "variantName": "4 GB",
+          "unitPricePaise": 50000,
+          "qty": 2,
+          "discountPaise": 0,
+          "imeis": []
+        }
+      ],
+      "events": [
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-3h"
+        },
+        {
+          "status": "packed",
+          "by": "staff",
+          "at": "@now-2h"
+        },
+        {
+          "status": "shipped",
+          "note": "Out for delivery",
+          "by": "staff",
+          "at": "@now-90m"
+        },
+        {
+          "status": "shipped",
+          "note": "Courier and tracking updated: Delhivery · DL124",
+          "by": "staff",
+          "at": "@now-80m"
+        },
+        {
+          "status": "delivered",
+          "by": "staff",
+          "at": "@now-30m"
+        },
+        {
+          "status": "refunded",
+          "note": "Returned",
+          "by": "staff",
+          "at": "@now-5m"
+        }
+      ],
+      "courier": "Delhivery",
+      "trackingNumber": "DL124"
+    }
+  },
+  "cases": [
+    {
+      "id": "cancel-someone-elses-order-is-not-found",
+      "source": "supabase/tests/orders.test.sql:135",
+      "as": "bob",
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o1"
+      },
+      "error": "NOT_FOUND",
+      "then": {
+        "orders/o1": {
+          "status": "pending_payment"
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "customer-cancels-unpaid-order-and-it-restocks",
+      "source": "supabase/tests/orders.test.sql:137",
+      "about": "No refund line on an unpaid cancel (orders.test.sql:140). cancelledBy replaces \"reserved_until null\".",
+      "as": "alice",
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o1"
+      },
+      "expect": {},
+      "then": {
+        "orders/o1": {
+          "status": "cancelled",
+          "paymentStatus": "pending",
+          "cancelledBy": "customer",
+          "reservedUntil": null,
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled",
+              "note": "Cancelled by you.",
+              "by": "customer"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 3
+        }
+      }
+    },
+    {
+      "id": "customer-cannot-cancel-twice",
+      "source": "supabase/tests/orders.test.sql:141",
+      "as": "alice",
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o8"
+      },
+      "error": "INVALID_TRANSITION",
+      "then": {
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "customer-cannot-cancel-a-packed-order",
+      "source": "supabase/migrations/20261028000200_rpcs.sql:117",
+      "about": "cancel_order allows only pending_payment and confirmed.",
+      "as": "alice",
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o4"
+      },
+      "error": "INVALID_TRANSITION"
+    },
+    {
+      "id": "customer-cannot-cancel-a-shipped-order",
+      "source": "scripts/api_e2e.py:812",
+      "as": "alice",
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o5"
+      },
+      "error": "INVALID_TRANSITION"
+    },
+    {
+      "id": "customer-cancels-paid-order-and-is-promised-the-refund",
+      "source": "supabase/tests/payments.test.sql:148",
+      "about": "Also api_e2e.py:839-840. The payment stays paid: the order is now \"needs refund\" (cancelled + paid).",
+      "as": "alice",
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o11"
+      },
+      "expect": {},
+      "then": {
+        "orders/o11": {
+          "status": "cancelled",
+          "paymentStatus": "paid",
+          "cancelledBy": "customer",
+          "payment": {
+            "transactionId": "TX11"
+          },
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "cancelled",
+              "note": "Cancelled by you. A full refund to your original payment method is on its way; banks usually take 5–7 working days.",
+              "by": "customer"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 3
+        }
+      }
+    },
+    {
+      "id": "customer-cannot-run-admin-update-order",
+      "source": "supabase/tests/orders.test.sql:145",
+      "as": "alice",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o2",
+        "status": "packed"
+      },
+      "error": "FORBIDDEN",
+      "then": {
+        "orders/o2": {
+          "status": "confirmed"
+        }
+      }
+    },
+    {
+      "id": "customer-cannot-mark-refunded",
+      "source": "supabase/tests/refund_by_staff.test.sql:21",
+      "as": "alice",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o9",
+        "status": "refunded"
+      },
+      "error": "FORBIDDEN",
+      "then": {
+        "orders/o9": {
+          "paymentStatus": "paid"
+        }
+      }
+    },
+    {
+      "id": "admin-update-unknown-order-is-not-found",
+      "source": "supabase/tests/orders.test.sql:150",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o99",
+        "status": "packed"
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "confirmed-to-shipped-must-pack-first",
+      "source": "supabase/tests/orders.test.sql:151",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o2",
+        "status": "shipped"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "confirmed -> shipped"
+    },
+    {
+      "id": "confirmed-to-delivered-is-refused",
+      "source": "scripts/api_e2e.py:797",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o2",
+        "status": "delivered"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "confirmed -> delivered"
+    },
+    {
+      "id": "staff-cannot-confirm-an-unpaid-online-order",
+      "source": "supabase/tests/orders.test.sql:152",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o3",
+        "status": "confirmed"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "pending_payment -> confirmed"
+    },
+    {
+      "id": "cancelled-is-final",
+      "source": "supabase/tests/orders.test.sql:153",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o8",
+        "status": "pending_payment"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "cancelled -> pending_payment"
+    },
+    {
+      "id": "cancelled-to-confirmed-is-refused",
+      "source": "scripts/api_e2e.py:829",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o8",
+        "status": "confirmed"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "cancelled -> confirmed"
+    },
+    {
+      "id": "shipped-cannot-be-cancelled",
+      "source": "supabase/tests/orders.test.sql:159",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o5",
+        "status": "cancelled"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "shipped -> cancelled"
+    },
+    {
+      "id": "shipped-cannot-be-refunded",
+      "source": "supabase/tests/orders.test.sql:160",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o5",
+        "status": "refunded"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "shipped -> refunded"
+    },
+    {
+      "id": "refunded-is-final",
+      "source": "scripts/api_e2e.py:821",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o14",
+        "status": "delivered"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "refunded -> delivered"
+    },
+    {
+      "id": "confirmed-to-packed",
+      "source": "supabase/tests/orders.test.sql:154",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o2",
+        "status": "packed"
+      },
+      "expect": {},
+      "then": {
+        "orders/o2": {
+          "status": "packed",
+          "paymentStatus": "pending",
+          "events": [
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed",
+              "note": null,
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "packed-to-shipped-saves-courier-and-tracking",
+      "source": "supabase/tests/orders.test.sql:155",
+      "about": "orders.test.sql:156 checks the courier and tracking number.",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o4",
+        "status": "shipped",
+        "note": "Out for delivery",
+        "courier": "Delhivery",
+        "trackingNumber": "DL123"
+      },
+      "expect": {},
+      "then": {
+        "orders/o4": {
+          "status": "shipped",
+          "courier": "Delhivery",
+          "trackingNumber": "DL123",
+          "events": [
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped",
+              "note": "Out for delivery",
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "same-status-tracking-fix-keeps-courier-and-adds-a-note",
+      "source": "supabase/tests/orders.test.sql:157",
+      "about": "orders.test.sql:158 (courier kept) and :165 (the note the customer sees). No note given, so the server writes one.",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o5",
+        "status": "shipped",
+        "trackingNumber": "DL124"
+      },
+      "expect": {},
+      "then": {
+        "orders/o5": {
+          "status": "shipped",
+          "courier": "Delhivery",
+          "trackingNumber": "DL124",
+          "events": [
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "shipped",
+              "note": "Courier and tracking updated: Delhivery · DL124",
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "same-status-tracking-fix-uses-the-staff-note",
+      "source": "scripts/api_e2e.py:808",
+      "about": "api_e2e.py:810 and :818: a note given by staff is used as is.",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o5",
+        "status": "shipped",
+        "note": "Tracking number corrected",
+        "trackingNumber": "DL2"
+      },
+      "expect": {},
+      "then": {
+        "orders/o5": {
+          "courier": "Delhivery",
+          "trackingNumber": "DL2",
+          "events": [
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "shipped",
+              "note": "Tracking number corrected",
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shipped-to-delivered-cod-becomes-paid",
+      "source": "supabase/tests/orders.test.sql:161",
+      "about": "orders.test.sql:162 (COD paid on delivery) and :163 (one event per transition, plus the tracking fix).",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o6",
+        "status": "delivered"
+      },
+      "expect": {},
+      "then": {
+        "orders/o6": {
+          "status": "delivered",
+          "paymentStatus": "paid",
+          "events": [
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "delivered",
+              "note": null,
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "delivered-to-refunded",
+      "source": "supabase/tests/orders.test.sql:167",
+      "about": "orders.test.sql:168; api_e2e.py:815-820.",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o7",
+        "status": "refunded",
+        "note": "Returned"
+      },
+      "expect": {},
+      "then": {
+        "orders/o7": {
+          "status": "refunded",
+          "paymentStatus": "refunded",
+          "events": [
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "delivered"
+            },
+            {
+              "status": "refunded",
+              "note": "Returned",
+              "by": "staff"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "staff-cancels-unpaid-online-order-and-it-restocks",
+      "source": "supabase/tests/orders.test.sql:170",
+      "about": "orders.test.sql:171 (stock back). Unpaid, so the staff note gets no refund line.",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o3",
+        "status": "cancelled",
+        "note": "Customer called"
+      },
+      "expect": {},
+      "then": {
+        "orders/o3": {
+          "status": "cancelled",
+          "paymentStatus": "pending",
+          "cancelledBy": "staff",
+          "reservedUntil": null,
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled",
+              "note": "Customer called",
+              "by": "staff"
+            }
+          ]
+        },
+        "variants/v2": {
+          "stock": 10
+        }
+      }
+    },
+    {
+      "id": "staff-cancels-packed-cod-order-without-a-note",
+      "source": "scripts/api_e2e.py:827",
+      "about": "api_e2e.py:828: unpaid, so no note at all.",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o4",
+        "status": "cancelled"
+      },
+      "expect": {},
+      "then": {
+        "orders/o4": {
+          "status": "cancelled",
+          "paymentStatus": "pending",
+          "cancelledBy": "staff",
+          "events": [
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "cancelled",
+              "note": null,
+              "by": "staff"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 4
+        }
+      }
+    },
+    {
+      "id": "staff-cancels-paid-packed-order-and-promises-the-refund",
+      "source": "scripts/api_e2e.py:898",
+      "about": "api_e2e.py:899. Paid, so the default note gets the refund line; the payment stays paid (needs refund).",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o12",
+        "status": "cancelled"
+      },
+      "expect": {},
+      "then": {
+        "orders/o12": {
+          "status": "cancelled",
+          "paymentStatus": "paid",
+          "cancelledBy": "staff",
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "cancelled",
+              "note": "Cancelled by the store. A full refund to your original payment method is on its way; banks usually take 5–7 working days.",
+              "by": "staff"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 3
+        }
+      }
+    },
+    {
+      "id": "mark-refunded-needs-a-paid-order",
+      "source": "supabase/tests/refund_by_staff.test.sql:23",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o8",
+        "status": "refunded"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "only a paid, cancelled order can be refunded"
+    },
+    {
+      "id": "mark-refunded-keeps-it-cancelled-and-tells-the-customer",
+      "source": "supabase/tests/refund_by_staff.test.sql:24",
+      "about": "refund_by_staff.test.sql:25-30: status stays cancelled (its coupon use stays given back), payment refunded, off the needs-refund list.",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o9",
+        "status": "refunded"
+      },
+      "expect": {},
+      "then": {
+        "orders/o9": {
+          "status": "cancelled",
+          "paymentStatus": "refunded",
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "cancelled"
+            },
+            {
+              "status": "cancelled",
+              "note": "Refund issued. Banks usually take 5–7 working days to show it.",
+              "by": "staff"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 2
+        }
+      }
+    },
+    {
+      "id": "mark-refunded-not-twice",
+      "source": "supabase/tests/refund_by_staff.test.sql:31",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o10",
+        "status": "refunded"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "only a paid, cancelled order can be refunded"
+    },
+    {
+      "id": "order-update-refuses-a-501-char-note",
+      "source": "scripts/api_e2e.py:1225",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o2",
+        "status": "confirmed",
+        "note": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+      },
+      "error": "BAD_REQUEST",
+      "then": {
+        "orders/o2": {
+          "events": [
+            {
+              "status": "confirmed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "order-update-refuses-a-control-char-in-courier",
+      "source": "scripts/api_e2e.py:1225",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o2",
+        "status": "confirmed",
+        "courier": "Delhi\u0007very"
+      },
+      "error": "BAD_REQUEST",
+      "then": {
+        "orders/o2": {
+          "courier": null,
+          "events": [
+            {
+              "status": "confirmed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "order-update-refuses-a-61-char-tracking-number",
+      "source": "scripts/api_e2e.py:1226",
+      "as": "staff",
+      "call": "adminUpdateOrder",
+      "input": {
+        "orderId": "o2",
+        "status": "confirmed",
+        "trackingNumber": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+      },
+      "error": "BAD_REQUEST",
+      "then": {
+        "orders/o2": {
+          "trackingNumber": null,
+          "events": [
+            {
+              "status": "confirmed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "customer-cannot-run-admin-set-imeis",
+      "source": "supabase/tests/orders.test.sql:146",
+      "about": "FORBIDDEN comes before NOT_FOUND and INVALID_IMEIS (the SQL passes an unknown item and an empty list).",
+      "as": "alice",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o99",
+        "itemId": "v1",
+        "imeis": []
+      },
+      "error": "FORBIDDEN"
+    },
+    {
+      "id": "imei-count-must-equal-qty",
+      "source": "supabase/tests/orders.test.sql:180",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": [
+          "356938035643809"
+        ]
+      },
+      "error": "INVALID_IMEIS",
+      "errorDetail": "need 2 distinct 15-digit IMEIs",
+      "then": {
+        "orders/o2": {
+          "items": [
+            {
+              "id": "v1",
+              "imeis": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "imeis-are-digits",
+      "source": "supabase/tests/orders.test.sql:181",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": [
+          "356938035643809",
+          "35693803564381X"
+        ]
+      },
+      "error": "INVALID_IMEIS",
+      "errorDetail": "need 2 distinct 15-digit IMEIs",
+      "then": {
+        "orders/o2": {
+          "items": [
+            {
+              "id": "v1",
+              "imeis": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "imeis-are-exactly-15-digits",
+      "source": "supabase/tests/orders.test.sql:182",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": [
+          "356938035643809",
+          "35693803564380"
+        ]
+      },
+      "error": "INVALID_IMEIS",
+      "errorDetail": "need 2 distinct 15-digit IMEIs",
+      "then": {
+        "orders/o2": {
+          "items": [
+            {
+              "id": "v1",
+              "imeis": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "imeis-are-distinct",
+      "source": "supabase/tests/orders.test.sql:183",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": [
+          "356938035643809",
+          "356938035643809"
+        ]
+      },
+      "error": "INVALID_IMEIS",
+      "errorDetail": "need 2 distinct 15-digit IMEIs",
+      "then": {
+        "orders/o2": {
+          "items": [
+            {
+              "id": "v1",
+              "imeis": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "null-imeis-refused",
+      "source": "supabase/tests/orders.test.sql:184",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": null
+      },
+      "error": "INVALID_IMEIS",
+      "errorDetail": "need 2 distinct 15-digit IMEIs",
+      "then": {
+        "orders/o2": {
+          "items": [
+            {
+              "id": "v1",
+              "imeis": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "imeis-are-a-flat-list",
+      "source": "supabase/tests/attacks.test.sql:93",
+      "about": "api_e2e.py:800 too. Postgres saw a 2-D array; here it is a nested list.",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": [
+          [
+            "356938035643809",
+            "356938035643817"
+          ]
+        ]
+      },
+      "error": "INVALID_IMEIS",
+      "errorDetail": "need 2 distinct 15-digit IMEIs",
+      "then": {
+        "orders/o2": {
+          "items": [
+            {
+              "id": "v1",
+              "imeis": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "null-imei-in-the-list-refused",
+      "source": "scripts/api_e2e.py:800",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": [
+          "356938035643809",
+          null
+        ]
+      },
+      "error": "INVALID_IMEIS",
+      "errorDetail": "need 2 distinct 15-digit IMEIs",
+      "then": {
+        "orders/o2": {
+          "items": [
+            {
+              "id": "v1",
+              "imeis": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "valid-imeis-saved",
+      "source": "supabase/tests/orders.test.sql:185",
+      "about": "orders.test.sql:186. Both pass the Luhn check too (input.json imei).",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v1",
+        "imeis": [
+          "356938035643809",
+          "356938035643817"
+        ]
+      },
+      "expect": {},
+      "then": {
+        "orders/o2": {
+          "status": "confirmed",
+          "items": [
+            {
+              "id": "v1",
+              "imeis": [
+                "356938035643809",
+                "356938035643817"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "imeis-for-an-unknown-order-not-found",
+      "source": "supabase/tests/orders.test.sql:187",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o99",
+        "itemId": "v1",
+        "imeis": [
+          "356938035643809"
+        ]
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "imeis-for-an-item-not-in-the-order-not-found",
+      "source": "supabase/tests/orders.test.sql:187",
+      "about": "The SQL used an unknown order_items id; an item is now (orderId, variantId).",
+      "as": "staff",
+      "call": "adminSetImeis",
+      "input": {
+        "orderId": "o2",
+        "itemId": "v2",
+        "imeis": [
+          "356938035643809"
+        ]
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "expiry-cancels-only-expired-unpaid-orders-and-restocks",
+      "source": "supabase/tests/payments.test.sql:98",
+      "about": "payments.test.sql:99-102 and api_e2e.py:859. o13 (hold ended a minute ago) expires; o1 and o3 (15 minutes left) do not. \"expired\" is the count the SQL returned. cancelledBy \"expiry\" is what lets a late payment revive it (settlement.json).",
+      "as": "system",
+      "call": "expireUnpaidOrders",
+      "input": {},
+      "expect": {
+        "expired": 1
+      },
+      "then": {
+        "orders/o13": {
+          "status": "cancelled",
+          "paymentStatus": "pending",
+          "cancelledBy": "expiry",
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled",
+              "note": "Payment not received in time",
+              "by": "system"
+            }
+          ]
+        },
+        "orders/o1": {
+          "status": "pending_payment",
+          "events": [
+            {
+              "status": "pending_payment"
+            }
+          ]
+        },
+        "orders/o3": {
+          "status": "pending_payment"
+        },
+        "variants/v1": {
+          "stock": 3
+        },
+        "variants/v2": {
+          "stock": 9
+        }
+      }
+    }
+  ],
+  "notExpressed": [
+    {
+      "source": "supabase/tests/orders.test.sql:197",
+      "why": "admin_dashboard numbers (orders_today, revenue, open_orders, low_stock, needs_refund). No dashboard call in the contract list; needs refund = status cancelled and paymentStatus paid."
+    },
+    {
+      "source": "supabase/tests/payments.test.sql:57",
+      "why": "payments.test.sql:57-64: only service_role may run mark_order_paid / mark_payment_failed / mark_order_refunded / expire_unpaid_orders. In Firebase these are internal functions and an onSchedule job with no client entry point."
+    },
+    {
+      "source": "supabase/tests/payments.test.sql:160",
+      "why": "cron schedule (every 5 minutes) and the run-log cleanup: deployment config (onSchedule every 5 minutes, Asia/Kolkata), not data."
+    },
+    {
+      "source": "scripts/api_e2e.py:479",
+      "why": "staff_checks: staff cannot write orders directly. A Rules test (orders: allow write: if false), not a call."
+    },
+    {
+      "source": "scripts/api_e2e.py:481",
+      "why": "staff cannot insert payment_events: Razorpay webhook table, gone (D4)."
+    },
+    {
+      "source": "scripts/api_e2e.py:483",
+      "why": "staff cannot add admins: staff is now a custom claim set by setRole (owner only), not a table write. Belongs with the auth/roles vectors."
+    },
+    {
+      "source": "scripts/api_e2e.py:485",
+      "why": "staff cannot read customers' profiles: a Rules test on users/{uid}."
+    },
+    {
+      "source": "scripts/api_e2e.py:1234",
+      "why": "'order id not a uuid' and 'extra argument' to cancel_order: api_e2e accepted 400 or 404. Firestore ids are not uuids; pick BAD_REQUEST (zod .strict()) or NOT_FOUND in the callable and add a case then."
+    },
+    {
+      "source": "supabase/tests/orders.test.sql:59",
+      "why": "place_order cases (orders.test.sql:59-130) are checkout and pricing, not the state machine: they belong in the placeOrder/quoteOrder vectors."
+    }
+  ]
+}

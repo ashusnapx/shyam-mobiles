@@ -1,0 +1,914 @@
+{
+  "about": "Input rules that zod (Functions), Firestore Rules and Dart (app/lib/core/input.dart and the feature validators) must all agree on. Samples are the exact value as stored or sent to the server: no trimming or tidying. \"valid\" must pass all three; \"invalid\" must fail all three. Dart validators tidy() first, so for Dart: valid means validator(x) == null and tidy(x) == x (the app would send exactly x); invalid means validator(x) != null or tidy(x) != x (the app never sends x as is). Non-string samples (numbers, null, objects) test zod and Rules type checks; Dart validators take strings and skip them. Where the DB CHECK and the Dart rule differ, the stricter one is used and the rule's \"note\" says both. Lengths are Unicode code points (Postgres char_length, Dart runes, JS [...s].length), never UTF-16 units or graphemes. Patterns match the whole string (JS/Dart without the m flag, Firestore Rules matches(), Python re.fullmatch; never Python re.match with $, which allows a trailing newline). Invisible characters and Cyrillic look-alikes are written as \\u escapes in this file. Sources: supabase/migrations/*.sql CHECKs and domains, app/lib/core/input.dart, profile.dart validatePersonName, offers.dart isBannerLink, feedback.dart feedbackScreen, admin/data/rules.dart, scripts/api_e2e.py input_checks and supabase/tests/attacks.test.sql.",
+  "rules": {
+    "phone": {
+      "source": "supabase/migrations/20261028000000_schema.sql:13 (in_phone domain); app/lib/core/format.dart:21 normalizeIndianPhone; app/lib/core/input.dart validateMobile; supabase/tests/attacks.test.sql:167; scripts/api_e2e.py:1160",
+      "pattern": "^\\+91[6-9][0-9]{9}$",
+      "valid": [
+        "+919876543210",
+        "+916000000000",
+        "+917987559272",
+        "+918999999999"
+      ],
+      "invalid": [
+        "+91123",
+        "+91987654321",
+        "+91 98765 43210",
+        "+9198765432101",
+        "9876543210",
+        "919876543210",
+        "+915876543210",
+        "+910876543210",
+        "+९१९८७६५४३२१०",
+        "+９１９８７６５４３２１０",
+        "+919876543210\n",
+        " +919876543210",
+        "+919876543210' or '1'='1",
+        "",
+        9876543210
+      ],
+      "note": "Stored E.164 form. Dart validateMobile accepts typed forms (\"98765 43210\", \"+91 98765-43210\", \"098765 43210\") and normalizeIndianPhone turns them into this; the server takes only the normalized form."
+    },
+    "pincode": {
+      "source": "supabase/migrations/20261028000000_schema.sql:178; app/lib/features/account/data/address_form.dart:49 validatePincode; supabase/tests/attacks.test.sql:169; scripts/api_e2e.py:1169",
+      "pattern": "^[1-9][0-9]{5}$",
+      "valid": [
+        "486886",
+        "801503",
+        "800001",
+        "110001",
+        "999999"
+      ],
+      "invalid": [
+        "4868860",
+        "48688",
+        "086886",
+        "48688a",
+        "486 886",
+        " 486886",
+        "486886 ",
+        "４８６８８６",
+        "४८६८८६",
+        "",
+        486886
+      ],
+      "note": "Dart validatePincode trims first; the server refuses untrimmed values (stricter)."
+    },
+    "personName": {
+      "source": "supabase/migrations/20261028000000_schema.sql:52 (profiles.full_name: is_name, <= 80); app/lib/features/account/data/profile.dart:31 validatePersonName; supabase/tests/attacks.test.sql:155-166; scripts/api_e2e.py:1152-1159",
+      "field": "users.fullName",
+      "pattern": "^[\\p{L}\\p{M} .'-]+$ with at least 2 \\p{L}, 2..60 code points, no leading/trailing space",
+      "valid": [
+        "Ravi Kumar",
+        "Asha",
+        "Al",
+        "राम कुमार",
+        "रवि कुमार",
+        "श्याम कुमार",
+        "José Ñúñez",
+        "R.K. Sharma",
+        "D'Souza",
+        "Mary-Ann",
+        "محمد",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ],
+      "invalid": [
+        "",
+        "   ",
+        "R",
+        "R.",
+        "Ravi 2",
+        "12345",
+        "Ravi 🙂",
+        "😀😀",
+        "...",
+        "Demo Admin (staff)",
+        "O’Brien-Smith",
+        "Robert'); drop table public.orders; --",
+        "<b>Ravi</b>",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Ali\u200bce",
+        "Ali\u202eecila",
+        "Ali\nce",
+        "Ali\u0007ce",
+        "Ali\u0000ce",
+        "\ufeffAlice",
+        " Alice",
+        "Alice ",
+        "  ravi   kumar  ",
+        "क्\u200dष कुमार",
+        42
+      ],
+      "note": "DB is_name accepts any clean one-line text with a letter, up to 80 (so digits, brackets, SQL-ish text, curly ’ and ZWJ pass: attacks.test.sql:155, api_e2e.py:1152). Dart validatePersonName allows only letters, marks, space . ' - with >= 2 letters, up to 60. Stricter wins: the Dart rule. Flagged: Dart refuses the curly apostrophe ’ (iOS smart punctuation types it for '), and ZWJ/ZWNJ, which input.dart keeps for Hindi conjuncts; widen _nameChars to [\\p{L}\\p{M}\\u200C\\u200D .'’-] and move those two samples to valid if that is wanted. Google displayName that fails becomes null (§4)."
+    },
+    "addressName": {
+      "source": "supabase/migrations/20261028000000_schema.sql:170 (addresses.name: 2..80, is_name); app/lib/features/account/data/address_form.dart:41 validateName; app/test/core/input_test.dart:43-57; scripts/api_e2e.py:1173",
+      "field": "users/{uid}/addresses/{id}.name",
+      "pattern": "clean one-line text (cleanText), 2..80 code points, at least one \\p{L}",
+      "valid": [
+        "Alice",
+        "Al",
+        "राम कुमार",
+        "O’Brien-Smith",
+        "Demo Admin (staff)",
+        "Flat owner 2",
+        "Robert'); drop table public.orders; --",
+        "क्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्ष",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "invalid": [
+        "",
+        "A",
+        "   ",
+        "\u200b\u200b\u200b",
+        "😀😀😀",
+        "12345",
+        "...",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "क्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्ष",
+        "Ali\nce",
+        "Ali\u0007ce",
+        "\ufeffAlice",
+        "Ali\u202eecila",
+        " Alice",
+        "Alice "
+      ],
+      "note": "Same rule in the DB and Dart. 'क्ष' is 3 code points in 1 grapheme: x26 = 78 fits, x27 = 81 does not (count code points)."
+    },
+    "placeName": {
+      "source": "supabase/migrations/20261028000000_schema.sql:175-177 (city 2..60, district <= 60, state 2..60, is_name); app/lib/features/account/data/address_form.dart:45-47; supabase/tests/attacks.test.sql:171; scripts/api_e2e.py:1171",
+      "field": "addresses.city, addresses.district (optional), addresses.state",
+      "pattern": "clean one-line text, 2..60 code points, at least one \\p{L}",
+      "valid": [
+        "Waidhan",
+        "Singrauli",
+        "Madhya Pradesh",
+        "वैढ़न",
+        "Patna"
+      ],
+      "invalid": [
+        "",
+        "X",
+        "🏙️🏙️",
+        "123456",
+        "...",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Pat\nna",
+        " Patna",
+        "Patna\u200b"
+      ],
+      "note": "district may be absent; when present it follows the same rule. state is picked from the 36-state list in the app."
+    },
+    "cleanText": {
+      "source": "supabase/migrations/20261028000000_schema.sql:19 is_clean_text(p); app/lib/core/input.dart _invisible, tidy, checkText; supabase/tests/attacks.test.sql:161, :170; scripts/api_e2e.py:1172-1177, :1201, :1206, :1216, :1225",
+      "pattern": "no [\\x00-\\x1F\\x7F-\\x9F\\u00AD\\u061C\\u180E\\u200B\\u200E\\u200F\\u2028\\u2029\\u202A-\\u202E\\u2060-\\u2064\\u2066-\\u206F\\uFEFF\\uFFF9-\\uFFFB], not whitespace-only, no leading/trailing whitespace",
+      "valid": [
+        "Rajeev Complex",
+        "1 MG Road",
+        "Flat 2, गली नं. 3",
+        "Near \"Shiv\" mandir & 1 < 2",
+        "10 am – 9 pm",
+        "Delhivery",
+        "DL123",
+        "क्\u200dष",
+        "क्\u200cष",
+        "<script>alert(1)</script>",
+        "Robert'); drop table public.orders; -- ' or '1'='1 $$; select pg_sleep(5); $$ %_\\ <script>"
+      ],
+      "invalid": [
+        "   ",
+        "Ali\u200bce",
+        "1 MG\u202e Road",
+        "Galaxy\u202e S25",
+        "\ufeffRajeev Complex",
+        "Ali\u00adce",
+        "a\u200eb",
+        "a\u200fb",
+        "a\u2066b\u2069",
+        "a\u2060b",
+        "Delhi\u0007very",
+        "a\u0000b",
+        "10 am\n9 pm",
+        "a\tb",
+        "a\u0085b",
+        "a\u2028b",
+        "8 GB\u200b",
+        "a\u061cb",
+        "a\u180eb",
+        "a\ufff9b",
+        " Rajeev Complex",
+        "Rajeev Complex "
+      ],
+      "note": "One-line text people type. The character rule only; each field's length is in 'limits' (code points; test at max and max+1, with 'a' and with 'क्ष'). '' passes the character rule: optional fields allow it, required ones have min >= 1. DB is_clean_text refuses \\x01-\\x1F \\x7F-\\x9F \\u00AD \\u200B \\u200E \\u200F \\u202A-\\u202E \\u2060-\\u2064 \\u2066-\\u2069 \\uFEFF and whitespace-only. Dart's _invisible also strips \\u0000 \\u061C \\u180E \\u206A-\\u206F \\uFFF9-\\uFFFB, and tidy() turns tabs, line breaks and \\u2028/\\u2029 into spaces and trims, so the app never sends those: the stricter union is used. ZWJ/ZWNJ (\\u200D/\\u200C) stay allowed (Hindi). SQL-ish and HTML text is just text: stored verbatim, escaped where shown.",
+      "limits": {
+        "addresses.line1": {
+          "min": 3,
+          "max": 120
+        },
+        "addresses.line2": {
+          "max": 120
+        },
+        "addresses.landmark": {
+          "max": 80
+        },
+        "orders.courier": {
+          "min": 1,
+          "max": 60,
+          "letterOrDigit": true
+        },
+        "orders.trackingNumber": {
+          "max": 60
+        },
+        "variants.name": {
+          "min": 1,
+          "max": 80
+        },
+        "products.name": {
+          "min": 2,
+          "max": 120,
+          "letterOrDigit": true
+        },
+        "products.images[].color": {
+          "min": 1,
+          "max": 40
+        },
+        "categories.name": {
+          "min": 2,
+          "max": 40
+        },
+        "brands.name": {
+          "min": 1,
+          "max": 40
+        },
+        "collections.name": {
+          "min": 2,
+          "max": 60,
+          "letterOrDigit": true
+        },
+        "promotions.title": {
+          "min": 2,
+          "max": 60,
+          "letterOrDigit": true
+        },
+        "banners.title": {
+          "min": 2,
+          "max": 60,
+          "letterOrDigit": true
+        },
+        "banners.subtitle": {
+          "max": 120
+        },
+        "banners.ctaLabel": {
+          "min": 1,
+          "max": 20,
+          "letterOrDigit": true
+        },
+        "repairs.deviceBrand": {
+          "min": 1,
+          "max": 40,
+          "letterOrDigit": true
+        },
+        "repairs.deviceModel": {
+          "min": 1,
+          "max": 60,
+          "letterOrDigit": true
+        },
+        "settings/store.storeHours": {
+          "max": 60
+        }
+      },
+      "limitsNote": "letterOrDigit = at least one \\p{L} or \\p{N} (Dart checkText mustHave: hasLetterOrDigit; the DB only refused blank), so \"3310\" is a fine model and \"📱\" or \"...\" is not. orders.courier min 1 is Dart's (DB: <= 60 only)."
+    },
+    "cleanTextMultiline": {
+      "source": "supabase/migrations/20261028000000_schema.sql:19 is_clean_text(p, true); app/lib/core/input.dart tidy(multiline: true); supabase/tests/attacks.test.sql:161; scripts/api_e2e.py:1185-1191, :1210",
+      "pattern": "cleanText, but \\n allowed: no \\t or \\r, no line with leading/trailing space, at most one blank line in a row, no leading/trailing newline",
+      "valid": [
+        "line one\nline two",
+        "Para one.\n\nPara two.",
+        "Line one.\nLine two: Robert'); drop table public.orders; -- ' or '1'='1 $$; select pg_sleep(5); $$ %_\\ <script>",
+        "Screen flickers.\nAlso: Robert'); drop table public.orders; -- ' or '1'='1 $$; select pg_sleep(5); $$ %_\\ <script>",
+        "क्\u200dष\nदूसरी पंक्ति"
+      ],
+      "invalid": [
+        "   ",
+        "\n\n",
+        "ok\u202eko",
+        "a\u200bb",
+        "a\u0007b",
+        "line one\nline two\ttab",
+        "line one\r\nline two",
+        "a\n\n\nb",
+        "line one \nline two",
+        "trailing\n",
+        " leading"
+      ],
+      "note": "DB is_clean_text(p, true) allows \\t, \\n and \\r (attacks.test.sql:161 stores 'line one\\nline two\\ttab'). Dart tidy(multiline: true) drops \\r, turns tabs into spaces, trims each line and keeps at most one blank line, so the app never sends those: stricter wins and they are invalid here.",
+      "limits": {
+        "products.description": {
+          "max": 5000
+        },
+        "repairs.description": {
+          "max": 500
+        },
+        "orders.events[].note": {
+          "max": 500
+        },
+        "repairs.events[].note": {
+          "max": 500
+        },
+        "feedback.message": {
+          "max": 1000
+        },
+        "feedback.adminNote": {
+          "max": 500
+        },
+        "promotions.description": {
+          "max": 300
+        },
+        "settings/store.repairNote": {
+          "min": 1,
+          "max": 300
+        },
+        "settings/store.returnsPolicy": {
+          "min": 1,
+          "max": 2000
+        },
+        "settings/business.address (was store_address)": {
+          "max": 300
+        }
+      },
+      "limitsNote": "repairNote and returnsPolicy min 1 are Dart's (admin_settings_screen.dart:307, :323). Server-written event notes are clipped to one line (private.clip)."
+    },
+    "imei": {
+      "source": "supabase/migrations/20261028000000_schema.sql:29 is_imei_list; supabase/migrations/20261028000200_rpcs.sql:199 admin_set_imeis; app/lib/features/admin/data/rules.dart:106-127 imeiFieldError/imeisError; supabase/tests/attacks.test.sql:93, :182; scripts/api_e2e.py:798-805",
+      "pattern": "^[0-9]{15}$ and the Luhn check digit",
+      "valid": [
+        "356938035643809",
+        "356938035643817",
+        "490154203237518"
+      ],
+      "invalid": [
+        "35693803564381X",
+        "35693803564380",
+        "3569380356438090",
+        "356938035643808",
+        "111111111111111",
+        " 356938035643809",
+        "35-693803-564380-9",
+        "३५६९३८०३५६४३८०९",
+        "",
+        356938035643809
+      ],
+      "note": "One value. The list rule (adminSetImeis, orders-state.json): a flat list of strings, exactly qty values, distinct, no nulls; [] clears. DB checks 15 ASCII digits only; Dart also checks the Luhn digit (rules.dart imeiChecksumOk), so stricter wins: 356938035643808 and 111111111111111 are 15 digits but fail Luhn. Rules (RE2) cannot do Luhn; IMEIs are written only by adminSetImeis, so zod and Dart enforce it."
+    },
+    "slug": {
+      "source": "supabase/migrations/20261028000000_schema.sql:67, :75, :81 (categories/brands/products); supabase/migrations/20261030000000_offers.sql:13 (collections, <= 60); app/lib/features/admin/data/rules.dart:130 slugPattern; app/lib/core/links.dart:13; supabase/tests/attacks.test.sql:175; scripts/api_e2e.py:1204",
+      "pattern": "^[a-z0-9-]{1,160}$",
+      "valid": [
+        "test-phone",
+        "samsung-galaxy-s25-plus-12-gb",
+        "a",
+        "0",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "invalid": [
+        "",
+        "E2E-phone",
+        "t\u0435st-phone",
+        "\u0440hone",
+        "test phone",
+        "test_phone",
+        "test.phone",
+        "../x",
+        "test-phone\n",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "note": "collections/{slug} is at most 60. ASCII only: the Cyrillic \u0435/\u0440 samples are look-alikes. Slugs are doc ids, so Rules can check them on create."
+    },
+    "sku": {
+      "source": "supabase/migrations/20261028000000_schema.sql:110; app/lib/features/admin/data/rules.dart:133 skuPattern; app/lib/core/input.dart skuInput; supabase/tests/attacks.test.sql:174; scripts/api_e2e.py:1196",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,59}$",
+      "valid": [
+        "T-CHEAP",
+        "SM-A155F/8-128",
+        "e2e.x_1",
+        "A",
+        "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
+      ],
+      "invalid": [
+        "",
+        "S\u0410M-1",
+        "SAM 1",
+        "-ABC",
+        ".ABC",
+        "/ABC",
+        "SAM-1\n",
+        "सैम-1",
+        "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
+      ],
+      "note": "Unique across variants (checked in the saveProduct transaction)."
+    },
+    "hexColor": {
+      "source": "supabase/migrations/20261028000000_schema.sql:113 (variants.attributes.color_hex); app/lib/features/admin/data/rules.dart:151 hexColorPattern; app/lib/core/input.dart HexColorFormatter; supabase/tests/attacks.test.sql:176; scripts/api_e2e.py:1200",
+      "field": "variants.attributes.colorHex",
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "valid": [
+        "#1F2B4D",
+        "#ffffff",
+        "#000000",
+        "#aBc123"
+      ],
+      "invalid": [
+        "",
+        "red",
+        "#FFF",
+        "#1F2B4DFF",
+        "1F2B4D",
+        "#GGGGGG",
+        "#1F2B4D ",
+        " #1F2B4D",
+        "＃1F2B4D"
+      ],
+      "note": "The Dart formatter uppercases as you type; both cases are valid when stored."
+    },
+    "bannerLink": {
+      "source": "supabase/migrations/20261030000000_offers.sql:103 (banners.link); app/lib/features/offers/data/offers.dart:117 isBannerLink; app/lib/core/links.dart:14",
+      "field": "banners.link",
+      "pattern": "DB ^/(search|product/|offers|repairs)[A-Za-z0-9/?=&%._~+-]*$ (<= 200) AND Dart ^/(search(\\?[^#\\s]*)?|product/[a-z0-9-]{1,160}|offers(/[0-9a-f-]{36})?|repairs(/new)?)$",
+      "valid": [
+        "/offers",
+        "/repairs",
+        "/repairs/new",
+        "/product/test-phone",
+        "/search",
+        "/search?q=redmi+note",
+        "/search?category=phones&maxPaise=1500000",
+        "/offers/0b5c1f8e-2a4d-4c55-9d7e-1f2a3b4c5d6e"
+      ],
+      "invalid": [
+        "",
+        "offers",
+        "https://evil.example",
+        "javascript:alert(1)",
+        "//evil.example",
+        "/admin/orders",
+        "/orders/o1",
+        "/product/",
+        "/product/Test-Phone",
+        "/product/../admin",
+        "/offersx",
+        "/repairs/123",
+        "/search#top",
+        "/search?q=red mi",
+        "/search?q=<script>",
+        "/search\n",
+        "/offers/p1",
+        "/search?q=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "note": "Both must pass. DB alone allows /product/../admin, /offersx and /repairs/123; Dart alone allows /search?q=<script> (its [^#\\s]* is wider than the DB set). Flagged: offers/<id> expects a 36-char UUID (offers.dart, links.dart _offerId); promotion ids in Firestore are not UUIDs, so /offers/p1 is refused until both patterns are widened to the new id shape."
+    },
+    "appRoute": {
+      "source": "supabase/migrations/20261030000400_notifications.sql:18 (notifications.link); docs/FIREBASE.md §3 users/{uid}/notifications link (app route)",
+      "field": "users/{uid}/notifications/{id}.link (server-written)",
+      "pattern": "^/(orders/|repairs/|offers|product/|admin/orders/|admin/repairs/|admin/feedback/|admin/products/|admin/catalogue)[A-Za-z0-9/?=&%._~+-]*$ (<= 200)",
+      "valid": [
+        "/orders/o1",
+        "/repairs/r1",
+        "/offers",
+        "/product/test-phone",
+        "/admin/orders/o1",
+        "/admin/repairs/r1",
+        "/admin/feedback/f1",
+        "/admin/products/test-phone",
+        "/admin/catalogue"
+      ],
+      "invalid": [
+        "",
+        "/orders",
+        "/admin/settings",
+        "https://evil.example",
+        "javascript:alert(1)",
+        "//evil.example",
+        "/orders/o1 x",
+        "/orders/<script>",
+        "/orders/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "note": "Only the server writes notifications; notices.ts output must pass this (an app route, never a URL)."
+    },
+    "feedbackScreen": {
+      "source": "supabase/migrations/20261030000250_feedback.sql:16 (feedback.screen); app/lib/features/feedback/data/feedback.dart:38 feedbackScreen",
+      "field": "feedback.screen",
+      "pattern": "^/[A-Za-z0-9/_?=&.%-]*$ (<= 200)",
+      "valid": [
+        "/",
+        "/orders/o1",
+        "/product/test-phone?tab=specs",
+        "/search?q=redmi%20note",
+        "/admin/feedback"
+      ],
+      "invalid": [
+        "",
+        "orders/o1",
+        "https://evil.example",
+        "/search?q=a b",
+        "/search?q=a+b",
+        "/x#frag",
+        "/x~y",
+        "/product/<script>",
+        "/क",
+        "/orders/o1\n",
+        "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "note": "Dart feedbackScreen(uri) strips characters outside the set and cuts at 200 rather than refusing; the stored value must match. '+' and '~' are not in the set."
+    },
+    "couponCode": {
+      "source": "supabase/migrations/20261030000000_offers.sql:29 (promotions.code), :85 (orders.coupon_code), :278 (typed codes: upper, whitespace removed); app/lib/core/input.dart couponCodeInput, validateCode",
+      "field": "promotions.code, promoCodes/{CODE}, orders.couponCode",
+      "pattern": "^[A-Z0-9]{4,20}$",
+      "valid": [
+        "WELCOME",
+        "DIWALI10",
+        "ABCD",
+        "FRIEND1A2B3C4D5E",
+        "AAAAAAAAAAAAAAAAAAAA"
+      ],
+      "invalid": [
+        "",
+        "ABC",
+        "AAAAAAAAAAAAAAAAAAAAA",
+        "welcome",
+        "DIWALI 10",
+        "DIWALI-10",
+        " WELCOME",
+        "WELCOME\n",
+        "\u0414\u0418\u0412\u0410\u041b\u041810",
+        "DİWALI10",
+        "WELCOME' OR '1'='1"
+      ],
+      "note": "The stored, canonical form. A code a customer types (quoteOrder/placeOrder couponCode) is first uppercased with all whitespace removed (price_lines), so 'welcome' or ' DIWALI 10 ' are looked up as WELCOME / DIWALI10; savePromotion trims and uppercases too. Dart validateCode trims; stricter = refuse untrimmed when stored."
+    },
+    "referralCode": {
+      "source": "supabase/migrations/20261030000000_offers.sql:125 (referral_codes.code), :605 (generated: 8 hex, upper), :639 (typed: upper, whitespace removed); app/lib/core/links.dart:15; app/lib/core/input.dart validateCode(min: 6, max: 10)",
+      "field": "referralCodes/{CODE}, users.referralCode",
+      "pattern": "^[A-Z0-9]{6,10}$",
+      "valid": [
+        "ALICE7",
+        "AB12CD34",
+        "A1B2C3D4E5"
+      ],
+      "invalid": [
+        "",
+        "ABCDE",
+        "A1B2C3D4E5F",
+        "alice7",
+        "ALICE 7",
+        "ALICE-7",
+        " ALICE7",
+        "ALICE7\n"
+      ],
+      "note": "Typed codes (applyReferralCode) are uppercased with whitespace removed before the lookup, like coupon codes."
+    },
+    "imagePath": {
+      "source": "supabase/migrations/20261028000000_schema.sql:102 (product_images.path); supabase/tests/attacks.test.sql:179; scripts/api_e2e.py:1213",
+      "field": "products.images[].path",
+      "pattern": "^[A-Za-z0-9_-]{1,80}/[A-Za-z0-9_@-]{1,80}\\.(webp|jpe?g|png)$",
+      "valid": [
+        "test/cover.webp",
+        "test/second.webp",
+        "abc_1/photo@2x.jpg",
+        "x/y.jpeg",
+        "x/y.png"
+      ],
+      "invalid": [
+        "",
+        "../x.png",
+        "../../other/x.png",
+        "x.png",
+        "a/b/c.png",
+        "/a/b.png",
+        "a/b.gif",
+        "a/b.PNG",
+        "a/b.webp ",
+        "a/.png"
+      ],
+      "note": "One folder and a file name, no climbing out. If the Storage layout changes for Firebase, change this rule and its samples together."
+    },
+    "storePhotoPath": {
+      "source": "supabase/migrations/20261028000000_schema.sql:36 is_store_photo_list, :287 (<= 8); supabase/tests/attacks.test.sql:178; scripts/api_e2e.py:1217",
+      "field": "settings/store.storePhotos[] (at most 8)",
+      "pattern": "^store/[0-9]{1,15}\\.(webp|jpe?g|png)$",
+      "valid": [
+        "store/1730611200000.webp",
+        "store/1.jpg",
+        "store/42.png",
+        "store/123456789012345.jpeg"
+      ],
+      "invalid": [
+        "",
+        "../x.png",
+        "../../etc/passwd.png",
+        "store/abc.png",
+        "store/1.gif",
+        "other/1.png",
+        "store/1234567890123456.png",
+        "store/1.png/../x.png"
+      ],
+      "note": "store/<millis>.<ext>."
+    },
+    "mapsUrl": {
+      "source": "supabase/migrations/20261028000000_schema.sql:285 (store_maps_url: <= 500, https://); app/lib/features/admin/data/rules.dart:224 isMapsPlaceLink, parseMapPin; scripts/api_e2e.py:1218",
+      "field": "settings/store.mapsUrl",
+      "pattern": "<= 500, starts with https://, contains /maps/place/, and parseMapPin finds a pin inside India",
+      "valid": [
+        "https://www.google.com/maps/place/Shyam+Mobile+Shop/@24.0861,82.6286,17z/data=!3m1!4b1!4m6!3m5!8m2!3d24.0861!4d82.6286",
+        "https://www.google.com/maps/place/Waidhan/@24.0800,82.6300,15z"
+      ],
+      "invalid": [
+        "",
+        "javascript:alert(1)",
+        "http://www.google.com/maps/place/Waidhan/@24.0800,82.6300,15z",
+        "https://maps.app.goo.gl/abc123",
+        "https://www.google.com/maps/place/Paris/@48.8566,2.3522,12z",
+        " https://www.google.com/maps/place/Waidhan/@24.0800,82.6300,15z",
+        "https://www.google.com/maps/place/x/@24.08,82.63,15z/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "note": "DB: https:// and <= 500 only. Dart isMapsPlaceLink: a full Google Maps place link with a pin inside India (short maps.app.goo.gl links refused). Stricter wins. Flagged: neither checks the host, so https://evil.example/maps/place/x/@24.08,82.63 passes both."
+    },
+    "mapPin": {
+      "source": "supabase/migrations/20261028000000_schema.sql:281-283 (lat -90..90, lng -180..180, both or neither); app/lib/features/admin/data/rules.dart parseMapPin (India: lat 6..38, lng 68..98); scripts/api_e2e.py:1218-1219",
+      "field": "settings/store.mapPin (optional)",
+      "pattern": "{lat: number 6..38, lng: number 68..98}, both present",
+      "valid": [
+        {
+          "lat": 24.0861,
+          "lng": 82.6286
+        },
+        {
+          "lat": 6,
+          "lng": 68
+        },
+        {
+          "lat": 38,
+          "lng": 98
+        }
+      ],
+      "invalid": [
+        {
+          "lat": 91,
+          "lng": 0
+        },
+        {
+          "lat": 24.0,
+          "lng": null
+        },
+        {
+          "lat": 24.0
+        },
+        {
+          "lat": 48.8566,
+          "lng": 2.3522
+        },
+        {
+          "lat": "24.08",
+          "lng": "82.63"
+        }
+      ],
+      "note": "DB allowed the whole globe; Dart only India. Stricter wins."
+    },
+    "appVersion": {
+      "source": "supabase/migrations/20261030000250_feedback.sql:17 (feedback.app_version)",
+      "field": "feedback.appVersion",
+      "pattern": "^[0-9A-Za-z.+-]+$ (<= 40)",
+      "valid": [
+        "1.4.0+12",
+        "1.0.0",
+        "2.0.0-beta.1"
+      ],
+      "invalid": [
+        "",
+        "1.4.0 (12)",
+        "v1.4.0\n",
+        "11111111111111111111111111111111111111111"
+      ],
+      "note": "DB rule only (the app sends package_info)."
+    },
+    "calendarDate": {
+      "source": "scripts/api_e2e.py:1187 (repairs.preferred_date); docs/FIREBASE.md §3 (IST calendar dates are YYYY-MM-DD strings)",
+      "field": "repairs.preferredDate and other IST dates",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$ and a real date",
+      "valid": [
+        "2026-11-03",
+        "2026-02-28",
+        "2028-02-29",
+        "2026-12-31"
+      ],
+      "invalid": [
+        "",
+        "2026-13-45",
+        "2026-02-30",
+        "2027-02-29",
+        "2026-11-3",
+        "03-11-2026",
+        "2026/11/03",
+        "2026-11-03T00:00:00Z"
+      ],
+      "note": "The booking window (today..+30 days, IST) is the repairs state machine's rule, not this one."
+    },
+    "addressLabel": {
+      "source": "supabase/migrations/20261028000000_schema.sql:179; scripts/api_e2e.py:1173",
+      "field": "addresses.label",
+      "valid": [
+        "home",
+        "work",
+        "other"
+      ],
+      "invalid": [
+        "",
+        "office",
+        "Home",
+        "home "
+      ]
+    },
+    "repairIssue": {
+      "source": "supabase/migrations/20261028000000_schema.sql:10 (repair_issue enum); scripts/api_e2e.py:1186",
+      "field": "repairs.issue",
+      "valid": [
+        "screen",
+        "battery",
+        "charging",
+        "camera",
+        "audio",
+        "water_damage",
+        "software",
+        "other"
+      ],
+      "invalid": [
+        "",
+        "hacked",
+        "Screen",
+        "water damage"
+      ]
+    },
+    "repairSlot": {
+      "source": "supabase/migrations/20261028000000_schema.sql:9 (repair_slot enum); scripts/api_e2e.py:1187",
+      "field": "repairs.slot",
+      "valid": [
+        "morning",
+        "afternoon",
+        "evening"
+      ],
+      "invalid": [
+        "",
+        "midnight",
+        "Morning"
+      ]
+    },
+    "paymentMethod": {
+      "source": "supabase/migrations/20261028000000_schema.sql:6 (payment_method enum); scripts/api_e2e.py:1232; docs/FIREBASE.md §3 orders.paymentMethod",
+      "field": "placeOrder.paymentMethod, orders.paymentMethod",
+      "valid": [
+        "online",
+        "cod"
+      ],
+      "invalid": [
+        "",
+        "razorpay",
+        "bitcoin",
+        "COD",
+        null
+      ],
+      "note": "The DB enum was ('razorpay', 'cod'); Firebase uses 'online' (PhonePe)."
+    },
+    "pricePaise": {
+      "source": "supabase/migrations/20261028000000_schema.sql:114, :121 (price > 0, mrp >= price, int4); app/lib/features/admin/data/rules.dart:59 maxAmountPaise, admin_product_edit_screen.dart:769; scripts/api_e2e.py:1197-1199",
+      "field": "variants.pricePaise, variants.mrpPaise",
+      "valid": [
+        1,
+        50000,
+        100000000
+      ],
+      "invalid": [
+        0,
+        -1,
+        100000001,
+        2147483648,
+        99.5,
+        "50000",
+        null
+      ],
+      "note": "Integers only. DB: 1..2^31-1; Dart: 1..100000000 (Rs 10,00,000). Stricter wins. mrpPaise >= pricePaise (DB check; zod refine)."
+    },
+    "deliveryFeePaise": {
+      "source": "supabase/migrations/20261028000000_schema.sql:274; app/lib/features/admin/data/rules.dart:60 maxFeePaise; scripts/api_e2e.py:1215",
+      "field": "settings/store.deliveryFeePaise",
+      "valid": [
+        0,
+        4900,
+        1000000
+      ],
+      "invalid": [
+        -1,
+        1000001,
+        49.5,
+        "4900"
+      ],
+      "note": "DB: >= 0; Dart: <= 1000000 (Rs 10,000). Stricter wins."
+    },
+    "codMaxPaise": {
+      "source": "supabase/migrations/20261028000000_schema.sql:277; app/lib/features/admin/screens/admin_settings_screen.dart:114; scripts/api_e2e.py:1215",
+      "field": "settings/store.codMaxPaise, settings/store.freeDeliveryMinPaise",
+      "valid": [
+        0,
+        2500000,
+        100000000
+      ],
+      "invalid": [
+        -1,
+        100000001,
+        2147483648,
+        0.5
+      ],
+      "note": "DB: int4 >= 0; Dart: <= 100000000. Stricter wins."
+    },
+    "stock": {
+      "source": "supabase/migrations/20261028000000_schema.sql:116; supabase/tests/attacks.test.sql:177; scripts/api_e2e.py:1199",
+      "field": "variants.stock",
+      "valid": [
+        0,
+        5,
+        1000000
+      ],
+      "invalid": [
+        -1,
+        1000001,
+        1.5,
+        "5",
+        null
+      ]
+    },
+    "gstRateBp": {
+      "source": "supabase/migrations/20261028000000_schema.sql:88 (gst_rate 0..28, numeric(4,2)); docs/FIREBASE.md §3 products.gstRateBp 0..2800; scripts/api_e2e.py:1205",
+      "field": "products.gstRateBp",
+      "valid": [
+        0,
+        500,
+        1200,
+        1800,
+        2800
+      ],
+      "invalid": [
+        -1,
+        2801,
+        1800.5,
+        "1800",
+        null
+      ],
+      "note": "Integer basis points: 1800 = 18%. The DB took 2 decimals of a percent, which is the same 0..2800 range."
+    },
+    "cartQty": {
+      "source": "supabase/migrations/20261028000000_schema.sql:160 (cart_items.qty 1..5); docs/FIREBASE.md §3 carts lines qty 1..5",
+      "field": "carts/{uid}.lines.{variantId}.qty",
+      "valid": [
+        1,
+        2,
+        5
+      ],
+      "invalid": [
+        0,
+        6,
+        -1,
+        2.5,
+        "1",
+        null
+      ],
+      "note": "At most 20 lines per cart and 10 per order are separate count rules (Rules and placeOrder)."
+    }
+  },
+  "notExpressed": [
+    {
+      "source": "supabase/migrations/20261028000000_schema.sql:87",
+      "why": "products.specs must be a JSON array of {label, value} under 20000 bytes (api_e2e.py:1207): a zod object schema, not a string rule."
+    },
+    {
+      "source": "supabase/migrations/20261028000000_schema.sql:112",
+      "why": "variants.attributes object under 1000 bytes (api_e2e.py:1200 oversized attributes): §3 narrows it to {ram?, storage?, color?, colorHex?}, a zod object schema."
+    },
+    {
+      "source": "scripts/api_e2e.py:1232",
+      "why": "'address id not a uuid', 'order id not a uuid', 'extra argument': uuid ids are gone; ids are short doc ids (a0..a9 for addresses). zod .strict() objects refuse extra keys."
+    },
+    {
+      "source": "supabase/migrations/20261030000000_offers.sql:47",
+      "why": "promotion value/cap/window/personal/banner checks: cross-field rules for savePromotion (its own vectors), not single values."
+    },
+    {
+      "source": "supabase/migrations/20261030000250_feedback.sql:22",
+      "why": "feedback: rating or a non-blank message; order/repair/product kinds need their id: cross-field rules for sendFeedback."
+    },
+    {
+      "source": "supabase/tests/attacks.test.sql:184",
+      "why": "a junk display name never blocks sign-up (stored as null): sign-up behaviour (§4: displayName becomes fullName only when it passes), not a value rule."
+    }
+  ]
+}
