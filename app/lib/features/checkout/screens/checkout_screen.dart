@@ -10,11 +10,13 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/data/addresses.dart';
+import '../../account/data/profile.dart';
 import '../../account/widgets/delivery_address.dart';
 import '../../cart/data/cart.dart';
-import '../../cart/screens/cart_screen.dart' show placeholderCartLine;
+import '../../cart/screens/cart_screen.dart' show YouSave, placeholderCartLine;
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/payment.dart';
@@ -63,9 +65,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<void> _submit(String addressId, PaymentMethod method, String? couponCode) async {
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    void say(String m) => messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(m)));
+    void say(String m) => showMessageOn(messenger, m);
 
     final ({String orderId, PayResult? payment})? r;
     try {
@@ -201,10 +201,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }) {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    Widget label(String text) => Padding(
-          padding: const EdgeInsets.fromLTRB(0, Space.lg + 2, 0, Space.sm),
-          child: Semantics(header: true, child: Text(text, style: t.labelMedium)),
-        );
+    Widget label(String text) => ListSection(text);
     final count = lines.fold<int>(0, (sum, l) => sum + l.qty);
 
     return ListView(
@@ -302,57 +299,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ),
           ),
-        label('Payment'),
-        RadioGroup<PaymentMethod>(
-          groupValue: method,
-          onChanged: (m) {
-            if (m != null && !busy) setState(() => _method = m);
-          },
-          child: Column(
-            children: [
-              _PayOption(
-                value: PaymentMethod.razorpay,
-                selected: method == PaymentMethod.razorpay,
-                enabled: !busy,
-                subtitle: 'UPI, cards, netbanking, EMI',
-                onTap: () => setState(() => _method = PaymentMethod.razorpay),
-                footnote: 'EMI bank charges, if any, are shown by Razorpay before you pay.',
-                extra: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final (icon, name) in [
-                      (PhosphorIconsBold.qrCode, 'UPI'),
-                      (PhosphorIconsBold.creditCard, 'Cards'),
-                      (PhosphorIconsBold.bank, 'Netbanking'),
-                      (null, 'EMI'),
-                    ])
-                      DecoratedBox(
-                        decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(6)),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xs),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            if (icon != null) ...[Icon(icon, size: 13), const SizedBox(width: Space.xs)],
-                            Text(name, style: t.labelSmall),
-                          ]),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              _PayOption(
-                value: PaymentMethod.cod,
-                selected: method == PaymentMethod.cod,
-                enabled: codReason == null && !busy,
-                subtitle: codReason ?? 'Pay in cash when it arrives',
-                icon: PhosphorIconsRegular.money,
-                onTap: () => setState(() => _method = PaymentMethod.cod),
-              ),
-            ],
-          ),
-        ),
-        label('Order summary'),
+        label('Your order'),
         Card(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.md),
@@ -435,7 +382,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       totalPaise: quote.totalPaise,
                       totalLabel: 'To pay',
                     ),
-                  )
+                  ),
+                if (quote != null) YouSave(cartSavingPaise(lines, quote.discountPaise))
                 else if (quoteState.error case final e?)
                   Row(children: [
                     Expanded(child: Text(friendlyError(e), style: t.bodyMedium)),
@@ -450,6 +398,56 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         Padding(
           padding: const EdgeInsets.only(top: Space.sm),
           child: CouponRow(quote: quote, method: method, enabled: !busy),
+        ),
+        label('Pay with'),
+        RadioGroup<PaymentMethod>(
+          groupValue: method,
+          onChanged: (m) {
+            if (m != null && !busy) setState(() => _method = m);
+          },
+          child: Column(
+            children: [
+              _PayOption(
+                value: PaymentMethod.razorpay,
+                selected: method == PaymentMethod.razorpay,
+                enabled: !busy,
+                subtitle: 'UPI, cards, netbanking, EMI',
+                onTap: () => setState(() => _method = PaymentMethod.razorpay),
+                footnote: 'EMI bank charges, if any, are shown by Razorpay before you pay.',
+                extra: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final (icon, name) in [
+                      (PhosphorIconsBold.qrCode, 'UPI'),
+                      (PhosphorIconsBold.creditCard, 'Cards'),
+                      (PhosphorIconsBold.bank, 'Netbanking'),
+                      (null, 'EMI'),
+                    ])
+                      DecoratedBox(
+                        decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(6)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xs),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            if (icon != null) ...[Icon(icon, size: 13), const SizedBox(width: Space.xs)],
+                            Text(name, style: t.labelSmall),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              _PayOption(
+                value: PaymentMethod.cod,
+                selected: method == PaymentMethod.cod,
+                enabled: codReason == null && !busy,
+                subtitle: codReason ?? 'Pay in cash when it arrives',
+                icon: PhosphorIconsRegular.money,
+                onTap: () => setState(() => _method = PaymentMethod.cod),
+              ),
+            ],
+          ),
         ),
         if (method == PaymentMethod.razorpay)
           Padding(
@@ -470,6 +468,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          ),
+        if (ref.watch(storeSettingsProvider).value?.storePhone case final phone?)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.sm),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const WhatsAppIcon(),
+              title: const Text('Questions before you pay? WhatsApp us'),
+              trailing: Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm, color: c.onSurfaceVariant),
+              onTap: () => openUri(
+                context,
+                whatsAppUri(
+                  phone,
+                  text: cartWhatsAppText(lines, quote?.totalPaise ?? cartSubtotalPaise(lines),
+                      name: firstName(ref.read(profileProvider).value?.fullName)),
                 ),
               ),
             ),
@@ -559,29 +575,15 @@ class _PayBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.outlineVariant))),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
-          child: FilledButton(
-            onPressed: onPressed,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (busy) ...[
-                  SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: c.onSurfaceVariant),
-                  ),
-                  const SizedBox(width: Space.md),
-                ],
-                Flexible(child: Text(label, style: const TextStyle(fontFeatures: tabularFigures))),
-              ],
-            ),
-          ),
+    return StickyBar(
+      child: FilledButton(
+        onPressed: onPressed,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (busy) ...[const ButtonSpinner(), const SizedBox(width: Space.md)],
+            Flexible(child: Text(label, style: const TextStyle(fontFeatures: tabularFigures))),
+          ],
         ),
       ),
     );

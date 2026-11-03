@@ -10,9 +10,14 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/data/profile.dart';
 import '../../account/widgets/delivery_address.dart';
+import '../../catalog/data/catalog.dart';
+import '../../catalog/data/rails.dart';
+import '../../catalog/widgets/product_rail.dart';
 import '../../checkout/screens/widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
@@ -29,11 +34,8 @@ import '../data/cart.dart';
 }
 
 /// Shows errors from background cart writes without needing the widget to still be mounted.
-void _report(ScaffoldMessengerState messenger, Future<void> write) => write.catchError((Object e) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(friendlyError(e))));
-    });
+void _report(ScaffoldMessengerState messenger, Future<void> write) =>
+    write.catchError((Object e) => showMessageOn(messenger, friendlyError(e)));
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -45,6 +47,7 @@ class CartScreen extends ConsumerWidget {
         appBar: AppBar(title: const Text('Cart')),
         body: const SignInPrompt(
           icon: PhosphorIconsRegular.shoppingBag,
+          tone: Worlds.cart,
           title: 'Sign in to see your cart',
           message: 'Your cart is saved to your account.',
           from: '/cart',
@@ -85,14 +88,7 @@ class CartScreen extends ConsumerWidget {
             for (var i = 0; i < 3; i++) _LineTile(line: placeholderCartLine, onQty: (_) {}),
           ]),
         ),
-        data: (lines) => lines.isEmpty
-            ? EmptyState(
-                icon: PhosphorIconsRegular.shoppingBag,
-                title: 'Your cart is empty',
-                message: 'Phones and accessories you add show up here.',
-                action: FilledButton(onPressed: () => context.go('/'), child: const Text('Start shopping')),
-              )
-            : _CartList(lines: lines),
+        data: (lines) => lines.isEmpty ? const _EmptyCart() : _CartList(lines: lines),
       ),
       bottomNavigationBar: lines.isEmpty ? null : _CheckoutBar(lines: lines),
     );
@@ -110,20 +106,17 @@ class _CartList extends ConsumerWidget {
     try {
       await container.read(cartProvider.notifier).remove(line.variant.id);
     } catch (e) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showMessageOn(messenger, friendlyError(e));
       return;
     }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text('Removed ${line.productName}'),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => _report(messenger, container.read(cartProvider.notifier).add(line.variant, qty: line.qty)),
-        ),
-      ));
+    showMessageOn(
+      messenger,
+      'Removed ${line.productName}',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () => _report(messenger, container.read(cartProvider.notifier).add(line.variant, qty: line.qty)),
+      ),
+    );
   }
 
   @override
@@ -143,6 +136,7 @@ class _CartList extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: Space.xl),
         children: [
           const DeliverToRow(),
+          if (q != null && settings != null) _FreeDelivery(quote: q, settings: settings),
           for (final line in lines)
             Dismissible(
               key: ValueKey(line.variant.id),
@@ -172,8 +166,9 @@ class _CartList extends ConsumerWidget {
                 ),
               ),
             ),
+          _CrossSell(lines: lines),
           Padding(
-            padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg + 2, Space.lg, 0),
+            padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
             child: CouponRow(quote: q),
           ),
           Padding(
@@ -196,23 +191,7 @@ class _CartList extends ConsumerWidget {
                             discountLabel: q.discountLabel,
                             totalPaise: q.totalPaise,
                           ),
-                          if (settings != null && q.deliveryFeePaise > 0)
-                            if (settings.freeDeliveryGapFor(q.subtotalPaise - q.discountPaise) case final gap when gap > 0)
-                              Padding(
-                                padding: const EdgeInsets.only(top: Space.sm),
-                                child: Row(
-                                  children: [
-                                    Icon(PhosphorIconsRegular.truck, size: 16, color: c.secondary),
-                                    const SizedBox(width: Space.sm),
-                                    Expanded(
-                                      child: Text(
-                                        'Add ${formatInr(gap)} more for free delivery',
-                                        style: t.bodySmall?.copyWith(color: c.secondary, fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                          YouSave(cartSavingPaise(lines, q.discountPaise)),
                         ],
                       ),
                     ),
@@ -229,8 +208,8 @@ class _CartList extends ConsumerWidget {
           ),
           for (final (icon, text) in [
             (PhosphorIconsRegular.sealCheck, 'No platform, COD or packing fees'),
-            (PhosphorIconsRegular.info, 'The final amount is confirmed when you place the order.'),
-            (PhosphorIconsRegular.arrowUUpLeft, 'Removed something by mistake? Tap Undo on the message.'),
+            if (q != null && (settings?.codAllowedFor(q.totalPaise) ?? false))
+              (PhosphorIconsRegular.money, 'Cash on delivery available'),
           ])
             Padding(
               padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
@@ -243,10 +222,145 @@ class _CartList extends ConsumerWidget {
                 ],
               ),
             ),
+          if (settings != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.md),
+              child: ListTile(
+                leading: const WhatsAppIcon(),
+                title: const Text('Need help? Send this cart on WhatsApp'),
+                subtitle: const Text('We can answer questions or send you a payment link'),
+                trailing: Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm, color: c.onSurfaceVariant),
+                onTap: () => openUri(
+                  context,
+                  whatsAppUri(
+                    settings.storePhone,
+                    text: cartWhatsAppText(lines, q?.totalPaise ?? cartSubtotalPaise(lines),
+                        name: firstName(ref.read(profileProvider).value?.fullName)),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+/// "Add ₹300 more for free delivery" with a bar, at the top of the cart; "You get free delivery" once reached.
+/// Hidden when every order ships free. The server's numbers, as in the totals.
+class _FreeDelivery extends StatelessWidget {
+  const _FreeDelivery({required this.quote, required this.settings});
+
+  final Quote quote;
+  final StoreSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    if (settings.deliveryFeePaise == 0 || settings.freeDeliveryMinPaise <= 0) return const SizedBox.shrink();
+    final t = Theme.of(context).textTheme;
+    final base = quote.subtotalPaise - quote.discountPaise;
+    final gap = quote.deliveryFeePaise > 0 ? settings.freeDeliveryGapFor(base) : 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(PhosphorIconsRegular.truck, size: IconSizes.sm, color: BrandColors.emerald),
+              const SizedBox(width: Space.sm),
+              Expanded(
+                child: Text(
+                  gap > 0 ? 'Add ${formatInr(gap)} more for free delivery' : 'You get free delivery',
+                  style: t.bodyMedium?.copyWith(color: BrandColors.mintInk, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
+          ExcludeSemantics(
+            child: LinearProgressIndicator(
+              value: gap > 0 ? (base / settings.freeDeliveryMinPaise).clamp(0, 1) : 1,
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(3),
+              color: BrandColors.emerald,
+              backgroundColor: BrandColors.mint,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "You save ₹13,400 on this order" under a total: MRP savings plus the discount. Nothing when there's none.
+class YouSave extends StatelessWidget {
+  const YouSave(this.paise, {super.key});
+
+  final int paise;
+
+  @override
+  Widget build(BuildContext context) => paise <= 0
+      ? const SizedBox.shrink()
+      : Padding(
+          padding: const EdgeInsets.only(top: Space.xs),
+          child: Text(
+            'You save ${formatInr(paise)} on this order',
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(color: BrandColors.emerald, fontWeight: FontWeight.w700),
+          ),
+        );
+}
+
+/// A case or guard for the dearest item when it's a phone with accessories made for it; else cheap add-ons.
+/// Items already in the cart are left out.
+class _CrossSell extends ConsumerWidget {
+  const _CrossSell({required this.lines});
+
+  final List<CartLine> lines;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final inCart = {for (final l in lines) l.productId};
+    List<ProductCard> fresh(List<ProductCard> cards) => [for (final c in cards) if (c.inStock && !inCart.contains(c.id)) c];
+    final top = lines.reduce((a, b) => b.variant.pricePaise > a.variant.pricePaise ? b : a);
+    final fits = ref.watch(fitsProvider(top.productSlug)).whenData(fresh);
+    if (fits.isLoading && !fits.hasValue) return const SizedBox.shrink(); // decides which rail, so no flicker
+    if (fits.value?.isNotEmpty ?? false) return ProductRail(title: 'Add a case or guard for ${top.productName}', value: fits);
+    return ProductRail(title: 'Add-ons under ₹1,500', value: ref.watch(homeProvider).whenData((h) => fresh(h.accessories)));
+  }
+}
+
+/// Branded empty cart with a way back into the shop, then what they looked at and cheap add-ons.
+class _EmptyCart extends ConsumerWidget {
+  const _EmptyCart();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ListView(
+        children: [
+          EmptyState(
+            icon: PhosphorIconsRegular.shoppingBag,
+            tone: Worlds.cart,
+            title: 'Your cart is empty',
+            message: 'Add a phone or accessory and it will wait here for you.',
+            action: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => context.go('/search?category=smartphones'),
+                  icon: const Icon(PhosphorIconsRegular.storefront),
+                  label: const Text('Shop phones'),
+                ),
+                const SizedBox(height: Space.sm),
+                OutlinedButton(onPressed: () => context.push('/offers'), child: const Text('See offers')),
+              ],
+            ),
+          ),
+          ProductRail(title: 'Recently viewed', value: ref.watch(recentCardsProvider)),
+          ProductRail(title: 'Deals under ₹1,500', value: ref.watch(homeProvider).whenData((h) => h.accessories)),
+          const SizedBox(height: Space.xl),
+        ],
+      );
 }
 
 class _LineTile extends StatelessWidget {
@@ -254,7 +368,7 @@ class _LineTile extends StatelessWidget {
 
   final CartLine line;
   final ValueChanged<int> onQty;
-  final VoidCallback? onRemove; // the stepper's bin at its lowest qty
+  final VoidCallback? onRemove; // the Remove button
 
   @override
   Widget build(BuildContext context) {
@@ -267,11 +381,11 @@ class _LineTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.outlineVariant))),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(width: 84, child: ProductImage(line.coverPath, radius: 14, padding: Space.sm)),
+              SizedBox(width: 84, child: ProductImage(line.coverPath, radius: Radii.button, padding: Space.sm)),
               const SizedBox(width: Space.md),
               Expanded(
                 child: Column(
@@ -282,7 +396,7 @@ class _LineTile extends StatelessWidget {
                       Text(line.variant.name, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
                     if (warning != null)
                       Padding(
-                        padding: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.only(top: Space.xs),
                         child: Tag(
                           warning.text,
                           tone: warning.blocking ? TagTone.bad : TagTone.deal,
@@ -296,14 +410,14 @@ class _LineTile extends StatelessWidget {
                       spacing: Space.sm,
                       runSpacing: Space.xs,
                       children: [
-                        PriceTag(pricePaise: line.lineTotalPaise),
+                        PriceTag(pricePaise: line.lineTotalPaise, mrpPaise: line.variant.mrpPaise * line.qty),
+                        // the Remove button below is the one way to remove: the minus stops at 1
                         QtyStepper(
                           value: line.qty,
                           // Unavailable lines can only be removed; over-stock lines can only go down.
                           min: unavailable ? line.qty : 1,
                           max: unavailable ? line.qty : maxQtyFor(line.variant),
                           onChanged: onQty,
-                          onRemove: onRemove,
                         ),
                       ],
                     ),
@@ -345,12 +459,7 @@ class _CheckoutBar extends ConsumerWidget {
     final c = Theme.of(context).colorScheme;
     final blocked = lines.any((l) => !l.purchasable);
     final total = ref.watch(quoteProvider(null)).value?.totalPaise;
-    return DecoratedBox(
-      decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.outlineVariant))),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
+    return StickyBar(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -381,8 +490,6 @@ class _CheckoutBar extends ConsumerWidget {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }

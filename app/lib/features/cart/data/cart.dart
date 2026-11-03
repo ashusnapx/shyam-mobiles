@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 
@@ -29,6 +30,20 @@ int maxQtyFor(Variant v) => math.min(v.stock, 5);
 
 /// Σ price × qty, like `place_order` (which refuses the order while any line isn't purchasable).
 int cartSubtotalPaise(List<CartLine> lines) => lines.fold(0, (sum, l) => sum + l.lineTotalPaise);
+
+/// What the order saves the customer: MRP − price on every line, plus the server's [discountPaise]. Display only;
+/// the server's quote is what's charged.
+int cartSavingPaise(List<CartLine> lines, int discountPaise) =>
+    lines.fold(0, (sum, l) => sum + math.max(0, l.variant.mrpPaise - l.variant.pricePaise) * l.qty) + discountPaise;
+
+/// The cart as a WhatsApp message, so staff can answer questions or send a payment link:
+/// "Hi, I’m Ravi. I want to order:\n1 × OnePlus 13 (12 GB · 256 GB) ₹69,999\nTotal ₹69,999".
+String cartWhatsAppText(List<CartLine> lines, int totalPaise, {String? name}) => [
+      name == null ? 'Hi, I want to order:' : 'Hi, I’m $name. I want to order:',
+      for (final l in lines)
+        '${l.qty} × ${l.productName}${l.variant.name.isEmpty ? '' : ' (${l.variant.name})'} ${formatInr(l.lineTotalPaise)}',
+      'Total ${formatInr(totalPaise)}',
+    ].join('\n');
 
 final cartProvider = AsyncNotifierProvider<CartNotifier, List<CartLine>>(CartNotifier.new);
 
