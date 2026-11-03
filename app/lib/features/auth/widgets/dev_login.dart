@@ -46,7 +46,7 @@ class _DevLoginButtonsState extends ConsumerState<DevLoginButtons> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(child: Tag(Env.demoBuild ? 'TRY THE DEMO' : 'DEV BUILD · TEST ACCOUNTS', tone: TagTone.deal)),
+            const Center(child: Tag(Env.demoBuild ? 'TRY THE DEMO' : 'DEV BUILD · TEST ACCOUNTS', tone: TagTone.deal)),
             const SizedBox(height: Space.md),
             _button('customer', PhosphorIconsRegular.user, Env.demoBuild ? 'Shop as a customer' : 'Continue as test customer', Env.devCustomerEmail,
                 Env.devCustomerPassword),

@@ -39,6 +39,6 @@ jobs:
         run: python3 -m unittest scripts/test_launch.py
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.107.0 # the CLI used locally; newer ones reject [inbucket] in config.toml
       - name: Database (migrations, RLS and RPC tests)
         run: supabase db start && supabase test db
