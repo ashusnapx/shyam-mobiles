@@ -3,7 +3,8 @@
 Status: plan, 2026-11-03. Owner decision: everything moves to Google/Firebase (Firestore, Firebase Auth, Cloud
 Functions 2nd gen in TypeScript, Cloud Storage, FCM, plus Analytics, Crashlytics, Remote Config and App Check).
 This file is the contract for the engineers doing the move. When Phase 2 ends, `docs/SPEC.md` takes over the
-sections marked here and this file stays as the migration record.
+sections marked here and this file stays as the migration record. Security and privacy controls (App Check, MFA,
+IAM, DPDP) live in **[`docs/SECURITY.md`](SECURITY.md)**. Where the two differ, SECURITY.md wins.
 
 ## 0. Decisions at a glance
 
@@ -32,7 +33,7 @@ sections marked here and this file stays as the migration record.
 | `products` + `product_images` | `products/{slug}` with `images[]` embedded | The slug is immutable after create. Images are at most 12 per product. |
 | `variants` | `variants/{autoId}` (top level) | Cart and order lines point at variants. Denormalised fields: `productId`, `productActive`, `productName`. |
 | `product_cards` view, `products.search` tsvector + GIN | `catalogIndex/public` (active only) and `catalogIndex/staff` (everything, with stock) | **No clean equivalent.** See D3 and §3. |
-| `wishlist` | `wishlists/{uid}` `{productIds: string[] ≤ 200}` | |
+| `wishlist` | `users/{uid}/wishlist/{productId}` `{productId, addedAt, waitVariant: variantId\|'*'\|null}` | `waitVariant` is the back-in-stock mark (§6). Removing the heart deletes the doc, which stops the alert. |
 | `cart_items` | `carts/{uid}` `{lines: {variantId: {qty, addedAt}}}` | Rules cap it at 20 lines. qty 1..5 is checked by `quoteOrder`/`placeOrder` (Rules cannot iterate map values). |
 | `addresses` | `users/{uid}/addresses/{a0..a9}`, `users/{uid}.defaultAddressId` | The 10 fixed ids cap the count. One default field means there is always exactly one default. |
 | `orders` + `order_items` + `order_events` | `orders/{autoId}` with `items[]` (≤ 10) and `events[]` embedded | Read in one go. Item id = variantId. |
@@ -169,13 +170,15 @@ Conventions: camelCase fields. Money is `*Paise: int`. Timestamps are Firestore 
 ```ts
 users/{uid}            { fullName: string|null (is_name, ≤80) C, photoUrl?: string C, phone?: '+91…' C(create, = token),
                          role?: 'owner'|'staff' S, defaultAddressId?: 'a0'..'a9' C, referralCode?: string S,
-                         referralRewards?: { [yyyymm]: int } S }
+                         referralRewards?: { [yyyymm]: int } S,
+                         consent: { noticeVersion, acceptedAt, analytics: bool } C (SECURITY §4.2),
+                         prefs: { backInStock: bool = true, offers: bool = true, crashReports: bool = true } C }
+users/{uid}/wishlist/{productId}  { productId, addedAt, waitVariant: variantId|'*'|null } C (SECURITY §4.5 retention: with the account)
 users/{uid}/addresses/{a0..a9}  { name, phone, line1, line2?, landmark?, city, district?, state, stateCode ('23'), pincode, label } C
 users/{uid}/notifications/{id}  { kind, title ≤80, body ≤300, link (app route), orderId?, repairId?, imagePath?,
                                   readAt: Timestamp|null (C: only this field), createdAt, expireAt } S
 users/{uid}/coupons/{promotionId}  public fields of a personal promotion (mirror) S
 carts/{uid}            { lines: { [variantId]: { qty: 1..5, addedAt } } (≤ 20 keys) } C
-wishlists/{uid}        { productIds: string[] (≤ 200) } C
 devices/{fcmToken}     { uid, platform: 'android'|'ios', updatedAt, expireAt } C (uid == auth.uid)
 
 categories/{slug}      { name, kind: 'phone'|'accessory', sort } St
@@ -184,7 +187,8 @@ products/{slug}        { name, brandId, brandName, categoryId, categoryKind, des
                          gstRateBp: int (0..2800, default 1800), hsnCode: '^[0-9]{4,8}$' (Phase 2),
                          isActive, isFeatured, images: [{ path, color?: string, sort }] (≤ 12) } S (saveProduct)
 variants/{id}          { productId, productName, productActive, sku (unique), name, attributes {ram?,storage?,color?,colorHex?},
-                         pricePaise > 0, mrpPaise ≥ price, stock 0..1e6, isActive, sort, lastStockChange: 'order'|'staff'|'refund' } S
+                         pricePaise > 0, mrpPaise ≥ price, stock 0..1e6, isActive, sort, lastStockChange: 'order'|'staff'|'refund',
+                         restockSeq: int (+1 whenever stock goes 0 → > 0; set only by catalog/stock.ts applyStockChange) } S
 collections/{slug}     { name, productIds: string[] ≤ 500 } St
 catalogIndex/public    { cards: { [productId]: { n: name, s: slug, b: brandId, bn: brandName, c: categoryId, k: kind,
                          v: variant names joined, p: minPricePaise, m: mrpPaise, i: inStock, f: featured, cv: coverPath,
@@ -243,7 +247,7 @@ counters/{orders|repairs|invoice-2026-27}  { next: int } S
 
 ### Composite indexes (`firestore.indexes.json`)
 
-`orders (uid ↑, createdAt ↓)`, `orders (uid ↑, status ↑)` (first-order and pending checks in transactions), `orders (status ↑, createdAt ↓)`, `orders (status ↑, reservedUntil ↑)` (expiry), `repairs (uid ↑, createdAt ↓)`, `repairs (uid ↑, status ↑)` (open-repairs cap), `repairs (status ↑, preferredDate ↑)`, `feedback (status ↑, createdAt ↓)`, `feedback (uid ↑, createdAt ↓)`, `variants (productId ↑, isActive ↑, productActive ↑, sort ↑)`, `variants (productId ↑, sort ↑)` (staff), `banners (isActive ↑, sort ↑)`, `redemptions (promotionId ↑, uid ↑, active ↑)`. Equality-only queries (devices by uid, staff by role) use the automatic single-field indexes. TTL policies: `notifications.expireAt` (collection group), `devices.expireAt`, `rateLimits.expireAt`.
+`orders (uid ↑, createdAt ↓)`, `orders (uid ↑, status ↑)` (first-order and pending checks in transactions), `orders (status ↑, createdAt ↓)`, `orders (status ↑, reservedUntil ↑)` (expiry), `repairs (uid ↑, createdAt ↓)`, `repairs (uid ↑, status ↑)` (open-repairs cap), `repairs (status ↑, preferredDate ↑)`, `feedback (status ↑, createdAt ↓)`, `feedback (uid ↑, createdAt ↓)`, `variants (productId ↑, isActive ↑, productActive ↑, sort ↑)`, `variants (productId ↑, sort ↑)` (staff), `banners (isActive ↑, sort ↑)`, `redemptions (promotionId ↑, uid ↑, active ↑)`, **collection group** `wishlist (productId ↑, waitVariant ↑)` (back-in-stock). Equality-only queries (devices by uid, staff by role) use the automatic single-field indexes. TTL policies: `notifications.expireAt` (collection group), `devices.expireAt`, `rateLimits.expireAt`.
 
 ### Where each invariant is enforced now
 
@@ -289,8 +293,8 @@ List queries must carry the constraints Rules check, because Rules are not filte
 - **Google:** `google_sign_in` 7 `authenticate()` → `GoogleAuthProvider.credential(idToken:)` → `signInWithCredential`. `displayName` → `fullName` when it passes `is_name` (else null, then we ask). `photoURL` → `photoUrl` (the avatar; phone users keep the generated avatar from `core/theme/generative.dart`).
 - **Phone OTP:** `verifyPhoneNumber('+91' + 10 digits)`. Android auto-retrieval (SMS Retriever) and Play Integrity silent checks apply, with the reCAPTCHA fallback on phones without Play services. The OTP screen reuses `verify_code_screen.dart`/`otp_field.dart`. There is a 60 s resend timer, and `too-many-requests`/`quota-exceeded` errors are mapped in `errors.dart`.
 - **Name capture:** a router guard sends any signed-in user whose `users/{uid}` is missing or has no `fullName` to a one-field Name screen, which creates or updates the doc. Google users usually skip it.
-- **Staff:** custom claim `role`. **First admin:** `claimOwner` succeeds once, only when no owner exists yet and the caller's *verified* `phone_number` equals `settings/business.phone` (+917987559272). Account shows "Set up as shop owner" only in that case. The owner then adds or removes staff by phone with `setRole` (a small Admin → Staff screen). No service-account keys ever sit on a laptop.
-- **Account deletion:** `deleteAccount` keeps today's guard (`ACTIVE_ORDERS`: open orders or repairs, or a cancelled paid order not yet refunded). It sets `uid: null` on orders, repairs and feedback (orders are kept for tax), runs `recursiveDelete(users/{uid})`, deletes the cart, wishlist and devices, then `auth.deleteUser`.
+- **Staff:** custom claim `role`. Staff powers apply only in **Google + TOTP** sessions, because Firebase MFA does not support phone as the first factor (SECURITY §2.2). **First admin:** `claimOwner` succeeds once, only when no owner exists yet and the caller is signed in with Google + TOTP and has a linked, *verified* phone equal to `settings/business.phone` (+917987559272). Account shows "Set up as shop owner" only in that case. The owner then adds or removes staff by phone with `setRole` (a small Admin → Staff screen). No service-account keys ever sit on a laptop.
+- **Account deletion:** `deleteAccount` keeps today's guard (`ACTIVE_ORDERS`: open orders or repairs, or a cancelled paid order not yet refunded). It sets `uid: null` on orders (kept for GST records), deletes the user's repairs and feedback, runs `recursiveDelete(users/{uid})` (addresses, notifications, coupons, wishlist), deletes `carts`, `devices`, `rateLimits` and `referralCodes`, then calls `auth.deleteUser`. The web route and data export are in SECURITY §4.6–4.7.
 - **App Check:** Play Integrity in release and the debug provider in debug builds (debug tokens registered in the console). Ship with it unenforced and watch the App Check metrics for 7 days. Then enforce on Firestore, Storage and callables (`enforceAppCheck: true`). The webhook stays open: it has its own header check.
 - **SMS abuse:** upgrade Auth to Identity Platform (free under 50k MAU) to get the **SMS region policy: allow India only**. App Check plus Firebase's per-IP limits cover the rest.
 - **Test numbers** (console → Phone → test numbers, no SMS sent): `+91 99999 99999` / `123456` (dev), a demo customer and a demo staff number for `DEMO_BUILD`, and one kept permanently for the Play review account. Remove the rest before launch. The emulator accepts any number and shows the code in its UI and REST API.
@@ -324,11 +328,17 @@ List queries must carry the constraints Rules check, because Rules are not filte
 
 - **Notices:** `notifications/notices.ts` exports pure `orderNotices(before, after)`, `repairNotices(...)`, `feedbackNotices(...)`, `couponNotice(...)`, `stockNotice(...)` and `refundNotice(...)`. They return `{recipient: uid|'staff', kind, title, body, link, orderId?, repairId?, imagePath?}[]`, with every kind, title and body ported verbatim from `20261030000400/0500/0510/0600` (staff are never told about their own action: `events[].byUid`). The vectors come from `notifications.test.sql` and `notification_images.test.sql`. Triggers: `onDocumentWritten` on `orders/{id}`, `repairs/{id}`, `feedback/{id}`, `orders/{id}/refunds/{rid}`. `onDocumentCreated` on `users/{uid}/coupons/{id}`. `onDocumentUpdated` on `variants/{id}` (low stock only when `lastStockChange == 'order'` and stock crosses ≤ 3 or hits 0). Ids are deterministic (`<sourceId>_<eventIndex>_<kind>_<recipient>`) and written with `create()`, so retries never duplicate (`retry: true`).
 - **Push:** `onDocumentCreated('users/{uid}/notifications/{id}')` (`retry: false`: a missed push is acceptable because the in-app copy exists) → devices by uid → `sendEach` data-only, `android.priority: 'high'`, data `{id, kind, title, body, link, image_path}` (today's keys). Unregistered tokens are deleted. The app builds the image URL from Storage instead of the Supabase URL (`publicImageUrl`).
+- **Back-in-stock alerts** (owner feature, engineer D):
+  - *Marking.* Hearting a sold-out item writes `users/{uid}/wishlist/{productId}` with `waitVariant` set to the selected variant when that variant is sold out, or `'*'` when every variant is. Hearting an in-stock item leaves it `null`. The app says "Saved. We'll tell you when it's back in stock." The product page's sold-out bar (`_SoldOutBar`) gets a **Notify me** action that does the same, adding to the wishlist or setting the mark on an existing entry. Rules: owner only, keys `productId`/`addedAt`/`waitVariant`, `waitVariant` a variant id, `'*'` or null.
+  - *Restock.* Every stock change goes through B's `catalog/stock.ts` `applyStockChange(tx, …)`, which sets `lastStockChange` and bumps `restockSeq` when stock goes 0 → > 0. This covers `setStock`, `saveProduct`, and C's restocks on cancel, expiry and refund.
+  - *Notify.* `onDocumentUpdated('variants/{id}')` (D) fires when `before.stock == 0 && after.stock > 0` and the variant and product are active. It pages the collection-group query `wishlist where productId == P and waitVariant in [variantId, '*']` 200 at a time with `BulkWriter`. For each match it skips users with `prefs.backInStock == false`, writes the notification `users/{uid}/notifications/bis_{variantId}_{restockSeq}` with `create()`, so one restock never notifies anyone twice, retries included. In the same batch it clears `waitVariant` to `null`.
+  - *Content.* Kind `back_in_stock`, title "Back in stock: {productName}", body "{variantName} is available again. Tap to buy before it sells out.", `imagePath` the product cover. The link is `/product/{slug}?variant={variantId}`; D adds the `variant` query parameter to the product route, and B reviews. The existing push trigger sends it like any order update.
+  - Removing the heart deletes the doc, so the alert stops. A re-stock before the trigger runs is fine: the next 0 → > 0 bumps `restockSeq` again.
 - **Referral reward** on delivery happens in the `adminUpdateOrder` transaction (§3), not in a trigger, so it is exactly once.
 - **Expiry:** `onSchedule({schedule: 'every 5 minutes', timeZone: 'Asia/Kolkata'})`. Cleanup is TTL only.
 - **Feedback:** `sendFeedback` (ownership, 10 per day, re-rating replaces and resets to `new`). Staff mark seen or resolved and add a note under field-limited Rules.
-- **Analytics** (GA4, through `Telemetry`): `view_item_list` (home rails, search results), `search`, `view_item`, `add_to_wishlist`, `add_to_cart`, `remove_from_cart`, `view_cart`, `begin_checkout`, `add_shipping_info`, `add_payment_info`, `purchase` (after COD placement or `verifyPayment` = paid; `transaction_id` = order number, `value` in rupees, `coupon`), `view_promotion`/`select_promotion` (banners), `login`/`sign_up` (`method`: google|phone), plus custom `book_repair`, `apply_referral`, `send_feedback`. No names, phones or addresses in events. The user id is the Firebase uid. Google signals and ad personalisation are off.
-- **Crashlytics:** `FlutterError.onError` and `PlatformDispatcher.onError` go to Crashlytics. Unexpected errors behind `friendlyError` are logged as non-fatal. Custom keys: `build`, `backend`. Release builds use `--obfuscate --split-debug-info`, and the Dart symbols are uploaded with `firebase crashlytics:symbols:upload`.
+- **Analytics** (GA4, through `Telemetry`): `view_item_list` (home rails, search results), `search`, `view_item`, `add_to_wishlist`, `add_to_cart`, `remove_from_cart`, `view_cart`, `begin_checkout`, `add_shipping_info`, `add_payment_info`, `purchase` (after COD placement or `verifyPayment` = paid; `transaction_id` = order number, `value` in rupees, `coupon`), `view_promotion`/`select_promotion` (banners), `login`/`sign_up` (`method`: google|phone), plus custom `book_repair`, `apply_referral`, `send_feedback`. Collection is **opt-in** (SECURITY §4.2–4.3). There is no user id, no PII, and `search` sends a result count rather than the term. Google signals and ad personalisation are off.
+- **Crashlytics:** `FlutterError.onError` and `PlatformDispatcher.onError` go to Crashlytics. Unexpected errors behind `friendlyError` are logged as non-fatal. There is no user identifier. Custom keys come from an allowlist: `build`, `backend`, `route`. Release builds use `--obfuscate --split-debug-info`, and the Dart symbols are uploaded with `firebase crashlytics:symbols:upload`.
 - **Remote Config** is for client-only presentation, never for business rules (those live in `settings/store`, enforced by the server): `min_supported_build` (force-update screen) and `notice_banner` (maintenance text). Fetch interval 12 h, with in-app defaults.
 
 ## 7. Phases and the work split
@@ -336,15 +346,15 @@ List queries must carry the constraints Rules check, because Rules are not filte
 | Engineer | Owns (files/folders) |
 |---|---|
 | **A, Platform and identity** | `firebase/firebase.json`, `.firebaserc`, `functions/{package.json,tsconfig.json,eslint.config.mjs,vitest.config.ts}`, `src/index.ts`, `src/shared/**`, `src/model/users.ts`, `src/account/**`, Rules sections `users`/`devices`, CI. App: `lib/core/{backend,firebase,callable}.dart`, `firebase_options.dart`, `features/auth/**`, `features/account/data/**`, `core/push.dart` (registration), Telemetry, Remote Config, App Check. Phase 2: Supabase removal. |
-| **B, Catalog and storage** | `src/catalog/**`, `src/model/{catalog,settings}.ts`, `storage.rules`, Rules sections `catalog`/`settings`/`banners`/`collections`, `firebase/seed/**`. App: `features/catalog/data/**`, `wishlist/data/**`, `admin/data/{catalogue,photos,rules}.dart` + product, banner and settings admin repositories, the `publicImageUrl` change. |
+| **B, Catalog and storage** | `src/catalog/**` (incl. `stock.ts` `applyStockChange`, the only stock writer, used by C), `src/model/{catalog,settings}.ts`, `storage.rules`, Rules sections `catalog`/`settings`/`banners`/`collections`, `firebase/seed/**`. App: `features/catalog/data/**`, `wishlist/data/**`, `admin/data/{catalogue,photos,rules}.dart` + product, banner and settings admin repositories, the `publicImageUrl` change. |
 | **C, Commerce (money)** | `src/orders/**`, `src/offers/**`, `src/referrals/**`, `src/model/{orders,offers}.ts`, Rules sections `carts`/`addresses`/`orders`/`offers`, `test-vectors/{pricing,offers,referrals,orders-state}.json`. App: `features/{cart,checkout,orders,offers}/data/**`, `admin/data/{admin,offers_admin}.dart` (orders and offers parts). |
-| **D, Payments and service** | `src/payments/**` (PhonePe), `src/notifications/**`, `src/repairs/**`, `src/feedback/**`, `src/invoices/**` (Phase 2), `src/model/{repairs,feedback,notifications}.ts`, Rules sections `repairs`/`feedback`/`notifications`, vectors `{repairs-state,notifications,gst}.json`. App: `features/{payments,repairs,feedback,notifications}/data/**`, `PaymentGateway`. |
+| **D, Payments and service** | `src/payments/**` (PhonePe), `src/notifications/**` (incl. `backInStock.ts`), `src/repairs/**`, `src/feedback/**`, `src/invoices/**` (Phase 2), `src/model/{repairs,feedback,notifications}.ts`, Rules sections `repairs`/`feedback`/`notifications`/`wishlist`, the collection-group `wishlist` index, vectors `{repairs-state,notifications,gst}.json`. App: `features/{payments,repairs,feedback,notifications}/data/**`, `PaymentGateway`, back-in-stock: `wishlist_repository` `notifyWhenBack()`, the product page **Notify me** action and the snackbar copy, the `?variant=` route param (B reviews the catalog and wishlist files). |
 
 Shared files: `firestore.rules` is one file split into commented sections. Each owner edits only their section, and A reviews. `src/index.ts` gets one `export *` line per domain in Phase 0 and is never touched again. `firestore.indexes.json` changes come only with the query that needs them.
 
 **Phase 0: contracts (3 days, everyone, A leads).** (1) This document reviewed. (2) `src/model/*.ts` (the §3 shapes as TS types) and `src/<domain>/contract.ts` (zod in/out for every callable named in §1). (3) Dart repository interfaces with method signatures, plus fakes in `app/test/fakes/`. (4) The error reasons stay the current `_codes` keys. (5) `test-vectors/*.json` ported from pgTAP/api_e2e, cases first and code later. (6) `firebase/` scaffold that builds, lints and deploys an empty `health` callable to the emulator. (7) The owner actions in §9, in parallel.
 
-**Phase 1: build on the emulators (about 3 weeks, in parallel).** Every engineer starts with a behaviour-neutral refactor: today's Supabase queries move into `*_repository_supabase.dart` behind the interface, and `flutter test` stays green on `BACKEND=supabase`. Then each domain lands as functions, then Rules, then tests (unit → rules → integration), then the Firebase repository, run with `BACKEND=firebase USE_EMULATORS=true`. Milestones: **M1** sign-in + browse (A, B; end of week 1, others build on the seed). **M2** cart + COD checkout + orders + offers (C). **M3** PhonePe sandbox payment and refund on a real phone (D + C). **M4** notifications/push, repairs, feedback (D). **M5** admin parity: every admin screen works on Firebase (B, C, D).
+**Phase 1: build on the emulators (about 3 weeks, in parallel).** Every engineer starts with a behaviour-neutral refactor: today's Supabase queries move into `*_repository_supabase.dart` behind the interface, and `flutter test` stays green on `BACKEND=supabase`. Then each domain lands as functions, then Rules, then tests (unit → rules → integration), then the Firebase repository, run with `BACKEND=firebase USE_EMULATORS=true`. Milestones: **M1** sign-in + browse (A, B; end of week 1, others build on the seed). **M2** cart + COD checkout + orders + offers (C). **M3** PhonePe sandbox payment and refund on a real phone (D + C). **M4** notifications/push, repairs, feedback, **back-in-stock alerts** (D; needs B's `applyStockChange`). **M5** admin parity: every admin screen works on Firebase (B, C, D).
 
 **Cut-over (end of Phase 1; the app works at every step).**
 1. The emulator integration suite (the `api_e2e.py` port) and all app tests pass with `BACKEND=firebase`.
@@ -393,6 +403,8 @@ SMS is now the one cost that grows. Sessions persist until sign-out, so a phone 
 11. After cut-over is stable: pause, then 30 days later delete, the Supabase project and cancel Pro. Leave the Razorpay account dormant.
 
 ## 10. Risks and mitigations
+
+Security and privacy risks, and their controls, are in [`docs/SECURITY.md`](SECURITY.md) (threat model §1, checklist §5).
 
 | Risk | Mitigation |
 |---|---|
