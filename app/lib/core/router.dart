@@ -9,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../features/account/screens/account_screen.dart';
 import '../features/account/screens/address_form_screen.dart';
 import '../features/account/screens/addresses_screen.dart';
+import '../features/account/screens/policy_screen.dart';
 import '../features/account/screens/profile_screen.dart';
 import '../features/admin/screens/admin_banners_screen.dart';
 import '../features/admin/screens/admin_catalogue_screen.dart';
@@ -178,6 +179,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ]),
       GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen()),
       GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
+      GoRoute(path: '/policy/:page', builder: (_, s) => PolicyScreen(page: s.pathParameters['page']!)),
       GoRoute(
         path: '/sign-in',
         builder: (_, s) => SignInScreen(from: s.uri.queryParameters['from']),

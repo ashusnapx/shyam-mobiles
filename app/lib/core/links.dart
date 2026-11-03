@@ -15,7 +15,7 @@ final _offerId = RegExp(r'^[0-9a-f-]{36}$');
 final _code = RegExp(r'^[A-Z0-9]{6,10}$');
 
 /// `https://<LINK_HOST>/open?p=<product slug>&ref=<code>` (an offer: `o=<offer id>`; just a referral: `ref=`).
-/// site/open.html serves it when the app isn't installed. Null without a LINK_HOST: shares then go without a link.
+/// firebase/hosting/open.html serves it without the app. Null without a LINK_HOST: shares then go without a link.
 Uri? shareLink({String? product, String? offer, String? code, String host = Env.linkHost}) => host.isEmpty
     ? null
     : Uri.https(host, '/open', {'p': ?product, 'o': ?offer, 'ref': ?code});

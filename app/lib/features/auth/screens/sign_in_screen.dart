@@ -39,8 +39,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> with SingleTickerPr
   bool _sending = false;
   bool _googleBusy = false;
 
-  late final _termsTap = TapGestureRecognizer()..onTap = () => openPolicy(context, 'terms.html');
-  late final _privacyTap = TapGestureRecognizer()..onTap = () => openPolicy(context, 'privacy.html');
+  late final _termsTap = TapGestureRecognizer()..onTap = () => openPolicy(context, 'terms');
+  late final _privacyTap = TapGestureRecognizer()..onTap = () => openPolicy(context, 'privacy');
 
   bool get _usePhone => _tabs.index == 0;
 

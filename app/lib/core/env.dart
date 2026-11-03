@@ -9,10 +9,10 @@ abstract final class Env {
   static const paymentGateway = String.fromEnvironment('PAYMENT_GATEWAY', defaultValue: 'razorpay');
   static const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
   static const googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
-  /// Base URL of the published site/ pages (privacy, terms, refunds...), e.g. https://shyammobiles.in
+  /// Base URL of the policy pages in firebase/hosting/ (privacy, terms, refunds...): https://shyam-mobiles.web.app
   static const policiesUrl = String.fromEnvironment('POLICIES_URL');
-  /// Host of shared links (`https://<host>/open?…`, served by site/open.html), e.g. shyammobiles.in. The Android
-  /// build claims it as an App Link (build.gradle.kts reads the same key). Empty: shares carry no link.
+  /// Host of shared links (`https://<host>/open?…`, served by firebase/hosting/open.html): shyam-mobiles.web.app.
+  /// The Android build claims it as an App Link (build.gradle.kts reads the same key). Empty: shares carry no link.
   static const linkHost = String.fromEnvironment('LINK_HOST');
   /// The Firebase Android app (console > Project settings > Your apps), for phone notifications (lib/core/push.dart).
   /// Any of them empty: the app never touches Firebase and shows notifications only inside the app.

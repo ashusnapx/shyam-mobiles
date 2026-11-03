@@ -546,9 +546,10 @@ Future<bool> confirmChoice(
   return picked ?? false;
 }
 
-/// Every url_launcher call goes through here. False when [uri] isn't allowed or nothing could open it.
-Future<bool> launchExternal(Uri uri, {LaunchMode mode = LaunchMode.externalApplication}) async {
-  if (!isAllowedExternalUri(uri)) return false;
+/// Every url_launcher call goes through here. False when [uri] isn't allowed or nothing could open it. [email] also
+/// lets mailto: through, only for links on our own policy pages (never for store settings or admin-typed links).
+Future<bool> launchExternal(Uri uri, {LaunchMode mode = LaunchMode.externalApplication, bool email = false}) async {
+  if (!isAllowedExternalUri(uri) && !(email && uri.scheme == 'mailto')) return false;
   try {
     return await launchUrl(uri, mode: mode);
   } catch (_) {
