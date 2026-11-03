@@ -60,7 +60,7 @@ export function phonePeGateway(config: PhonePeConfig, fetcher: typeof fetch = fe
       }),
     }, "token");
     if (!res.ok) throw await failure(res, "token");
-    const t = await res.json();
+    const t = (await res.json()) as { access_token?: unknown; expires_at: number; issued_at: number; token_type?: string } | null;
     if (typeof t?.access_token !== "string" || !Number.isFinite(t.expires_at)) throw new Error("phonepe token: unexpected reply");
     const issued = Number.isFinite(t.issued_at) ? t.issued_at : Math.floor(Date.now() / 1000);
     cached = { token: `${t.token_type || "O-Bearer"} ${t.access_token}`, renewAt: (issued + (t.expires_at - issued) / 2) * 1000 };

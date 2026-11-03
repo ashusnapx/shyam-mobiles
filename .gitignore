@@ -21,3 +21,8 @@ firebase/emulator-data/
 firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*
+
+# Firebase emulator secrets and exported data (docs/FIREBASE.md §8)
+firebase/functions/.secret.local
+!firebase/functions/.env.demo-shyam-mobiles
+firebase/.emulator-data/

@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Cloud Storage rules (docs/SECURITY.md §2.3). Deny by default; each owner edits only their section.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() { return request.auth != null; }
+    function isStaff() {
+      return isSignedIn()
+        && request.auth.token.get('role', null) in ['owner', 'staff']
+        && request.auth.token.firebase.get('sign_in_second_factor', null) == 'totp'
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', null) == request.auth.token.role;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // ── catalog (owner: B) ─────────────────────────────────────────────────────────────────────────────────────
+    // TODO(B): product-images/** public read; staff write of image/(webp|jpeg|png) ≤ 1 MB (SECURITY §2.3).
+
+    // ── invoices (owner: D, Phase 2) ───────────────────────────────────────────────────────────────────────────
+    // TODO(D): invoices/{uid}/{orderId}.pdf readable by that uid or staff; no client writes.
+  }
+}

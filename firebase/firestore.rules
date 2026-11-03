@@ -1,0 +1,84 @@
+rules_version = '2';
+
+// Firestore Security Rules (docs/FIREBASE.md §3, docs/SECURITY.md §2.3). Deny by default: a path is reachable only if
+// a section below allows it, with exact keys, types, sizes and `updatedAt == request.time`. One file, one section per
+// owner (docs/FIREBASE.md §7): edit only your own section; A reviews. Tests: functions/test/rules/.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── shared helpers (owner: A) ────────────────────────────────────────────────────────────────────────────────
+    function isSignedIn() { return request.auth != null; }
+    function isMe(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function incoming() { return request.resource.data; }
+    function changed() { return incoming().diff(resource.data).affectedKeys(); }
+    function stampedNow(field) { return incoming()[field] == request.time; }
+    // Staff power: the role claim, a TOTP second factor in this session, and the role still on users/{uid}, so a
+    // removed staffer loses access at once. The claim comes first: customers never pay for the get().
+    function isStaff() {
+      return isSignedIn()
+        && request.auth.token.get('role', null) in ['owner', 'staff']
+        && request.auth.token.firebase.get('sign_in_second_factor', null) == 'totp'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) == request.auth.token.role;
+    }
+    // Recent sign-in, for sensitive staff writes (settings/business): within 5 minutes.
+    function signedInRecently() {
+      return request.time < timestamp.value(request.auth.token.auth_time * 1000) + duration.value(5, 'm');
+    }
+    // test-vectors/input.json personName: letters (any script), marks, space . ' - ; 2..60, two letters, trimmed.
+    function isPersonName(v) {
+      return v is string && v.matches("[\\p{L}\\p{M} .'-]{2,60}") && v.matches(".*\\p{L}.*\\p{L}.*") && !v.matches("[ ].*|.*[ ]");
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── users, devices (owner: A) ─────────────────────────────────────────────────────────────────────────────────
+    function validConsent(c) {
+      return c is map && c.keys().hasOnly(['noticeVersion', 'acceptedAt', 'analytics'])
+        && c.noticeVersion is int && c.noticeVersion >= 1 && c.acceptedAt == request.time && c.analytics is bool;
+    }
+    match /users/{uid} {
+      allow get: if isMe(uid);
+      allow create: if isMe(uid)
+        && incoming().keys().hasOnly(['fullName', 'photoUrl', 'phone', 'consent', 'createdAt', 'updatedAt'])
+        && (incoming().fullName == null || isPersonName(incoming().fullName))
+        && (!('photoUrl' in incoming()) || (incoming().photoUrl is string && incoming().photoUrl.size() <= 500 && incoming().photoUrl.matches('https://.*')))
+        && (!('phone' in incoming()) || incoming().phone == request.auth.token.get('phone_number', null))
+        && (!('consent' in incoming()) || validConsent(incoming().consent))
+        && stampedNow('createdAt') && stampedNow('updatedAt');
+      allow update: if isMe(uid)
+        && changed().hasOnly(['fullName', 'photoUrl', 'defaultAddressId', 'consent', 'updatedAt'])
+        && (!('fullName' in changed()) || incoming().fullName == null || isPersonName(incoming().fullName))
+        && (!('photoUrl' in changed()) || (incoming().photoUrl is string && incoming().photoUrl.size() <= 500 && incoming().photoUrl.matches('https://.*')))
+        && (!('defaultAddressId' in changed()) || (incoming().defaultAddressId is string && incoming().defaultAddressId.matches('a[0-9]')))
+        && (!('consent' in changed()) || validConsent(incoming().consent))
+        && stampedNow('updatedAt');
+    }
+    // FCM tokens. Whoever holds a token is that phone, so a new sign-in on it takes the doc over. No listing.
+    match /devices/{token} {
+      allow get, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if isSignedIn() && token.size() <= 4096
+        && incoming().keys().hasOnly(['uid', 'platform', 'updatedAt', 'expireAt'])
+        && incoming().uid == request.auth.uid
+        && incoming().platform in ['android', 'ios']
+        && stampedNow('updatedAt')
+        && incoming().expireAt is timestamp && incoming().expireAt > request.time
+        && incoming().expireAt <= request.time + duration.value(270, 'd');
+    }
+
+    // ── catalog, settings, banners, collections, wishlists (owner: B) ──────────────────────────────────────────────
+    // TODO(B): categories, brands, collections, banners: public read, staff write with field rules. products, variants,
+    // catalogIndex: read (active only for customers), no client writes. settings/store public read, staff write;
+    // settings/business staff write with signedInRecently(). wishlists/{uid}: owner, productIds ≤ 200.
+
+    // ── carts, addresses, orders, offers, referrals (owner: C) ─────────────────────────────────────────────────────
+    // TODO(C): carts/{uid} (lines ≤ 20), users/{uid}/addresses/{a0..a9}, orders read-only (owner or staff),
+    // publicOffers read, users/{uid}/coupons owner read, promotions staff read; promoCodes, redemptions,
+    // referralCodes, referrals, counters: no client access.
+
+    // ── repairs, feedback, notifications (owner: D) ────────────────────────────────────────────────────────────────
+    // TODO(D): repairs and feedback read (owner or staff), feedback status/adminNote staff update;
+    // users/{uid}/notifications owner read/delete, readAt-only update.
+  }
+}
