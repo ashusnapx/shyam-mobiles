@@ -799,13 +799,12 @@ class _WhyBuy extends StatelessWidget {
           leading: const IconWell(PhosphorIconsRegular.shieldCheck, tint: Worlds.shop),
           title: Text('Warranty: $warranty'),
         ),
-      if (settings.returnsPolicy.isNotEmpty)
-        ListTile(
-          leading: const IconWell(PhosphorIconsRegular.arrowUUpLeft, tint: Worlds.shop),
-          title: const Text('Returns & warranty policy'),
-          trailing: chevron,
-          onTap: () => showReturnsSheet(context, settings),
-        ),
+      ListTile(
+        leading: const IconWell(PhosphorIconsRegular.arrowUUpLeft, tint: Worlds.shop),
+        title: const Text('Returns & warranty policy'),
+        trailing: chevron,
+        onTap: () => showReturnsSheet(context, settings),
+      ),
       if (settings.mapsDestination.isNotEmpty)
         ListTile(
           leading: const IconWell(PhosphorIconsRegular.storefront, tint: Worlds.shop),

@@ -71,12 +71,11 @@ class StoreCard extends ConsumerWidget {
               title: const Text('WhatsApp the shop'),
               onTap: () => openUri(context, whatsAppUri(phone, text: whatsAppText)),
             ),
-            if (s.returnsPolicy.isNotEmpty)
-              ListTile(
-                leading: const Icon(PhosphorIconsRegular.shieldCheck),
-                title: const Text('Returns & warranty'),
-                onTap: () => showReturnsSheet(context, s),
-              ),
+            ListTile(
+              leading: const Icon(PhosphorIconsRegular.shieldCheck),
+              title: const Text('Returns & warranty'),
+              onTap: () => showReturnsSheet(context, s),
+            ),
             const SizedBox(height: Space.sm),
           ],
         ),

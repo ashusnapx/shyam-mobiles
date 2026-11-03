@@ -92,6 +92,11 @@ class FieldLabel extends StatelessWidget {
       );
 }
 
+/// The schema's default policy, for a store whose settings carry none.
+const defaultReturnsPolicy = 'Unopened items can be returned within 7 days of delivery for a full refund. Phones are '
+    'covered by the brand’s warranty, and we help you claim it at the store. Got a damaged or wrong item? Tell us '
+    'within 48 hours of delivery and share an unboxing video.';
+
 /// The returns & warranty policy from the shop's settings, in a sheet (product page, Account).
 void showReturnsSheet(BuildContext context, StoreSettings settings) => showModalBottomSheet<void>(
       context: context,
@@ -105,7 +110,10 @@ void showReturnsSheet(BuildContext context, StoreSettings settings) => showModal
             children: [
               Text('Returns & warranty', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: Space.md),
-              Text(settings.returnsPolicy, style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                settings.returnsPolicy.isEmpty ? defaultReturnsPolicy : settings.returnsPolicy,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ],
           ),
         ),
