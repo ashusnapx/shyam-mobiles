@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
+import 'package:shyam_mobiles/core/theme/tokens.dart';
 import 'package:shyam_mobiles/features/feedback/data/feedback.dart';
 import 'package:shyam_mobiles/features/repairs/data/repairs.dart';
 import 'package:shyam_mobiles/features/repairs/screens/repair_detail_screen.dart';
@@ -56,10 +57,39 @@ void main() {
       await pumpScreen(tester, const RepairsScreen(), dark: dark, overrides: [
         myRepairsProvider.overrideWithBuild((ref, _) => (items: [testBooking()], hasMore: true, moreFailed: true)),
       ]);
-      expect(find.text('RP100012'), findsOneWidget);
+      expect(find.text('RP100012'), findsOneWidget, reason: 'your bookings come first');
       expect(find.text('Awaiting approval'), findsOneWidget);
-      expect(find.text('Book a repair'), findsOneWidget);
+      expect(find.text('Phone repair at Shyam Mobiles'), findsNothing, reason: 'no pitch above your own bookings');
       await scrollTo(tester, find.text('Couldn’t load more. Try again'));
+      await scrollTo(tester, find.text('Book a repair · Free'));
+      await scrollTo(tester, find.text('What we fix'));
+    });
+
+    testWidgets('signed out, the tab sells the service; a fix opens the form with it picked ($theme)', (tester) async {
+      await pumpScreen(tester, const RepairsScreen(), dark: dark, routes: ['/repairs/new'], userId: null);
+      expect(find.text('Phone repair at Shyam Mobiles'), findsOneWidget);
+      expect(find.text('Book a repair · Free'), findsOneWidget);
+      expect(find.text('Sign in'), findsNothing, reason: 'sign-in is asked only when booking');
+      for (final text in ['Charging port', 'How it works', 'No surprise price: work starts only after you approve']) {
+        await scrollTo(tester, find.text(text));
+      }
+      expect(find.textContaining('Repair warranty'), findsNothing, reason: 'unconfirmed promises stay hidden');
+      expect(find.textContaining('old part'), findsNothing);
+      await tester.fling(find.byType(Scrollable).first, const Offset(0, 3000), 3000); // back to the top
+      await tester.pumpAndSettle();
+      await scrollTo(tester, find.text('Battery'));
+      await tester.tap(find.text('Battery'));
+      await tester.pumpAndSettle();
+      expect(find.text('Page /repairs/new?issue=battery'), findsOneWidget);
+    });
+
+    testWidgets('the form opens with the issue picked on the tab ($theme)', (tester) async {
+      await pumpScreen(tester, const RepairFormScreen(issue: 'charging'),
+          dark: dark, overrides: [myPhoneProvider.overrideWithValue(const AsyncData('+919876543210'))]);
+      final tile = find.ancestor(of: find.text('Charging port'), matching: find.byType(Material)).first;
+      expect(tester.widget<Material>(tile).color, lightScheme.primary, reason: 'picked: ink fill');
+      expect(find.text('Free · No payment now'), findsOneWidget);
+      expect(find.text('Nokia / LAVA'), findsOneWidget, reason: 'keypad phones are common in the shop');
     });
   }
 }

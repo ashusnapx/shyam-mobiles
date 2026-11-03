@@ -19,10 +19,14 @@ import '../data/booking_days.dart';
 import '../data/repairs.dart';
 import '../widgets/repair_widgets.dart';
 
-const _brands = ['Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'vivo', 'Other'];
+// what sells in Waidhan, most common first; keypad phones are mostly Nokia and LAVA
+const _brands = ['Samsung', 'vivo', 'OPPO', 'realme', 'Xiaomi / Redmi', 'Apple', 'OnePlus', 'Motorola', 'Nokia / LAVA', 'Other'];
 
+/// [issue]: a RepairIssue value picked on the Repairs tab (`/repairs/new?issue=screen`), already chosen here.
 class RepairFormScreen extends ConsumerStatefulWidget {
-  const RepairFormScreen({super.key});
+  const RepairFormScreen({super.key, this.issue});
+
+  final String? issue;
 
   @override
   ConsumerState<RepairFormScreen> createState() => _RepairFormScreenState();
@@ -38,7 +42,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
   late final _days = bookingDays(_now);
   late DateTime _day = _days.first;
   String? _brand;
-  RepairIssue? _issue;
+  late RepairIssue? _issue = RepairIssue.values.where((i) => i.value == widget.issue).firstOrNull;
   RepairSlot? _slot;
   bool _busy = false;
 
@@ -111,11 +115,28 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
         title: const Text('Book a repair'),
       ),
       bottomNavigationBar: StickyBar(
-        child: FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-              : Text(_slot == null ? 'Book for $when' : 'Book for $when, ${_slot!.label.toLowerCase()}'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Free · No payment now',
+              textAlign: TextAlign.center,
+              style: t.labelMedium?.copyWith(color: BrandColors.creamInk, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: Space.sm),
+            // saffron: the main action inside the Repairs world
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.tertiary,
+                foregroundColor: Theme.of(context).colorScheme.onTertiary,
+              ),
+              onPressed: _busy ? null : _submit,
+              child: _busy
+                  ? const ButtonSpinner()
+                  : Text(_slot == null ? 'Book for $when' : 'Book for $when, ${_slot!.label.toLowerCase()}'),
+            ),
+          ],
         ),
       ),
       body: Form(
@@ -158,7 +179,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
                 ),
               )),
               const _Pad(FieldLabel('What’s wrong?')),
-              _Pad(_IssueGrid(selected: _issue, onSelected: (i) => setState(() => _issue = i))),
+              _Pad(IssueGrid(selected: _issue, onSelected: (i) => setState(() => _issue = i))),
               _Pad(Padding(
                 padding: const EdgeInsets.only(top: Space.md),
                 child: TextFormField(
@@ -265,72 +286,6 @@ class _Pad extends StatelessWidget {
       Padding(padding: const EdgeInsets.symmetric(horizontal: Space.lg), child: child);
 }
 
-/// 4-column issue grid (mockup `.issues`). Tiles grow with text scale instead of clipping.
-class _IssueGrid extends StatelessWidget {
-  const _IssueGrid({required this.selected, required this.onSelected});
-
-  final RepairIssue? selected;
-  final ValueChanged<RepairIssue> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final t = Theme.of(context).textTheme;
-    return LayoutBuilder(
-      builder: (context, box) {
-        final width = (box.maxWidth - Space.sm * 3) / 4;
-        return Wrap(
-          spacing: Space.sm,
-          runSpacing: Space.sm,
-          children: [
-            for (final issue in RepairIssue.values)
-              Builder(builder: (context) {
-                final on = issue == selected;
-                final fg = on ? c.onPrimaryContainer : c.onSurface;
-                return SizedBox(
-                  width: width,
-                  child: Semantics(
-                    selected: on,
-                    button: true,
-                    child: Material(
-                      color: on ? c.primaryContainer : Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: on ? BorderSide.none : BorderSide(color: c.outlineVariant),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => onSelected(issue),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 76),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: Space.sm),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(issueIcons[issue], size: 24, color: on ? fg : c.onSurfaceVariant),
-                                const SizedBox(height: 6),
-                                Text(
-                                  issue.label,
-                                  textAlign: TextAlign.center,
-                                  style: t.labelSmall?.copyWith(color: fg, height: 1.15),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-          ],
-        );
-      },
-    );
-  }
-}
-
 class _DayChip extends StatelessWidget {
   const _DayChip({required this.day, required this.today, required this.selected, required this.onTap});
 
@@ -352,7 +307,7 @@ class _DayChip extends StatelessWidget {
       child: Material(
         color: selected ? c.primary : Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Radii.button),
           side: selected ? BorderSide.none : BorderSide(color: c.outlineVariant),
         ),
         clipBehavior: Clip.antiAlias,
@@ -391,7 +346,7 @@ class _SlotChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    final fg = selected ? c.onPrimaryContainer : c.onSurface;
+    final fg = selected ? c.onPrimary : c.onSurface;
     return Semantics(
       selected: selected,
       button: true,
@@ -401,7 +356,7 @@ class _SlotChip extends StatelessWidget {
       child: Opacity(
         opacity: onTap == null ? 0.4 : 1,
         child: Material(
-          color: selected ? c.primaryContainer : Colors.transparent,
+          color: selected ? c.primary : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.md),
             side: selected ? BorderSide.none : BorderSide(color: c.outlineVariant),

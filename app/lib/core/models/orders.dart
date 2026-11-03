@@ -204,12 +204,12 @@ enum RepairSlot {
 enum RepairIssue {
   screen('screen', 'Screen'),
   battery('battery', 'Battery'),
-  charging('charging', 'Charging'),
+  charging('charging', 'Charging port'),
   camera('camera', 'Camera'),
   audio('audio', 'Speaker / mic'),
   waterDamage('water_damage', 'Water damage'),
   software('software', 'Software'),
-  other('other', 'Other');
+  other('other', 'Something else');
 
   const RepairIssue(this.value, this.label);
   final String value;

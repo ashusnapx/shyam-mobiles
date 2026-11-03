@@ -105,7 +105,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/repairs', builder: (_, _) => const RepairsScreen(), routes: [
-              sub('new', (_) => const RepairFormScreen()),
+              sub('new', (s) => RepairFormScreen(issue: s.uri.queryParameters['issue'])),
               sub(':id', (s) => RepairDetailScreen(bookingId: s.pathParameters['id']!)),
             ]),
           ]),

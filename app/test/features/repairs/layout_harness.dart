@@ -27,7 +27,7 @@ Future<void> _loadRoboto() async {
 }
 
 /// Pumps [screen] at 360x800 dp with large text (≈1.3x of the real font), light theme only, no network.
-/// [routes] are stand-in pages the screen can navigate to (each shows its path).
+/// [routes] are stand-in pages the screen can navigate to (each shows its path). [userId] null: signed out.
 Future<void> pumpScreen(
   WidgetTester tester,
   Widget screen, {
@@ -35,6 +35,7 @@ Future<void> pumpScreen(
   bool dark = false,
   StoreSettings store = testSettings,
   List<String> routes = const [],
+  String? userId = 'user-1',
 }) async {
   await tester.runAsync(_loadRoboto);
   tester.view.physicalSize = const Size(360 * 3, 800 * 3);
@@ -48,7 +49,7 @@ Future<void> pumpScreen(
     ProviderScope(
       key: UniqueKey(), // fresh container when a test pumps a second screen with other overrides
       overrides: [
-        currentUserIdProvider.overrideWithValue('user-1'),
+        currentUserIdProvider.overrideWithValue(userId),
         isAdminProvider.overrideWithValue(const AsyncData(true)),
         storeSettingsProvider.overrideWithValue(AsyncData(store)),
         ...overrides,

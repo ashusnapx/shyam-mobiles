@@ -27,6 +27,73 @@ const issueIcons = <RepairIssue, IconData>{
   RepairIssue.other: PhosphorIconsRegular.dotsThreeCircle,
 };
 
+/// 4-column grid of what we fix (mockup `.issues`): the booking form's picker, and the Repairs tab's way in. Tiles
+/// grow with text scale instead of clipping.
+class IssueGrid extends StatelessWidget {
+  const IssueGrid({super.key, required this.selected, required this.onSelected});
+
+  final RepairIssue? selected;
+  final ValueChanged<RepairIssue> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final width = (box.maxWidth - Space.sm * 3) / 4;
+        return Wrap(
+          spacing: Space.sm,
+          runSpacing: Space.sm,
+          children: [
+            for (final issue in RepairIssue.values)
+              Builder(builder: (context) {
+                final on = issue == selected;
+                final fg = on ? c.onPrimary : c.onSurface;
+                return SizedBox(
+                  width: width,
+                  child: Semantics(
+                    selected: on,
+                    button: true,
+                    child: Material(
+                      color: on ? c.primary : Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(Radii.button),
+                        side: on ? BorderSide.none : BorderSide(color: c.outlineVariant),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => onSelected(issue),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 76),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: Space.sm),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(issueIcons[issue], size: IconSizes.lg, color: on ? fg : BrandColors.saffron),
+                                const SizedBox(height: Space.xs),
+                                Text(
+                                  issue.label,
+                                  textAlign: TextAlign.center,
+                                  style: t.labelSmall?.copyWith(color: fg, height: 1.15),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// "Thu 30 Oct · Afternoon"
 String repairWhen(RepairBooking b) => '${DateFormat('EEE d MMM').format(b.preferredDate)} · ${b.slot.label}';
 
