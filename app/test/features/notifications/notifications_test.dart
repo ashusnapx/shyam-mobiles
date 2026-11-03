@@ -1,6 +1,7 @@
 // Notifications: grouping and times, every kind the database writes has its art (and its PNG), the screen (open, mark
 // read, delete by button and by swipe, empty, photos), the bell's badge, the live banner (only when Android doesn't
 // show notifications), Android notifications drawn by the app, the permission prompt, and the Firebase-off path.
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -347,6 +348,18 @@ void main() {
       expect(find.text('SM1042 is packed'), findsNothing);
 
       await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text('View'), findsNothing);
+    });
+
+    testWidgets('on the list opened from the bell, a new one shows in the list, not as a banner', (tester) async {
+      final api = FakeNotificationsApi([note('old', read: true)]);
+      final (container, router) = await pumpApp(tester, api);
+      unawaited(router.push('/notifications'));
+      await tester.pumpAndSettle();
+
+      api.rows = [note('n1', title: 'SM1042 is packed'), ...api.rows];
+      await container.read(unreadCountProvider.notifier).refresh();
       await tester.pumpAndSettle();
       expect(find.text('View'), findsNothing);
     });

@@ -77,8 +77,8 @@ class _NotificationBannerHostState extends ConsumerState<NotificationBannerHost>
   void _arrived(AppNotification n) {
     _hide?.cancel();
     final banner = ref.read(notificationBannerProvider.notifier);
-    // the list is on screen and refreshes itself
-    if (widget.router.routerDelegate.currentConfiguration.uri.path == '/notifications') return banner.dismiss();
+    // the list is on screen and refreshes itself (state: the top page; the bell pushes the list over the tabs)
+    if (widget.router.state.uri.path == '/notifications') return banner.dismiss();
     final push = ref.read(pushServiceProvider);
     if (push.enabled && _askAfter.contains(n.kind)) unawaited(_maybeAsk(push));
     if (!MediaQuery.accessibleNavigationOf(context)) _hide = Timer(shown, banner.dismiss);
