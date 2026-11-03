@@ -31,6 +31,10 @@ void main() {
       profileProvider.overrideWithValue(const AsyncData(null)),
     ]);
     expect(find.text('Data saver'), findsNothing);
+    expect(find.text('rahul@example.com'), findsNothing, reason: 'the header shows the phone, never the email');
+    expect(find.text('Add your name'), findsOneWidget);
+    final rows = ['My orders', 'Wishlist', 'Offers & coupons', 'Addresses'].map((r) => tester.getTopLeft(find.text(r)).dy).toList();
+    expect(rows, orderedEquals([...rows]..sort()), reason: 'orders, wishlist, offers, then addresses');
     await tester.scrollUntilVisible(find.text('Sign out'), 300, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Sign out'));
     await tester.pumpAndSettle();

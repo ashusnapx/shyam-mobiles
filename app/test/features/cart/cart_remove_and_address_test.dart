@@ -187,8 +187,8 @@ void main() {
   });
 
   test('cart saving: MRP minus price on each line times qty, plus the discount', () {
-    final l = CartLine(
-      variant: const Variant(id: 'v', productId: 'p', sku: 's', name: '', pricePaise: 6999900, mrpPaise: 7299900, stock: 5),
+    const l = CartLine(
+      variant: Variant(id: 'v', productId: 'p', sku: 's', name: '', pricePaise: 6999900, mrpPaise: 7299900, stock: 5),
       qty: 2,
       productId: 'p',
       productSlug: 'p',

@@ -1,5 +1,3 @@
-import '../../catalog/widgets/store_photos.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,7 +6,6 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
-import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
@@ -17,6 +14,7 @@ import '../../feedback/data/feedback.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../notifications/data/notifications.dart';
 import '../widgets/policies.dart';
+import '../widgets/store_card.dart';
 import '../data/profile.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
@@ -91,12 +89,13 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           children: const [
             SignInPrompt(
               icon: PhosphorIconsRegular.user,
+              tone: Worlds.account,
               title: 'Sign in to your account',
               message: 'See your orders, saved addresses and wishlist.',
               from: '/account',
             ),
-            SectionHeader('Store'),
-            Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: _StoreCard()),
+            SectionHeader('Shop'),
+            Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: StoreCard()),
             SectionHeader('About & policies'),
             PolicyRows(),
           ],
@@ -105,13 +104,16 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
 
     final profile = ref.watch(profileProvider);
-    Widget row(IconData icon, String title, VoidCallback? onTap, {String? subtitle, Color? color, Widget? trailing}) =>
+    // each row's icon on its own colour, so the menu reads at a glance; a destructive row ([color]) has no well
+    Widget row(IconData icon, String title, VoidCallback? onTap,
+            {Tint? tint, String? subtitle, Color? color, Widget? trailing}) =>
         ListTile(
-          minTileHeight: 56,
-          leading: Icon(icon, color: color),
+          minTileHeight: subtitle == null ? 56 : 64,
+          leading: tint == null ? Icon(icon, color: color) : IconWell(icon, tint: tint),
           title: Text(title, style: color == null ? null : TextStyle(color: color)),
           subtitle: subtitle == null ? null : Text(subtitle),
-          trailing: trailing ?? (color == null ? const Icon(PhosphorIconsRegular.caretRight, size: 18) : null),
+          trailing: trailing ??
+              (color == null ? Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm, color: c.onSurfaceVariant) : null),
           onTap: onTap,
         );
 
@@ -125,22 +127,28 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             _Header(
               name: profile.value?.fullName,
               loading: profile.isLoading && !profile.hasValue,
-              contact: accountPhone(user.phone, profile.value?.phone) ?? user.email,
+              // the phone, never the email: that is how the shop knows its customers
+              contact: accountPhone(user.phone, profile.value?.phone),
             ),
             const SizedBox(height: Space.sm),
-            row(PhosphorIconsRegular.package, 'My orders', () => context.push('/orders')),
-            row(PhosphorIconsRegular.bell, 'Notifications', () => context.push('/notifications'),
-                subtitle: switch (ref.watch(unreadCountProvider)) { 0 => null, final n => '$n unread' }),
-            row(PhosphorIconsRegular.heart, 'Wishlist', () => context.push('/wishlist')),
-            row(PhosphorIconsRegular.sealPercent, 'Offers & coupons', () => context.push('/offers')),
+            row(PhosphorIconsRegular.package, 'My orders', () => context.push('/orders'), tint: Worlds.shop),
+            row(PhosphorIconsRegular.heart, 'Wishlist', () => context.push('/wishlist'), tint: Worlds.account),
+            row(PhosphorIconsRegular.sealPercent, 'Offers & coupons', () => context.push('/offers'), tint: Worlds.offers),
             if (ref.watch(storeSettingsProvider).value case final s? when s.referralEnabled)
               row(PhosphorIconsRegular.gift, 'Refer & earn', () => context.push('/account/refer'),
+                  tint: Worlds.cart,
                   subtitle: 'Give ${formatInr(s.referralFriendPaise)}, get ${formatInr(s.referralRewardPaise)}'),
-            row(PhosphorIconsRegular.mapPin, 'Addresses', () => context.push('/account/addresses')),
-            row(PhosphorIconsRegular.userCircle, 'Profile', () => context.push('/account/profile')),
+            row(PhosphorIconsRegular.mapPin, 'Addresses', () => context.push('/account/addresses'), tint: Worlds.search),
+            // the bell on Home already leads here, so it sits lower
+            row(PhosphorIconsRegular.bell, 'Notifications', () => context.push('/notifications'),
+                tint: Worlds.admin,
+                subtitle: switch (ref.watch(unreadCountProvider)) { 0 => null, final n => '$n unread' }),
+            row(PhosphorIconsRegular.userCircle, 'Profile', () => context.push('/account/profile'),
+                tint: (BrandColors.slateMist, BrandColors.slate)),
             row(
               PhosphorIconsRegular.chatCircleText,
               'Send feedback',
+              tint: (BrandColors.violetMist, BrandColors.violet),
               () => showFeedbackSheet(
                 context,
                 title: 'Send feedback',
@@ -149,21 +157,20 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               ),
               subtitle: 'An idea, or something not working',
             ),
-            const SectionHeader('Store'),
-            const Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: _StoreCard()),
+            const SectionHeader('Shop'),
+            const Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: StoreCard()),
             const SectionHeader('About & policies'),
             const PolicyRows(),
             const SizedBox(height: Space.sm),
             const Divider(),
-            row(PhosphorIconsRegular.signOut, 'Sign out', _deleting ? null : _confirmSignOut, trailing: const SizedBox.shrink()),
+            row(PhosphorIconsRegular.signOut, 'Sign out', _deleting ? null : _confirmSignOut,
+                tint: (c.surfaceContainer, c.onSurface), trailing: const SizedBox.shrink()),
             row(
               PhosphorIconsRegular.trash,
               'Delete account',
               _deleting ? null : _deleteAccount,
               color: c.error,
-              trailing: _deleting
-                  ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : null,
+              trailing: _deleting ? const ButtonSpinner() : null,
             ),
           ],
         ),
@@ -195,11 +202,11 @@ class _Header extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 30,
-                backgroundColor: c.primaryContainer,
-                foregroundColor: c.onPrimaryContainer,
+                backgroundColor: Worlds.account.$1,
+                foregroundColor: Worlds.account.$2,
                 child: letters == null
                     ? const Icon(PhosphorIconsRegular.user, size: 28)
-                    : Text(letters, style: t.titleLarge?.copyWith(color: c.onPrimaryContainer)),
+                    : Text(letters, style: t.titleLarge?.copyWith(color: Worlds.account.$2)),
               ),
               Expanded(
                 child: Column(
@@ -217,218 +224,6 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Store phone, WhatsApp, address and hours from `store_settings`. Shown signed in and out.
-class _StoreCard extends ConsumerWidget {
-  const _StoreCard();
-
-  static const _placeholder = StoreSettings(
-    deliveryFeePaise: 0,
-    freeDeliveryMinPaise: 0,
-    codEnabled: false,
-    codMaxPaise: 0,
-    storePhone: '+919999999999',
-    storeAddress: 'Shop address goes here, City 000000',
-    storeHours: '10 am – 9 pm',
-    repairNote: '',
-  );
-
-  Future<void> _open(BuildContext context, Uri uri, String what) async {
-    if (!await launchExternal(uri) && context.mounted) showMessage(context, 'Couldn’t open $what on this phone.');
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(storeSettingsProvider);
-    final t = Theme.of(context).textTheme;
-    if (settings.hasError && !settings.hasValue) {
-      return Card(
-        child: ListTile(
-          leading: const Icon(PhosphorIconsRegular.cloudX),
-          title: const Text('Couldn’t load store details'),
-          subtitle: Text(friendlyError(settings.error!)),
-          trailing: TextButton(onPressed: () => ref.invalidate(storeSettingsProvider), child: const Text('Retry')),
-        ),
-      );
-    }
-    final s = settings.value ?? _placeholder;
-    final phone = s.storePhone;
-    return Skeletonizer(
-      enabled: !settings.hasValue,
-      child: Card(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _StoreHero(settings: s, onReviews: s.mapsListingUri == null ? null : () => _open(context, s.mapsListingUri!, 'Google Maps')),
-            ListTile(
-              leading: const Icon(PhosphorIconsRegular.phone),
-              title: const Text('Call store'),
-              subtitle: Text(displayPhone(phone)),
-              onTap: () => _open(context, Uri(scheme: 'tel', path: phone), 'the dialler'),
-            ),
-            if (s.mapsDestination.isNotEmpty)
-              ListTile(
-                leading: const Icon(PhosphorIconsRegular.navigationArrow),
-                title: const Text('Directions'),
-                subtitle: const Text('Open in Google Maps'),
-                onTap: () => _open(context, directionsUri(s.mapsDestination), 'Google Maps'),
-              ),
-            ListTile(
-              leading: const WhatsAppIcon(),
-              title: const Text('WhatsApp store'),
-              onTap: () => _open(
-                context,
-                Uri.https('wa.me', '/${phone.replaceAll(RegExp(r'\D'), '')}', {'text': 'Hi, I need help with my account'}),
-                'WhatsApp',
-              ),
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsRegular.shieldCheck),
-              title: const Text('Returns & warranty'),
-              onTap: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl + MediaQuery.paddingOf(context).bottom),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: Space.md,
-                      children: [
-                        Semantics(header: true, child: Text('Returns & warranty', style: t.titleLarge)),
-                        Text(
-                          s.returnsPolicy.isEmpty
-                              ? 'Ask the store about returns and warranty for your phone.'
-                              : s.returnsPolicy,
-                          style: t.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: Space.sm),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The shop at the top of the store card: its own photo (Admin > Settings > Shop photos) under a dark gradient
-/// with name, hours and address. Google's listing photos would need the paid Places API with attribution, so
-/// we show the owner's photos and link to Google for reviews instead.
-class _StoreHero extends StatelessWidget {
-  const _StoreHero({required this.settings, required this.onReviews});
-
-  final StoreSettings settings;
-  final VoidCallback? onReviews;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final photos = settings.storePhotos;
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (photos.isEmpty)
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [BrandColors.graphite, Colors.black],
-                ),
-              ),
-              child: Align(alignment: Alignment(0.75, -0.35), child: BrandMark(size: 72, onDark: true)),
-            )
-          else
-            Semantics(
-              button: true,
-              label: 'Photos of the shop, ${photos.length}',
-              child: GestureDetector(
-                onTap: () => openStorePhotoViewer(context, photos, 0),
-                child: LayoutBuilder(
-                  builder: (context, box) => CachedNetworkImage(
-                    imageUrl: publicImageUrl(photos.first),
-                    fit: BoxFit.cover,
-                    memCacheWidth: (box.maxWidth * dpr).round(),
-                    errorWidget: (_, _, _) => const ColoredBox(color: BrandColors.graphite),
-                  ),
-                ),
-              ),
-            ),
-          // Legibility: transparent at the top, near-black where the text sits.
-          const IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0.25, 1],
-                  colors: [Color(0x00000000), Color(0xD9000000)],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: Space.lg,
-            right: Space.lg,
-            bottom: Space.md,
-            child: IgnorePointer(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Shyam Mobiles', style: t.displaySmall?.copyWith(fontSize: 22, color: Colors.white)),
-                  if (settings.storeHours.isNotEmpty)
-                    Text('Open ${settings.storeHours}', style: t.bodySmall?.copyWith(color: Colors.white)),
-                  if (settings.storeAddress.isNotEmpty)
-                    Text(settings.storeAddress,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.85))),
-                ],
-              ),
-            ),
-          ),
-          if (onReviews != null)
-            Positioned(
-              top: Space.sm,
-              right: Space.sm,
-              child: ActionChip(
-                onPressed: onReviews,
-                avatar: const Icon(PhosphorIconsBold.star, size: 14, color: Colors.white),
-                label: const Text('Google reviews'),
-                labelStyle: t.labelSmall?.copyWith(color: Colors.white),
-                backgroundColor: Colors.black.withValues(alpha: 0.45),
-                side: BorderSide.none,
-                tooltip: 'Open Shyam Mobile Center on Google Maps',
-              ),
-            ),
-          if (photos.length > 1)
-            Positioned(
-              top: Space.sm,
-              left: Space.sm,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(8)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 3),
-                    child: Text('1 / ${photos.length}', style: t.labelSmall?.copyWith(color: Colors.white)),
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
