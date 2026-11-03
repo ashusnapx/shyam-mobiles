@@ -172,4 +172,23 @@ void main() {
     expect((await SharedPreferences.getInstance()).getStringList('recent_searches'), ['Charger']);
     await tester.pumpAndSettle(); // the new results' entrance
   });
+
+  testWidgets('in a phone category, Price offers the same budget bands as Home', (tester) async {
+    const SearchParams phones = (
+      q: '',
+      category: 'smartphones',
+      brand: null,
+      minPricePaise: null,
+      maxPricePaise: null,
+      inStock: false,
+      sort: SearchSort.relevance,
+    );
+    await pump(tester, '/search?category=smartphones', overrides: [searchProvider(phones).overrideWith(() => FakeSearch(phones))]);
+    await tester.pump();
+    await tester.tap(find.text('Price'));
+    await tester.pump(const Duration(milliseconds: 500)); // the sheet opens (the paging spinner never settles)
+    expect(find.text('Under ₹10,000'), findsOneWidget);
+    expect(find.text('Above ₹25,000'), findsOneWidget);
+    expect(find.text('Under ₹1,500'), findsNothing, reason: 'accessory caps are for accessories');
+  });
 }

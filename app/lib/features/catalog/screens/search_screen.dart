@@ -22,6 +22,7 @@ import '../data/catalog.dart';
 import '../widgets/product_tile.dart';
 
 const _priceCaps = [150000, 500000, 1500000, 3000000, 5000000];
+const _phoneBands = <(int?, int?)>[(null, 1000000), (null, 1500000), (null, 2500000), (2500000, null)];
 
 /// What Waidhan asks for most, as chips under an empty search.
 const _popular = ['Keypad phone', 'Charger', 'Earphones', 'Cover', 'Screen guard'];
@@ -223,13 +224,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   PickerChip(
                     label: _priceLabel ?? 'Price',
                     selected: _minPrice != null || _maxPrice != null,
-                    onTap: () => _pick<int>(
+                    onTap: () => _pick<(int?, int?)>(
                       'Price',
-                      Future.value([(null, 'Any price'), for (final p in _priceCaps) (p, 'Under ${formatInr(p)}')]),
-                      _minPrice == null ? _maxPrice : null,
+                      // phones: the same budget bands as Home's "Shop by budget"
+                      Future.value([
+                        (null, 'Any price'),
+                        if (category?.kind == CategoryKind.phone)
+                          for (final (min, max) in _phoneBands) ((min, max), max == null ? 'Above ${formatInr(min!)}' : 'Under ${formatInr(max)}')
+                        else
+                          for (final p in _priceCaps) ((null, p), 'Under ${formatInr(p)}'),
+                      ]),
+                      _minPrice == null && _maxPrice == null ? null : (_minPrice, _maxPrice),
                       (v) {
-                        _minPrice = null;
-                        _maxPrice = v;
+                        _minPrice = v?.$1;
+                        _maxPrice = v?.$2;
                       },
                     ),
                   ),
