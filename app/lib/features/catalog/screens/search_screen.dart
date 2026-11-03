@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
@@ -21,6 +22,10 @@ import '../data/catalog.dart';
 import '../widgets/product_tile.dart';
 
 const _priceCaps = [150000, 500000, 1500000, 3000000, 5000000];
+
+/// What Waidhan asks for most, as chips under an empty search.
+const _popular = ['Keypad phone', 'Charger', 'Earphones', 'Cover', 'Screen guard'];
+const _recentKey = 'recent_searches';
 
 /// Route params seed the filters once; after that they live in local state. Updating the route per keystroke
 /// would recreate this screen (the route is keyed by its query) and drop keyboard focus.
@@ -63,6 +68,40 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         sort: _sort,
       );
   bool get _filtered => _category != null || _brand != null || _minPrice != null || _maxPrice != null || _inStock;
+
+  List<String> _recent = const []; // the last searches typed on this phone, newest first
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadRecent());
+  }
+
+  Future<SharedPreferences?> _prefs() async {
+    try {
+      return await SharedPreferences.getInstance();
+    } catch (_) {
+      return null; // no plugin (tests): nothing is remembered
+    }
+  }
+
+  Future<void> _loadRecent() async {
+    final saved = (await _prefs())?.getStringList(_recentKey) ?? const [];
+    if (mounted && saved.isNotEmpty) setState(() => _recent = saved);
+  }
+
+  Future<void> _remember(String q) async {
+    if (q.isEmpty) return;
+    final next = [q, ..._recent.where((r) => r.toLowerCase() != q.toLowerCase())].take(5).toList();
+    setState(() => _recent = next);
+    await (await _prefs())?.setStringList(_recentKey, next);
+  }
+
+  void _searchFor(String q) {
+    _text.text = q;
+    _setQuery(q);
+    unawaited(_remember(tidy(q)));
+  }
 
   @override
   void dispose() {
@@ -130,7 +169,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   textInputAction: TextInputAction.search,
                   inputFormatters: textInput(MaxLen.search),
                   onChanged: _onChanged,
-                  onSubmitted: _setQuery,
+                  onSubmitted: _searchFor,
                   decoration: InputDecoration(
                     hintText: 'Search phones, cases, chargers…',
                     prefixIcon: const Icon(PhosphorIconsRegular.magnifyingGlass, size: 20),
@@ -276,6 +315,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           scrollCacheExtent: saver ? const ScrollCacheExtent.pixels(0) : null,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
+            if (_q.isEmpty && !_filtered)
+              SliverToBoxAdapter(
+                key: const ValueKey('suggest'),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+                  child: Wrap(
+                    spacing: Space.sm,
+                    runSpacing: Space.xs,
+                    children: [
+                      for (final r in _recent)
+                        ActionChip(
+                          avatar: const Icon(PhosphorIconsRegular.clockCounterClockwise, size: IconSizes.sm),
+                          label: Text(r),
+                          onPressed: () => _searchFor(r),
+                        ),
+                      for (final p in _popular.where((p) => !_recent.contains(p)))
+                        ActionChip(label: Text(p), onPressed: () => _searchFor(p)),
+                    ],
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               key: const ValueKey('count'),
               child: Padding(

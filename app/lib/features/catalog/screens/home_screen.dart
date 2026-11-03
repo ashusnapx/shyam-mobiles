@@ -255,7 +255,7 @@ class _TopBar extends SliverPersistentHeaderDelegate {
               child: Row(
                 children: [
                   const BrandMark(size: 32),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: Space.md),
                   Expanded(
                     child: Text(
                       'Shyam Mobiles',
@@ -339,7 +339,7 @@ class _SearchField extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(PhosphorIconsRegular.magnifyingGlass, size: 20, color: c.onSurfaceVariant),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: Space.md),
                   Expanded(
                     child: Text('Search phones, cases, chargers…', maxLines: 1, overflow: TextOverflow.ellipsis, style: hint),
                   ),
@@ -561,7 +561,7 @@ class _ProductSlide extends StatelessWidget {
               child: InkWell(
                 onTap: () => context.push('/product/${card.slug}'),
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(Space.md),
                   child: Row(
                     children: [
                       Expanded(
@@ -585,7 +585,7 @@ class _ProductSlide extends StatelessWidget {
                               ['From ${formatInr(card.minPricePaise)}', if (off > 0) '$off% off MRP'].join('  ·  '),
                               style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: Space.md),
                             // looks like the banners' white button; the whole card is the tap target
                             DecoratedBox(
                               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.md)),

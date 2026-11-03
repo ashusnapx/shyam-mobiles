@@ -199,7 +199,7 @@ class _PressableState extends State<Pressable> with SingleTickerProviderStateMix
 
   void _press(PointerDownEvent e) {
     _down = e.position;
-    _c.animateTo(0.96, duration: const Duration(milliseconds: 90), curve: Curves.easeOut);
+    _c.animateTo(0.96, duration: Motion.press, curve: Curves.easeOut);
   }
 
   void _release() {

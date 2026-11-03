@@ -766,26 +766,6 @@ class _DeliveryCard extends StatelessWidget {
       );
 }
 
-/// The returns & warranty policy from the shop's settings, in a sheet.
-void showReturnsSheet(BuildContext context, StoreSettings settings) => showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Returns & warranty', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: Space.md),
-              Text(settings.returnsPolicy, style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
-        ),
-      ),
-    );
-
 /// "Why buy from us": genuine (and the IMEI check, for a phone), the warranty from the specs, the policy, the shop.
 class _WhyBuy extends StatelessWidget {
   const _WhyBuy({required this.settings, required this.product});
@@ -908,7 +888,7 @@ class _BulkSheetState extends State<_BulkSheet> {
         children: [
           Text('Wholesale enquiry', style: t.titleLarge),
           const SizedBox(height: Space.xs),
-          Text('How many units? We\'ll reply on WhatsApp with our best price.',
+          Text('How many units? We’ll reply on WhatsApp with our best price.',
               style: t.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           const SizedBox(height: Space.lg),
           Wrap(

@@ -2,12 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../models/models.dart';
 import '../supabase.dart';
 import '../theme/tokens.dart';
 import 'widgets.dart';
 
-// Shared pieces that features/repairs/widgets still has copies of: import this file directly. widgets.dart doesn't
-// export it yet, because a name defined in both would be an ambiguous import for every screen that has both.
+// Shared blocks for every screen: the tone table, notes, the sticky bar, list headers, the shop's contact links and
+// the returns sheet. Import this file directly (it began as copies in features/repairs/widgets).
 
 /// A [TagTone]'s background and text colour: the one table behind tags, notes, tinted cards and status heroes.
 Tint toneColors(TagTone t) => switch (t) {
@@ -90,6 +91,26 @@ class FieldLabel extends StatelessWidget {
         child: Semantics(header: true, child: Text(text, style: Theme.of(context).textTheme.titleSmall)),
       );
 }
+
+/// The returns & warranty policy from the shop's settings, in a sheet (product page, Account).
+void showReturnsSheet(BuildContext context, StoreSettings settings) => showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Returns & warranty', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: Space.md),
+              Text(settings.returnsPolicy, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      ),
+    );
 
 // Store links ---------------------------------------------------------------------------------------------------
 

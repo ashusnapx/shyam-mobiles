@@ -152,4 +152,24 @@ void main() {
     expect(find.text('Ask on WhatsApp when it’s back'), findsOneWidget);
     expect(find.text('Add to cart'), findsNothing);
   });
+
+  testWidgets('an empty search suggests what people ask for, and remembers what was searched', (tester) async {
+    const SearchParams none = (
+      q: '',
+      category: null,
+      brand: null,
+      minPricePaise: null,
+      maxPricePaise: null,
+      inStock: false,
+      sort: SearchSort.relevance,
+    );
+    await pump(tester, '/search', overrides: [searchProvider(none).overrideWith(() => FakeSearch(none))]);
+    await tester.pump();
+    expect(find.text('Keypad phone'), findsOneWidget);
+    await tester.tap(find.text('Charger'));
+    await tester.pump();
+    expect(find.widgetWithText(TextField, 'Charger'), findsOneWidget);
+    expect((await SharedPreferences.getInstance()).getStringList('recent_searches'), ['Charger']);
+    await tester.pumpAndSettle(); // the new results' entrance
+  });
 }
