@@ -1,10 +1,14 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/callable.dart' show reasonOf;
 
 import '../../../core/env.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../admin/data/admin.dart';
+import 'payments_repository.dart';
 
 enum RefundStatus {
   pending('pending', 'On its way'),
@@ -227,11 +231,21 @@ void _paymentsChanged(WidgetRef ref, String? orderId) {
   ref.invalidate(adminOrdersProvider);
 }
 
-/// `refund-payment`: Razorpay's Refunds API for [orderId], everything left or [itemIds]. Returns its status
-/// (processed, pending or failed).
+/// `refund-payment` (Razorpay), or the `startRefund` callable (PhonePe) on the Firebase build: [orderId], everything
+/// left or [itemIds]. Returns its status (processed, pending or failed).
 Future<RefundStatus> startRefund(WidgetRef ref, String orderId,
     {List<String>? itemIds, bool restock = false, bool instant = false}) async {
   try {
+    if (ref.read(paymentsRepositoryProvider) case final repo?) {
+      try {
+        final r = await repo.startRefund(orderId, itemIds: itemIds, restock: restock);
+        return RefundStatus.parse(r['status'] as String);
+      } on FirebaseFunctionsException catch (e) {
+        // these carry the server's staff copy (often PhonePe's reason); errors.dart has none for them
+        if (reasonOf(e) case 'REFUND_NOT_ALLOWED' || 'REFUND_REFUSED') throw FormatException(e.message ?? '');
+        rethrow;
+      }
+    }
     final res = await ref.read(supabaseProvider).functions.invoke('refund-payment', body: {
       'order_id': orderId,
       'item_ids': ?itemIds,

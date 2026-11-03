@@ -15,6 +15,10 @@ class FakePaymentsRepository implements PaymentsRepository {
   Map<String, dynamic> check = {'status': 'confirmed', 'paymentStatus': 'paid'};
 
   @override
+  Future<Map<String, dynamic>> startRefund(String orderId, {List<String>? itemIds, bool restock = false}) async =>
+      throw UnimplementedError();
+
+  @override
   Future<Map<String, dynamic>> createPayment(String orderId) async {
     calls.add('create $orderId');
     if (createError != null) throw createError!;
