@@ -20,8 +20,10 @@ const contracts = new Map<string, { input: z.ZodType; invalid: string }>(
     .filter((x): x is { name: string; input: z.ZodType; invalid: string } => typeof x === "object" && x !== null && "name" in x && "input" in x)
     .map((c) => [c.name, c]),
 );
-/** Not callables: the scheduled job, settlement (called by payments) and the app's pure offerOpenFor. */
-const INTERNAL = new Set(["expireUnpaidOrders", "settleOnlinePayment", "settleRefund", "offerOpenFor"]);
+/** Not callables: the scheduled job, settlement (called by payments), the app's pure offerOpenFor, and
+ * notifications/notices.ts (called by the triggers). */
+const INTERNAL = new Set(["expireUnpaidOrders", "settleOnlinePayment", "settleRefund", "offerOpenFor",
+  "orderNotices", "refundNotices", "repairNotices", "couponNotice", "feedbackNotices", "stockNotices", "backInStock"]);
 
 describe.each(callFiles())("test-vectors/%s.json", (name) => {
   const file = loadVectors(name);

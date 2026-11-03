@@ -1,0 +1,3679 @@
+{
+  "about": "Who is told what (notifications/notices.ts), word for word from the SQL triggers in supabase/migrations/20261030000400_notifications.sql, 20261030000500_refunds.sql (refund outcomes) and 20261030000600_notification_images.sql (the order's priciest line with a photo). Every case is a pure call with the docs before and after one write; \"expect.notices\" lists them in order (\"recipient\": a uid or \"staff\" = every staff member but \"except\"; \"key\" = the event index, p<n> for a payment/tracking change, r<refundId>, s<event> for stock). The trigger writes each as users/{uid}/notifications/<sourceId>_<key>_<kind>_<uid> with create(), so a retry never duplicates. Times are IST.",
+  "now": "2026-11-03T15:30:00+05:30",
+  "world": {
+    "users/asha": {
+      "fullName": "Asha"
+    },
+    "users/staff1": {
+      "fullName": "Staff",
+      "role": "staff"
+    }
+  },
+  "cases": [
+    {
+      "id": "cod-order-placed",
+      "source": "supabase/tests/notifications.test.sql:95",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": null,
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_confirmed",
+            "title": "SM100001 is confirmed",
+            "body": "₹1,29,999, cash on delivery. We’ll tell you when it’s packed.",
+            "link": "/orders/o1",
+            "key": "0",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_new_order",
+            "title": "New order SM100001",
+            "body": "₹1,29,999 · Cash on delivery · Samsung Galaxy S25 + 1 more · Waidhan",
+            "link": "/admin/orders/o1",
+            "key": "0",
+            "except": "asha",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "online-order-waits-for-payment",
+      "source": "supabase/tests/notifications.test.sql:150",
+      "about": "Staff hear nothing until it is paid.",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": null,
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_awaiting_payment",
+            "title": "Finish paying for SM100001",
+            "body": "₹1,29,999 to pay online. We hold your items for 15 minutes.",
+            "link": "/orders/o1",
+            "key": "0",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "online-payment-received",
+      "source": "supabase/tests/notifications.test.sql:160",
+      "about": "The settlement's own 'Payment received' event joins that notification: no second one.",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "payment_received",
+            "title": "Payment received for SM100001",
+            "body": "₹1,29,999 paid. Your order is confirmed.",
+            "link": "/orders/o1",
+            "key": "p2",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_order_paid",
+            "title": "Paid order SM100001",
+            "body": "₹1,29,999 · Paid online · Samsung Galaxy S25 + 1 more · Waidhan",
+            "link": "/admin/orders/o1",
+            "key": "p2",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "payment-failed-keeps-the-hold",
+      "source": "supabase/tests/notifications.test.sql:170",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "failed",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "payment_failed",
+            "title": "Payment failed for SM100001",
+            "body": "Your items are still held for you. Try paying again before 3:45 pm.",
+            "link": "/orders/o1",
+            "key": "p1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "packed",
+      "source": "supabase/tests/notifications.test.sql:115",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "packed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_packed",
+            "title": "SM100001 is packed",
+            "body": "It ships soon. We’ll tell you when it’s on the way.",
+            "link": "/orders/o1",
+            "key": "1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shipped-with-tracking-and-a-note",
+      "source": "supabase/tests/notifications.test.sql:123",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "packed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": "DL777",
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Arrives Friday."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_shipped",
+            "title": "SM100001 is on its way",
+            "body": "Tracking DL777. Arrives Friday.",
+            "link": "/orders/o1",
+            "key": "2",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tracking-edit-adds-its-note",
+      "source": "supabase/tests/notifications.test.sql:128",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": "DL777",
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": "Delhivery",
+          "trackingNumber": "DL778",
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Running a day late."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_tracking",
+            "title": "Tracking updated for SM100001",
+            "body": "Delhivery, tracking DL778. Running a day late.",
+            "link": "/orders/o1",
+            "key": "p4",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "delivered-asks-for-a-rating",
+      "source": "supabase/tests/notifications.test.sql:135",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "shipped",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": "DL777",
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "delivered",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": "DL777",
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_delivered",
+            "title": "SM100001 is delivered",
+            "body": "How was it? Tap to rate your order.",
+            "link": "/orders/o1",
+            "key": "3",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "customer-cancels-an-unpaid-cod-order",
+      "source": "supabase/tests/notifications.test.sql:200",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "cancelled",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_cancelled",
+            "title": "You cancelled SM100001",
+            "body": "Nothing was charged.",
+            "link": "/orders/o1",
+            "key": "1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_order_cancelled",
+            "title": "SM100001 cancelled by the customer",
+            "body": "Stock is back: ₹1,29,999 · Cash on delivery · Samsung Galaxy S25 + 1 more · Waidhan",
+            "link": "/admin/orders/o1",
+            "key": "1",
+            "except": "asha",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "customer-cancels-an-unpaid-online-order",
+      "source": "supabase/tests/notifications.test.sql:209",
+      "about": "Staff never saw that order.",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "cancelled",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_cancelled",
+            "title": "You cancelled SM100001",
+            "body": "Nothing was charged.",
+            "link": "/orders/o1",
+            "key": "1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "customer-cancels-a-paid-order",
+      "source": "supabase/tests/notifications.test.sql:190",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            },
+            {
+              "status": "cancelled",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_cancelled",
+            "title": "You cancelled SM100001",
+            "body": "A full refund of ₹1,29,999 to your original payment method is on its way; banks usually take 5–7 working days.",
+            "link": "/orders/o1",
+            "key": "2",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_refund_needed",
+            "title": "Refund ₹1,29,999 for SM100001",
+            "body": "The customer cancelled a paid order. Its stock is back.",
+            "link": "/admin/orders/o1",
+            "key": "2",
+            "except": "asha",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "unpaid-hold-expires",
+      "source": "supabase/tests/notifications.test.sql:180",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": "2026-11-03T15:45:00+05:30",
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "cancelled",
+              "by": "system",
+              "at": "@now"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_expired",
+            "title": "SM100001 was cancelled",
+            "body": "The payment didn’t come through in 15 minutes. Order again any time.",
+            "link": "/orders/o1",
+            "key": "1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shop-cancels-a-paid-order",
+      "source": "supabase/tests/notifications.test.sql:222",
+      "about": "The staff member who cancelled isn't told.",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            },
+            {
+              "status": "cancelled",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "This colour is out of stock, sorry."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_cancelled",
+            "title": "SM100001 was cancelled by the shop",
+            "body": "This colour is out of stock, sorry.",
+            "link": "/orders/o1",
+            "key": "2",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_refund_needed",
+            "title": "Refund ₹1,29,999 for SM100001",
+            "body": "Staff cancelled a paid order. Refund it, then mark it refunded.",
+            "link": "/admin/orders/o1",
+            "key": "2",
+            "except": "staff1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "staff-note-on-the-timeline",
+      "source": "supabase/tests/notifications.test.sql:140",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Your phone arrives tomorrow."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_update",
+            "title": "Update on SM100001",
+            "body": "Your phone arrives tomorrow.",
+            "link": "/orders/o1",
+            "key": "1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "a-customer-note-is-not-news",
+      "source": "supabase/tests/notifications.test.sql:140",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "note": "Call first"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": []
+      }
+    },
+    {
+      "id": "payment-after-the-cancel",
+      "source": "supabase/tests/notifications.test.sql:230",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            },
+            {
+              "status": "cancelled",
+              "by": "system",
+              "at": "@now"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            },
+            {
+              "status": "cancelled",
+              "by": "system",
+              "at": "@now"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_late_payment",
+            "title": "We got your payment for SM100001",
+            "body": "The order was already cancelled, so we’re refunding ₹1,29,999 to your original payment method.",
+            "link": "/orders/o1",
+            "key": "p3",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_refund_needed",
+            "title": "Refund ₹1,29,999 for SM100001",
+            "body": "The payment arrived after the order was cancelled.",
+            "link": "/admin/orders/o1",
+            "key": "p3",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mark-refunded-with-a-note",
+      "source": "supabase/tests/notifications.test.sql:240",
+      "about": "The note replaces the default refund text (notify_order_event merges into order_refunded).",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            },
+            {
+              "status": "cancelled",
+              "by": "system",
+              "at": "@now"
+            }
+          ]
+        },
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "refunded",
+          "paymentMethod": "online",
+          "paymentStatus": "refunded",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            },
+            {
+              "status": "cancelled",
+              "by": "system",
+              "at": "@now"
+            },
+            {
+              "status": "refunded",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Refunded in cash at the store"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_refunded",
+            "title": "Refund of ₹1,29,999 for SM100001",
+            "body": "Refunded in cash at the store",
+            "link": "/orders/o1",
+            "key": "p4",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "refund-failed-tells-staff",
+      "source": "supabase/migrations/20261030000500_refunds.sql:141",
+      "as": "system",
+      "call": "refundNotices",
+      "input": {
+        "orderId": "o1",
+        "refundId": "rf1",
+        "before": {
+          "status": "pending"
+        },
+        "refund": {
+          "status": "failed",
+          "amountPaise": 49900,
+          "fullRefund": false,
+          "itemIds": [
+            "v2"
+          ],
+          "failure": "Not enough balance."
+        },
+        "order": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_refund_failed",
+            "title": "Refund failed for SM100001",
+            "body": "₹499: Not enough balance. Try again, or refund it another way and tap Mark refunded.",
+            "link": "/admin/orders/o1",
+            "key": "rrf1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "partial-refund-tells-the-customer",
+      "source": "supabase/migrations/20261030000500_refunds.sql:171",
+      "as": "system",
+      "call": "refundNotices",
+      "input": {
+        "orderId": "o1",
+        "refundId": "rf1",
+        "before": {
+          "status": "pending"
+        },
+        "refund": {
+          "status": "processed",
+          "amountPaise": 49900,
+          "fullRefund": false,
+          "itemIds": [
+            "v2"
+          ]
+        },
+        "order": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_refunded",
+            "title": "Refund of ₹499 for SM100001",
+            "body": "Refund of ₹499 for Cover issued to your original payment method. Banks usually take 5–7 working days to show it.",
+            "link": "/orders/o1",
+            "key": "rrf1",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "a-full-refund-is-told-by-the-order",
+      "source": "supabase/migrations/20261030000500_refunds.sql:164",
+      "as": "system",
+      "call": "refundNotices",
+      "input": {
+        "orderId": "o1",
+        "refundId": "rf1",
+        "before": {
+          "status": "pending"
+        },
+        "refund": {
+          "status": "processed",
+          "amountPaise": 12999900,
+          "fullRefund": true,
+          "itemIds": [
+            "v1",
+            "v2"
+          ]
+        },
+        "order": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "online",
+          "paymentStatus": "refunded",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "system",
+              "at": "@now",
+              "note": "Payment received"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": []
+      }
+    },
+    {
+      "id": "repair-booked",
+      "source": "supabase/tests/notifications.test.sql:270",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": null,
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "requested",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_booked",
+            "title": "Repair booked for your Galaxy A56",
+            "body": "Screen · Wed 4 Nov, morning (10 am – 1 pm). We’ll confirm the time soon.",
+            "link": "/repairs/r1",
+            "key": "0",
+            "repairId": "r1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_new_repair",
+            "title": "New repair RP100001: Samsung Galaxy A56",
+            "body": "Screen · Wed 4 Nov, morning (10 am – 1 pm) · Cracked corner",
+            "link": "/admin/repairs/r1",
+            "key": "0",
+            "except": "asha",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "repair-confirmed",
+      "source": "supabase/tests/notifications.test.sql:280",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "requested",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_confirmed",
+            "title": "Repair confirmed for Wed 4 Nov, morning (10 am – 1 pm)",
+            "body": "Bring your Galaxy A56 to the store then. See you at 11.",
+            "link": "/repairs/r1",
+            "key": "1",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quote-sent",
+      "source": "supabase/tests/notifications.test.sql:285",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "pending"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_quote",
+            "title": "₹200 quote for your Galaxy A56 screen: approve to start",
+            "body": "Work starts only after you approve this price.",
+            "link": "/repairs/r1",
+            "key": "2",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quote-approved-tells-staff",
+      "source": "supabase/tests/notifications.test.sql:288",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "pending"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_quote_approved",
+            "title": "Quote approved for RP100001",
+            "body": "₹200 for the Samsung Galaxy A56 screen. You can start the repair.",
+            "link": "/admin/repairs/r1",
+            "key": "3",
+            "except": "asha",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quote-agreed-at-the-counter",
+      "source": "supabase/tests/notifications.test.sql:300",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "pending"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "approved",
+              "quotePaise": 20000,
+              "note": "Agreed with the store."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_quote_agreed",
+            "title": "₹200 agreed for your Galaxy A56 screen",
+            "body": "Agreed with the store.",
+            "link": "/repairs/r1",
+            "key": "3",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quote-declined-with-a-reason",
+      "source": "supabase/tests/notifications.test.sql:290",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "pending"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "declined"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "declined",
+              "quotePaise": 20000,
+              "note": "Too costly"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_quote_declined",
+            "title": "Quote declined for RP100001",
+            "body": "₹200 for the Samsung Galaxy A56 screen. Reason: “Too costly”. Quote again or cancel it.",
+            "link": "/admin/repairs/r1",
+            "key": "3",
+            "except": "asha",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "work-started",
+      "source": "supabase/tests/notifications.test.sql:294",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "in_progress",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Waiting for the part, tomorrow."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_started",
+            "title": "Work has started on your Galaxy A56",
+            "body": "Waiting for the part, tomorrow.",
+            "link": "/repairs/r1",
+            "key": "4",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "new-quote-mid-repair",
+      "source": "supabase/tests/notifications.test.sql:296",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "in_progress",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Waiting for the part, tomorrow."
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "in_progress",
+          "quote": {
+            "paise": 25000,
+            "status": "pending"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Waiting for the part, tomorrow."
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 25000
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_quote",
+            "title": "New ₹250 quote for your Galaxy A56 screen: approve to continue",
+            "body": "Work starts only after you approve this price.",
+            "link": "/repairs/r1",
+            "key": "5",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ready-says-what-to-pay",
+      "source": "supabase/tests/notifications.test.sql:298",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "in_progress",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Waiting for the part, tomorrow."
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "ready",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Waiting for the part, tomorrow."
+            },
+            {
+              "status": "ready",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_ready",
+            "title": "Your Galaxy A56 is ready for pickup",
+            "body": "Pay ₹200 when you collect it.",
+            "link": "/repairs/r1",
+            "key": "5",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "completed-asks-for-a-rating",
+      "source": "supabase/tests/notifications.test.sql:302",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "ready",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Waiting for the part, tomorrow."
+            },
+            {
+              "status": "ready",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "completed",
+          "quote": {
+            "paise": 20000,
+            "status": "approved"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "See you at 11."
+            },
+            {
+              "status": "confirmed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "quoteStatus": "pending",
+              "quotePaise": 20000
+            },
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "quoteStatus": "approved",
+              "quotePaise": 20000
+            },
+            {
+              "status": "in_progress",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "Waiting for the part, tomorrow."
+            },
+            {
+              "status": "ready",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            },
+            {
+              "status": "completed",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_completed",
+            "title": "Your Galaxy A56 repair is complete",
+            "body": "How did we do? Tap to rate the repair.",
+            "link": "/repairs/r1",
+            "key": "6",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "customer-cancel-tells-staff",
+      "source": "supabase/tests/notifications.test.sql:310",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "requested",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "cancelled",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "cancelled",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha",
+              "note": "Cancelled by you."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_repair_cancelled",
+            "title": "RP100001 cancelled by the customer",
+            "body": "Samsung Galaxy A56 · Screen · Wed 4 Nov, morning (10 am – 1 pm)",
+            "link": "/admin/repairs/r1",
+            "key": "1",
+            "except": "asha",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shop-cancel-tells-the-customer",
+      "source": "supabase/tests/notifications.test.sql:317",
+      "as": "system",
+      "call": "repairNotices",
+      "input": {
+        "id": "r1",
+        "before": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "requested",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        },
+        "after": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Samsung",
+          "deviceModel": "Galaxy A56",
+          "issue": "screen",
+          "description": "Cracked corner",
+          "preferredDate": "2026-11-04",
+          "slot": "morning",
+          "status": "cancelled",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            },
+            {
+              "status": "cancelled",
+              "by": "staff",
+              "at": "@now",
+              "byUid": "staff1",
+              "note": "We don't stock this screen."
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "repair_cancelled",
+            "title": "Your Galaxy A56 repair was cancelled",
+            "body": "We don't stock this screen.",
+            "link": "/repairs/r1",
+            "key": "1",
+            "repairId": "r1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "referral-reward-coupon",
+      "source": "supabase/tests/notifications.test.sql:330",
+      "as": "system",
+      "call": "couponNotice",
+      "input": {
+        "id": "p9",
+        "uid": "ravi",
+        "coupon": {
+          "code": "REWARDK7Q2",
+          "kind": "flat",
+          "value": 10000,
+          "title": "Referral reward",
+          "minSubtotalPaise": 50000,
+          "endsAt": "2026-12-05T12:00:00+05:30"
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "ravi",
+            "kind": "referral_reward",
+            "title": "You earned a ₹100 coupon for referring a friend",
+            "body": "Use code REWARDK7Q2 on an order of ₹500 or more by 5 Dec.",
+            "link": "/offers/p9",
+            "key": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "personal-coupon",
+      "source": "supabase/tests/notifications.test.sql:335",
+      "as": "system",
+      "call": "couponNotice",
+      "input": {
+        "id": "p8",
+        "uid": "asha",
+        "coupon": {
+          "code": "ASHA10",
+          "kind": "percent",
+          "value": 10,
+          "title": "Diwali thanks",
+          "minSubtotalPaise": 0,
+          "endsAt": null
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "coupon",
+            "title": "A coupon just for you: Diwali thanks",
+            "body": "Use code ASHA10.",
+            "link": "/offers/p8",
+            "key": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "low-rating-for-an-order",
+      "source": "supabase/tests/notifications.test.sql:345",
+      "as": "system",
+      "call": "feedbackNotices",
+      "input": {
+        "id": "order_o1",
+        "before": null,
+        "feedback": {
+          "uid": "asha",
+          "kind": "order",
+          "rating": 2,
+          "message": "Late delivery"
+        },
+        "about": "order SM100001",
+        "imagePath": "products/s25.webp"
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_feedback_low",
+            "title": "Low rating: 2 stars for order SM100001",
+            "body": "Late delivery",
+            "link": "/admin/feedback/order_o1",
+            "key": "0",
+            "except": "asha",
+            "imagePath": "products/s25.webp"
+          }
+        ]
+      }
+    },
+    {
+      "id": "product-report-without-a-rating",
+      "source": "supabase/tests/notifications.test.sql:350",
+      "as": "system",
+      "call": "feedbackNotices",
+      "input": {
+        "id": "f2",
+        "before": null,
+        "feedback": {
+          "uid": "asha",
+          "kind": "product",
+          "rating": null,
+          "message": ""
+        },
+        "about": "Galaxy S25"
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_feedback",
+            "title": "New feedback on Galaxy S25",
+            "body": "No comment.",
+            "link": "/admin/feedback/f2",
+            "key": "0",
+            "except": "asha"
+          }
+        ]
+      }
+    },
+    {
+      "id": "staff-marking-feedback-seen-is-not-news",
+      "source": "supabase/tests/notifications.test.sql:355",
+      "as": "system",
+      "call": "feedbackNotices",
+      "input": {
+        "id": "order_o1",
+        "before": {
+          "uid": "asha",
+          "kind": "order",
+          "rating": 2,
+          "message": "Late delivery"
+        },
+        "feedback": {
+          "uid": "asha",
+          "kind": "order",
+          "rating": 2,
+          "message": "Late delivery",
+          "status": "seen"
+        },
+        "about": "order SM100001"
+      },
+      "expect": {
+        "notices": []
+      }
+    },
+    {
+      "id": "a-sale-to-2-left",
+      "source": "supabase/tests/notifications.test.sql:365",
+      "as": "system",
+      "call": "stockNotices",
+      "input": {
+        "before": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 5,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "variant": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 2,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "key": "e1"
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_low_stock",
+            "title": "Low stock: Galaxy S25",
+            "body": "8/256 Black (S25-8-256-BK): only 2 left.",
+            "link": "/admin/products/galaxy-s25",
+            "key": "se1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "a-sale-to-none",
+      "source": "supabase/tests/notifications.test.sql:368",
+      "as": "system",
+      "call": "stockNotices",
+      "input": {
+        "before": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 2,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "variant": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 0,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "key": "e2"
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "staff",
+            "kind": "staff_out_of_stock",
+            "title": "Out of stock: Galaxy S25",
+            "body": "8/256 Black (S25-8-256-BK) just sold out. Restock it or hide it.",
+            "link": "/admin/products/galaxy-s25",
+            "key": "se2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "the-next-sale-below-3-says-nothing",
+      "source": "supabase/tests/notifications.test.sql:370",
+      "as": "system",
+      "call": "stockNotices",
+      "input": {
+        "before": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 2,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "variant": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 1,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "key": "e3"
+      },
+      "expect": {
+        "notices": []
+      }
+    },
+    {
+      "id": "staff-stock-edits-are-not-sales",
+      "source": "supabase/tests/notifications.test.sql:372",
+      "as": "system",
+      "call": "stockNotices",
+      "input": {
+        "before": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 5,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "variant": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 0,
+          "lastStockChange": "staff",
+          "restockSeq": 2
+        },
+        "key": "e4"
+      },
+      "expect": {
+        "notices": []
+      }
+    },
+    {
+      "id": "back-in-stock",
+      "source": "docs/FIREBASE.md:334",
+      "about": "docs/FIREBASE.md §6 Back-in-stock: one notice per restock (restockSeq in the id), for every waiting customer.",
+      "as": "system",
+      "call": "backInStock",
+      "input": {
+        "variantId": "v7",
+        "before": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 0,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "variant": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 4,
+          "lastStockChange": "staff",
+          "restockSeq": 3
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "kind": "back_in_stock",
+            "key": "bis_v7_3",
+            "title": "Back in stock: Galaxy S25",
+            "body": "8/256 Black is available again. Tap to buy before it sells out.",
+            "link": "/product/galaxy-s25?variant=v7"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hidden-variants-never-alert",
+      "source": "docs/FIREBASE.md:334",
+      "as": "system",
+      "call": "backInStock",
+      "input": {
+        "variantId": "v7",
+        "before": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": true,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 0,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        },
+        "variant": {
+          "productId": "galaxy-s25",
+          "productName": "Galaxy S25",
+          "productActive": true,
+          "isActive": false,
+          "name": "8/256 Black",
+          "sku": "S25-8-256-BK",
+          "stock": 4,
+          "lastStockChange": "order",
+          "restockSeq": 2
+        }
+      },
+      "expect": {
+        "notices": []
+      }
+    }
+  ],
+  "notExpressed": [
+    {
+      "source": "supabase/tests/notifications.test.sql:383",
+      "why": "Clients can't insert notifications and can only set readAt: Security Rules (functions/test/rules/service.test.ts)."
+    },
+    {
+      "source": "supabase/tests/notifications.test.sql:424",
+      "why": "push_notification via Vault/pg_net: the pushNotification trigger sends through the Admin SDK; FCM isn't emulated, so its data keys are checked by contract.ts pushData."
+    },
+    {
+      "source": "supabase/tests/notification_images.test.sql:1",
+      "why": "Feedback and stock photos come from reading the order or product in the trigger (notifications/triggers.ts); the pure cases take the path as input."
+    },
+    {
+      "source": "supabase/migrations/20261030000400_notifications.sql:444",
+      "why": "The 90-day cleanup and 270-day token expiry are TTL policies on expireAt (model/notifications.ts, model/users.ts)."
+    }
+  ]
+}

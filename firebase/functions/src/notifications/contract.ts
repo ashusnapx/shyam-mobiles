@@ -17,6 +17,8 @@ export type PushData = z.infer<typeof pushData>;
 /** What notices.ts returns for one source change: who gets which copy. */
 export interface Notice {
   recipient: string; // a uid, or "staff" for every staff member
+  except?: string; // with "staff": the staff member who did it, who isn't told
+  key: string; // with the source id, kind and recipient, the notification's id: the same write never notifies twice
   kind: string;
   title: string;
   body: string;
