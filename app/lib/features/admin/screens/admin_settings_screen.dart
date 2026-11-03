@@ -28,7 +28,7 @@ class AdminSettingsScreen extends ConsumerWidget {
               appBar: AppBar(title: const Text('Store settings')),
               body: value.hasError
                   ? ErrorView(error: value.error!, onRetry: () => ref.invalidate(storeSettingsProvider))
-                  : const Center(child: CircularProgressIndicator()),
+                  : const PageSkeleton(),
             ),
     );
   }

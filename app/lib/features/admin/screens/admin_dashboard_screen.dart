@@ -242,32 +242,30 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // by how often the shop uses them; the rest under "More"
+    // each in the colour of the part of the app it opens; the one create action is ink
     const daily = [
-      (PhosphorIconsRegular.plus, 'Add product', '/admin/products/new'),
-      (PhosphorIconsRegular.package, 'Products & stock', '/admin/catalogue'),
-      (PhosphorIconsRegular.receipt, 'Orders', '/admin/orders'),
-      (PhosphorIconsRegular.wrench, 'Repairs', '/admin/repairs'),
-      (PhosphorIconsRegular.link, 'Payment link', '/admin/payment-links'),
-      (PhosphorIconsRegular.sealPercent, 'Offers', '/admin/offers'),
+      (PhosphorIconsRegular.plus, 'Add product', '/admin/products/new', (BrandColors.ink, Colors.white)),
+      (PhosphorIconsRegular.package, 'Products & stock', '/admin/catalogue', Worlds.admin),
+      (PhosphorIconsRegular.receipt, 'Orders', '/admin/orders', Worlds.shop),
+      (PhosphorIconsRegular.wrench, 'Repairs', '/admin/repairs', Worlds.repairs),
+      (PhosphorIconsRegular.link, 'Payment link', '/admin/payment-links', Worlds.cart),
+      (PhosphorIconsRegular.sealPercent, 'Offers', '/admin/offers', Worlds.offers),
     ];
     const more = [
-      (PhosphorIconsRegular.stack, 'Groups', '/admin/groups'),
-      (PhosphorIconsRegular.flagBanner, 'Banners', '/admin/banners'),
-      (PhosphorIconsRegular.gearSix, 'Settings', '/admin/settings'),
+      (PhosphorIconsRegular.stack, 'Groups', '/admin/groups', (BrandColors.violetMist, BrandColors.violet)),
+      (PhosphorIconsRegular.flagBanner, 'Banners', '/admin/banners', Worlds.account),
+      (PhosphorIconsRegular.gearSix, 'Settings', '/admin/settings', (BrandColors.slateMist, BrandColors.slate)),
     ];
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    Widget tile(IconData icon, String label, String route) => InkWell(
+    Widget tile(IconData icon, String label, String route, Tint tint) => InkWell(
           borderRadius: BorderRadius.circular(Radii.lg),
           onTap: () => context.push(route),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.xs),
             child: Column(
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(color: c.primaryContainer, borderRadius: BorderRadius.circular(Radii.lg)),
-                  child: SizedBox.square(dimension: 52, child: Icon(icon, color: c.onPrimaryContainer)),
-                ),
+                IconWell(icon, tint: tint, size: 52, radius: Radii.lg, iconSize: IconSizes.lg),
                 const SizedBox(height: Space.xs),
                 Text(label, textAlign: TextAlign.center, style: t.labelMedium),
               ],
@@ -275,14 +273,16 @@ class _QuickActions extends StatelessWidget {
           ),
         );
     // three a row, so "Products & stock" and "Add product" fit at large text
-    Widget grid(List<(IconData, String, String)> actions) => Column(
+    Widget grid(List<(IconData, String, String, Tint)> actions) => Column(
           children: [
             for (var i = 0; i < actions.length; i += 3)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   for (var j = i; j < i + 3; j++)
-                    Expanded(child: j < actions.length ? tile(actions[j].$1, actions[j].$2, actions[j].$3) : const SizedBox()),
+                    Expanded(
+                      child: j < actions.length ? tile(actions[j].$1, actions[j].$2, actions[j].$3, actions[j].$4) : const SizedBox(),
+                    ),
                 ],
               ),
           ],

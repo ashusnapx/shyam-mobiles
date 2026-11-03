@@ -66,7 +66,7 @@ class AdminProductEditScreen extends ConsumerWidget {
                         if (productId != null) ref.invalidate(adminProductProvider(productId!));
                       },
                     )
-                  : const Center(child: CircularProgressIndicator()),
+                  : const PageSkeleton(),
             ),
     );
   }
@@ -205,12 +205,17 @@ class _EditorState extends ConsumerState<_Editor> {
                   labelText: 'Name',
                   hintText: 'Start with the brand: Samsung Galaxy S25',
                   counter: LengthCounter(_name, MaxLen.productName),
+                  // a nudge, not an error: tiles show the name as typed
+                  helperText: brandPrefixHint(_name.text, _brands.where((b) => b.id == _brandId).firstOrNull?.name),
+                  helperMaxLines: 2,
+                  helperStyle: t.bodySmall?.copyWith(color: BrandColors.amber),
                 ),
                 textCapitalization: TextCapitalization.words,
                 inputFormatters: textInput(MaxLen.productName),
                 textInputAction: TextInputAction.next,
                 onChanged: (v) {
                   if (!_slugEdited) _slug.text = slugFor(v);
+                  setState(() {}); // the brand hint
                 },
                 validator: (v) =>
                     checkText(v, min: 2, max: MaxLen.productName, what: 'the product name', mustHave: hasLetterOrDigit),
@@ -225,7 +230,7 @@ class _EditorState extends ConsumerState<_Editor> {
                 inputFormatters: slugInput,
                 textInputAction: TextInputAction.next,
                 onChanged: (_) => _slugEdited = true,
-                validator: (v) => slugPattern.hasMatch(v ?? '') ? null : 'Use a-z, 0-9 and dashes only',
+                validator: (v) => slugPattern.hasMatch(v ?? '') ? null : 'Use a-z, 0-9 and dashes only.',
               ),
               const SizedBox(height: Space.md),
               PickerField<String>(
@@ -234,7 +239,7 @@ class _EditorState extends ConsumerState<_Editor> {
                 labelOf: (id) => _brands.firstWhere((b) => b.id == id).name,
                 initialValue: _brandId,
                 onChanged: (v) => setState(() => _brandId = v),
-                validator: (v) => v == null ? 'Pick a brand' : null,
+                validator: (v) => v == null ? 'Pick a brand.' : null,
                 searchHint: 'Search or type a new brand',
                 createLabel: 'Add brand',
                 createName: brandDisplayName,
@@ -251,7 +256,7 @@ class _EditorState extends ConsumerState<_Editor> {
                 labelOf: (id) => widget.categories.firstWhere((k) => k.id == id).name,
                 initialValue: _categoryId,
                 onChanged: (v) => setState(() => _categoryId = v),
-                validator: (v) => v == null ? 'Pick a category' : null,
+                validator: (v) => v == null ? 'Pick a category.' : null,
               ),
               const SizedBox(height: Space.md),
               TextFormField(
@@ -259,6 +264,8 @@ class _EditorState extends ConsumerState<_Editor> {
                 decoration: InputDecoration(
                   labelText: 'Description',
                   alignLabelWithHint: true,
+                  hintText: descriptionTemplate,
+                  hintMaxLines: 8,
                   counter: LengthCounter(_description, MaxLen.productDescription),
                 ),
                 minLines: 3,
@@ -316,7 +323,7 @@ class _EditorState extends ConsumerState<_Editor> {
                               inputFormatters: textInput(_specLabelMax),
                               textInputAction: TextInputAction.next,
                               validator: (v) =>
-                                  tidy(v).isEmpty && tidy(s.value.text).isNotEmpty ? 'Add a label' : null,
+                                  tidy(v).isEmpty && tidy(s.value.text).isNotEmpty ? 'Add a label.' : null,
                             ),
                             const SizedBox(height: Space.xs),
                             TextFormField(
@@ -325,7 +332,7 @@ class _EditorState extends ConsumerState<_Editor> {
                               inputFormatters: textInput(_specValueMax),
                               textInputAction: TextInputAction.next,
                               validator: (v) =>
-                                  tidy(v).isEmpty && tidy(s.label.text).isNotEmpty ? 'Add a value' : null,
+                                  tidy(v).isEmpty && tidy(s.label.text).isNotEmpty ? 'Add a value.' : null,
                             ),
                           ],
                         ),
@@ -581,7 +588,7 @@ class _Variants extends StatelessWidget {
                               Padding(
                                 padding: const EdgeInsets.only(top: Space.xs),
                                 child: Wrap(spacing: Space.xs, children: [
-                                  if (!v.isActive) const Tag('Hidden', tone: TagTone.bad),
+                                  if (!v.isActive) const Tag('Hidden', tone: TagTone.neutral, icon: PhosphorIconsBold.eyeSlash),
                                   if (v.isActive && v.stock <= 3) const Tag('Low stock', tone: TagTone.deal),
                                 ]),
                               ),
@@ -715,7 +722,7 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
               inputFormatters: const [HexColorFormatter()],
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
-              validator: (v) => (v ?? '').trim().isEmpty || hexColorPattern.hasMatch(v!.trim()) ? null : 'Like #1F2B4D',
+              validator: (v) => (v ?? '').trim().isEmpty || hexColorPattern.hasMatch(v!.trim()) ? null : 'Enter a colour like #1F2B4D.',
             ),
           ),
         ]),
@@ -744,10 +751,10 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
             inputFormatters: skuInput,
             textInputAction: TextInputAction.next,
             validator: (v) => (v ?? '').isEmpty
-                ? 'Enter the SKU'
+                ? 'Enter the SKU.'
                 : skuPattern.hasMatch(v!)
                     ? null
-                    : 'Start with a letter or digit; then letters, digits and . _ / - only',
+                    : 'Start with a letter or digit, then use letters, digits and . _ / - only.',
           ),
         ),
         const SizedBox(height: Space.md),
@@ -766,7 +773,13 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
           Expanded(
             child: TextFormField(
               controller: _mrp,
-              decoration: const InputDecoration(labelText: 'MRP', prefixText: '₹ ', errorMaxLines: 3),
+              decoration: const InputDecoration(
+                labelText: 'MRP',
+                prefixText: '₹ ',
+                errorMaxLines: 3,
+                helperText: 'MRP printed on the box. Customers see the saving from it.',
+                helperMaxLines: 3,
+              ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: const [RupeesFormatter(maxDigits: 7)],
               textInputAction: TextInputAction.next,
@@ -774,7 +787,7 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
                 if (rupeesError(v, minPaise: 1, maxPaise: maxAmountPaise) case final error?) return error;
                 final mrp = parseRupees(v!)!;
                 final price = parseRupees(_price.text);
-                return price != null && mrp < price ? 'Can’t be below ${formatInr(price)}' : null;
+                return price != null && mrp < price ? 'The MRP can’t be below the price (${formatInr(price)}).' : null;
               },
             ),
           ),
@@ -787,7 +800,7 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
           // business cap 99,999 (5 digits), well inside the DB's 0..1,000,000
           inputFormatters: const [DigitsFormatter(5)],
           textInputAction: TextInputAction.done,
-          validator: (v) => (v ?? '').isEmpty ? 'Enter the stock (0 if none)' : null,
+          validator: (v) => (v ?? '').isEmpty ? 'Enter the stock (0 if none).' : null,
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

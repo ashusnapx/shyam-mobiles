@@ -307,7 +307,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               labelText: widget.label,
-              errorText: _tried && missing() ? 'Add a short reason' : null,
+              errorText: _tried && missing() ? 'Add a short reason.' : null,
             ),
             onChanged: (_) => setState(() {}),
           ),

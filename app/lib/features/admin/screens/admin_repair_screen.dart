@@ -32,7 +32,7 @@ class AdminRepairScreen extends ConsumerWidget {
         body: AsyncBody<RepairBooking>(
           value: value,
           onRetry: () => ref.invalidate(provider),
-          loading: const Center(child: CircularProgressIndicator()),
+          loading: const PageSkeleton(),
           // keyed by the quote so a refresh after a write refills the quote field
           data: (b) => RefreshIndicator(
             onRefresh: () => ref.refresh(provider.future),
@@ -178,7 +178,7 @@ class _BodyState extends ConsumerState<_Body> {
           NoteBox(
             'The customer declined ${formatInr(b.quotePaise!)}${declineReason == null ? '' : ': “$declineReason”'}. '
             'Call them, then send a new quote or cancel.',
-            tone: TagTone.bad,
+            tone: TagTone.deal,
             icon: PhosphorIconsFill.xCircle,
           ),
         ],
@@ -219,7 +219,7 @@ class _BodyState extends ConsumerState<_Body> {
                   style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
                 ),
                 const SizedBox(height: Space.sm),
-                FilledButton.tonal(
+                OutlinedButton(
                   onPressed: _busy ? null : () => _once(_sendQuote),
                   child: Text(b.quotePaise == null ? 'Send quote' : 'Change quote'),
                 ),
@@ -245,7 +245,7 @@ class _BodyState extends ConsumerState<_Body> {
           textCapitalization: TextCapitalization.sentences,
         ),
         const SizedBox(height: Space.sm),
-        FilledButton.tonal(
+        OutlinedButton(
           onPressed: _busy ? null : () => _once(_sendNote),
           child: const Text('Send note'),
         ),

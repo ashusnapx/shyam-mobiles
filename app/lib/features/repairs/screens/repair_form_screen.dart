@@ -125,12 +125,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
               style: t.labelMedium?.copyWith(color: BrandColors.creamInk, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: Space.sm),
-            // saffron: the main action inside the Repairs world
             FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.tertiary,
-                foregroundColor: Theme.of(context).colorScheme.onTertiary,
-              ),
               onPressed: _busy ? null : _submit,
               child: _busy
                   ? const ButtonSpinner()

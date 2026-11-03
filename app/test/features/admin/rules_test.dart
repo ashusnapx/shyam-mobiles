@@ -136,8 +136,8 @@ void main() {
     });
 
     test('rejects wrong count, bad digits and repeats', () {
-      expect(imeisError([a], 2), 'Enter 2 IMEIs');
-      expect(imeisError([], 1), 'Enter 1 IMEI');
+      expect(imeisError([a], 2), 'Enter 2 IMEIs.');
+      expect(imeisError([], 1), 'Enter 1 IMEI.');
       expect(imeisError(['35209921448812'], 1), isNotNull); // 14 digits
       expect(imeisError(['35209921448812x'], 1), isNotNull);
       expect(imeisError([a, a], 2), contains('repeated'));
@@ -248,5 +248,12 @@ void main() {
       expect(isMapsPlaceLink('https://www.google.com/maps/search/?api=1&query=24.0665176,82.6259026'), isFalse);
       expect(isMapsPlaceLink('24.0670269, 82.6307508'), isFalse);
     });
+  });
+
+  test('the product name hint asks for the brand first, and only when it is missing', () {
+    expect(brandPrefixHint('13', 'OnePlus'), 'Start with the brand so customers see it: OnePlus 13');
+    expect(brandPrefixHint('oneplus 13', 'OnePlus'), isNull);
+    expect(brandPrefixHint('', 'OnePlus'), isNull);
+    expect(brandPrefixHint('Galaxy S25', null), isNull, reason: 'no brand picked yet');
   });
 }

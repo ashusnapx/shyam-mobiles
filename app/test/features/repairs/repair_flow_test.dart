@@ -201,7 +201,7 @@ void main() {
       await _tap(tester, find.text('Cancel booking'));
       await tester.tap(_dialogButton('Cancel booking'));
       await tester.pump();
-      expect(find.text('Add a short reason'), findsOneWidget);
+      expect(find.text('Add a short reason.'), findsOneWidget);
       await tester.enterText(find.widgetWithText(TextField, 'Reason'), 'Part not available');
       await tester.tap(_dialogButton('Cancel booking'));
       await tester.pumpAndSettle();

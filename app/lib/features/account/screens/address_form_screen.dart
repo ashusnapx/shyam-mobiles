@@ -15,6 +15,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../admin/widgets/admin_widgets.dart' show PageSkeleton;
 import '../data/address_form.dart';
 import '../data/addresses.dart';
 import '../data/profile.dart';
@@ -33,7 +34,7 @@ class AddressFormScreen extends ConsumerWidget {
       body: AsyncBody(
         value: addresses,
         onRetry: () => ref.invalidate(addressesProvider),
-        loading: const Center(child: CircularProgressIndicator()),
+        loading: const PageSkeleton(),
         data: (list) {
           final existing = list.where((a) => a.id == addressId).firstOrNull;
           if (addressId != null && existing == null) {
@@ -71,7 +72,8 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
   final _form = GlobalKey<FormState>();
   late final Address? _a = widget.existing;
   late final _name = TextEditingController(text: _a?.name ?? ref.read(profileProvider).value?.fullName);
-  late final _phone = TextEditingController(text: localPhone(_a?.phone ?? ref.read(currentUserProvider)?.phone));
+  // a new address starts with the account's phone: the sign-in one, else the one on the profile
+  late final _phone = TextEditingController(text: localPhone(_a?.phone ?? _accountPhone()));
   late final _pincode = TextEditingController(text: _a?.pincode);
   late final _line1 = TextEditingController(text: _a?.line1);
   late final _line2 = TextEditingController(text: _a?.line2);
@@ -81,6 +83,11 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
   late String? _state = _a?.state;
   late AddressLabel _label = _a?.label ?? AddressLabel.home;
   late bool _isDefault = widget.forceDefault || (_a?.isDefault ?? false);
+
+  String? _accountPhone() {
+    final auth = ref.read(currentUserProvider)?.phone;
+    return (auth?.isNotEmpty ?? false) ? auth : ref.read(profileProvider).value?.phone;
+  }
 
   /// Last value we filled in per field (controller, or 'state'), so a later lookup may replace our own guess
   /// but never what the user typed.

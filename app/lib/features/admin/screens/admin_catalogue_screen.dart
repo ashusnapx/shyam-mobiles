@@ -693,8 +693,8 @@ class ProductHeader extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: Space.xs),
                         child: Wrap(spacing: Space.xs, runSpacing: Space.xs, children: [
-                          if (!r.productActive) const Tag('Product hidden', tone: TagTone.bad),
-                          if (r.featured) const Tag('Featured', tone: TagTone.ok),
+                          if (!r.productActive) const Tag('Product hidden', tone: TagTone.neutral, icon: PhosphorIconsBold.eyeSlash),
+                          if (r.featured) const Tag('Featured', tone: TagTone.info, icon: PhosphorIconsBold.star),
                         ]),
                       ),
                   ],
@@ -801,13 +801,14 @@ class CatalogueTile extends StatelessWidget {
                               spacing: Space.xs,
                               runSpacing: Space.xs,
                               children: [
-                                if (!r.variantActive) const Tag('Hidden', tone: TagTone.bad),
-                                if (!grouped && !r.productActive) const Tag('Product hidden', tone: TagTone.bad),
+                                if (!r.variantActive) const Tag('Hidden', tone: TagTone.neutral, icon: PhosphorIconsBold.eyeSlash),
+                                if (!grouped && !r.productActive)
+                                  const Tag('Product hidden', tone: TagTone.neutral, icon: PhosphorIconsBold.eyeSlash),
                                 if (stock == 0)
-                                  const Tag('Out of stock', tone: TagTone.bad)
+                                  const Tag('Out of stock', tone: TagTone.deal, icon: PhosphorIconsBold.warning)
                                 else if (stock <= lowStockMax)
                                   const Tag('Low stock', tone: TagTone.deal),
-                                if (!grouped && r.featured) const Tag('Featured', tone: TagTone.ok),
+                                if (!grouped && r.featured) const Tag('Featured', tone: TagTone.info, icon: PhosphorIconsBold.star),
                               ],
                             ),
                           ),
@@ -822,19 +823,19 @@ class CatalogueTile extends StatelessWidget {
                   children: [
                     _StockStepper(sku: r.sku, stock: stock, onStep: onStep, onType: onTypeStock),
                     const Spacer(),
-                    IconButton.filledTonal(
+                    IconButton.outlined(
                       tooltip: 'Edit price of ${r.sku}',
                       onPressed: onEditPrice,
-                      icon: const Icon(PhosphorIconsRegular.currencyInr),
+                      icon: const Icon(PhosphorIconsRegular.currencyInr, size: IconSizes.md),
                     ),
                     const SizedBox(width: Space.sm),
-                    // a toggle: solid while customers can see it
+                    // a toggle: the icon says the state (the Hidden tag above says it in words), never the fill
                     IconButton.outlined(
                       tooltip: r.variantActive ? 'Hide ${r.sku} from the shop' : 'Show ${r.sku} in the shop',
-                      isSelected: r.variantActive,
                       onPressed: onToggleVisible,
-                      icon: const Icon(PhosphorIconsRegular.eyeSlash),
-                      selectedIcon: const Icon(PhosphorIconsRegular.eye),
+                      icon: r.variantActive
+                          ? const Icon(PhosphorIconsRegular.eye, size: IconSizes.md)
+                          : Icon(PhosphorIconsRegular.eyeSlash, size: IconSizes.md, color: c.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -1141,7 +1142,7 @@ class _NumberSheetState extends State<_NumberSheet> {
 
   String? _validate(String? v) {
     final n = int.tryParse(v ?? '');
-    return n == null || n < widget.min || n > widget.max ? 'Enter a whole number from ${widget.min} to ${widget.max}' : null;
+    return n == null || n < widget.min || n > widget.max ? 'Enter a whole number from ${widget.min} to ${widget.max}.' : null;
   }
 
   bool _popped = false; // a double tap must not pop the screen underneath too
@@ -1203,7 +1204,7 @@ class _PriceSheetState extends State<_PriceSheet> {
     super.dispose();
   }
 
-  static final _maxText = 'Up to ${formatInr(maxPricePaise)}';
+  static final _maxText = 'Keep it at or under ${formatInr(maxPricePaise)}.';
 
   bool _popped = false; // a double tap must not pop the screen underneath too
 
@@ -1233,7 +1234,7 @@ class _PriceSheetState extends State<_PriceSheet> {
           inputFormatters: _rupeeInput,
           validator: (v) {
             final p = parseRupees(v ?? '');
-            if (p == null || p <= 0) return 'Enter a price above ₹0';
+            if (p == null || p <= 0) return 'Enter an amount above ₹0.';
             return p > maxPricePaise ? _maxText : null;
           },
         ),
@@ -1247,10 +1248,10 @@ class _PriceSheetState extends State<_PriceSheet> {
           onFieldSubmitted: (_) => _submit(),
           validator: (v) {
             final mrp = parseRupees(v ?? '');
-            if (mrp == null) return 'Enter the MRP';
+            if (mrp == null) return 'Enter the MRP.';
             if (mrp > maxPricePaise) return _maxText;
             final price = parseRupees(_price.text);
-            return price != null && mrp < price ? 'Can’t be below ${formatInr(price)}' : null;
+            return price != null && mrp < price ? 'The MRP can’t be below the price (${formatInr(price)}).' : null;
           },
         ),
         const SizedBox(height: Space.md),

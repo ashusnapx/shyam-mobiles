@@ -116,7 +116,7 @@ class _Rows extends StatelessWidget {
                         children: [
                           Text(o.number, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                           Tag(o.status.label, tone: orderTone(o.status)),
-                          if (o.needsRefund) const Tag('Needs refund', tone: TagTone.bad),
+                          if (o.needsRefund) const Tag('Needs refund', tone: TagTone.deal, icon: PhosphorIconsBold.arrowCounterClockwise),
                         ],
                       ),
                       const SizedBox(height: 2),

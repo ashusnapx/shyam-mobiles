@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 
 import '../../../core/format.dart';
+import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 
 /// Mirrors the transition table in `admin_update_order` (supabase/migrations/20261028000200_rpcs.sql).
@@ -73,6 +74,22 @@ String rupeesText(int paise) =>
     paise % 100 == 0 ? '${paise ~/ 100}' : '${paise ~/ 100}.${(paise % 100).toString().padLeft(2, '0')}';
 
 /// Tile money: "₹49,999", "₹4.82L", "₹1.2Cr". Rounded down, paise dropped.
+/// "Start with the brand so customers see it: OnePlus 13" when [name] doesn't start with [brand]; null otherwise.
+String? brandPrefixHint(String name, String? brand) {
+  final n = tidy(name);
+  if (brand == null || n.isEmpty || n.toLowerCase().startsWith(brand.toLowerCase())) return null;
+  return 'Start with the brand so customers see it: $brand $n';
+}
+
+/// The description's shape, as hint text in the product editor: one line on who it suits, four facts, the box.
+const descriptionTemplate = '''One sentence: who it suits and the main reason to buy.
+• Screen / sound / size, with a number
+• Camera or main feature, with a number
+• Battery and charging, with a number
+• Toughness, water or updates
+In the box: exactly what’s in the box
+Warranty: period and brand''';
+
 String shortInr(int paise) {
   final rupees = paise ~/ 100;
   String short(int unit, String suffix) {
@@ -107,8 +124,8 @@ String? imeiFieldError(String v) => !_imei.hasMatch(v)
 
 /// Mirrors `admin_set_imeis`: exactly [qty] values, 15 digits each, no repeats.
 String? imeisError(List<String> imeis, int qty) {
-  if (imeis.length != qty) return 'Enter $qty IMEI${qty == 1 ? '' : 's'}';
-  if (imeis.any((i) => !_imei.hasMatch(i))) return 'Each IMEI is 15 digits';
+  if (imeis.length != qty) return 'Enter $qty IMEI${qty == 1 ? '' : 's'}.';
+  if (imeis.any((i) => !_imei.hasMatch(i))) return 'Each IMEI is 15 digits.';
   if (imeis.any((i) => !imeiChecksumOk(i))) return 'One IMEI has a digit wrong. Check it against the box label.';
   if (imeis.toSet().length != imeis.length) return 'An IMEI is repeated. Each unit has its own.';
   return null;

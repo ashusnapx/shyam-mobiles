@@ -23,7 +23,7 @@ TagTone statusTone(PromotionStatus s) => switch (s) {
       PromotionStatus.running => TagTone.ok,
       PromotionStatus.scheduled => TagTone.info,
       PromotionStatus.paused => TagTone.deal,
-      PromotionStatus.ended => TagTone.bad,
+      PromotionStatus.ended => TagTone.neutral,
     };
 
 /// Customers' copies of offers and banners are stale after any staff change.
@@ -285,7 +285,7 @@ class AdminOfferEditScreen extends ConsumerWidget {
                     )
                   : promotion.hasValue
                       ? const EmptyState(icon: PhosphorIconsRegular.sealPercent, title: 'This offer was deleted')
-                      : const Center(child: CircularProgressIndicator()),
+                      : const PageSkeleton(),
             ),
     );
   }

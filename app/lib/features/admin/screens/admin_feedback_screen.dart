@@ -19,7 +19,7 @@ const _statusFilters = {'new': 'New', 'seen': 'Seen', 'resolved': 'Resolved', 'a
 
 TagTone feedbackTone(FeedbackStatus s) => switch (s) {
   FeedbackStatus.unread => TagTone.deal,
-  FeedbackStatus.seen => TagTone.info,
+  FeedbackStatus.seen => TagTone.neutral,
   FeedbackStatus.resolved => TagTone.ok,
 };
 
@@ -96,7 +96,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
               child: AsyncBody<Paged<FeedbackEntry>>(
                 value: ref.watch(provider),
                 onRetry: () => ref.invalidate(provider),
-                loading: const Center(child: CircularProgressIndicator()),
+                loading: const PageSkeleton(),
                 data: (page) => page.items.isEmpty
                     ? EmptyState(
                         icon: PhosphorIconsRegular.chatCircleText,
@@ -195,7 +195,7 @@ class AdminFeedbackDetailScreen extends ConsumerWidget {
         body: AsyncBody<FeedbackEntry>(
           value: value,
           onRetry: () => ref.invalidate(adminFeedbackEntryProvider(feedbackId)),
-          loading: const Center(child: CircularProgressIndicator()),
+          loading: const PageSkeleton(),
           data: (e) => _Detail(key: ValueKey(e.id), entry: e),
         ),
       ),

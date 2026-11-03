@@ -132,7 +132,6 @@ class _Hero extends ConsumerWidget {
               ),
               const SizedBox(height: Space.lg),
               FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: c.tertiary, foregroundColor: c.onTertiary),
                 onPressed: () => _book(context),
                 icon: const Icon(PhosphorIconsRegular.wrench),
                 label: const Text('Book a repair · Free'),
@@ -160,11 +159,9 @@ class _BookAnother extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, 0),
       child: FilledButton.icon(
-        style: FilledButton.styleFrom(backgroundColor: c.tertiary, foregroundColor: c.onTertiary),
         onPressed: () => _book(context),
         icon: const Icon(PhosphorIconsRegular.wrench),
         label: const Text('Book a repair · Free'),
@@ -246,7 +243,7 @@ class _Promise extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: Space.sm),
               child: Row(
                 children: [
-                  IconWell(icon, tint: Worlds.cart), // emerald: a promise kept is a success colour
+                  IconWell(icon, tint: Worlds.repairs),
                   const SizedBox(width: Space.md),
                   Expanded(child: Text(text, style: t.bodyMedium)),
                 ],

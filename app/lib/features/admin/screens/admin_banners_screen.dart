@@ -17,7 +17,7 @@ import '../data/photos.dart';
 import '../widgets/admin_widgets.dart';
 import 'admin_offers_screen.dart' show statusTone;
 
-const toneNames = ['Peacock', 'Marigold', 'Emerald', 'Plum', 'Indigo', 'Ocean']; // heroGradients, in order
+const toneNames = ['Peacock', 'Brass', 'Jade', 'Plum', 'Indigo', 'Ocean']; // heroGradients, in order
 
 void _bannersChanged(WidgetRef ref) {
   ref.invalidate(adminBannersProvider);
@@ -70,7 +70,7 @@ class _AdminBannersScreenState extends ConsumerState<AdminBannersScreen> {
         body: AsyncBody<List<PromoBanner>>(
           value: value,
           onRetry: () => ref.invalidate(adminBannersProvider),
-          loading: const Center(child: CircularProgressIndicator()),
+          loading: const PageSkeleton(),
           data: (list) => list.isEmpty
               ? const EmptyState(
                   icon: PhosphorIconsRegular.flagBanner,
@@ -183,7 +183,7 @@ class AdminBannerEditScreen extends ConsumerWidget {
                     )
                   : banners.hasValue
                       ? const EmptyState(icon: PhosphorIconsRegular.flagBanner, title: 'This banner was deleted')
-                      : const Center(child: CircularProgressIndicator()),
+                      : const PageSkeleton(),
             ),
     );
   }

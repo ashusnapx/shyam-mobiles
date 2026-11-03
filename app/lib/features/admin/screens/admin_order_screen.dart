@@ -139,7 +139,7 @@ class _AdminOrderScreenState extends ConsumerState<AdminOrderScreen> {
         body: AsyncBody<Order>(
           value: value,
           onRetry: () => ref.invalidate(provider),
-          loading: const Center(child: CircularProgressIndicator()),
+          loading: const PageSkeleton(),
           data: (o) => RefreshIndicator(
             onRefresh: () => ref.refresh(provider.future),
             child: _Body(
@@ -190,7 +190,7 @@ class _Body extends StatelessWidget {
               'Refund due: ${formatInr(o.totalPaise)} was paid online and this order is cancelled. '
               'Tap Refund under Payments below. If you refunded it another way (the Razorpay dashboard'
               '${o.razorpayOrderId == null ? '' : ', order ${o.razorpayOrderId}'}, cash, UPI), tap Mark refunded.',
-              tone: TagTone.bad,
+              tone: TagTone.deal,
               icon: PhosphorIconsBold.arrowCounterClockwise,
             ),
           ),
@@ -494,7 +494,7 @@ class _CancelDialogState extends State<_CancelDialog> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               labelText: 'Reason',
-              errorText: _tried && missing ? 'Add a short reason' : null,
+              errorText: _tried && missing ? 'Add a short reason.' : null,
             ),
             onChanged: (_) => setState(() {}),
           ),

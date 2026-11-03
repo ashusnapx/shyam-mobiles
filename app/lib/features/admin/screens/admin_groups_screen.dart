@@ -34,7 +34,7 @@ class AdminGroupsScreen extends ConsumerWidget {
         body: AsyncBody<List<Collection>>(
           value: value,
           onRetry: () => ref.invalidate(adminCollectionsProvider),
-          loading: const Center(child: CircularProgressIndicator()),
+          loading: const PageSkeleton(),
           data: (list) => list.isEmpty
               ? const EmptyState(
                   icon: PhosphorIconsRegular.stack,
@@ -93,7 +93,7 @@ class AdminGroupEditScreen extends ConsumerWidget {
                     )
                   : groups.hasValue
                       ? const EmptyState(icon: PhosphorIconsRegular.stack, title: 'This group was deleted')
-                      : const Center(child: CircularProgressIndicator()),
+                      : const PageSkeleton(),
             ),
     );
   }

@@ -118,7 +118,7 @@ class _OrderPaymentsSectionState extends ConsumerState<OrderPaymentsSection> {
                 if (d.open && d.respondBy != null) 'Reply by ${formatDateTime(d.respondBy!)}',
                 if (d.open) 'Answer in the Razorpay dashboard with the invoice, IMEI and delivery proof.',
               ].join('. '),
-              tone: d.open ? TagTone.bad : TagTone.info,
+              tone: d.open ? TagTone.deal : TagTone.neutral,
               icon: PhosphorIconsBold.scales,
             ),
           ),
@@ -167,7 +167,7 @@ class _OrderPaymentsSectionState extends ConsumerState<OrderPaymentsSection> {
               if (canSendLink(o))
                 Padding(
                   padding: const EdgeInsets.all(Space.md),
-                  child: FilledButton.tonalIcon(
+                  child: OutlinedButton.icon(
                     onPressed: _busy ? null : () => _run(() => _sendLink(open)),
                     icon: const WhatsAppIcon(),
                     label: Text(open == null ? 'Send payment link' : 'Send the link again'),

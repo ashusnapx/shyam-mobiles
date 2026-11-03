@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors.dart';
@@ -61,6 +62,31 @@ String itemsSummary(Order o) => o.items.isEmpty
 /// "COD" or the payment status ("Paid", "Pending", ...).
 String paymentShort(Order o) => o.paymentMethod == PaymentMethod.cod ? 'COD' : o.paymentStatus.label;
 
+/// A loading page shaped like rows of cards, in place of a lone spinner (admin pages, forms that load first).
+class PageSkeleton extends StatelessWidget {
+  const PageSkeleton({super.key, this.rows = 6});
+
+  final int rows;
+
+  @override
+  Widget build(BuildContext context) => Skeletonizer(
+        child: ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(Space.lg),
+          children: [
+            for (var i = 0; i < rows; i++)
+              const Padding(
+                padding: EdgeInsets.only(bottom: Space.md),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(title: Text('Loading this row'), subtitle: Text('A little more about it here')),
+                ),
+              ),
+          ],
+        ),
+      );
+}
+
 /// Server enforces admin rights; this shows a friendly screen instead of errors to non-staff.
 class AdminGate extends ConsumerWidget {
   const AdminGate({super.key, required this.child});
@@ -76,7 +102,7 @@ class AdminGate extends ConsumerWidget {
       body: admin.hasError
           ? ErrorView(error: admin.error!, onRetry: () => ref.invalidate(isAdminProvider))
           : admin.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const PageSkeleton()
               : const EmptyState(
                   icon: PhosphorIconsRegular.lockSimple,
                   title: 'Staff only',

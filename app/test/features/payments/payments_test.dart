@@ -188,7 +188,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Make link and send on WhatsApp'));
     await tester.pump();
-    expect(find.text('₹1 to ₹50,00,000'), findsOneWidget);
-    expect(find.text('A 10-digit mobile number'), findsOneWidget);
+    expect(find.text('Enter an amount from ₹1 to ₹50,00,000.'), findsOneWidget);
+    expect(find.text('Enter a 10-digit mobile number.'), findsOneWidget);
   });
 }

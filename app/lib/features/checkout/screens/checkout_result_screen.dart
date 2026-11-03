@@ -15,6 +15,7 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/data/profile.dart';
 import '../../cart/data/cart.dart';
 import '../../orders/data/orders.dart';
 import '../data/payment.dart';
@@ -103,10 +104,10 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
     try {
       final added = await reorder(ref.read(supabaseProvider), ref.read(cartProvider.notifier), o);
       if (added < o.items.length) {
-        messenger.showSnackBar(SnackBar(content: Text(added == 0 ? 'These items are out of stock now.' : 'Some items are out of stock now.')));
+        showMessageOn(messenger, added == 0 ? 'These items are out of stock now.' : 'Some items are out of stock now.');
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showMessageOn(messenger, friendlyError(e));
     }
     router.go('/cart');
   }
@@ -157,6 +158,8 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
   Widget _view(ResultView view, Order o, PayStage stage) {
     final c = Theme.of(context).colorScheme;
     final total = formatInr(o.totalPaise);
+    final name = firstName(ref.watch(profileProvider).value?.fullName);
+    final thanks = name == null ? 'Thank you.' : 'Thank you, $name.';
     final viewOrder = OutlinedButton(onPressed: () => context.go('/orders/${o.id}'), child: const Text('View order'));
     final backToCart = FilledButton(onPressed: () => _reorder(o), child: const Text('Add items to cart again'));
     return switch (view) {
@@ -171,8 +174,8 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
         ),
         title: o.paymentMethod == PaymentMethod.cod ? 'Order placed' : 'Payment received',
         message: o.paymentMethod == PaymentMethod.cod
-            ? 'Pay $total in cash when it arrives.'
-            : 'Thank you. We’ll pack your order soon.',
+            ? '$thanks Pay $total in cash when it arrives.'
+            : '$thanks We’ll pack your order soon.',
         number: o.number,
         actions: [
           FilledButton(onPressed: () => context.go('/orders/${o.id}'), child: const Text('View order')),
@@ -211,7 +214,7 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
         ],
       ),
       ResultView.expired || ResultView.cancelled => _Layout(
-        visual: _Badge(icon: PhosphorIconsBold.x, bg: c.errorContainer, fg: c.onErrorContainer),
+        visual: const _Badge(icon: PhosphorIconsBold.x, bg: BrandColors.graphite, fg: Colors.white), // closed, not an error
         title: view == ResultView.expired ? 'Payment time ran out' : 'Order cancelled',
         message: view == ResultView.expired
             ? 'We couldn’t hold the items any longer, so this order won’t go through. Add them again to order.'
@@ -226,7 +229,7 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
           fg: c.onTertiaryContainer,
         ),
         title: 'Payment arrived late',
-        message: 'The order had already closed, so the store will refund $total. Call us if you have questions.',
+        message: 'The order had already closed, so the shop will refund $total. Call us if you have questions.',
         number: o.number,
         actions: [
           FilledButton(onPressed: () => context.go('/orders/${o.id}'), child: const Text('View order')),

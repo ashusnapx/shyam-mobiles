@@ -37,7 +37,7 @@ class AdminPaymentLinksScreen extends ConsumerWidget {
         body: AsyncBody<List<PaymentLink>>(
           value: links,
           onRetry: () => ref.invalidate(paymentLinksProvider),
-          loading: const Center(child: CircularProgressIndicator()),
+          loading: const PageSkeleton(),
           data: (list) => RefreshIndicator(
             onRefresh: () => ref.refresh(paymentLinksProvider.future),
             child: list.isEmpty
@@ -77,7 +77,7 @@ class _LinkTile extends ConsumerWidget {
       isThreeLine: true,
       trailing: Tag(
         l.status == 'paid' ? 'Paid' : (l.isOpen ? 'Open' : l.statusLabel),
-        tone: l.status == 'paid' ? TagTone.ok : (l.isOpen ? TagTone.deal : TagTone.info),
+        tone: l.status == 'paid' ? TagTone.ok : (l.isOpen ? TagTone.deal : TagTone.neutral), // expired or cancelled: closed
       ),
       onTap: l.orderId != null
           ? () => context.push('/admin/orders/${l.orderId}')
@@ -148,16 +148,20 @@ class _NewLinkSheetState extends ConsumerState<_NewLinkSheet> {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(7)],
             validator: (v) {
               final n = int.tryParse(v ?? '') ?? 0;
-              return n < 1 || n > 5000000 ? '₹1 to ₹50,00,000' : null;
+              return n < 1 || n > 5000000 ? 'Enter an amount from ₹1 to ₹50,00,000.' : null;
             },
           ),
           const SizedBox(height: Space.md),
           TextFormField(
             controller: _phone,
-            decoration: const InputDecoration(labelText: 'Customer’s mobile number', prefixText: '+91 '),
+            decoration: const InputDecoration(
+              labelText: 'Customer’s mobile number',
+              prefixText: '+91 ',
+              hintText: '98765 43210',
+            ),
             keyboardType: TextInputType.phone,
-            inputFormatters: const [DigitsFormatter(10)],
-            validator: (v) => normalizeIndianPhone(v ?? '') == null ? 'A 10-digit mobile number' : null,
+            inputFormatters: const [IndianMobileFormatter()], // the same phone field as everywhere else
+            validator: validateMobile,
           ),
           const SizedBox(height: Space.md),
           TextFormField(
@@ -172,7 +176,7 @@ class _NewLinkSheetState extends ConsumerState<_NewLinkSheet> {
             decoration: const InputDecoration(labelText: 'What it’s for', hintText: 'e.g. 10 × Redmi 13C, wholesale'),
             textCapitalization: TextCapitalization.sentences,
             inputFormatters: textInput(200),
-            validator: (v) => tidy(v ?? '').isEmpty ? 'Say what it’s for: the customer sees it' : null,
+            validator: (v) => tidy(v ?? '').isEmpty ? 'Say what it’s for. The customer sees it.' : null,
           ),
           const SizedBox(height: Space.sm),
           Text(
