@@ -12,8 +12,8 @@ import '../../../core/links.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../catalog/widgets/store_links.dart';
 import '../data/offers.dart';
 import '../widgets/offer_widgets.dart';
 
@@ -46,6 +46,7 @@ class ReferScreen extends ConsumerWidget {
               )
             : EmptyState(
                 icon: PhosphorIconsRegular.gift,
+                tone: Worlds.offers,
                 title: 'Refer & earn isn’t running right now',
                 message: 'Check Offers for today’s coupons and sales.',
                 action: FilledButton(onPressed: () => context.pushReplacement('/offers'), child: const Text('See offers')),
@@ -76,13 +77,13 @@ class _Body extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.xl),
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(Radii.hero),
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: heroGradients[0]),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(Space.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -97,9 +98,7 @@ class _Body extends StatelessWidget {
                   ),
                   const SizedBox(height: Space.xs),
                   Text(
-                    'Your friend gets ${formatInr(r.friendPaise)} off their first order of ${formatInr(r.minOrderPaise)} '
-                    'or more. You get a ${formatInr(r.rewardPaise)} coupon when an order of theirs of '
-                    '${formatInr(r.minOrderPaise)} or more is delivered.',
+                    'Your friend saves ${formatInr(r.friendPaise)}. You get ${formatInr(r.rewardPaise)} when their order arrives.',
                     style: t.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                   ),
                 ],
@@ -112,11 +111,36 @@ class _Body extends StatelessWidget {
         const SizedBox(height: Space.sm),
         CodeActions(code: r.code),
         const SizedBox(height: Space.md),
+        // WhatsApp is this screen's main action: its own green, with ink on it (white fails contrast)
         FilledButton.icon(
-          onPressed: () => openExternal(context, referralShareUri(r), 'Couldn’t open WhatsApp.'),
-          icon: const WhatsAppIcon(size: 20),
+          style: FilledButton.styleFrom(backgroundColor: BrandColors.whatsapp, foregroundColor: BrandColors.ink),
+          onPressed: () => openUri(context, referralShareUri(r)),
+          icon: const Icon(PhosphorIconsFill.whatsappLogo, size: IconSizes.md, color: BrandColors.ink),
           label: const Text('Share on WhatsApp'),
         ),
+        const ListSection('How it works'),
+        for (final (i, line) in [
+          'Share your code with a friend.',
+          'They get ${formatInr(r.friendPaise)} off their first order of ${formatInr(r.minOrderPaise)} or more.',
+          'When that order is delivered, you get a ${formatInr(r.rewardPaise)} coupon.',
+        ].indexed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.sm),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(color: Worlds.cart.$1, shape: BoxShape.circle),
+                  child: SizedBox.square(
+                    dimension: 28,
+                    child: Center(child: Text('${i + 1}', style: t.labelLarge?.copyWith(color: Worlds.cart.$2, fontWeight: FontWeight.w800))),
+                  ),
+                ),
+                const SizedBox(width: Space.md),
+                Expanded(child: Padding(padding: const EdgeInsets.only(top: Space.xs), child: Text(line, style: t.bodyMedium))),
+              ],
+            ),
+          ),
         const SizedBox(height: Space.lg),
         Card(
           child: Padding(
@@ -219,9 +243,7 @@ class _FriendCodeState extends ConsumerState<_FriendCode> {
               padding: const EdgeInsets.only(top: Space.xs),
               child: FilledButton(
                 onPressed: _busy ? null : _apply,
-                child: _busy
-                    ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Apply'),
+                child: _busy ? const ButtonSpinner() : const Text('Apply'),
               ),
             ),
           ],

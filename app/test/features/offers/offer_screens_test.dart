@@ -151,12 +151,13 @@ void main() {
     ]);
     _container(tester).read(couponCodeProvider.notifier).set('DIWALI500');
     await tester.pumpAndSettle();
-    await scrollTo(tester, find.text('Cash on delivery'));
-    await tester.tap(find.text('Cash on delivery'));
-    await tester.pumpAndSettle();
+    // Your order (with the code under the totals) comes before Pay with
     await scrollTo(tester, find.text('Discount · DIWALI500'));
     expect(find.text('−₹500'), findsOneWidget);
     await scrollTo(tester, find.text('DIWALI500 applied'));
+    await scrollTo(tester, find.text('Cash on delivery'));
+    await tester.tap(find.text('Cash on delivery'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Place order · ₹12,499'));
     await tester.pumpAndSettle();
     expect(pay.placed, ['a1 cod DIWALI500']);
@@ -210,13 +211,16 @@ void main() {
     expect(find.text('₹500 off'), findsOneWidget);
     expect(find.textContaining('Ends in 3 days'), findsOneWidget);
     expect(find.textContaining('Selected products only'), findsOneWidget);
-    await scrollTo(tester, find.text('No code needed'));
 
+    await tester.ensureVisible(find.bySemanticsLabel('Copy code DIWALI500'));
     await tester.tap(find.bySemanticsLabel('Copy code DIWALI500'));
     await tester.pump();
     expect(copied, 'DIWALI500');
     expect(find.text('Code DIWALI500 copied'), findsOneWidget);
+    await scrollTo(tester, find.text('No code needed'));
 
+    await tester.ensureVisible(find.bySemanticsLabel('Apply DIWALI500'));
+    await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('Apply DIWALI500'));
     await tester.pumpAndSettle();
     expect(find.text('Page /cart'), findsOneWidget);
@@ -233,7 +237,7 @@ void main() {
     expect(find.text('Flat ₹500 off phones'), findsOneWidget);
     expect(find.text('DIWALI500'), findsOneWidget);
     expect(find.textContaining('Valid till'), findsOneWidget);
-    await scrollTo(tester, find.text('Galaxy A52 5G'));
+    await scrollTo(tester, find.text('Samsung Galaxy A52 5G'));
     expect(find.text('Products in this offer'), findsOneWidget);
 
     await pumpScreen(tester, const OfferDetailScreen(offerId: 'gone'), overrides: [offersApiProvider.overrideWithValue(api)]);
@@ -248,7 +252,8 @@ void main() {
     await pumpScreen(tester, const ReferScreen(), overrides: [offersApiProvider.overrideWithValue(api)]);
     await tester.pumpAndSettle();
     expect(find.text('Give ₹200, get ₹200'), findsOneWidget);
-    expect(find.textContaining('order of theirs of ₹1,999 or more is delivered'), findsOneWidget);
+    expect(find.text('Your friend saves ₹200. You get ₹200 when their order arrives.'), findsOneWidget);
+    await scrollTo(tester, find.text('When that order is delivered, you get a ₹200 coupon.'));
     await scrollTo(tester, find.textContaining('up to 10 rewards a month'));
     expect(find.text('ASHA2026'), findsOneWidget);
     await scrollTo(tester, find.text('Friends joined'));

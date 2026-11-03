@@ -55,6 +55,7 @@ class OffersScreen extends ConsumerWidget {
         data: (list) => list.isEmpty
             ? EmptyState(
                 icon: PhosphorIconsRegular.sealPercent,
+                tone: Worlds.offers,
                 title: 'No offers right now',
                 message: 'New coupons and sales show up here. Check back soon.',
                 action: FilledButton(onPressed: () => context.go('/'), child: const Text('Keep shopping')),
@@ -101,11 +102,12 @@ class OfferDetailScreen extends ConsumerWidget {
       body: AsyncBody<List<Offer>>(
         value: offers,
         onRetry: () => ref.invalidate(availableOffersProvider),
-        loading: const Center(child: CircularProgressIndicator()),
+        loading: Skeletonizer(child: _Detail(offer: _fakeOffer, preview: true)),
         data: (list) => switch (list.where((o) => o.id == offerId).firstOrNull) {
           final o? => _Detail(offer: o),
           null => EmptyState(
               icon: PhosphorIconsRegular.hourglass,
+              tone: Worlds.offers,
               title: 'This offer has ended',
               message: 'Have a look at what’s on now.',
               action: FilledButton(onPressed: () => context.pushReplacement('/offers'), child: const Text('See offers')),
@@ -117,16 +119,17 @@ class OfferDetailScreen extends ConsumerWidget {
 }
 
 class _Detail extends ConsumerWidget {
-  const _Detail({required this.offer});
+  const _Detail({required this.offer, this.preview = false});
 
   final Offer offer;
+  final bool preview; // the loading skeleton: no products to fetch yet
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
     final o = offer;
-    final products = ref.watch(offerProductsProvider(o.id));
+    final products = preview ? const AsyncLoading<Paged<ProductCard>>() : ref.watch(offerProductsProvider(o.id));
     final left = timeLeft(o.endsAt);
     final applied = ref.watch(couponCodeProvider) == o.code;
     final terms = [
@@ -154,7 +157,7 @@ class _Detail extends ConsumerWidget {
                       runSpacing: Space.xs,
                       children: [
                         Tag(offerHeadline(o), tone: TagTone.deal, icon: PhosphorIconsBold.sealPercent),
-                        if (left != null) Tag(left, icon: PhosphorIconsBold.clock),
+                        if (left != null) Tag(left, tone: TagTone.neutral, icon: PhosphorIconsBold.clock),
                       ],
                     ),
                     const SizedBox(height: Space.sm),

@@ -81,20 +81,29 @@ class OfferCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => context.push('/offers/${offer.id}'),
-        child: Padding(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // the deal band: what it gives and how long it lasts, read before the details
+            ColoredBox(
+              color: BrandColors.amberMist,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
+                child: Wrap(
+                  spacing: Space.sm,
+                  runSpacing: Space.xs,
+                  children: [
+                    Tag(offerHeadline(offer), tone: TagTone.deal, icon: PhosphorIconsBold.sealPercent),
+                    if (left != null) Tag(left, tone: TagTone.neutral, icon: PhosphorIconsBold.clock),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
           padding: const EdgeInsets.all(Space.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: Space.sm,
-                runSpacing: Space.xs,
-                children: [
-                  Tag(offerHeadline(offer), tone: TagTone.deal, icon: PhosphorIconsBold.sealPercent),
-                  if (left != null) Tag(left, icon: PhosphorIconsBold.clock),
-                ],
-              ),
-              const SizedBox(height: Space.sm),
               Text(offer.title, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               if (offer.description.isNotEmpty) ...[
                 const SizedBox(height: 2),
@@ -111,13 +120,15 @@ class OfferCard extends StatelessWidget {
                 const Tag('No code needed', tone: TagTone.ok, icon: PhosphorIconsBold.check),
             ],
           ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// The code in a dashed-look box, "Copy code" and (when given) "Apply".
+/// One row: the code in a box that copies it when tapped, then "Apply" (when given), or "Applied" once it is.
 class CodeActions extends StatelessWidget {
   const CodeActions({super.key, required this.code, this.onApply, this.applied = false});
 
@@ -129,31 +140,57 @@ class CodeActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
-    return Wrap(
-      spacing: Space.sm,
-      runSpacing: Space.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    final box = Semantics(
+      container: true, // its own node inside a tappable card
+      button: true,
+      label: 'Copy code $code',
+      excludeSemantics: true,
+      child: Material(
+        color: c.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.sm),
+          side: BorderSide(color: c.outline),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => copyCode(context, code),
+          child: SizedBox(
+            height: 48,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.md),
+              child: Row(
+                children: [
+                  // a long code shrinks instead of wrapping
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(code, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                    ),
+                  ),
+                  const SizedBox(width: Space.sm),
+                  Icon(PhosphorIconsRegular.copy, size: IconSizes.sm, color: c.onSurfaceVariant),
+                  const SizedBox(width: Space.xs),
+                  Text('Copy', style: t.labelMedium?.copyWith(color: c.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (onApply == null && !applied) return box;
+    return Row(
       children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: c.surfaceContainerLow,
-            border: Border.all(color: c.outline),
-            borderRadius: BorderRadius.circular(Radii.sm),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
-            child: Text(code, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-          ),
-        ),
-        TextButton.icon(
-          onPressed: () => copyCode(context, code),
-          icon: const Icon(PhosphorIconsRegular.copy, size: 18),
-          label: Text('Copy code', semanticsLabel: 'Copy code $code'),
-        ),
-        if (onApply != null || applied)
+        Expanded(child: box),
+        const SizedBox(width: Space.sm),
+        if (applied)
+          Semantics(label: '$code applied', excludeSemantics: true, child: const Tag('Applied', tone: TagTone.ok, icon: PhosphorIconsBold.check))
+        else
           FilledButton(
-            onPressed: applied ? null : onApply,
-            child: Text(applied ? 'Applied' : 'Apply', semanticsLabel: applied ? '$code applied' : 'Apply $code'),
+            style: FilledButton.styleFrom(minimumSize: const Size(96, 48)),
+            onPressed: onApply,
+            child: Text('Apply', semanticsLabel: 'Apply $code'),
           ),
       ],
     );
