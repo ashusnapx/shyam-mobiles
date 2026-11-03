@@ -7,7 +7,11 @@ import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../catalog/data/catalog.dart' show brandsProvider;
+import '../../catalog/data/catalog_repository.dart';
+import '../../catalog/data/settings_repository.dart';
+import 'catalog_admin_repository.dart';
 import 'catalogue.dart' show catalogueSummaryProvider;
+import 'photo_store.dart';
 import 'photos.dart';
 import 'rules.dart';
 import '../../repairs/data/booking_days.dart' show istMidnight;
@@ -228,30 +232,14 @@ class AdminProductRow {
   }
 }
 
-const _productColumns = 'id, slug, name, is_active, is_featured, brand:brands(name), category:categories(name), '
-    'images:product_images(path, sort), variants(stock, is_active)';
-
 /// Every product, for the pickers in the offer, group and banner editors (they search the whole list).
-/// shortcut: PostgREST's max_rows (1000) caps it; page the pickers through search if the shop passes 1000 products.
-final adminProductsProvider = FutureProvider.autoDispose<List<AdminProductRow>>((ref) async {
-  final rows = await ref.watch(supabaseProvider).from('products').select(_productColumns).order('name', ascending: true).order('id');
-  return [for (final r in rows) AdminProductRow.fromJson(r)];
-});
+final adminProductsProvider =
+    FutureProvider.autoDispose<List<AdminProductRow>>((ref) => ref.watch(catalogAdminRepositoryProvider).products());
 
-final adminProductProvider = FutureProvider.autoDispose.family<Product, String>((ref, id) async {
-  final row = await ref
-      .watch(supabaseProvider)
-      .from('products')
-      .select('*, brand:brands(*), category:categories(*), images:product_images(*), variants(*)')
-      .eq('id', id)
-      .single();
-  return Product.fromJson(row);
-});
+final adminProductProvider =
+    FutureProvider.autoDispose.family<Product, String>((ref, id) => ref.watch(catalogAdminRepositoryProvider).product(id));
 
-final adminBrandsProvider = FutureProvider.autoDispose<List<Brand>>((ref) async {
-  final rows = await ref.watch(supabaseProvider).from('brands').select().order('name');
-  return [for (final r in rows) Brand.fromJson(r)];
-});
+final adminBrandsProvider = FutureProvider.autoDispose<List<Brand>>((ref) => ref.watch(catalogRepositoryProvider).brands());
 
 /// Staff add a brand from the product form's brand picker. An existing slug returns that brand instead.
 Future<Brand> createBrand(WidgetRef ref, String name) async {
@@ -259,23 +247,14 @@ Future<Brand> createBrand(WidgetRef ref, String name) async {
   final slug = slugify(clean);
   if (clean.isEmpty || clean.length > 40) throw const FormatException('Brand names are 1 to 40 characters.');
   if (slug.isEmpty) throw const FormatException('Use English letters or numbers in the brand name.');
-  final db = _db(ref);
-  Map<String, dynamic> row;
-  try {
-    row = await db.from('brands').insert({'slug': slug, 'name': clean}).select().single();
-  } on PostgrestException catch (e) {
-    if (e.code != '23505') rethrow; // already exists under another spelling: use it
-    row = await db.from('brands').select().eq('slug', slug).single();
-  }
+  final brand = await ref.read(catalogAdminRepositoryProvider).createBrand(clean);
   ref.invalidate(adminBrandsProvider);
   ref.invalidate(brandsProvider);
-  return Brand.fromJson(row);
+  return brand;
 }
 
-final adminCategoriesProvider = FutureProvider.autoDispose<List<Category>>((ref) async {
-  final rows = await ref.watch(supabaseProvider).from('categories').select().order('sort');
-  return [for (final r in rows) Category.fromJson(r)];
-});
+final adminCategoriesProvider =
+    FutureProvider.autoDispose<List<Category>>((ref) => ref.watch(catalogRepositoryProvider).categories());
 
 void _productChanged(WidgetRef ref, String productId) {
   ref.invalidate(adminProductProvider(productId));
@@ -286,101 +265,75 @@ void _productChanged(WidgetRef ref, String productId) {
 
 /// Inserts when [id] is null. Returns the product id.
 Future<String> saveProduct(WidgetRef ref, String? id, Map<String, dynamic> fields) async {
-  final products = _db(ref).from('products');
-  final row = id == null
-      ? await products.insert(fields).select('id').single()
-      : await products.update(fields).eq('id', id).select('id').single();
-  final saved = row['id'] as String;
+  final saved = await ref.read(catalogAdminRepositoryProvider).saveProduct(id, fields);
   _productChanged(ref, saved);
   return saved;
 }
 
 /// Compresses [original] (photos.dart) and uploads `<folder>/<millis>.webp` plus `<folder>/<millis>@thumb.webp`.
 /// Returns the full photo's key, the only one the DB stores, and the sizes for the "4.2 MB → 180 KB" message.
-Future<({String path, int before, int after})> _uploadPhoto(StorageFileApi bucket, String folder, Uint8List original) async {
+Future<({String path, int before, int after})> _uploadPhoto(WidgetRef ref, String folder, Uint8List original) async {
   final photo = await preparePhoto(original);
-  final path = '$folder/${DateTime.now().millisecondsSinceEpoch}.webp';
-  // Keys are never reused (<millis>.webp), so phones may cache a photo for a year: one download per customer.
-  const webp = FileOptions(contentType: 'image/webp', cacheControl: '31536000');
-  await bucket.uploadBinary(path, photo.full, fileOptions: webp);
-  try {
-    await bucket.uploadBinary(thumbPathFor(path)!, photo.thumb, fileOptions: webp);
-  } catch (_) {
-    await _removeQuietly(bucket, [path]);
-    rethrow;
-  }
+  final path = await ref.read(photoStoreProvider).upload(folder, photo);
   return (path: path, before: photo.originalBytes, after: photo.full.length);
 }
 
-/// Best effort: an orphaned file is harmless; the error that caused the clean-up is what matters.
-Future<void> _removeQuietly(StorageFileApi bucket, List<String> paths) async {
-  try {
-    await bucket.remove(paths);
-  } catch (_) {}
+Future<void> _removeFiles(WidgetRef ref, String path) => ref.read(photoStoreProvider).remove([path, ?thumbPathFor(path)]);
+
+/// The product's photos as saved now (the edit screen's copy may be a reload behind).
+Future<List<ProductPhoto>> _photos(WidgetRef ref, String productId) async =>
+    (await ref.read(catalogAdminRepositoryProvider).product(productId)).images;
+
+Future<void> _setPhotos(WidgetRef ref, String productId, List<ProductPhoto> images) async {
+  await ref.read(catalogAdminRepositoryProvider).setProductImages(productId, images);
+  _productChanged(ref, productId);
 }
 
-/// Uploads the photo and its thumb, then adds the product_images row (removing the files if that fails).
+/// Uploads the photo and its thumb, then adds it to the product (removing the files if that fails).
 /// [color]: the variant colour it shows (null: every colour).
 Future<({int before, int after})> addProductImage(WidgetRef ref, String productId, Uint8List original, int sort,
     {String? color}) async {
-  final db = _db(ref);
-  final bucket = db.storage.from('product-images');
-  final up = await _uploadPhoto(bucket, productId, original);
+  final up = await _uploadPhoto(ref, productId, original);
   try {
-    await db.from('product_images').insert({'product_id': productId, 'path': up.path, 'sort': sort, 'color': color});
+    await _setPhotos(ref, productId, [...await _photos(ref, productId), ProductPhoto(id: '', path: up.path, sort: sort, color: color)]);
   } catch (_) {
-    await _removeQuietly(bucket, [up.path, thumbPathFor(up.path)!]);
+    await _removeFiles(ref, up.path);
     rethrow;
   }
-  _productChanged(ref, productId);
   return (before: up.before, after: up.after);
 }
 
-/// Removes the photo from the product but keeps the file: past orders still show it via `order_items.image_path`.
+/// Removes the photo from the product but keeps the file: past orders still show it via the order's image path.
 /// shortcut: files are never cleaned up (~200 KB each); add a sweep for unreferenced files if storage grows.
-Future<void> deleteProductImage(WidgetRef ref, String productId, ProductPhoto image) async {
-  final db = _db(ref);
-  await db.from('product_images').delete().eq('id', image.id);
-  _productChanged(ref, productId);
-}
+Future<void> deleteProductImage(WidgetRef ref, String productId, ProductPhoto image) async =>
+    _setPhotos(ref, productId, [for (final i in await _photos(ref, productId)) if (i.id != image.id) i]);
 
-/// Writes sort = position for every image whose position changed.
-Future<void> reorderImages(WidgetRef ref, String productId, List<ProductPhoto> ordered) async {
-  final db = _db(ref);
-  for (final (i, image) in ordered.indexed) {
-    if (image.sort != i) await db.from('product_images').update({'sort': i}).eq('id', image.id);
-  }
-  _productChanged(ref, productId);
-}
+/// sort = position, in the order shown.
+Future<void> reorderImages(WidgetRef ref, String productId, List<ProductPhoto> ordered) => _setPhotos(
+    ref, productId, [for (final (i, image) in ordered.indexed) ProductPhoto(id: image.id, path: image.path, sort: i, color: image.color)]);
 
 /// Which colour a photo shows: one of the variants' colours, or null for every colour.
-Future<void> setImageColor(WidgetRef ref, String productId, ProductPhoto image, String? color) async {
-  await _db(ref).from('product_images').update({'color': color}).eq('id', image.id);
-  _productChanged(ref, productId);
-}
+Future<void> setImageColor(WidgetRef ref, String productId, ProductPhoto image, String? color) async => _setPhotos(ref, productId, [
+      for (final i in await _photos(ref, productId))
+        i.id == image.id ? ProductPhoto(id: i.id, path: i.path, sort: i.sort, color: color) : i
+    ]);
 
 /// Inserts when [variantId] is null.
 Future<void> saveVariant(WidgetRef ref, String productId, String? variantId, Map<String, dynamic> fields) async {
-  final variants = _db(ref).from('variants');
-  if (variantId == null) {
-    await variants.insert({...fields, 'product_id': productId});
-  } else {
-    await variants.update(fields).eq('id', variantId).select('id').single();
-  }
+  await ref.read(catalogAdminRepositoryProvider).saveVariant(productId, variantId, fields);
   _productChanged(ref, productId);
 }
 
 // Settings --------------------------------------------------------------------
 
 Future<void> saveSettings(WidgetRef ref, StoreSettings settings) async {
-  // store_photos has its own writers below; the form's copy may be stale
-  await _db(ref).from('store_settings').update(settings.toJson()..remove('store_photos')).eq('id', true).select('id').single();
+  await ref.read(settingsRepositoryProvider).saveStoreSettings(settings);
   ref.invalidate(storeSettingsProvider);
 }
 
 /// Saves the shop photo list (max 8) and waits for the reload, so the next edit starts from the saved list.
 Future<void> saveStorePhotos(WidgetRef ref, List<String> paths) async {
-  await _db(ref).from('store_settings').update({'store_photos': paths}).eq('id', true).select('id').single();
+  await ref.read(settingsRepositoryProvider).saveStorePhotos(paths);
   ref.invalidate(storeSettingsProvider);
   try {
     await ref.read(storeSettingsProvider.future);
@@ -389,12 +342,11 @@ Future<void> saveStorePhotos(WidgetRef ref, List<String> paths) async {
 
 /// Uploads the photo and its thumb to `store/`, then appends it to [current] (removing the files if that fails).
 Future<({int before, int after})> addStorePhoto(WidgetRef ref, List<String> current, Uint8List original) async {
-  final bucket = _db(ref).storage.from('product-images');
-  final up = await _uploadPhoto(bucket, 'store', original);
+  final up = await _uploadPhoto(ref, 'store', original);
   try {
     await saveStorePhotos(ref, [...current, up.path]);
   } catch (_) {
-    await _removeQuietly(bucket, [up.path, thumbPathFor(up.path)!]);
+    await _removeFiles(ref, up.path);
     rethrow;
   }
   return (before: up.before, after: up.after);
@@ -403,15 +355,20 @@ Future<({int before, int after})> addStorePhoto(WidgetRef ref, List<String> curr
 /// Unlike product photos, no order points at shop photos, so the file and its thumb are deleted too.
 Future<void> removeStorePhoto(WidgetRef ref, List<String> current, String path) async {
   await saveStorePhotos(ref, [...current]..remove(path));
-  await _removeQuietly(_db(ref).storage.from('product-images'), [path, ?thumbPathFor(path)]);
+  await _removeFiles(ref, path);
+}
+
+/// Staff, signed in within 5 minutes (Rules); Firebase build only.
+Future<void> saveBusinessProfile(WidgetRef ref, BusinessProfile profile) async {
+  await ref.read(settingsRepositoryProvider).saveBusinessProfile(profile);
+  ref.invalidate(businessProfileProvider);
+  ref.invalidate(storeSettingsProvider); // the store phone and address come from it
 }
 
 // Banners ---------------------------------------------------------------------
 
-/// Uploads a banner photo and its thumb to `banners/`; returns the key for `banners.image_path`.
-Future<String> uploadBannerImage(WidgetRef ref, Uint8List original) async =>
-    (await _uploadPhoto(_db(ref).storage.from('product-images'), 'banners', original)).path;
+/// Uploads a banner photo and its thumb to `banners/`; returns the key for the banner's image path.
+Future<String> uploadBannerImage(WidgetRef ref, Uint8List original) async => (await _uploadPhoto(ref, 'banners', original)).path;
 
 /// No order points at banner photos, so a replaced or removed one is deleted with its thumb.
-Future<void> deleteBannerImage(WidgetRef ref, String path) =>
-    _removeQuietly(_db(ref).storage.from('product-images'), [path, ?thumbPathFor(path)]);
+Future<void> deleteBannerImage(WidgetRef ref, String path) => _removeFiles(ref, path);

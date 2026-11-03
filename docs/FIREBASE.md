@@ -330,6 +330,7 @@ The questions Phase 0 left open, settled in `src/orders`, `src/offers`, `src/ref
 - **Per-user offer data:** not mirrored. The app derives it from the customer's own orders (readable under Rules): placed-an-order = any order not cancelled, uses of P = their non-cancelled orders whose `promotion.id` is P. `publicOffers.usedUp` covers the shop-wide limit. `quoteOrder` stays the source of truth.
 - **Promotion ids:** UUIDs (`savePromotion`, referral coupons), so `/offers/{id}` banner links, `validation.ts bannerLink`, `input.json` and `app/lib/core/links.dart` keep their UUID pattern unchanged. A promotion's banner is `banners/{promotionId}`.
 - **`adminSetImeis`:** the contract passes `imeis` through and the handler checks it against the line's qty after the staff and order checks, so the reason carries "need N distinct 15-digit IMEIs". `[]` clears.
+- **`placeOrder` idempotency:** the cart is the key. The order and the emptied cart commit in one transaction, so a retried call after a lost reply fails `CART_EMPTY` instead of placing a second order; App Check's one-use token stops replays.
 - **`deletePromotion`:** refused (`INVALID_PROMOTION`, detail `in use`) while any order that isn't cancelled used it; switch it off instead.
 
 ### GST tax invoices (Phase 2)
