@@ -235,6 +235,31 @@ void main() {
       expect(find.text('Mark all read'), findsNothing);
     });
 
+    testWidgets('a staff link for someone no longer staff opens nothing (pushing Home would break)', (tester) async {
+      api.rows = [note('s', kind: 'staff_new_order', link: '/admin/orders/o1')];
+      final router = GoRouter(routes: [
+        GoRoute(path: '/', builder: (_, _) => const NotificationsScreen()),
+        GoRoute(path: '/admin/orders/:id', builder: (_, s) => Scaffold(body: Text('Page ${s.uri}'))),
+      ]);
+      await tester.pumpWidget(ProviderScope(
+        retry: noAutoRetry,
+        overrides: [
+          currentUserIdProvider.overrideWithValue('user-1'),
+          isAdminProvider.overrideWithValue(const AsyncData(false)),
+          notificationsApiProvider.overrideWithValue(api),
+        ],
+        child: MaterialApp.router(theme: ThemeData(colorScheme: lightScheme), routerConfig: router),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SM1042 is packed'));
+      await tester.pumpAndSettle();
+      expect(find.text('Page /admin/orders/o1'), findsNothing);
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+      expect(api.marked, [
+        ['s'],
+      ]);
+    });
+
     testWidgets('a link that isn''t an app route is never followed', (tester) async {
       api.rows = [note('x', link: 'https://example.com/phish')];
       await pumpScreen(tester, const NotificationsScreen(), overrides: [notificationsApiProvider.overrideWithValue(api)]);

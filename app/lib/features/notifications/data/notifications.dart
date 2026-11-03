@@ -221,7 +221,9 @@ class UnreadCount extends Notifier<int> {
 
   /// Opens what [n] is about and marks it read (the list, the banner, a push tap). Only app routes are followed.
   Future<void> open(GoRouter router, AppNotification n) async {
-    if (safeReturnPath(n.link) case final link?) unawaited(router.push(link));
+    // Staff links for someone no longer staff: the router would turn the push into Home, which can't be pushed.
+    final notStaff = ref.read(isAdminProvider).value == false;
+    if (safeReturnPath(n.link) case final link? when !(notStaff && link.startsWith('/admin'))) unawaited(router.push(link));
     if (!n.unread || n.id.isEmpty) return;
     try {
       await ref.read(notificationsApiProvider).markRead([n.id]);
