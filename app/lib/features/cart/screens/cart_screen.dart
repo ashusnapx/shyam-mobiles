@@ -326,8 +326,15 @@ class _CrossSell extends ConsumerWidget {
     final top = lines.reduce((a, b) => b.variant.pricePaise > a.variant.pricePaise ? b : a);
     final fits = ref.watch(fitsProvider(top.productSlug)).whenData(fresh);
     if (fits.isLoading && !fits.hasValue) return const SizedBox.shrink(); // decides which rail, so no flicker
-    if (fits.value?.isNotEmpty ?? false) return ProductRail(title: 'Add a case or guard for ${top.productName}', value: fits);
-    return ProductRail(title: 'Add-ons under ₹1,500', value: ref.watch(homeProvider).whenData((h) => fresh(h.accessories)));
+    // the cart's one tinted band
+    if (fits.value?.isNotEmpty ?? false) {
+      return ProductRail(title: 'Add a case or guard for ${top.productName}', band: sectionTints.fits, value: fits);
+    }
+    return ProductRail(
+      title: 'Add-ons under ₹1,500',
+      band: sectionTints.deals,
+      value: ref.watch(homeProvider).whenData((h) => fresh(h.accessories)),
+    );
   }
 }
 
