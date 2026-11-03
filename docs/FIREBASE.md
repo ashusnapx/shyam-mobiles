@@ -315,6 +315,23 @@ List queries must carry the constraints Rules check, because Rules are not filte
   - App: `PaymentGateway` interface with a `PhonePePaymentGateway` implementation (SDK init + `startTransaction`). `MainActivity` → `FlutterFragmentActivity`, plus the PhonePe maven repo and the `-keep com.phonepe.**` rule (from the plan).
 - **Razorpay is not kept.** Instant refunds, payment links (until PhonePe grants Payment Links API access; staff use the PhonePe Business dashboard meanwhile), the EMI line, saved cards and dispute alerts (watch the dashboard's chargeback section) all go. `settings/store.onlinePaymentEnabled` is the server-enforced kill switch.
 
+### Commerce decisions made in Phase 1 (engineer C)
+
+The questions Phase 0 left open, settled in `src/orders`, `src/offers`, `src/referrals`:
+
+- **Refunded total:** no field on the order. The processed docs under `orders/{id}/refunds` are the record; `settleRefund` and D's `planRefund` sum them inside their transactions (an order has at most a handful).
+- **Refund pending state:** `settleRefund` with `state: 'pending'` records the gateway's `gatewayRefundId` and stays pending. That id is what "one refund in flight" (`REFUND_IN_PROGRESS`) keys on; a pending refund without it is retried with the same id.
+- **Late payment reviving an expired order:** stock is taken again and the coupon use comes back (redemption active, `usesActive` +1), even past the usage limit, because the customer paid the discounted total. A cancel by the customer or staff is never revived: the order stays cancelled + paid (needs refund).
+- **`expireUnpaidOrders` output:** `{expired: n}`, logged by the schedule. Each order expires in its own transaction (≤ 100 per run).
+- **Mark refunded while a PhonePe refund is in flight:** refused with `REFUND_IN_PROGRESS` while `pendingRefundId` is set.
+- **Failed codes at `placeOrder`:** they count toward the coupon rate limit (recorded in `rateLimits/{uid}.couponFails` after the checkout rolls back). A wrong referral code counts toward `applyReferralCode`'s limit the same way.
+- **Per-user serialisation:** `rateLimits/{uid}` is read and written by `placeOrder` and `applyReferralCode` (their rate limits), which serialises them per user in place of writing `users/{uid}`.
+- **`promoCodes` never client-readable:** Rules deny it, with `redemptions`, `referralCodes`, `counters` and `orders/*/payments`. Staff read `promotions` and `referrals`; everyone reads `publicOffers`; a customer reads only their own `users/{uid}/coupons`.
+- **Per-user offer data:** not mirrored. The app derives it from the customer's own orders (readable under Rules): placed-an-order = any order not cancelled, uses of P = their non-cancelled orders whose `promotion.id` is P. `publicOffers.usedUp` covers the shop-wide limit. `quoteOrder` stays the source of truth.
+- **Promotion ids:** UUIDs (`savePromotion`, referral coupons), so `/offers/{id}` banner links, `validation.ts bannerLink`, `input.json` and `app/lib/core/links.dart` keep their UUID pattern unchanged. A promotion's banner is `banners/{promotionId}`.
+- **`adminSetImeis`:** the contract passes `imeis` through and the handler checks it against the line's qty after the staff and order checks, so the reason carries "need N distinct 15-digit IMEIs". `[]` clears.
+- **`deletePromotion`:** refused (`INVALID_PROMOTION`, detail `in use`) while any order that isn't cancelled used it; switch it off instead.
+
 ### GST tax invoices (Phase 2)
 
 - **Product fields:** `hsnCode` (store 8 digits). Per Notification 78/2020-CT, shops with turnover up to ₹5 crore print at least 4 digits on B2B invoices. Defaults for the seed: smartphones `85171300`, other mobile phones `85171400`, chargers `85044030`, earphones/headsets `85183000`, power banks `85076000`, cables `85444299`, memory cards `85235100`, plastic cases `39269099`, screen guards `39199090`/`70071900`. All at **18%** (`gstRateBp: 1800`): mobile phones stayed at 18% through the 22 Sept 2025 rate rationalisation. Staff can edit both per product, and every value is reviewed by the shop's CA before go-live.
@@ -338,6 +355,11 @@ List queries must carry the constraints Rules check, because Rules are not filte
 - **Referral reward** on delivery happens in the `adminUpdateOrder` transaction (§3), not in a trigger, so it is exactly once.
 - **Expiry:** `onSchedule({schedule: 'every 5 minutes', timeZone: 'Asia/Kolkata'})`. Cleanup is TTL only.
 - **Feedback:** `sendFeedback` (ownership, 10 per day, re-rating replaces and resets to `new`). Staff mark seen or resolved and add a note under field-limited Rules.
+- **Phase 1 decisions (D):**
+  - Payments keep their pure `flows.ts` and `PaymentError`; `handlers.ts` maps it to the `fail()` shape. `PAYMENT_IN_PROGRESS` (a second tap while the PhonePe order is being made) reaches the app as `GATEWAY_ERROR`; `REFUND_NOT_ALLOWED`/`REFUND_REFUSED` keep their staff copy in the message.
+  - D writes `refunds/{id}.gatewayRefundId` when PhonePe accepts a refund (pending); `settleRefund` is called only for completed/failed. A pending refund with that id makes the next Refund tap `REFUND_IN_PROGRESS`; one without it is retried with the same id (settlement.json). Refund docs carry `itemIds`.
+  - Repairs: quotes may be ₹0 (as the SQL allowed). A booking date outside IST today..+30 is `BAD_REQUEST` (detail `preferredDate`). No staff walk-in booking callable (not in the contract).
+  - Notification ids: `<sourceId>_<key>_<kind>_<uid>`, key = event index, `p<n>` for a payment/tracking change, `r<refundId>`, `s<eventId>` for stock; one atomic batch of `create()`s per trigger run. Feedback keys on the doc's update time, so a re-rating notifies again. Back-in-stock ids are `bis_<variantId>_<restockSeq>` under each user; opted-out users keep their mark.
 - **Analytics** (GA4, through `Telemetry`): `view_item_list` (home rails, search results), `search`, `view_item`, `add_to_wishlist`, `add_to_cart`, `remove_from_cart`, `view_cart`, `begin_checkout`, `add_shipping_info`, `add_payment_info`, `purchase` (after COD placement or `verifyPayment` = paid; `transaction_id` = order number, `value` in rupees, `coupon`), `view_promotion`/`select_promotion` (banners), `login`/`sign_up` (`method`: google|phone), plus custom `book_repair`, `apply_referral`, `send_feedback`. Collection is **opt-in** (SECURITY §4.2–4.3). There is no user id, no PII, and `search` sends a result count rather than the term. Google signals and ad personalisation are off.
 - **Crashlytics:** `FlutterError.onError` and `PlatformDispatcher.onError` go to Crashlytics. Unexpected errors behind `friendlyError` are logged as non-fatal. There is no user identifier. Custom keys come from an allowlist: `build`, `backend`, `route`. Release builds use `--obfuscate --split-debug-info`, and the Dart symbols are uploaded with `firebase crashlytics:symbols:upload`.
 - **Remote Config** is for client-only presentation, never for business rules (those live in `settings/store`, enforced by the server): `min_supported_build` (force-update screen) and `notice_banner` (maintenance text). Fetch interval 12 h, with in-app defaults.
