@@ -5,6 +5,7 @@ import { cleanMultiline, cleanText, v } from "../shared/validation.js";
 // Owner: engineer D. Repair bookings (docs/FIREBASE.md §3 "Repair state machine").
 const ok = z.object({});
 const booking = z.strictObject({ repairId: v.docId });
+const quotePaise = z.number().int().min(0).max(100_000_000); // ₹0 (warranty) to the app's ₹10,00,000 cap
 
 /** REPAIR_LIMIT at 3 open bookings; preferredDate today..+30 days (IST). */
 export const bookRepair = contract(
@@ -24,7 +25,7 @@ export const bookRepair = contract(
 export const cancelRepair = contract("cancelRepair", booking, ok);
 
 /** Sends the amount the customer was shown: QUOTE_CHANGED if staff changed it meanwhile. */
-export const approveRepairQuote = contract("approveRepairQuote", booking.extend({ quotePaise: v.pricePaise }), ok);
+export const approveRepairQuote = contract("approveRepairQuote", booking.extend({ quotePaise }), ok);
 
 export const declineRepairQuote = contract("declineRepairQuote", booking.extend({ reason: cleanMultiline(500).nullish() }), ok);
 
@@ -41,6 +42,6 @@ export const adminUpdateRepair = contract(
 /** Staff: sends or changes the quote; [approved] records a yes given at the counter or on the phone. */
 export const adminSetRepairQuote = contract(
   "adminSetRepairQuote",
-  booking.extend({ quotePaise: v.pricePaise, note: cleanMultiline(500).nullish(), approved: z.boolean().default(false) }),
+  booking.extend({ quotePaise, note: cleanMultiline(500).nullish(), approved: z.boolean().default(false) }),
   ok,
 );

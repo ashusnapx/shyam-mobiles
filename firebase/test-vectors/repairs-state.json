@@ -1,0 +1,1581 @@
+{
+  "about": "The repair state machine (repairs/state.ts) behind bookRepair, cancelRepair, approveRepairQuote, declineRepairQuote, adminUpdateRepair and adminSetRepairQuote. Ported from supabase/tests/repair_flow.test.sql, with the SQL in supabase/migrations/20261030000300_repair_flow.sql (the RPCs) and 20261028000100_auth_rls.sql (the booking policy and the 3-open limit). Staff steps: requested->confirmed->in_progress->ready->completed, or cancelled from any open step; the current status again adds only the note. in_progress and ready need an approved quote (QUOTE_NOT_APPROVED, detail: the quote status). Quotes while requested, confirmed or in_progress; each one waits for the customer again unless approved:true. Every change appends one events[] entry {status, quoteStatus?, quotePaise?, note?, by, byUid, at}. \"$repairId\" = the repairId bookRepair returned. \"expect\": {} means the call succeeds. Arrays in \"then\" match element by element and must have the same length ({} matches any element). In \"then\", null means the field is absent or null.",
+  "now": "2026-11-03T00:30:00+05:30",
+  "world": {
+    "users/asha": {
+      "fullName": "Asha",
+      "phone": "+919876543210"
+    },
+    "users/ravi": {
+      "fullName": "Ravi",
+      "phone": "+919876543211"
+    },
+    "users/neha": {
+      "fullName": "Neha",
+      "phone": "+919876543212"
+    },
+    "users/staff": {
+      "fullName": "Staff",
+      "role": "staff"
+    },
+    "repairs/req": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "requested",
+      "quote": {
+        "paise": null,
+        "status": "none"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/conf": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "confirmed",
+      "quote": {
+        "paise": null,
+        "status": "none"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "confirmed",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff",
+          "note": "See you at 5 pm."
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/conf-pending": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "confirmed",
+      "quote": {
+        "paise": 20000,
+        "status": "pending"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "confirmed",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        },
+        {
+          "status": "confirmed",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff",
+          "quoteStatus": "pending",
+          "quotePaise": 20000
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/conf-declined": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "confirmed",
+      "quote": {
+        "paise": 20000,
+        "status": "declined",
+        "decidedAt": "@now-1h"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "confirmed",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        },
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha",
+          "quoteStatus": "declined",
+          "quotePaise": 20000
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/conf-approved": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "confirmed",
+      "quote": {
+        "paise": 18000,
+        "status": "approved",
+        "decidedAt": "@now-1h"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "confirmed",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        },
+        {
+          "status": "confirmed",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha",
+          "quoteStatus": "approved",
+          "quotePaise": 18000
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/prog": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "in_progress",
+      "quote": {
+        "paise": 18000,
+        "status": "approved",
+        "decidedAt": "@now-1h"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "confirmed",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        },
+        {
+          "status": "in_progress",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/prog-pending": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "in_progress",
+      "quote": {
+        "paise": 25000,
+        "status": "pending"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "in_progress",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        },
+        {
+          "status": "in_progress",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff",
+          "quoteStatus": "pending",
+          "quotePaise": 25000
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/ready": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "ready",
+      "quote": {
+        "paise": 25000,
+        "status": "approved",
+        "decidedAt": "@now-1h"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "in_progress",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        },
+        {
+          "status": "ready",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/done": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "Y20",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "completed",
+      "quote": {
+        "paise": 25000,
+        "status": "approved",
+        "decidedAt": "@now-1h"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "ready",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        },
+        {
+          "status": "completed",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff"
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/req-pending": {
+      "number": "RP100001",
+      "uid": "asha",
+      "deviceBrand": "Vivo",
+      "deviceModel": "A5",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "requested",
+      "quote": {
+        "paise": 90000,
+        "status": "pending"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "asha"
+        },
+        {
+          "status": "requested",
+          "by": "staff",
+          "at": "@now-1h",
+          "byUid": "staff",
+          "quoteStatus": "pending",
+          "quotePaise": 90000
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    },
+    "repairs/ravis": {
+      "number": "RP100001",
+      "uid": "ravi",
+      "deviceBrand": "Vivo",
+      "deviceModel": "A7",
+      "issue": "battery",
+      "description": "",
+      "preferredDate": "2026-11-03",
+      "slot": "evening",
+      "contactPhone": "+919876543210",
+      "status": "requested",
+      "quote": {
+        "paise": null,
+        "status": "none"
+      },
+      "events": [
+        {
+          "status": "requested",
+          "by": "customer",
+          "at": "@now-1h",
+          "byUid": "ravi"
+        }
+      ],
+      "createdAt": "@now-2h",
+      "updatedAt": "@now-1h"
+    }
+  },
+  "cases": [
+    {
+      "id": "customer-books-a-repair",
+      "source": "supabase/tests/repair_flow.test.sql:33",
+      "about": "The first booking ever takes RP100001 (no counters/repairs yet). 'Today' is the shop's date: at 00:30 IST it is already 3 Nov though UTC is still 2 Nov.",
+      "as": "neha",
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-11-03",
+        "slot": "evening",
+        "contactPhone": "+919876543210"
+      },
+      "expect": {
+        "repairId": "$repairId"
+      },
+      "then": {
+        "repairs/$repairId": {
+          "number": "RP100001",
+          "uid": "neha",
+          "deviceModel": "Y21",
+          "status": "requested",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "byUid": "neha",
+              "at": "@now"
+            }
+          ],
+          "createdAt": "@now",
+          "purgeAt": "@now+1098d"
+        },
+        "counters/repairs": {
+          "next": 100002
+        }
+      }
+    },
+    {
+      "id": "booking-continues-the-repair-numbers",
+      "source": "supabase/tests/repair_flow.test.sql:33",
+      "as": "neha",
+      "given": {
+        "counters/repairs": {
+          "next": 100042
+        }
+      },
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-11-03",
+        "slot": "evening",
+        "contactPhone": "+919876543210"
+      },
+      "expect": {
+        "repairId": "$repairId"
+      },
+      "then": {
+        "repairs/$repairId": {
+          "number": "RP100042"
+        },
+        "counters/repairs": {
+          "next": 100043
+        }
+      }
+    },
+    {
+      "id": "three-open-repairs-is-the-limit",
+      "source": "supabase/tests/repair_flow.test.sql:100",
+      "about": "supabase/migrations/20261028000100_auth_rls.sql:100 (repair_bookings_before_insert): at most 3 open bookings.",
+      "as": "ravi",
+      "given": {
+        "repairs/ravi2": {
+          "number": "RP100001",
+          "uid": "ravi",
+          "deviceBrand": "Vivo",
+          "deviceModel": "Y20",
+          "issue": "battery",
+          "description": "",
+          "preferredDate": "2026-11-03",
+          "slot": "evening",
+          "contactPhone": "+919876543210",
+          "status": "confirmed",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [],
+          "createdAt": "@now-2h",
+          "updatedAt": "@now-1h"
+        },
+        "repairs/ravi3": {
+          "number": "RP100001",
+          "uid": "ravi",
+          "deviceBrand": "Vivo",
+          "deviceModel": "Y20",
+          "issue": "battery",
+          "description": "",
+          "preferredDate": "2026-11-03",
+          "slot": "evening",
+          "contactPhone": "+919876543210",
+          "status": "ready",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [],
+          "createdAt": "@now-2h",
+          "updatedAt": "@now-1h"
+        }
+      },
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-11-03",
+        "slot": "evening",
+        "contactPhone": "+919876543211"
+      },
+      "error": "REPAIR_LIMIT",
+      "errorDetail": 3
+    },
+    {
+      "id": "finished-repairs-do-not-count",
+      "source": "supabase/tests/repair_flow.test.sql:100",
+      "as": "ravi",
+      "given": {
+        "repairs/ravi2": {
+          "number": "RP100001",
+          "uid": "ravi",
+          "deviceBrand": "Vivo",
+          "deviceModel": "Y20",
+          "issue": "battery",
+          "description": "",
+          "preferredDate": "2026-11-03",
+          "slot": "evening",
+          "contactPhone": "+919876543210",
+          "status": "completed",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [],
+          "createdAt": "@now-2h",
+          "updatedAt": "@now-1h"
+        },
+        "repairs/ravi3": {
+          "number": "RP100001",
+          "uid": "ravi",
+          "deviceBrand": "Vivo",
+          "deviceModel": "Y20",
+          "issue": "battery",
+          "description": "",
+          "preferredDate": "2026-11-03",
+          "slot": "evening",
+          "contactPhone": "+919876543210",
+          "status": "cancelled",
+          "quote": {
+            "paise": null,
+            "status": "none"
+          },
+          "events": [],
+          "createdAt": "@now-2h",
+          "updatedAt": "@now-1h"
+        }
+      },
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-11-03",
+        "slot": "evening",
+        "contactPhone": "+919876543211"
+      },
+      "expect": {
+        "repairId": "$repairId"
+      },
+      "then": {
+        "repairs/$repairId": {
+          "uid": "ravi",
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "id": "booking-date-before-today-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:183",
+      "about": "supabase/migrations/20261028000100_auth_rls.sql:183: preferred_date between IST today and today + 30.",
+      "as": "neha",
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-11-02",
+        "slot": "evening",
+        "contactPhone": "+919876543210"
+      },
+      "error": "BAD_REQUEST",
+      "errorDetail": [
+        "preferredDate"
+      ]
+    },
+    {
+      "id": "booking-30-days-ahead-is-allowed",
+      "source": "supabase/tests/repair_flow.test.sql:183",
+      "as": "neha",
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-12-03",
+        "slot": "evening",
+        "contactPhone": "+919876543210"
+      },
+      "expect": {
+        "repairId": "$repairId"
+      }
+    },
+    {
+      "id": "booking-31-days-ahead-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:183",
+      "as": "neha",
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-12-04",
+        "slot": "evening",
+        "contactPhone": "+919876543210"
+      },
+      "error": "BAD_REQUEST",
+      "errorDetail": [
+        "preferredDate"
+      ]
+    },
+    {
+      "id": "booking-signed-out-is-unauthorized",
+      "source": "supabase/tests/repair_flow.test.sql:33",
+      "as": "anon",
+      "call": "bookRepair",
+      "input": {
+        "deviceBrand": "Vivo",
+        "deviceModel": "Y21",
+        "issue": "battery",
+        "description": "",
+        "preferredDate": "2026-11-03",
+        "slot": "evening",
+        "contactPhone": "+919876543210"
+      },
+      "error": "UNAUTHORIZED"
+    },
+    {
+      "id": "customers-cannot-move-a-booking",
+      "source": "supabase/tests/repair_flow.test.sql:43",
+      "as": "asha",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "req",
+        "status": "confirmed"
+      },
+      "error": "FORBIDDEN"
+    },
+    {
+      "id": "customers-cannot-quote",
+      "source": "supabase/tests/repair_flow.test.sql:44",
+      "as": "asha",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "req",
+        "quotePaise": 0,
+        "approved": true
+      },
+      "error": "FORBIDDEN"
+    },
+    {
+      "id": "requested-to-in-progress-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:53",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "req",
+        "status": "in_progress"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "requested -> in_progress",
+      "then": {
+        "repairs/req": {
+          "status": "requested",
+          "events": [
+            {}
+          ]
+        }
+      }
+    },
+    {
+      "id": "requested-to-ready-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:54",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "req",
+        "status": "ready"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "requested -> ready",
+      "then": {
+        "repairs/req": {
+          "status": "requested",
+          "events": [
+            {}
+          ]
+        }
+      }
+    },
+    {
+      "id": "requested-to-completed-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:55",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "req",
+        "status": "completed"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "requested -> completed",
+      "then": {
+        "repairs/req": {
+          "status": "requested",
+          "events": [
+            {}
+          ]
+        }
+      }
+    },
+    {
+      "id": "unknown-booking-is-not-found",
+      "source": "supabase/tests/repair_flow.test.sql:56",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "nope",
+        "status": "confirmed"
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "staff-confirm-with-a-note",
+      "source": "supabase/tests/repair_flow.test.sql:57",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "req",
+        "status": "confirmed",
+        "note": "See you at 5 pm."
+      },
+      "expect": {},
+      "then": {
+        "repairs/req": {
+          "status": "confirmed",
+          "updatedAt": "@now",
+          "events": [
+            {},
+            {
+              "status": "confirmed",
+              "note": "See you at 5 pm.",
+              "by": "staff",
+              "byUid": "staff",
+              "at": "@now"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "no-work-without-a-quote",
+      "source": "supabase/tests/repair_flow.test.sql:60",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "conf",
+        "status": "in_progress"
+      },
+      "error": "QUOTE_NOT_APPROVED",
+      "errorDetail": "none"
+    },
+    {
+      "id": "confirmed-to-ready-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:61",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "conf",
+        "status": "ready"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "confirmed -> ready"
+    },
+    {
+      "id": "confirmed-to-completed-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:62",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "conf",
+        "status": "completed"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "confirmed -> completed"
+    },
+    {
+      "id": "confirmed-to-requested-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:63",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "conf",
+        "status": "requested"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "confirmed -> requested"
+    },
+    {
+      "id": "negative-quote-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:64",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "conf",
+        "quotePaise": -1
+      },
+      "error": "BAD_REQUEST",
+      "errorDetail": [
+        "quotePaise"
+      ]
+    },
+    {
+      "id": "missing-quote-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:65",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "conf"
+      },
+      "error": "BAD_REQUEST",
+      "errorDetail": [
+        "quotePaise"
+      ]
+    },
+    {
+      "id": "staff-quote-waits-for-the-customer",
+      "source": "supabase/tests/repair_flow.test.sql:66",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "conf",
+        "quotePaise": 20000,
+        "note": "Battery and labour"
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf": {
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "pending",
+            "decidedAt": null
+          },
+          "events": [
+            {},
+            {},
+            {
+              "status": "confirmed",
+              "quoteStatus": "pending",
+              "quotePaise": 20000,
+              "note": "Battery and labour",
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a-free-repair-can-be-quoted",
+      "source": "supabase/tests/repair_flow.test.sql:175",
+      "about": "admin_set_repair_quote takes 0 to 100000000 paise (repair_flow.sql:175): a warranty job costs nothing.",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "conf",
+        "quotePaise": 0
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf": {
+          "quote": {
+            "paise": 0,
+            "status": "pending"
+          },
+          "events": [
+            {},
+            {},
+            {
+              "quoteStatus": "pending",
+              "quotePaise": 0,
+              "note": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "no-work-while-the-quote-is-pending",
+      "source": "supabase/tests/repair_flow.test.sql:70",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "conf-pending",
+        "status": "in_progress"
+      },
+      "error": "QUOTE_NOT_APPROVED",
+      "errorDetail": "pending"
+    },
+    {
+      "id": "only-the-owner-approves",
+      "source": "supabase/tests/repair_flow.test.sql:74",
+      "as": "ravi",
+      "call": "approveRepairQuote",
+      "input": {
+        "repairId": "conf-pending",
+        "quotePaise": 20000
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "only-the-owner-declines",
+      "source": "supabase/tests/repair_flow.test.sql:75",
+      "as": "ravi",
+      "call": "declineRepairQuote",
+      "input": {
+        "repairId": "conf-pending"
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "approving-a-price-not-seen-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:77",
+      "as": "asha",
+      "call": "approveRepairQuote",
+      "input": {
+        "repairId": "conf-pending",
+        "quotePaise": 15000
+      },
+      "error": "QUOTE_CHANGED",
+      "then": {
+        "repairs/conf-pending": {
+          "quote": {
+            "status": "pending"
+          },
+          "events": [
+            {},
+            {},
+            {}
+          ]
+        }
+      }
+    },
+    {
+      "id": "customer-declines-with-a-reason",
+      "source": "supabase/tests/repair_flow.test.sql:78",
+      "as": "asha",
+      "call": "declineRepairQuote",
+      "input": {
+        "repairId": "conf-pending",
+        "reason": "Too costly"
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf-pending": {
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "declined",
+            "decidedAt": "@now"
+          },
+          "events": [
+            {},
+            {},
+            {},
+            {
+              "status": "confirmed",
+              "quoteStatus": "declined",
+              "quotePaise": 20000,
+              "note": "Too costly",
+              "by": "customer",
+              "byUid": "asha"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "customer-declines-without-a-reason",
+      "source": "supabase/tests/repair_flow.test.sql:78",
+      "as": "asha",
+      "call": "declineRepairQuote",
+      "input": {
+        "repairId": "conf-pending",
+        "reason": null
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf-pending": {
+          "quote": {
+            "status": "declined"
+          },
+          "events": [
+            {},
+            {},
+            {},
+            {
+              "quoteStatus": "declined",
+              "note": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "no-approving-a-declined-quote",
+      "source": "supabase/tests/repair_flow.test.sql:82",
+      "as": "asha",
+      "call": "approveRepairQuote",
+      "input": {
+        "repairId": "conf-declined",
+        "quotePaise": 20000
+      },
+      "error": "INVALID_TRANSITION"
+    },
+    {
+      "id": "no-declining-twice",
+      "source": "supabase/tests/repair_flow.test.sql:83",
+      "as": "asha",
+      "call": "declineRepairQuote",
+      "input": {
+        "repairId": "conf-declined"
+      },
+      "error": "INVALID_TRANSITION"
+    },
+    {
+      "id": "no-work-on-a-declined-quote",
+      "source": "supabase/tests/repair_flow.test.sql:85",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "conf-declined",
+        "status": "in_progress"
+      },
+      "error": "QUOTE_NOT_APPROVED",
+      "errorDetail": "declined"
+    },
+    {
+      "id": "staff-quote-again-after-a-decline",
+      "source": "supabase/tests/repair_flow.test.sql:86",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "conf-declined",
+        "quotePaise": 18000
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf-declined": {
+          "quote": {
+            "paise": 18000,
+            "status": "pending",
+            "decidedAt": null
+          }
+        }
+      }
+    },
+    {
+      "id": "customer-approves-the-price-shown",
+      "source": "supabase/tests/repair_flow.test.sql:88",
+      "as": "asha",
+      "call": "approveRepairQuote",
+      "input": {
+        "repairId": "conf-pending",
+        "quotePaise": 20000
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf-pending": {
+          "status": "confirmed",
+          "quote": {
+            "paise": 20000,
+            "status": "approved",
+            "decidedAt": "@now"
+          },
+          "events": [
+            {},
+            {},
+            {},
+            {
+              "status": "confirmed",
+              "quoteStatus": "approved",
+              "quotePaise": 20000,
+              "note": null,
+              "by": "customer",
+              "byUid": "asha",
+              "at": "@now"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "work-starts-once-approved",
+      "source": "supabase/tests/repair_flow.test.sql:94",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "conf-approved",
+        "status": "in_progress"
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf-approved": {
+          "status": "in_progress",
+          "events": [
+            {},
+            {},
+            {},
+            {
+              "status": "in_progress",
+              "note": null,
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "customers-cannot-cancel-once-work-starts",
+      "source": "supabase/tests/repair_flow.test.sql:96",
+      "as": "asha",
+      "call": "cancelRepair",
+      "input": {
+        "repairId": "prog"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "in_progress -> cancelled"
+    },
+    {
+      "id": "in-progress-to-completed-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:98",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "prog",
+        "status": "completed"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "in_progress -> completed"
+    },
+    {
+      "id": "quote-changed-mid-repair-waits-again",
+      "source": "supabase/tests/repair_flow.test.sql:99",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "prog",
+        "quotePaise": 25000,
+        "note": "The charging port is broken too"
+      },
+      "expect": {},
+      "then": {
+        "repairs/prog": {
+          "status": "in_progress",
+          "quote": {
+            "paise": 25000,
+            "status": "pending",
+            "decidedAt": null
+          }
+        }
+      }
+    },
+    {
+      "id": "not-ready-until-the-new-price-is-approved",
+      "source": "supabase/tests/repair_flow.test.sql:100",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "prog-pending",
+        "status": "ready"
+      },
+      "error": "QUOTE_NOT_APPROVED",
+      "errorDetail": "pending"
+    },
+    {
+      "id": "staff-record-a-yes-given-on-the-phone",
+      "source": "supabase/tests/repair_flow.test.sql:101",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "prog-pending",
+        "quotePaise": 25000,
+        "approved": true
+      },
+      "expect": {},
+      "then": {
+        "repairs/prog-pending": {
+          "quote": {
+            "paise": 25000,
+            "status": "approved",
+            "decidedAt": "@now"
+          },
+          "events": [
+            {},
+            {},
+            {},
+            {
+              "status": "in_progress",
+              "quoteStatus": "approved",
+              "quotePaise": 25000,
+              "note": "Agreed with the store.",
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ready-once-approved",
+      "source": "supabase/tests/repair_flow.test.sql:104",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "prog",
+        "status": "ready"
+      },
+      "expect": {},
+      "then": {
+        "repairs/prog": {
+          "status": "ready"
+        }
+      }
+    },
+    {
+      "id": "no-new-quote-once-ready",
+      "source": "supabase/tests/repair_flow.test.sql:105",
+      "as": "staff",
+      "call": "adminSetRepairQuote",
+      "input": {
+        "repairId": "ready",
+        "quotePaise": 30000
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "no quotes once ready"
+    },
+    {
+      "id": "ready-to-in-progress-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:106",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "ready",
+        "status": "in_progress"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "ready -> in_progress"
+    },
+    {
+      "id": "ready-to-completed",
+      "source": "supabase/tests/repair_flow.test.sql:107",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "ready",
+        "status": "completed"
+      },
+      "expect": {},
+      "then": {
+        "repairs/ready": {
+          "status": "completed",
+          "events": [
+            {},
+            {},
+            {},
+            {
+              "status": "completed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a-note-after-completion",
+      "source": "supabase/tests/repair_flow.test.sql:108",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "done",
+        "status": "completed",
+        "note": "3 months warranty on the battery."
+      },
+      "expect": {},
+      "then": {
+        "repairs/done": {
+          "status": "completed",
+          "events": [
+            {},
+            {},
+            {},
+            {
+              "status": "completed",
+              "note": "3 months warranty on the battery.",
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "same-status-without-a-note-changes-nothing",
+      "source": "supabase/tests/repair_flow.test.sql:109",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "done",
+        "status": "completed"
+      },
+      "expect": {},
+      "then": {
+        "repairs/done": {
+          "events": [
+            {},
+            {},
+            {}
+          ],
+          "updatedAt": "@now-1h"
+        }
+      }
+    },
+    {
+      "id": "completed-to-cancelled-is-refused",
+      "source": "supabase/tests/repair_flow.test.sql:110",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "done",
+        "status": "cancelled"
+      },
+      "error": "INVALID_TRANSITION",
+      "errorDetail": "completed -> cancelled"
+    },
+    {
+      "id": "customer-cancels-with-a-quote-pending",
+      "source": "supabase/tests/repair_flow.test.sql:123",
+      "as": "asha",
+      "call": "cancelRepair",
+      "input": {
+        "repairId": "req-pending"
+      },
+      "expect": {},
+      "then": {
+        "repairs/req-pending": {
+          "status": "cancelled",
+          "quote": {
+            "status": "pending"
+          },
+          "events": [
+            {},
+            {},
+            {
+              "status": "cancelled",
+              "note": "Cancelled by you.",
+              "by": "customer",
+              "byUid": "asha"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "customer-cancels-a-confirmed-booking",
+      "source": "supabase/tests/repair_flow.test.sql:126",
+      "as": "asha",
+      "call": "cancelRepair",
+      "input": {
+        "repairId": "conf"
+      },
+      "expect": {},
+      "then": {
+        "repairs/conf": {
+          "status": "cancelled"
+        }
+      }
+    },
+    {
+      "id": "only-the-owner-cancels",
+      "source": "supabase/tests/repair_flow.test.sql:126",
+      "as": "ravi",
+      "call": "cancelRepair",
+      "input": {
+        "repairId": "req"
+      },
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "no-approving-a-cancelled-booking",
+      "source": "supabase/tests/repair_flow.test.sql:124",
+      "as": "asha",
+      "given": {
+        "repairs/req-pending": {
+          "number": "RP100001",
+          "uid": "asha",
+          "deviceBrand": "Vivo",
+          "deviceModel": "A5",
+          "issue": "battery",
+          "description": "",
+          "preferredDate": "2026-11-03",
+          "slot": "evening",
+          "contactPhone": "+919876543210",
+          "status": "cancelled",
+          "quote": {
+            "paise": 90000,
+            "status": "pending"
+          },
+          "events": [
+            {
+              "status": "requested",
+              "by": "customer",
+              "at": "@now-1h",
+              "byUid": "asha"
+            }
+          ],
+          "createdAt": "@now-2h",
+          "updatedAt": "@now-1h"
+        }
+      },
+      "call": "approveRepairQuote",
+      "input": {
+        "repairId": "req-pending",
+        "quotePaise": 90000
+      },
+      "error": "INVALID_TRANSITION"
+    },
+    {
+      "id": "staff-cancel-with-a-reason",
+      "source": "supabase/tests/repair_flow.test.sql:127",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "req",
+        "status": "cancelled",
+        "note": "Cancelled by the store: part not available"
+      },
+      "expect": {},
+      "then": {
+        "repairs/req": {
+          "status": "cancelled",
+          "events": [
+            {},
+            {
+              "status": "cancelled",
+              "note": "Cancelled by the store: part not available"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "staff-cancel-without-one",
+      "source": "supabase/tests/repair_flow.test.sql:128",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "ravis",
+        "status": "cancelled"
+      },
+      "expect": {},
+      "then": {
+        "repairs/ravis": {
+          "status": "cancelled",
+          "events": [
+            {},
+            {
+              "status": "cancelled",
+              "note": "Cancelled by the store.",
+              "by": "staff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "staff-cancel-an-in-progress-repair",
+      "source": "supabase/tests/repair_flow.test.sql:166",
+      "as": "staff",
+      "call": "adminUpdateRepair",
+      "input": {
+        "repairId": "prog",
+        "status": "cancelled"
+      },
+      "expect": {},
+      "then": {
+        "repairs/prog": {
+          "status": "cancelled"
+        }
+      }
+    },
+    {
+      "id": "signed-out-cannot-approve",
+      "source": "supabase/tests/repair_flow.test.sql:141",
+      "as": "anon",
+      "call": "approveRepairQuote",
+      "input": {
+        "repairId": "conf-pending",
+        "quotePaise": 0
+      },
+      "error": "UNAUTHORIZED"
+    }
+  ],
+  "notExpressed": [
+    {
+      "source": "supabase/tests/repair_flow.test.sql:136",
+      "why": "Walk-ins (staff book for a null user, already confirmed, with a quote): bookRepair is the customer's call and has no walk-in fields. Staff book walk-ins at the counter; add a staff booking callable if the shop asks."
+    },
+    {
+      "source": "supabase/tests/repair_flow.test.sql:39",
+      "why": "Customers and staff cannot write repairs or their events directly, and Ravi cannot read Asha's timeline: Security Rules (functions/test/rules/service.test.ts)."
+    },
+    {
+      "source": "supabase/tests/repair_flow.test.sql:68",
+      "why": "admin_dashboard repairs_awaiting_approval (also :125): the dashboard is client count() queries over repairs (status open, quote.status pending), not a callable."
+    },
+    {
+      "source": "supabase/tests/repair_flow.test.sql:80",
+      "why": "decline_repair_quote trimmed ' Too costly ' itself; declineRepairQuote's contract refuses untrimmed text (cleanMultiline), and the app trims before sending."
+    }
+  ]
+}
