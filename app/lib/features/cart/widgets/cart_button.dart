@@ -7,7 +7,7 @@ import '../../../core/widgets/widgets.dart';
 import '../data/cart.dart';
 
 /// The cart in the top bar of pushed shopping screens (they have no bottom nav): the gold count, a pop when it
-/// rises, and the shell's Cart tab.
+/// rises, and the cart (/bag) pushed over the screen.
 class CartButton extends ConsumerStatefulWidget {
   const CartButton({super.key, this.style});
 
@@ -29,7 +29,7 @@ class _CartButtonState extends ConsumerState<CartButton> {
     return IconButton(
       tooltip: n > 0 ? 'Cart, $n items' : 'Cart',
       style: widget.style,
-      onPressed: () => context.go('/cart'),
+      onPressed: () => context.push('/bag'), // so Back returns to this screen
       icon: Bump(
         trigger: _rises,
         child: Badge(

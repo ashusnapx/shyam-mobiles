@@ -296,6 +296,17 @@ void main() {
     expect(find.text('smartphones'), findsOneWidget); // selected category chip shows its name
     expect(find.text('Out of stock'), findsOneWidget);
     expect(find.byTooltip('Save to wishlist'), findsWidgets);
+    expect(find.byType(BackButton), findsNothing, reason: 'the Search tab has no Back arrow');
+
+    // pushed over a product page (/browse): a Back arrow before the field
+    unawaited(router.push('/search?category=smartphones'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.byType(BackButton));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(BackButton), findsNothing);
+    expect(find.text('30 phones'), findsOneWidget);
   });
 
   testWidgets('product renders picker, delivery, specs and sticky bar', (tester) async {

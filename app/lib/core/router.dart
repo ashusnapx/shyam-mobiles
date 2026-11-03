@@ -64,6 +64,15 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   GoRoute sub(String path, Widget Function(GoRouterState s) build, {List<RouteBase> routes = const []}) =>
       GoRoute(path: path, parentNavigatorKey: rootNavigatorKey, builder: (_, s) => build(s), routes: routes);
+  Widget search(GoRouterState s) => SearchScreen(
+        key: ValueKey(s.uri.query),
+        query: s.uri.queryParameters['q'],
+        category: s.uri.queryParameters['category'],
+        brand: s.uri.queryParameters['brand'],
+        sort: s.uri.queryParameters['sort'],
+        minPrice: int.tryParse(s.uri.queryParameters['min'] ?? ''),
+        maxPrice: int.tryParse(s.uri.queryParameters['max'] ?? ''),
+      );
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -90,18 +99,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: '/', builder: (_, _) => const HomeScreen())]),
           StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/search',
-              builder: (_, s) => SearchScreen(
-                key: ValueKey(s.uri.query),
-                query: s.uri.queryParameters['q'],
-                category: s.uri.queryParameters['category'],
-                brand: s.uri.queryParameters['brand'],
-                sort: s.uri.queryParameters['sort'],
-                minPrice: int.tryParse(s.uri.queryParameters['min'] ?? ''),
-                maxPrice: int.tryParse(s.uri.queryParameters['max'] ?? ''),
-              ),
-            ),
+            GoRoute(path: '/search', builder: (_, s) => search(s)),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/repairs', builder: (_, _) => const RepairsScreen(), routes: [
@@ -165,6 +163,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/product/:slug', builder: (_, s) => ProductScreen(slug: s.pathParameters['slug']!)),
+      // Search and Cart again, for screens above the tabs (product, wishlist, offers) to push: a tab can't be pushed
+      // over them, and going to it drops them, so Back would skip the page the shopper came from
+      GoRoute(path: '/browse', builder: (_, s) => search(s)),
+      GoRoute(path: '/bag', builder: (_, _) => const CartScreen()),
       GoRoute(path: '/offers', builder: (_, _) => const OffersScreen(), routes: [
         GoRoute(path: ':id', builder: (_, s) => OfferDetailScreen(offerId: s.pathParameters['id']!)),
       ]),

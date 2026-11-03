@@ -156,7 +156,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       if (buy) {
         unawaited(router.push('/checkout'));
       } else if (mounted) {
-        showMessage(context, 'Added to cart', action: SnackBarAction(label: 'View cart', onPressed: () => router.go('/cart')));
+        showMessage(context, 'Added to cart', action: SnackBarAction(label: 'View cart', onPressed: () => router.push('/bag')));
       }
     } catch (e) {
       if (mounted) showMessage(context, friendlyError(e));
@@ -343,7 +343,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       alignment: Alignment.centerLeft,
                       // the brand opens everything it makes
                       child: InkWell(
-                        onTap: p.brand.slug.isEmpty ? null : () => context.go('/search?brand=${p.brand.slug}'),
+                        onTap: p.brand.slug.isEmpty ? null : () => context.push('/browse?brand=${p.brand.slug}'),
                         borderRadius: BorderRadius.circular(Radii.sm),
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 48),

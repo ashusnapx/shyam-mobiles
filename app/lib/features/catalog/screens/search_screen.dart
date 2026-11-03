@@ -153,6 +153,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final category = categories.where((c) => c.slug == _category).firstOrNull;
     final categoryName = category?.name ?? _category;
     final brandName = brands.where((b) => b.slug == _brand).firstOrNull?.name ?? _brand;
+    final pushed = ModalRoute.of(context)?.canPop ?? false; // /browse over a product page, not the Search tab
 
     return Scaffold(
       body: SafeArea(
@@ -160,32 +161,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, 0),
-              child: ValueListenableBuilder(
-                valueListenable: _text,
-                builder: (context, value, _) => TextField(
-                  controller: _text,
-                  // only from the Search tab itself, not from a link into a list
-                  autofocus: GoRouterState.of(context).uri.query.isEmpty,
-                  textInputAction: TextInputAction.search,
-                  inputFormatters: textInput(MaxLen.search),
-                  onChanged: _onChanged,
-                  onSubmitted: _searchFor,
-                  decoration: InputDecoration(
-                    hintText: 'Search phones, cases, chargers…',
-                    prefixIcon: const Icon(PhosphorIconsRegular.magnifyingGlass, size: 20),
-                    suffixIcon: value.text.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: 'Clear search',
-                            icon: const Icon(PhosphorIconsRegular.xCircle, size: 20),
-                            onPressed: () {
-                              _text.clear();
-                              _setQuery('');
-                            },
-                          ),
+              padding: EdgeInsets.fromLTRB(pushed ? Space.xs : Space.gutter, Space.sm, Space.gutter, 0),
+              child: Row(
+                children: [
+                  if (pushed) const BackButton(),
+                  Expanded(
+                    child: ValueListenableBuilder(
+                      valueListenable: _text,
+                      builder: (context, value, _) => TextField(
+                        controller: _text,
+                        // only from the Search tab itself, not from a link into a list
+                        autofocus: GoRouterState.of(context).uri.query.isEmpty,
+                        textInputAction: TextInputAction.search,
+                        inputFormatters: textInput(MaxLen.search),
+                        onChanged: _onChanged,
+                        onSubmitted: _searchFor,
+                        decoration: InputDecoration(
+                          hintText: 'Search phones, cases, chargers…',
+                          prefixIcon: const Icon(PhosphorIconsRegular.magnifyingGlass, size: 20),
+                          suffixIcon: value.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  icon: const Icon(PhosphorIconsRegular.xCircle, size: 20),
+                                  onPressed: () {
+                                    _text.clear();
+                                    _setQuery('');
+                                  },
+                                ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: Space.sm),
