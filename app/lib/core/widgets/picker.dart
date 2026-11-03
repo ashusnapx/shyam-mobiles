@@ -19,21 +19,23 @@ Future<(T?,)?> showPickerSheet<T>(
   Future<T?> Function(String name)? onCreate,
   String createLabel = 'Add',
   String Function(String typed)? createName,
-}) =>
-    showModalBottomSheet<(T?,)>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _PickerSheet<T>(
-        title: title,
-        options: options,
-        selected: selected,
-        searchHint: searchHint,
-        onCreate: onCreate,
-        createLabel: createLabel,
-        createName: createName,
-      ),
-    );
+}) {
+  FocusManager.instance.primaryFocus?.unfocus(); // else the keyboard comes back for the field typed in before
+  return showModalBottomSheet<(T?,)>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => _PickerSheet<T>(
+      title: title,
+      options: options,
+      selected: selected,
+      searchHint: searchHint,
+      onCreate: onCreate,
+      createLabel: createLabel,
+      createName: createName,
+    ),
+  );
+}
 
 /// [showPickerSheet] for several values: rows tick and untick, Done returns the ticked set. Null when dismissed.
 Future<Set<T>?> showMultiPickerSheet<T>(
@@ -42,22 +44,24 @@ Future<Set<T>?> showMultiPickerSheet<T>(
   required List<(T, String)> options,
   Set<T> selected = const {},
   String? searchHint,
-}) =>
-    showModalBottomSheet<Set<T>>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _PickerSheet<T>(
-        title: title,
-        options: options,
-        selected: null,
-        multi: selected,
-        searchHint: searchHint,
-        onCreate: null,
-        createLabel: '',
-        createName: null,
-      ),
-    );
+}) {
+  FocusManager.instance.primaryFocus?.unfocus(); // else the keyboard comes back for the field typed in before
+  return showModalBottomSheet<Set<T>>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => _PickerSheet<T>(
+      title: title,
+      options: options,
+      selected: null,
+      multi: selected,
+      searchHint: searchHint,
+      onCreate: null,
+      createLabel: '',
+      createName: null,
+    ),
+  );
+}
 
 class _PickerSheet<T> extends StatefulWidget {
   const _PickerSheet({

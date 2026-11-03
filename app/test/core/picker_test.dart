@@ -159,4 +159,30 @@ void main() {
         scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)));
     expect(find.text('State number 39 with a long name'), findsOneWidget);
   });
+
+  // Search: picking a category brought the keyboard back over the results, as focus went back to the search field.
+  testWidgets('a field typed in before the sheet opened stays unfocused after picking', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(colorScheme: lightScheme, fontFamily: 'Roboto'),
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => Column(children: [
+            const TextField(autofocus: true),
+            TextButton(
+              onPressed: () => showPickerSheet<String>(context, title: 'Category', options: const [(null, 'All'), ('a', 'Cases')]),
+              child: const Text('Category'),
+            ),
+          ]),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.tap(find.text('Category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cases'));
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.context?.widget, isNot(isA<EditableText>()));
+    expect(tester.testTextInput.isVisible, isFalse, reason: 'no keyboard over the results');
+  });
 }
