@@ -168,11 +168,11 @@ class _CartList extends ConsumerWidget {
             ),
           _CrossSell(lines: lines),
           Padding(
-            padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
+            padding: const EdgeInsets.fromLTRB(Space.gutter, Space.lg, Space.gutter, 0),
             child: CouponRow(quote: q),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+            padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, 0),
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
@@ -212,7 +212,7 @@ class _CartList extends ConsumerWidget {
               (PhosphorIconsRegular.money, 'Cash on delivery available'),
           ])
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
+              padding: const EdgeInsets.fromLTRB(Space.gutter, Space.md, Space.gutter, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -261,7 +261,7 @@ class _FreeDelivery extends StatelessWidget {
     final base = quote.subtotalPaise - quote.discountPaise;
     final gap = quote.deliveryFeePaise > 0 ? settings.freeDeliveryGapFor(base) : 0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.md),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, Space.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -388,7 +388,7 @@ class _LineTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.outlineVariant))),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
+          padding: const EdgeInsets.symmetric(horizontal: Space.gutter, vertical: Space.md),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

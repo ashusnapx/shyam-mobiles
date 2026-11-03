@@ -48,7 +48,7 @@ class DeliverToRow extends ConsumerWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(color: c.surfaceContainerLow, border: Border(bottom: BorderSide(color: c.outlineVariant))),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.sm, Space.xs),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, Space.xs, Space.sm, Space.xs),
           child: Row(
             children: [
               Icon(PhosphorIconsRegular.mapPin, size: 20, color: c.onSurfaceVariant),

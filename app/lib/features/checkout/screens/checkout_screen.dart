@@ -206,7 +206,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final count = lines.fold<int>(0, (sum, l) => sum + l.qty);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xl),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, Space.xl),
       children: [
         if (!cartOk)
           Padding(

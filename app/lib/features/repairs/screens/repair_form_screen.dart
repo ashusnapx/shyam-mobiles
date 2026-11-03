@@ -144,6 +144,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
             children: [
               const _Pad(FieldLabel('Your phone')),
               ChipBar(
+                gutter: Space.gutter,
                 options: {for (final b in _brands) b: b},
                 selected: _brand,
                 onSelected: (b) => setState(() => _brand = b),
@@ -192,7 +193,7 @@ class _RepairFormScreenState extends ConsumerState<RepairFormScreen> {
               const _Pad(FieldLabel('When can you come in?')),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
                 child: Row(
                   children: [
                     for (final d in _days)
@@ -278,7 +279,7 @@ class _Pad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.lg), child: child);
+      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.gutter), child: child);
 }
 
 class _DayChip extends StatelessWidget {

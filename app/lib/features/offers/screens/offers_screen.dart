@@ -64,7 +64,7 @@ class OffersScreen extends ConsumerWidget {
                 onRefresh: () => ref.refresh(availableOffersProvider.future),
                 // available_offers() is every running offer the caller may use (a JSON array: no paging), built lazily
                 child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.xl),
+                  padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, Space.xl),
                   itemCount: list.length,
                   itemBuilder: (context, i) => Padding(
                     key: ValueKey(list[i].id),
@@ -148,7 +148,7 @@ class _Detail extends ConsumerWidget {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+                padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -192,12 +192,12 @@ class _Detail extends ConsumerWidget {
                 ),
               ),
             ),
-            SliverToBoxAdapter(child: SectionHeader(o.wholeOrder ? 'Works on everything, like' : 'Products in this offer')),
+            SliverToBoxAdapter(child: SectionHeader(o.wholeOrder ? 'Works on everything, like' : 'Products in this offer', gutter: Space.gutter)),
             ...switch (products) {
               AsyncValue(value: final page?) when page.items.isEmpty => [
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                      padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
                       child: Text('Nothing in stock for this offer right now.', style: t.bodyMedium),
                     ),
                   ),

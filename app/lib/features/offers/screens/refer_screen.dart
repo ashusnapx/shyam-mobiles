@@ -74,7 +74,7 @@ class _Body extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final r = referral;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.xl),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, Space.xl),
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(Radii.hero),

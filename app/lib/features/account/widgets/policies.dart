@@ -3,6 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/env.dart';
+import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 
 /// Public pages in site/ (Play Store and Razorpay need them as real URLs). Opened in a Custom Tab.
@@ -35,6 +36,7 @@ class PolicyRows extends StatelessWidget {
           for (final (icon, title, page) in _pages)
             ListTile(
               minTileHeight: 56,
+              contentPadding: const EdgeInsets.symmetric(horizontal: Space.gutter),
               leading: Icon(icon),
               title: Text(title),
               trailing: const Icon(PhosphorIconsRegular.arrowUpRight, size: 18),

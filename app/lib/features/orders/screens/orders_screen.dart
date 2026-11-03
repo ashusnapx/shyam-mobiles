@@ -50,7 +50,7 @@ class OrdersScreen extends ConsumerWidget {
           loading: Skeletonizer(
             child: ListView(
               physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(Space.lg),
+              padding: const EdgeInsets.symmetric(horizontal: Space.gutter, vertical: Space.lg),
               children: [
                 for (var i = 0; i < 4; i++)
                   Padding(padding: const EdgeInsets.only(bottom: Space.md), child: _OrderTile(placeholderOrder)),
@@ -89,7 +89,8 @@ class OrdersScreen extends ConsumerWidget {
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
                   // edge-to-edge: keep the last order clear of the system nav bar
-                  padding: const EdgeInsets.all(Space.lg) + EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+                  padding: const EdgeInsets.symmetric(horizontal: Space.gutter, vertical: Space.lg) +
+                      EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
                   itemCount: n + (page.hasMore ? 1 : 0),
                   separatorBuilder: (_, _) => const SizedBox(height: Space.md),
                   itemBuilder: (_, i) => i < n

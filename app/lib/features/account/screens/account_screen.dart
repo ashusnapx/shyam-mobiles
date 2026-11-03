@@ -94,9 +94,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               message: 'See your orders, saved addresses and wishlist.',
               from: '/account',
             ),
-            SectionHeader('Shop'),
-            Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: StoreCard()),
-            SectionHeader('About & policies'),
+            SectionHeader('Shop', gutter: Space.gutter),
+            Padding(padding: EdgeInsets.symmetric(horizontal: Space.gutter), child: StoreCard()),
+            SectionHeader('About & policies', gutter: Space.gutter),
             PolicyRows(),
           ],
         ),
@@ -109,6 +109,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             {Tint? tint, String? subtitle, Color? color, Widget? trailing}) =>
         ListTile(
           minTileHeight: subtitle == null ? 56 : 64,
+          contentPadding: const EdgeInsets.symmetric(horizontal: Space.gutter),
           leading: tint == null ? Icon(icon, color: color) : IconWell(icon, tint: tint),
           title: Text(title, style: color == null ? null : TextStyle(color: color)),
           subtitle: subtitle == null ? null : Text(subtitle),
@@ -157,9 +158,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               ),
               subtitle: 'An idea, or something not working',
             ),
-            const SectionHeader('Shop'),
-            const Padding(padding: EdgeInsets.symmetric(horizontal: Space.lg), child: StoreCard()),
-            const SectionHeader('About & policies'),
+            const SectionHeader('Shop', gutter: Space.gutter),
+            const Padding(padding: EdgeInsets.symmetric(horizontal: Space.gutter), child: StoreCard()),
+            const SectionHeader('About & policies', gutter: Space.gutter),
             const PolicyRows(),
             const SizedBox(height: Space.sm),
             const Divider(),
@@ -194,7 +195,7 @@ class _Header extends StatelessWidget {
     return InkWell(
       onTap: () => context.push('/account/profile'),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.lg),
+        padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, Space.lg),
         child: Skeletonizer(
           enabled: loading,
           child: Row(

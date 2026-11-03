@@ -122,16 +122,23 @@ class PickChip extends StatelessWidget {
 
 /// Horizontally scrolling row of [PickChip]s keyed by value.
 class ChipBar extends StatelessWidget {
-  const ChipBar({super.key, required this.options, required this.selected, required this.onSelected});
+  const ChipBar({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+    this.gutter = Space.lg,
+  });
 
   final Map<String, String> options; // value → label
   final String? selected;
   final ValueChanged<String> onSelected;
+  final double gutter; // the page's side margin, so the first chip lines up with the content
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+        padding: EdgeInsets.symmetric(horizontal: gutter),
         child: Row(
           children: [
             for (final e in options.entries)

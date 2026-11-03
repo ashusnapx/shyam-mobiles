@@ -72,7 +72,7 @@ class _List extends StatelessWidget {
   Widget build(BuildContext context) => ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         // Room for the FAB and the gesture bar.
-        padding: EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 96 + MediaQuery.paddingOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, 96 + MediaQuery.paddingOf(context).bottom),
         itemCount: addresses.length,
         separatorBuilder: (_, _) => const SizedBox(height: Space.md),
         itemBuilder: (_, i) => _AddressCard(address: addresses[i]),

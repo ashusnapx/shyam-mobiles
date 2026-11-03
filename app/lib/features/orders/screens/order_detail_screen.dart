@@ -99,16 +99,16 @@ class _OrderBody extends StatelessWidget {
         if (o.canRetryPayment) _Actions(order: o, primary: true),
         if (o.status == OrderStatus.delivered)
           Padding(
-            padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
+            padding: const EdgeInsets.fromLTRB(Space.gutter, Space.lg, Space.gutter, 0),
             child: RateCard(title: 'How was your order?', orderId: o.id),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, Space.lg, Space.gutter, 0),
           child: _Timeline(steps: buildTimeline(o)),
         ),
-        const SectionHeader('Items'),
+        const SectionHeader('Items', gutter: Space.gutter),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
           child: Column(
             children: [
               for (final item in o.items)
@@ -173,9 +173,9 @@ class _OrderBody extends StatelessWidget {
             ],
           ),
         ),
-        const SectionHeader('Need help with this order?'),
+        const SectionHeader('Need help with this order?', gutter: Space.gutter),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
           child: Consumer(
             builder: (context, ref, _) {
               final name = firstName(ref.watch(profileProvider).value?.fullName);
@@ -185,9 +185,9 @@ class _OrderBody extends StatelessWidget {
             },
           ),
         ),
-        const SectionHeader('Delivery address'),
+        const SectionHeader('Delivery address', gutter: Space.gutter),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(Space.lg),
@@ -204,9 +204,9 @@ class _OrderBody extends StatelessWidget {
             ),
           ),
         ),
-        const SectionHeader('Payment'),
+        const SectionHeader('Payment', gutter: Space.gutter),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
           child: Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
@@ -248,7 +248,7 @@ class _StatusHero extends StatelessWidget {
     final (bg, fg) = toneColors(o.needsRefund ? TagTone.deal : orderTone(o.status));
     final tracking = o.trackingNumber;
     return Container(
-      margin: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, 0),
+      margin: const EdgeInsets.fromLTRB(Space.gutter, Space.xs, Space.gutter, 0),
       padding: const EdgeInsets.all(Space.lg),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.hero)),
       child: Column(
@@ -490,7 +490,7 @@ class _ActionsState extends ConsumerState<_Actions> {
     final stage = ref.watch(paymentFlowProvider);
     if (widget.primary) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
+        padding: const EdgeInsets.fromLTRB(Space.gutter, Space.md, Space.gutter, 0),
         child: FilledButton(
           onPressed: stage == PayStage.idle && !_busy ? _retry : null,
           child: Text(
@@ -501,7 +501,7 @@ class _ActionsState extends ConsumerState<_Actions> {
       );
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.xl, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.xl, Space.gutter, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

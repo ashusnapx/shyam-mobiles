@@ -73,27 +73,27 @@ class _Page extends StatelessWidget {
           if (bookings.isEmpty)
             const _Hero()
           else ...[
-            const SectionHeader('Your bookings'),
+            const SectionHeader('Your bookings', gutter: Space.gutter),
             for (final b in bookings)
               Padding(
-                padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.md),
+                padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, Space.md),
                 child: RepairCard(booking: b, onTap: () => context.push('/repairs/${b.id}')),
               ),
             ?footer,
             const _BookAnother(),
           ],
-          const SectionHeader('What we fix'),
+          const SectionHeader('What we fix', gutter: Space.gutter),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+            padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
             child: IssueGrid(selected: null, onSelected: (issue) => _book(context, issue)),
           ),
-          const SectionHeader('How it works'),
+          const SectionHeader('How it works', gutter: Space.gutter),
           const _Steps(),
-          const SectionHeader('Our promise'),
+          const SectionHeader('Our promise', gutter: Space.gutter),
           const _Promise(),
-          const SectionHeader('Visit the shop'),
+          const SectionHeader('Visit the shop', gutter: Space.gutter),
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: Space.lg),
+            padding: EdgeInsets.symmetric(horizontal: Space.gutter),
             child: StoreCard(whatsAppText: 'Hi, I have a question about a repair'),
           ),
         ],
@@ -111,7 +111,7 @@ class _Hero extends ConsumerWidget {
     final phone = ref.watch(storeSettingsProvider).value?.storePhone;
     final (bg, fg) = Worlds.repairs;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, 0),
       child: DecoratedBox(
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.hero)),
         child: Padding(
@@ -160,7 +160,7 @@ class _BookAnother extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.xs, Space.gutter, 0),
       child: FilledButton.icon(
         onPressed: () => _book(context),
         icon: const Icon(PhosphorIconsRegular.wrench),
@@ -185,7 +185,7 @@ class _Steps extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final (bg, fg) = Worlds.repairs;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+      padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
       child: Column(
         children: [
           for (final (i, (title, line)) in _steps.indexed)
@@ -235,7 +235,7 @@ class _Promise extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+      padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
       child: Column(
         children: [
           for (final (icon, text) in _lines)

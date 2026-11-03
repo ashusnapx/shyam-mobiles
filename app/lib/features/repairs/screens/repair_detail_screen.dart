@@ -161,7 +161,7 @@ class _Body extends StatelessWidget {
     final b = booking;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, Space.xl + MediaQuery.paddingOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(Space.gutter, Space.xs, Space.gutter, Space.xl + MediaQuery.paddingOf(context).bottom),
       children: [
         RepairStatusHero(booking: b),
         if (b.quotePaise != null) ...[
