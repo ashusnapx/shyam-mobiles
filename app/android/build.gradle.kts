@@ -2,6 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // PhonePe's IntentSDK, which phonepe_payment_sdk depends on (developer.phonepe.com Flutter SDK setup)
+        maven { url = uri("https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android") }
     }
 }
 

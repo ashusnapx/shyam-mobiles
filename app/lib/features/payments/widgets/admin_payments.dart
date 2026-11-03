@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../../core/env.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
@@ -268,14 +269,15 @@ class _RefundSheetState extends State<_RefundSheet> {
               title: const Text('Put the items back in stock'),
               subtitle: const Text('Only if they came back unopened and sellable.'),
             ),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _instant,
-            onChanged: (v) => setState(() => _instant = v ?? false),
-            title: const Text('Instant refund'),
-            subtitle: const Text('In the customer’s account within minutes, for a Razorpay fee of ₹7.99–₹14.99 + GST. '
-                'Otherwise 5–7 working days, free.'),
-          ),
+          if (Env.paymentGateway != 'phonepe') // PhonePe's refund API has no instant option
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _instant,
+              onChanged: (v) => setState(() => _instant = v ?? false),
+              title: const Text('Instant refund'),
+              subtitle: const Text('In the customer’s account within minutes, for a Razorpay fee of ₹7.99–₹14.99 + GST. '
+                  'Otherwise 5–7 working days, free.'),
+            ),
           const SizedBox(height: Space.md),
           FilledButton(
             onPressed: amount < 100

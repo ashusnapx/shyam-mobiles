@@ -14,6 +14,8 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../cart/data/cart.dart';
 import '../../offers/data/offers.dart';
+import '../../payments/data/payment_gateway.dart';
+import '../../payments/data/payments_repository.dart';
 
 /// Server calls on the money path. The client never sends an amount: the server prices everything.
 abstract interface class PaymentApi {
@@ -201,6 +203,19 @@ class PayResult {
       };
 }
 
+/// The message for a PhonePe payment from how the SDK closed and the server's answer (`{status, paymentStatus}`).
+PayResult phonePeResult(PhonePeSheet sheet, Map<String, dynamic> check) {
+  if (check['paymentStatus'] == 'paid' || check['paymentStatus'] == 'refunded') {
+    return PayResult(check['status'] == 'cancelled' ? PayOutcome.paidTooLate : PayOutcome.paid);
+  }
+  return PayResult(switch (sheet) {
+    PhonePeSheet.cancelled => PayOutcome.cancelled,
+    PhonePeSheet.unavailable => PayOutcome.unavailable,
+    // the pay page finished but PhonePe hasn't settled it (a UPI app can take a minute): the webhook will
+    PhonePeSheet.returned => check['paymentStatus'] == 'failed' ? PayOutcome.failed : PayOutcome.unknown,
+  });
+}
+
 final paymentApiProvider = Provider<PaymentApi>((ref) => SupabasePaymentApi(ref.watch(supabaseProvider)));
 final paymentSheetProvider = Provider<PaymentSheet>((ref) => const RazorpaySheet());
 
@@ -238,7 +253,40 @@ class PaymentFlow extends Notifier<PayStage> {
     }
   }
 
-  Future<PayResult> _pay(String orderId) async {
+  Future<PayResult> _pay(String orderId) =>
+      ref.read(onlineGatewayProvider) == OnlineGateway.phonepe ? _payPhonePe(orderId) : _payRazorpay(orderId);
+
+  /// PhonePe: whatever the SDK says, the server asks PhonePe's status API before anything counts as paid.
+  Future<PayResult> _payPhonePe(String orderId) async {
+    state = PayStage.starting;
+    final repo = ref.read(paymentsRepositoryProvider);
+    if (repo == null) return const PayResult(PayOutcome.unavailable);
+    final Map<String, dynamic> start;
+    try {
+      start = await repo.createPayment(orderId);
+    } catch (e) {
+      return PayResult(PayOutcome.unavailable, e);
+    }
+    if (start['paid'] == true) return const PayResult(PayOutcome.paid);
+    if (start['token'] is! String || start['orderId'] is! String || start['merchantId'] is! String) {
+      return const PayResult(PayOutcome.unavailable);
+    }
+
+    state = PayStage.paying;
+    final sheet = await ref
+        .read(paymentGatewayProvider)
+        .open(start, flowId: phonePeFlowId(ref.read(currentUserProvider)?.id));
+    if (sheet == PhonePeSheet.unavailable) return const PayResult(PayOutcome.unavailable);
+
+    state = PayStage.verifying;
+    try {
+      return phonePeResult(sheet, await repo.verifyPayment(orderId));
+    } catch (e) {
+      return PayResult(PayOutcome.unverified, e);
+    }
+  }
+
+  Future<PayResult> _payRazorpay(String orderId) async {
     state = PayStage.starting;
     final Map<String, dynamic> payment;
     try {

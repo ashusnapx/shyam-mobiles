@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/env.dart';
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
@@ -210,6 +211,7 @@ int refundablePaise(Order o, List<Refund> refunds) =>
 
 /// A payment link makes sense while the order is unpaid and not cancelled.
 bool canSendLink(Order o) =>
+    Env.paymentGateway != 'phonepe' && // Razorpay links; PhonePe's link API needs PhonePe's approval (docs/PHONEPE.md)
     (o.paymentStatus == PaymentStatus.pending || o.paymentStatus == PaymentStatus.failed) &&
     o.status != OrderStatus.cancelled &&
     o.status != OrderStatus.refunded;

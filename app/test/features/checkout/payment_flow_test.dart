@@ -183,7 +183,7 @@ void main() {
       expect(o['name'], 'Shyam Mobiles');
       expect(o['description'], 'Order SM100001');
       expect(o['prefill'], {'contact': '+919876543210', 'email': 'a@b.in'});
-      expect(o['theme'], {'color': '#0A0A0A'});
+      expect(o['theme'], {'color': '#111922'}); // BrandColors.ink (palette v2)
       expect(o['retry'], {'enabled': true});
     });
 

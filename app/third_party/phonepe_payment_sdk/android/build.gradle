@@ -1,0 +1,55 @@
+group 'com.phonepe.phonepe_payment_sdk'
+version '2.0.3'
+
+buildscript {
+    ext.kotlin_version = '1.8.20'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.3.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.phonepe.phonepe_payment_sdk'
+    compileSdk 36 // Shyam Mobiles: upstream 31 is below what its AndroidX dependencies need (34+)
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+        test.java.srcDirs += 'src/test/kotlin'
+    }
+
+    defaultConfig {
+        minSdk 21
+        // Shyam Mobiles: upstream minified this library with proguard-android.txt, which AGP 9 refuses; the app's
+        // own R8 pass shrinks it instead, with this rule (also in the app's proguard-rules.pro)
+        consumerProguardFiles 'proguard-rules.pro'
+    }
+
+    dependencies {
+        implementation 'phonepe.intentsdk.android.release:IntentSDK:5.2.0'
+    }
+}

@@ -5,6 +5,8 @@ abstract final class Env {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
   static const razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID');
+  /// `razorpay` (default) or `phonepe`: which gateway takes online payments (docs/PHONEPE.md).
+  static const paymentGateway = String.fromEnvironment('PAYMENT_GATEWAY', defaultValue: 'razorpay');
   static const googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
   static const googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
   /// Base URL of the published site/ pages (privacy, terms, refunds...), e.g. https://shyammobiles.in

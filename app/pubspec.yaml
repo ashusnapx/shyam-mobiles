@@ -45,6 +45,7 @@ dependencies:
   skeletonizer: ^3.0.0
   flutter_animate: ^4.5.2
   razorpay_flutter: ^1.4.7
+  phonepe_payment_sdk: ^3.0.2 # PhonePe Standard Checkout, used when PAYMENT_GATEWAY=phonepe (docs/PHONEPE.md)
   google_sign_in: ^7.2.0
   url_launcher: ^6.3.3
   image_picker: ^1.2.4
@@ -122,3 +123,6 @@ flutter:
 dependency_overrides:
   phosphor_flutter:
     path: third_party/phosphor_flutter
+  # Upstream 3.0.2's Android build fails on AGP 9. See third_party/phonepe_payment_sdk/README.md.
+  phonepe_payment_sdk:
+    path: third_party/phonepe_payment_sdk

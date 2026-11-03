@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase.dart';
+import 'payment_gateway.dart';
 
 /// One bank and tenure from the `emi-plans` Edge Function: Razorpay's EMI plans for the shop's account, which the
 /// server reads once a day. [rate] is the bank's yearly interest in percent; [noCost] means the shop pays it.
@@ -56,7 +57,9 @@ class EmiPlan {
 }
 
 /// The shop's EMI plans, fetched once per app run when they load (a failure is retried on the next product page).
+/// Razorpay only: PhonePe has no API for its EMI plans, so with PhonePe the line is hidden (docs/PHONEPE.md).
 final emiPlansProvider = FutureProvider.autoDispose<List<EmiPlan>>((ref) async {
+  if (ref.watch(onlineGatewayProvider) == OnlineGateway.phonepe) return const [];
   final res = await ref.watch(supabaseProvider).functions.invoke('emi-plans', body: const <String, dynamic>{});
   final plans = [for (final p in (res.data as Map)['plans'] as List) EmiPlan.fromJson(Map<String, dynamic>.from(p))];
   ref.keepAlive();
