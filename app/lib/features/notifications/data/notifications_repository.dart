@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'notifications.dart' show AppNotification;
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart';
+import '../../../core/supabase.dart';
+import 'notifications.dart' show AppNotification, NotificationsApi;
+import 'notifications_repository_firebase.dart';
 
 /// The signed-in user's in-app notifications (Firebase: users/{uid}/notifications, written by triggers; the owner
 /// may only mark them read or delete them). Owner: engineer D.
@@ -18,5 +22,6 @@ abstract interface class NotificationsRepository {
   Future<void> delete(String uid, String id);
 }
 
-final notificationsRepositoryProvider =
-    Provider<NotificationsRepository>((ref) => throw UnimplementedError('Phase 1: NotificationsRepository'));
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((ref) => backend == Backend.firebase
+    ? FirebaseNotificationsRepository(ref.watch(firestoreProvider))
+    : NotificationsApi(ref.watch(supabaseProvider)));

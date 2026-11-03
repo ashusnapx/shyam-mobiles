@@ -35,26 +35,26 @@ class FakeNotificationsApi implements NotificationsApi {
   int counts = 0;
 
   @override
-  Future<List<AppNotification>> page(int from, int size) async => rows.skip(from).take(size).toList();
+  Future<List<AppNotification>> page(String uid, int from, int size) async => rows.skip(from).take(size).toList();
 
   @override
-  Future<int> unread() async {
+  Future<int> unread(String uid) async {
     counts++;
     return count ?? rows.where((n) => n.unread).length;
   }
 
   @override
-  Future<AppNotification?> newestUnread() async => rows.where((n) => n.unread).firstOrNull;
+  Future<AppNotification?> newestUnread(String uid) async => rows.where((n) => n.unread).firstOrNull;
 
   // like the server: what's marked or deleted stays so on the next read
   @override
-  Future<void> markRead([List<String>? ids]) async {
+  Future<void> markRead(String uid, [List<String>? ids]) async {
     marked.add(ids);
     rows = [for (final n in rows) ids == null || ids.contains(n.id) ? n.markedRead() : n];
   }
 
   @override
-  Future<void> delete(String id) async {
+  Future<void> delete(String uid, String id) async {
     deleted.add(id);
     rows = [for (final n in rows) if (n.id != id) n];
   }

@@ -14,6 +14,7 @@ import '../../admin/data/admin.dart';
 import '../../feedback/data/feedback.dart' show feedbackNewCountProvider;
 import '../../orders/data/orders.dart';
 import '../../repairs/data/repairs.dart';
+import 'notifications_repository.dart';
 
 // Notifications (docs/SPEC.md "Notifications"): database triggers write one for every order, payment, repair, coupon,
 // feedback and stock event, to the customer it's about and to each admin who has to act. People read, mark read and
@@ -94,13 +95,15 @@ String timeAgo(DateTime at, DateTime now) {
   };
 }
 
-class NotificationsApi {
+/// The Supabase [NotificationsRepository] (today's queries; deleted in Phase 2). RLS limits every read to the caller.
+class NotificationsApi implements NotificationsRepository {
   NotificationsApi(this._db);
 
   final SupabaseClient _db;
 
   // RLS: only the caller's own rows, so no user filter (staff don't see other people's either)
-  Future<List<AppNotification>> page(int from, int size) async => [
+  @override
+  Future<List<AppNotification>> page(String uid, int from, int size) async => [
         for (final r in await _db
             .from('notifications')
             .select()
@@ -110,9 +113,11 @@ class NotificationsApi {
           AppNotification.fromJson(r),
       ];
 
-  Future<int> unread() => _db.rpc<int>('unread_notifications');
+  @override
+  Future<int> unread(String uid) => _db.rpc<int>('unread_notifications');
 
-  Future<AppNotification?> newestUnread() async {
+  @override
+  Future<AppNotification?> newestUnread(String uid) async {
     final row = await _db
         .from('notifications')
         .select()
@@ -124,12 +129,15 @@ class NotificationsApi {
   }
 
   /// [ids] null: all of mine.
-  Future<void> markRead([List<String>? ids]) => _db.rpc<void>('mark_notifications_read', params: {'p_ids': ids});
+  @override
+  Future<void> markRead(String uid, [List<String>? ids]) => _db.rpc<void>('mark_notifications_read', params: {'p_ids': ids});
 
-  Future<void> delete(String id) => _db.from('notifications').delete().eq('id', id);
+  @override
+  Future<void> delete(String uid, String id) => _db.from('notifications').delete().eq('id', id);
 }
 
-final notificationsApiProvider = Provider<NotificationsApi>((ref) => NotificationsApi(ref.watch(supabaseProvider)));
+/// The old name of [notificationsRepositoryProvider], kept for the screens and tests that use it.
+final notificationsApiProvider = notificationsRepositoryProvider;
 
 final notificationsProvider =
     AsyncNotifierProvider.autoDispose<NotificationsNotifier, Paged<AppNotification>>(NotificationsNotifier.new);
@@ -146,7 +154,7 @@ class NotificationsNotifier extends PagedNotifier<AppNotification> {
 
   @override
   Future<List<AppNotification>> fetch(int from, int size) async =>
-      ref.read(currentUserIdProvider) == null ? const [] : ref.read(notificationsApiProvider).page(from, size);
+      ref.read(currentUserIdProvider) == null ? const [] : ref.read(notificationsApiProvider).page(ref.read(currentUserIdProvider)!, from, size);
 }
 
 /// The bell's number, kept fresh while the app is in front: every 45 s, on resume, and right after any write the app
@@ -208,7 +216,7 @@ class UnreadCount extends Notifier<int> {
     if (ref.read(currentUserIdProvider) == null) return;
     final int n;
     try {
-      n = await ref.read(notificationsApiProvider).unread();
+      n = await ref.read(notificationsApiProvider).unread(ref.read(currentUserIdProvider)!);
     } catch (_) {
       return; // offline: the next tick tries again
     }
@@ -226,7 +234,7 @@ class UnreadCount extends Notifier<int> {
     if (safeReturnPath(n.link) case final link? when !(notStaff && link.startsWith('/admin'))) unawaited(router.push(link));
     if (!n.unread || n.id.isEmpty) return;
     try {
-      await ref.read(notificationsApiProvider).markRead([n.id]);
+      await ref.read(notificationsApiProvider).markRead(ref.read(currentUserIdProvider) ?? '', [n.id]);
     } catch (_) {
       return; // stays unread; nothing lost
     }
@@ -240,7 +248,7 @@ class UnreadCount extends Notifier<int> {
     ref.invalidate(notificationsProvider);
     final AppNotification? newest;
     try {
-      newest = await ref.read(notificationsApiProvider).newestUnread();
+      newest = await ref.read(notificationsApiProvider).newestUnread(ref.read(currentUserIdProvider) ?? '');
     } catch (_) {
       return;
     }

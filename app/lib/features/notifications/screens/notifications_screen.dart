@@ -8,6 +8,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/paging.dart';
+import '../../../core/supabase.dart' show currentUserIdProvider;
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/notifications.dart';
@@ -34,7 +35,7 @@ class NotificationsScreen extends ConsumerWidget {
       list.replaceItems((items) => [for (final n in items) n.unread ? n.markedRead() : n]);
       ref.read(unreadCountProvider.notifier).set(0);
       try {
-        await ref.read(notificationsApiProvider).markRead();
+        await ref.read(notificationsApiProvider).markRead(ref.read(currentUserIdProvider) ?? '');
       } catch (e) {
         await fail(e);
       }
@@ -44,7 +45,7 @@ class NotificationsScreen extends ConsumerWidget {
       list.replaceItems((items) => [for (final i in items) if (i.id != n.id) i]);
       if (n.unread) ref.read(unreadCountProvider.notifier).set(ref.read(unreadCountProvider) - 1);
       try {
-        await ref.read(notificationsApiProvider).delete(n.id);
+        await ref.read(notificationsApiProvider).delete(ref.read(currentUserIdProvider) ?? '', n.id);
       } catch (e) {
         await fail(e);
       }
