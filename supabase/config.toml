@@ -268,10 +268,14 @@ enable_signup = true
 # password gets a session at once and no SMS is ever sent (no codes, no DLT). A forgotten password is reset by
 # the shop (functions/reset-password).
 enable_confirmations = false
-# Never sent while confirmations are off and the app has no code sign-in.
+# Only for code sign-in, which the app no longer offers. Production: must match the DLT-registered template.
 template = "{{ .Code }} is your Shyam Mobiles sign-in code. Do not share it."
 # Controls the minimum amount of time that must pass before sending another sms otp.
 max_frequency = "60s"
+
+# Use pre-defined map of phone number to OTP for testing (local only: scripts/launch.py strips it).
+[auth.sms.test_otp]
+919999999999 = "123456"
 
 
 # Configure logged in session timeouts.
@@ -295,8 +299,8 @@ uri = "pg-functions://postgres/private/custom_access_token_hook"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 # The phone provider wants an SMS provider configured. This dummy account is never called: phone confirmations
-# are off and the app never asks for a code (a stray /otp request just fails, free). scripts/launch.py pushes the
-# same dummy to production.
+# are off and the app never asks for a code (a stray /otp request just fails, free; test_otp numbers never reach
+# it). scripts/launch.py pushes the same dummy to production unless the MSG91 Send SMS hook is set up.
 [auth.sms.twilio]
 enabled = true
 account_sid = "AC00000000000000000000000000000000"
@@ -345,13 +349,17 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
-# Off: sign-in is a phone number and a password only.
+# Native Google sign-in (google_sign_in + signInWithIdToken). client_id = web client id; add the
+# iOS/Android client ids comma-separated if their tokens carry those audiences. The app shows no Google button
+# now (sign-in is phone + password); scripts/launch.py turns it on in production only with Google keys.
 [auth.external.google]
-enabled = false
-client_id = ""
-secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+enabled = true
+client_id = "env(GOOGLE_WEB_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
 redirect_uri = ""
 url = ""
+# Android (v1) handles the nonce, so keep the check on. iOS google_sign_in can't pass it through:
+# turn this on only when iOS ships. https://supabase.com/docs/guides/auth/social-login/auth-google
 skip_nonce_check = false
 email_optional = false
 
@@ -440,8 +448,8 @@ enabled = true
 [functions.razorpay-webhook]
 verify_jwt = false
 
-# Unused since sign-in became phone + password (no codes): kept deployed for a later SMS, with Auth's Send SMS hook
-# off (scripts/launch.py turns it off in production). It would be signed with SEND_SMS_HOOK_SECRET.
+# Unused since sign-in became phone + password (no codes), but kept deployed. Auth's Send SMS hook would call it,
+# signed with SEND_SMS_HOOK_SECRET: scripts/launch.py wires it only when MSG91 keys are in, else turns it off.
 [functions.send-sms]
 verify_jwt = false
 
