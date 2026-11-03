@@ -163,12 +163,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ]),
         ],
       ),
-      GoRoute(path: '/product/:slug', builder: (_, s) => ProductScreen(slug: s.pathParameters['slug']!)),
+      // HomeBelow: a shared link or a sign-in return opens these with go(), so nothing is below them
+      GoRoute(path: '/product/:slug', builder: (_, s) => HomeBelow(ProductScreen(slug: s.pathParameters['slug']!))),
       // Search and Cart again, for screens above the tabs (product, wishlist, offers) to push: a tab can't be pushed
       // over them, and going to it drops them, so Back would skip the page the shopper came from
-      GoRoute(path: '/browse', builder: (_, s) => search(s)),
-      GoRoute(path: '/bag', builder: (_, _) => const CartScreen()),
-      GoRoute(path: '/offers', builder: (_, _) => const OffersScreen(), routes: [
+      GoRoute(path: '/browse', builder: (_, s) => HomeBelow(search(s))),
+      GoRoute(path: '/bag', builder: (_, _) => const HomeBelow(CartScreen())),
+      GoRoute(path: '/offers', builder: (_, _) => const HomeBelow(OffersScreen()), routes: [
         GoRoute(path: ':id', builder: (_, s) => OfferDetailScreen(offerId: s.pathParameters['id']!)),
       ]),
       GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen(), routes: [
@@ -177,12 +178,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/orders', builder: (_, _) => const OrdersScreen(), routes: [
         GoRoute(path: ':id', builder: (_, s) => OrderDetailScreen(orderId: s.pathParameters['id']!)),
       ]),
-      GoRoute(path: '/wishlist', builder: (_, _) => const WishlistScreen()),
-      GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
-      GoRoute(path: '/policy/:page', builder: (_, s) => PolicyScreen(page: s.pathParameters['page']!)),
+      GoRoute(path: '/wishlist', builder: (_, _) => const HomeBelow(WishlistScreen())),
+      GoRoute(path: '/notifications', builder: (_, _) => const HomeBelow(NotificationsScreen())),
+      GoRoute(path: '/policy/:page', builder: (_, s) => HomeBelow(PolicyScreen(page: s.pathParameters['page']!))),
       GoRoute(
         path: '/sign-in',
-        builder: (_, s) => SignInScreen(from: s.uri.queryParameters['from']),
+        builder: (_, s) => HomeBelow(SignInScreen(from: s.uri.queryParameters['from'])),
         routes: [
           GoRoute(
             path: 'verify',
@@ -197,6 +198,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// Back on a page with nothing below it (opened from a shared link, or by go() after signing in) goes Home instead
+/// of closing the app.
+class HomeBelow extends StatelessWidget {
+  const HomeBelow(this.child, {super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final alone = !(ModalRoute.of(context)?.canPop ?? true);
+    return PopScope(
+      canPop: !alone,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && alone) context.go('/');
+      },
+      child: child,
+    );
+  }
+}
 
 class _StreamListenable extends ChangeNotifier {
   _StreamListenable(Stream<dynamic> stream) {
