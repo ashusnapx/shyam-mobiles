@@ -117,6 +117,35 @@ exporting it from its own `index.ts`, so two engineers never edit the same file 
 - **Retention:** every collection in `src/model/*.ts` declares its retention. `test/unit/retention.test.ts` fails
   when one is missing.
 
+## Staff on the emulator
+
+The Auth emulator can't do TOTP, so on the demo project only, an **email/password** session (the dev logins, which
+exist only in the emulator) counts as a staff session. `shared/auth.ts` `isStaffSession()` and `firestore.rules`
+`isStaffSession()` both allow it. Neither can fire on the real project: Functions read the reserved `GCLOUD_PROJECT`
+(`IS_DEMO_PROJECT`), Rules require the token's `aud` to start with `demo-` (a real project only accepts tokens for
+its own id), and password sign-in is off there. Staff power still needs the `role` claim and the same role on
+`users/{uid}`.
+
+- To make a dev login staff: create it with the Admin SDK (`createUser({email, password, phoneNumber})`), set the
+  claim (`setCustomUserClaims(uid, {role: 'staff'})`) and `users/{uid}.role`, or sign in as the owner and call
+  `setRole`.
+- To be the owner: give the dev login the shop's phone (`settings/business.phone`, +917987559272) and call
+  `claimOwner` once.
+- Tests do the same: `test/integration/account.test.ts` signs in by email/password; rules tests mint tokens with
+  `firebase.sign_in_second_factor: 'totp'` and check that `aud: 'shyam-mobiles'` + password is refused.
+
+## Turning on App Check
+
+The first release runs in **monitor mode** (docs/SECURITY.md §2.1). Callables accept calls without an App Check
+token and log `app check missing` for each one (a log-based metric counts them); replay protection is already on.
+After 7 days with clean metrics (App Check → APIs in the console, plus those log lines):
+
+1. `src/shared/options.ts`: set `ENFORCE_APP_CHECK = true as boolean`, push, and let CI deploy the functions.
+2. Console → App Check → APIs → **Enforce** Cloud Firestore, then Cloud Storage (the owner's step).
+3. Authentication (Preview, needs Identity Platform) last, once 99% of its requests verify.
+
+Rollback is the same switch back to `false` and a deploy, or "Unenforce" in the console.
+
 ## Test vectors (`test-vectors/*.json`)
 
 The vectors are data that C's unit tests, the integration tests and the app can all run. `test/vectors.ts` loads

@@ -1,6 +1,6 @@
 import { HttpsError, onCall, type CallableOptions, type CallableRequest } from "firebase-functions/v2/https";
 import type { z } from "zod";
-import { CALLABLE } from "./options.js";
+import { CALLABLE, IS_DEMO_PROJECT } from "./options.js";
 import { fail, type Reason } from "./errors.js";
 import { log } from "./log.js";
 import { parse } from "./validation.js";
@@ -31,6 +31,8 @@ export function callable<I extends z.ZodType, O extends z.ZodType>(
   options: Omit<CallableOptions, "region"> = {},
 ){
   return onCall({ ...CALLABLE, ...options }, async (req: CallableRequest) => {
+    // Monitor mode (ENFORCE_APP_CHECK false): the count of these lines is the watch before enforcing.
+    if (req.app === undefined && !IS_DEMO_PROJECT) log.warn("app check missing", { fn: c.name });
     const input = parse(c.input, req.data, c.invalid);
     try {
       return c.output.parse(await handler(input, req));

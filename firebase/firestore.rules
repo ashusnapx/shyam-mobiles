@@ -17,8 +17,16 @@ service cloud.firestore {
     function isStaff() {
       return isSignedIn()
         && request.auth.token.get('role', null) in ['owner', 'staff']
-        && request.auth.token.firebase.get('sign_in_second_factor', null) == 'totp'
+        && isStaffSession()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) == request.auth.token.role;
+    }
+    function isOwner() { return isStaff() && request.auth.token.role == 'owner'; }
+    // TOTP was this session's second factor. On the emulator's demo project only, the dev logins' email/password
+    // sessions count too, since the Auth emulator can't do TOTP (firebase/README.md "Staff on the emulator"): a real
+    // project only ever sees tokens whose aud is its own id, and has password sign-in turned off.
+    function isStaffSession() {
+      return request.auth.token.firebase.get('sign_in_second_factor', null) == 'totp'
+        || (request.auth.token.get('aud', '').matches('demo-.*') && request.auth.token.firebase.get('sign_in_provider', null) == 'password');
     }
     // Recent sign-in, for sensitive staff writes (settings/business): within 5 minutes.
     function signedInRecently() {
@@ -28,32 +36,83 @@ service cloud.firestore {
     function isPersonName(v) {
       return v is string && v.matches("[\\p{L}\\p{M} .'-]{2,60}") && v.matches(".*\\p{L}.*\\p{L}.*") && !v.matches("[ ].*|.*[ ]");
     }
+    // test-vectors/input.json cleanText: one line, none of the invisible characters, trimmed, [min]..[max] code points.
+    function isCleanText(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max
+        && v.matches("[^\\x{0}-\\x{1F}\\x{7F}-\\x{9F}\\x{AD}\\x{61C}\\x{180E}\\x{200B}\\x{200E}\\x{200F}\\x{2028}\\x{2029}\\x{202A}-\\x{202E}\\x{2060}-\\x{2064}\\x{2066}-\\x{206F}\\x{FEFF}\\x{FFF9}-\\x{FFFB}]*")
+        && !v.matches("[\\s\\p{Z}].*|.*[\\s\\p{Z}]");
+    }
+    function hasLetter(v) { return v.matches(".*\\p{L}.*"); }
+    function isPhone(v) { return v is string && v.matches('[+]91[6-9][0-9]{9}'); }
 
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // ── users, devices (owner: A) ─────────────────────────────────────────────────────────────────────────────────
+    // ── users, addresses, devices, staff (owner: A) ───────────────────────────────────────────────────────────────
     function validConsent(c) {
       return c is map && c.keys().hasOnly(['noticeVersion', 'acceptedAt', 'analytics'])
         && c.noticeVersion is int && c.noticeVersion >= 1 && c.acceptedAt == request.time && c.analytics is bool;
     }
+    function validPrefs(p) {
+      return p is map && p.keys().hasOnly(['backInStock', 'offers', 'crashReports'])
+        && p.get('backInStock', true) is bool && p.get('offers', true) is bool && p.get('crashReports', true) is bool;
+    }
+    function validPhotoUrl(v) { return v is string && v.size() <= 500 && v.matches('https://.*'); }
     match /users/{uid} {
       allow get: if isMe(uid);
+      // Admin → Staff: the owner lists the shop's staff (the query must ask for role in [owner, staff]).
+      allow list: if isOwner() && request.query.limit <= 100 && resource.data.get('role', null) in ['owner', 'staff'];
       allow create: if isMe(uid)
-        && incoming().keys().hasOnly(['fullName', 'photoUrl', 'phone', 'consent', 'createdAt', 'updatedAt'])
+        && incoming().keys().hasOnly(['fullName', 'photoUrl', 'phone', 'consent', 'prefs', 'createdAt', 'updatedAt'])
         && (incoming().fullName == null || isPersonName(incoming().fullName))
-        && (!('photoUrl' in incoming()) || (incoming().photoUrl is string && incoming().photoUrl.size() <= 500 && incoming().photoUrl.matches('https://.*')))
+        && (!('photoUrl' in incoming()) || validPhotoUrl(incoming().photoUrl))
         && (!('phone' in incoming()) || incoming().phone == request.auth.token.get('phone_number', null))
         && (!('consent' in incoming()) || validConsent(incoming().consent))
+        && (!('prefs' in incoming()) || validPrefs(incoming().prefs))
         && stampedNow('createdAt') && stampedNow('updatedAt');
       allow update: if isMe(uid)
-        && changed().hasOnly(['fullName', 'photoUrl', 'defaultAddressId', 'consent', 'updatedAt'])
+        && changed().hasOnly(['fullName', 'photoUrl', 'defaultAddressId', 'consent', 'prefs', 'updatedAt'])
         && (!('fullName' in changed()) || incoming().fullName == null || isPersonName(incoming().fullName))
-        && (!('photoUrl' in changed()) || (incoming().photoUrl is string && incoming().photoUrl.size() <= 500 && incoming().photoUrl.matches('https://.*')))
+        && (!('photoUrl' in changed()) || validPhotoUrl(incoming().photoUrl))
         && (!('defaultAddressId' in changed()) || (incoming().defaultAddressId is string && incoming().defaultAddressId.matches('a[0-9]')))
         && (!('consent' in changed()) || validConsent(incoming().consent))
+        && (!('prefs' in changed()) || validPrefs(incoming().prefs))
         && stampedNow('updatedAt');
+    }
+    // Saved addresses: the ten ids a0..a9 cap the count; users/{uid}.defaultAddressId names the default.
+    // stateCode is the GST state code of [state] (place of supply), so invoices can't be split the wrong way.
+    function gstStateCode(state) {
+      return {
+        'Jammu and Kashmir': '01', 'Himachal Pradesh': '02', 'Punjab': '03', 'Chandigarh': '04', 'Uttarakhand': '05',
+        'Haryana': '06', 'Delhi': '07', 'Rajasthan': '08', 'Uttar Pradesh': '09', 'Bihar': '10', 'Sikkim': '11',
+        'Arunachal Pradesh': '12', 'Nagaland': '13', 'Manipur': '14', 'Mizoram': '15', 'Tripura': '16',
+        'Meghalaya': '17', 'Assam': '18', 'West Bengal': '19', 'Jharkhand': '20', 'Odisha': '21',
+        'Chhattisgarh': '22', 'Madhya Pradesh': '23', 'Gujarat': '24',
+        'Dadra and Nagar Haveli and Daman and Diu': '26', 'Maharashtra': '27', 'Karnataka': '29', 'Goa': '30',
+        'Lakshadweep': '31', 'Kerala': '32', 'Tamil Nadu': '33', 'Puducherry': '34',
+        'Andaman and Nicobar Islands': '35', 'Telangana': '36', 'Andhra Pradesh': '37', 'Ladakh': '38'
+      }.get(state, null);
+    }
+    function isPlaceName(v) { return isCleanText(v, 2, 60) && hasLetter(v); }
+    function validAddress(a) {
+      return a.keys().hasAll(['name', 'phone', 'line1', 'city', 'state', 'stateCode', 'pincode', 'label', 'createdAt', 'updatedAt'])
+        && a.keys().hasOnly(['name', 'phone', 'line1', 'line2', 'landmark', 'city', 'district', 'state', 'stateCode', 'pincode', 'label', 'createdAt', 'updatedAt'])
+        && isCleanText(a.name, 2, 80) && hasLetter(a.name)
+        && isPhone(a.phone)
+        && isCleanText(a.line1, 3, 120)
+        && (!('line2' in a) || isCleanText(a.line2, 0, 120))
+        && (!('landmark' in a) || isCleanText(a.landmark, 0, 80))
+        && isPlaceName(a.city) && (!('district' in a) || isPlaceName(a.district)) && isPlaceName(a.state)
+        && a.stateCode == gstStateCode(a.state)
+        && a.pincode is string && a.pincode.matches('[1-9][0-9]{5}')
+        && a.label in ['home', 'work', 'other']
+        && a.updatedAt == request.time;
+    }
+    match /users/{uid}/addresses/{id} {
+      allow read, delete: if isMe(uid);
+      allow create: if isMe(uid) && id.matches('a[0-9]') && validAddress(incoming()) && stampedNow('createdAt');
+      allow update: if isMe(uid) && validAddress(incoming()) && incoming().createdAt == resource.data.createdAt;
     }
     // FCM tokens. Whoever holds a token is that phone, so a new sign-in on it takes the doc over. No listing.
     match /devices/{token} {
@@ -73,7 +132,7 @@ service cloud.firestore {
     // settings/business staff write with signedInRecently(). wishlists/{uid}: owner, productIds ≤ 200.
 
     // ── carts, addresses, orders, offers, referrals (owner: C) ─────────────────────────────────────────────────────
-    // TODO(C): carts/{uid} (lines ≤ 20), users/{uid}/addresses/{a0..a9}, orders read-only (owner or staff),
+    // TODO(C): carts/{uid} (lines ≤ 20), orders read-only (owner or staff),
     // publicOffers read, users/{uid}/coupons owner read, promotions staff read; promoCodes, redemptions,
     // referralCodes, referrals, counters: no client access.
 
