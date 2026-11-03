@@ -1,14 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
-
-const _select =
-    'qty, variant_id, variant:variants(*, product:products(id, slug, name, is_active, images:product_images(path, sort)))';
+import 'cart_repository.dart';
 
 /// "Galaxy A15 is no longer available and was removed from your cart." for [CartNotifier.takeRemoved]'s names.
 String removedNotice(List<String?> names) {
@@ -52,7 +50,7 @@ final cartCountProvider = Provider<int>(
 );
 
 class CartNotifier extends AsyncNotifier<List<CartLine>> {
-  SupabaseClient get _db => ref.read(supabaseProvider);
+  CartRepository get _repo => ref.read(cartRepositoryProvider);
 
   final _removed = <String?>[]; // names of lines dropped below, until the cart screen has said so
 
@@ -66,17 +64,17 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
 
   @override
   Future<List<CartLine>> build() async {
-    if (ref.watch(currentUserIdProvider) == null) return const [];
+    final uid = ref.watch(currentUserIdProvider);
+    if (uid == null) return const [];
     final known = {for (final l in state.value ?? const <CartLine>[]) l.variant.id: l.productName};
-    final rows = await _db.from('cart_items').select(_select).order('created_at');
-    // A line whose item the shop hid comes back without its variant (RLS), yet place_order would still refuse the
-    // cart over it, and the customer couldn't see it to remove it: drop it from the cart.
-    final hidden = [for (final r in rows) if (r['variant'] == null) r['variant_id'] as String];
+    final (:lines, :hidden) = await _repo.load(uid);
+    // A line whose item the shop hid can't be read, yet place_order would still refuse the cart over it, and the
+    // customer couldn't see it to remove it: drop it from the cart.
     if (hidden.isNotEmpty) {
-      await _db.from('cart_items').delete().inFilter('variant_id', hidden);
+      await _repo.remove(uid, hidden);
       _removed.addAll([for (final id in hidden) known[id]]);
     }
-    return [for (final r in rows) if (r['variant'] != null) CartLine.fromJson(r)];
+    return lines;
   }
 
   /// Adds [qty] more of [variant], capped by stock and the per-item limit. Requires a signed-in user.
@@ -88,7 +86,7 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
     final current = lines.where((l) => l.variant.id == variant.id).firstOrNull?.qty ?? 0;
     final next = math.min(current + qty, maxQtyFor(variant));
     if (next <= current) return;
-    await _db.from('cart_items').upsert({'user_id': uid, 'variant_id': variant.id, 'qty': next});
+    await _repo.put(uid, variant.id, next);
     ref.invalidateSelf();
     try {
       await future;
@@ -97,13 +95,15 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
 
   Future<void> setQty(String variantId, int qty) => _optimistic(
         (lines) => [for (final l in lines) l.variant.id == variantId ? l.copyWith(qty: qty) : l],
-        () => _db.from('cart_items').update({'qty': qty}).eq('variant_id', variantId),
+        () => _repo.put(_uid, variantId, qty),
       );
 
   Future<void> remove(String variantId) => _optimistic(
         (lines) => lines.where((l) => l.variant.id != variantId).toList(),
-        () => _db.from('cart_items').delete().eq('variant_id', variantId),
+        () => _repo.remove(_uid, [variantId]),
       );
+
+  String get _uid => ref.read(currentUserIdProvider) ?? (throw const AuthException('Sign in to add to cart'));
 
   // Quantity taps go to the server one at a time, in tap order. In parallel they can land out of order (3 after
   // 4), leaving the server cart, which place_order charges, different from the qty and total on screen.

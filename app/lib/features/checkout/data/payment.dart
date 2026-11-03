@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/backend.dart';
 import '../../../core/env.dart';
 import '../../../core/errors.dart';
 import '../../../core/format.dart';
@@ -14,6 +15,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../cart/data/cart.dart';
 import '../../offers/data/offers.dart';
+import '../../orders/data/orders_repository.dart';
 import '../../payments/data/payment_gateway.dart';
 import '../../payments/data/payments_repository.dart';
 
@@ -216,7 +218,27 @@ PayResult phonePeResult(PhonePeSheet sheet, Map<String, dynamic> check) {
   });
 }
 
-final paymentApiProvider = Provider<PaymentApi>((ref) => SupabasePaymentApi(ref.watch(supabaseProvider)));
+final paymentApiProvider = Provider<PaymentApi>((ref) => backend == Backend.firebase
+    ? _FirebasePaymentApi(ref.watch(ordersRepositoryProvider))
+    : SupabasePaymentApi(ref.watch(supabaseProvider)));
+
+/// Firebase builds place the order through the placeOrder callable and pay with PhonePe (payments_repository.dart);
+/// the Razorpay calls exist only on Supabase.
+class _FirebasePaymentApi implements PaymentApi {
+  const _FirebasePaymentApi(this._orders);
+
+  final OrdersRepository _orders;
+
+  @override
+  Future<String> placeOrder(String addressId, PaymentMethod method, {String? couponCode}) =>
+      _orders.placeOrder(addressId, method, couponCode: couponCode);
+
+  @override
+  Future<Map<String, dynamic>> createPayment(String orderId) => throw UnsupportedError('Razorpay is Supabase-only');
+
+  @override
+  Future<OrderStatus> verifyPayment(SheetPaid paid) => throw UnsupportedError('Razorpay is Supabase-only');
+}
 final paymentSheetProvider = Provider<PaymentSheet>((ref) => const RazorpaySheet());
 
 /// One checkout or payment at a time, app-wide. The state drives button labels and the double-tap guard.

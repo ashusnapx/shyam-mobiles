@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart';
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart';
+import 'offers_repository_firebase.dart';
+import 'offers_repository_supabase.dart';
 
 /// Offers customers may use, home banners and Refer & earn (docs/FIREBASE.md §1: publicOffers, users/{uid}/coupons,
 /// banners, myReferral, applyReferralCode). Hidden and personal codes are never listable. Owner: engineer C.
@@ -23,4 +28,6 @@ abstract interface class OffersRepository {
   Future<Offer> applyReferral(String code);
 }
 
-final offersRepositoryProvider = Provider<OffersRepository>((ref) => throw UnimplementedError('Phase 1: OffersRepository'));
+final offersRepositoryProvider = Provider<OffersRepository>((ref) => backend == Backend.firebase
+    ? FirebaseOffersRepository(ref.watch(firestoreProvider), ref.watch(functionsProvider), ref.watch(firebaseAuthProvider))
+    : SupabaseOffersRepository(ref.watch(supabaseProvider)));

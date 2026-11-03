@@ -5,6 +5,7 @@ import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../cart/data/cart.dart';
+import 'orders_repository.dart';
 
 const ordersPageSize = 20;
 
@@ -28,14 +29,7 @@ class OrdersNotifier extends PagedNotifier<Order> {
   Future<List<Order>> fetch(int from, int size) async {
     final uid = ref.read(currentUserIdProvider);
     if (uid == null) return const [];
-    final rows = await ref
-        .read(supabaseProvider)
-        .from('orders')
-        .select('*, items:order_items(*)')
-        .eq('user_id', uid)
-        .order('created_at', ascending: false)
-        .range(from, from + size - 1);
-    return [for (final r in rows) Order.fromJson(r)];
+    return ref.read(ordersRepositoryProvider).myOrders(uid, from, size);
   }
 }
 
@@ -43,14 +37,7 @@ class OrdersNotifier extends PagedNotifier<Order> {
 final orderProvider = FutureProvider.autoDispose.family<Order, String>((ref, id) async {
   cacheFor(ref, const Duration(minutes: 2));
   ref.watch(currentUserIdProvider); // the cached copy must not outlive a sign-out or survive into another account
-  final row = await ref
-      .watch(supabaseProvider)
-      .from('orders')
-      .select('*, items:order_items(*), events:order_events(*)')
-      .eq('id', id)
-      .maybeSingle();
-  if (row == null) throw const PostgrestException(message: 'NOT_FOUND');
-  return Order.fromJson(row);
+  return ref.watch(ordersRepositoryProvider).order(id);
 });
 
 /// Puts a closed order's items back in the cart, capped by today's stock. Returns how many lines came back.

@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart';
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart';
+import 'offers_admin_repository_firebase.dart';
+import 'offers_admin_repository_supabase.dart';
 
 /// Staff promotions, product groups and banners (today's AdminOffersApi). Owner: engineer C.
 abstract interface class OffersAdminRepository {
@@ -27,5 +32,6 @@ abstract interface class OffersAdminRepository {
   Future<void> deleteBanner(String id);
 }
 
-final offersAdminRepositoryProvider =
-    Provider<OffersAdminRepository>((ref) => throw UnimplementedError('Phase 1: OffersAdminRepository'));
+final offersAdminRepositoryProvider = Provider<OffersAdminRepository>((ref) => backend == Backend.firebase
+    ? FirebaseOffersAdminRepository(ref.watch(firestoreProvider), ref.watch(functionsProvider))
+    : SupabaseOffersAdminRepository(ref.watch(supabaseProvider)));

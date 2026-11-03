@@ -23,6 +23,7 @@ import '../../checkout/screens/widgets.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../payments/widgets/order_refunds.dart';
 import '../data/orders.dart';
+import '../data/orders_repository.dart';
 
 String _paymentLine(Order o) => switch ((o.paymentMethod, o.paymentStatus)) {
       (_, PaymentStatus.refunded) => 'Refunded',
@@ -456,7 +457,7 @@ class _ActionsState extends ConsumerState<_Actions> {
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _busy = true);
     try {
-      await container.read(supabaseProvider).rpc<void>('cancel_order', params: {'p_order_id': o.id});
+      await container.read(ordersRepositoryProvider).cancel(o.id);
       _say(messenger, 'Order cancelled');
     } catch (e) {
       _say(messenger, friendlyError(e));

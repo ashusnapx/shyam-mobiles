@@ -1,81 +1,42 @@
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
-import '../../../core/supabase.dart';
+import 'offers_admin_repository.dart';
 
-/// Staff reads and writes for offers, groups and banners (RLS: is_admin()); a provider so tests can swap it.
+/// Staff reads and writes for offers, groups and banners (tests override this provider), from OffersAdminRepository.
 class AdminOffersApi {
-  const AdminOffersApi(this._db);
+  const AdminOffersApi(this._repo);
 
-  final SupabaseClient _db;
+  final OffersAdminRepository _repo;
 
-  /// `admin_promotions()`: every promotion with its `status`, `targets`, `uses` and `discount_total_paise`, newest first.
-  Future<List<Promotion>> promotions() async =>
-      [for (final r in await _db.rpc<List<dynamic>>('admin_promotions')) Promotion.fromJson(r as Map<String, dynamic>)];
+  /// Every promotion with its status, targets, uses and discount total, newest first.
+  Future<List<Promotion>> promotions() => _repo.promotions();
 
-  /// `admin_save_promotion(p)`: inserts without `id`, else updates only the keys given (`{id, is_active: false}`
-  /// pauses), with the targets in the same transaction, checking every rule again. Returns the id.
-  Future<String> savePromotion(Map<String, dynamic> p) async => await _db.rpc<String>('admin_save_promotion', params: {'p': p});
+  /// Inserts without `id`, else updates only the keys given (`{id, is_active: false}` pauses), checking every rule
+  /// again. Returns the id.
+  Future<String> savePromotion(Map<String, dynamic> p) => _repo.savePromotion(p);
 
-  /// RLS deletes only a promotion no live order used; a used one deletes no row, so `.single()` throws PGRST116.
-  Future<void> deletePromotion(String id) async {
-    await _db.from('promotions').delete().eq('id', id).select('id').single();
-  }
+  /// Only a promotion no live order used.
+  Future<void> deletePromotion(String id) => _repo.deletePromotion(id);
 
-  Future<List<Collection>> collections() async {
-    final rows = await _db.from('collections').select('*, products:collection_products(product_id)').order('name');
-    return [for (final r in rows) Collection.fromJson(r)];
-  }
+  Future<List<Collection>> collections() => _repo.collections();
 
-  /// Saves the group, then its products: new ones first, removed ones last, so a failure part-way never drops
-  /// products from a group a running offer may target. Returns the id.
-  Future<String> saveCollection(Collection c, {Set<String> before = const {}}) async {
-    final fields = {'slug': c.slug, 'name': c.name};
-    final table = _db.from('collections');
-    final row = c.id == null
-        ? await table.insert(fields).select('id').single()
-        : await table.update(fields).eq('id', c.id!).select('id').single();
-    final id = row['id'] as String;
-    final added = c.productIds.difference(before), removed = before.difference(c.productIds);
-    if (added.isNotEmpty) {
-      await _db
-          .from('collection_products')
-          .upsert([for (final p in added) {'collection_id': id, 'product_id': p}], ignoreDuplicates: true);
-    }
-    if (removed.isNotEmpty) {
-      await _db.from('collection_products').delete().eq('collection_id', id).inFilter('product_id', removed.toList());
-    }
-    return id;
-  }
+  /// Only the difference from [before] is written, new products first. Returns the id.
+  Future<String> saveCollection(Collection c, {Set<String> before = const {}}) => _repo.saveCollection(c, before: before);
 
-  Future<void> deleteCollection(String id) async {
-    await _db.from('collection_products').delete().eq('collection_id', id);
-    await _db.from('collections').delete().eq('id', id).select('id').single();
-  }
+  Future<void> deleteCollection(String id) => _repo.deleteCollection(id);
 
-  Future<List<PromoBanner>> banners() async {
-    final rows = await _db.from('banners').select().order('sort').order('created_at');
-    return [for (final r in rows) PromoBanner.fromJson(r)];
-  }
+  Future<List<PromoBanner>> banners() => _repo.banners();
 
   /// Inserts when [id] is null. Returns the id.
-  Future<String> saveBanner(String? id, Map<String, dynamic> fields) async {
-    final table = _db.from('banners');
-    final row = id == null
-        ? await table.insert(fields).select('id').single()
-        : await table.update(fields).eq('id', id).select('id').single();
-    return row['id'] as String;
-  }
+  Future<String> saveBanner(String? id, Map<String, dynamic> fields) => _repo.saveBanner(id, fields);
 
-  Future<void> deleteBanner(String id) async {
-    await _db.from('banners').delete().eq('id', id).select('id').single();
-  }
+  Future<void> deleteBanner(String id) => _repo.deleteBanner(id);
 }
 
-final adminOffersApiProvider = Provider<AdminOffersApi>((ref) => AdminOffersApi(ref.watch(supabaseProvider)));
+final adminOffersApiProvider = Provider<AdminOffersApi>((ref) => AdminOffersApi(ref.watch(offersAdminRepositoryProvider)));
 
 final adminPromotionsProvider =
     FutureProvider.autoDispose<List<Promotion>>((ref) => ref.watch(adminOffersApiProvider).promotions());

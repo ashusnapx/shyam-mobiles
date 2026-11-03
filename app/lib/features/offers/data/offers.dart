@@ -1,57 +1,41 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../cart/data/cart.dart';
-import '../../catalog/data/catalog.dart' show cardColumns;
+import '../../orders/data/orders_repository.dart';
+import 'offers_repository.dart';
 
-/// Offer RPCs and banners; a provider so tests can swap it. Customers never read `promotions` itself, so hidden
-/// and personal codes can't be listed.
+/// The offer calls screens use (tests override this provider): the cart's price from OrdersRepository, the rest from
+/// OffersRepository, each picked by `backend`.
 class OffersApi {
-  const OffersApi(this._db);
+  const OffersApi(this._offers, this._orders);
 
-  final SupabaseClient _db;
+  final OffersRepository _offers;
+  final OrdersRepository _orders;
 
   /// Prices the caller's cart as it is on the server. A bad [code] comes back as `couponError`, not a throw.
-  Future<Quote> quote({String? code, PaymentMethod? method}) async => Quote.fromJson(await _db.rpc<Map<String, dynamic>>(
-        'quote_order',
-        params: {'p_coupon_code': code, 'p_payment_method': method?.value},
-      ));
+  Future<Quote> quote({String? code, PaymentMethod? method}) => _orders.quote(couponCode: code, method: method);
 
-  Future<List<Offer>> available() async => _offers(await _db.rpc<List<dynamic>>('available_offers'));
+  Future<List<Offer>> available() => _offers.available();
 
-  Future<List<Offer>> forProduct(String productId) async =>
-      _offers(await _db.rpc<List<dynamic>>('offers_for_product', params: {'p_product_id': productId}));
+  Future<List<Offer>> forProduct(String productId) => _offers.forProduct(productId);
 
-  /// Rows [from]..[from + size - 1] of what the offer covers, by name (`offer_products` takes PostgREST paging).
-  Future<List<ProductCard>> products(String promotionId, int from, int size) async {
-    final rows = await _db
-        .rpc<PostgrestList>('offer_products', params: {'p_promotion_id': promotionId})
-        .select(cardColumns)
-        .order('name', ascending: true)
-        .order('id')
-        .range(from, from + size - 1);
-    return [for (final r in rows) ProductCard.fromJson(r)];
-  }
+  /// Rows [from]..[from + size - 1] of what the offer covers, by name.
+  Future<List<ProductCard>> products(String promotionId, int from, int size) => _offers.products(promotionId, from, size);
 
-  /// RLS shows customers only running banners; staff see every row, so callers filter with `runningAt`.
-  Future<List<PromoBanner>> banners() async {
-    final rows = await _db.from('banners').select().order('sort').order('created_at');
-    return [for (final r in rows) PromoBanner.fromJson(r)];
-  }
+  /// Customers get the running banners; staff every one, so callers filter with `runningAt`.
+  Future<List<PromoBanner>> banners() => _offers.banners();
 
-  Future<Referral> myReferral() async => Referral.fromJson(await _db.rpc<Map<String, dynamic>>('my_referral'));
+  Future<Referral> myReferral() => _offers.myReferral();
 
   /// Returns the friend's welcome coupon.
-  Future<Offer> applyReferral(String code) async =>
-      Offer.fromJson(await _db.rpc<Map<String, dynamic>>('apply_referral_code', params: {'p_code': code}));
-
-  List<Offer> _offers(List<dynamic> rows) => [for (final r in rows) Offer.fromJson(r as Map<String, dynamic>)];
+  Future<Offer> applyReferral(String code) => _offers.applyReferral(code);
 }
 
-final offersApiProvider = Provider<OffersApi>((ref) => OffersApi(ref.watch(supabaseProvider)));
+final offersApiProvider =
+    Provider<OffersApi>((ref) => OffersApi(ref.watch(offersRepositoryProvider), ref.watch(ordersRepositoryProvider)));
 
 /// The code the customer applied in the cart, at checkout or from Offers. It rides along to every quote and to
 /// `place_order`, and is dropped after an order or on a change of account.

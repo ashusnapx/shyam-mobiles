@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart';
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart';
+import 'orders_repository_firebase.dart';
+import 'orders_repository_supabase.dart';
 
 /// Checkout and orders, the customer's and the staff side (docs/FIREBASE.md §5). The app never sends a price: the
 /// server prices the cart. Errors carry today's reason codes (OUT_OF_STOCK, COUPON_*, PENDING_LIMIT…). Owner: C.
@@ -38,4 +43,6 @@ abstract interface class OrdersRepository {
   Future<void> setImeis(String orderId, String itemId, List<String> imeis);
 }
 
-final ordersRepositoryProvider = Provider<OrdersRepository>((ref) => throw UnimplementedError('Phase 1: OrdersRepository'));
+final ordersRepositoryProvider = Provider<OrdersRepository>((ref) => backend == Backend.firebase
+    ? FirebaseOrdersRepository(ref.watch(firestoreProvider), ref.watch(functionsProvider))
+    : SupabaseOrdersRepository(ref.watch(supabaseProvider)));

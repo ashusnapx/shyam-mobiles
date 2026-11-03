@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
+import '../../orders/data/orders_repository.dart';
 import '../../catalog/data/catalog.dart' show brandsProvider;
 import '../../catalog/data/catalog_repository.dart';
 import '../../catalog/data/settings_repository.dart';
@@ -14,39 +14,24 @@ import 'catalogue.dart' show catalogueSummaryProvider;
 import 'photo_store.dart';
 import 'photos.dart';
 import 'rules.dart';
-import '../../repairs/data/booking_days.dart' show istMidnight;
 import '../../repairs/data/repairs.dart';
 import '../../repairs/data/repairs_repository.dart';
 
 // Reads rely on RLS: admins can select every row (incl. inactive products) via the "admin write" policies.
 
-SupabaseClient _db(WidgetRef ref) => ref.read(supabaseProvider);
 
 // Dashboard -------------------------------------------------------------------
 
 /// `admin_dashboard()`: orders_today, revenue_today_paise, open_orders, low_stock, open_repairs, needs_refund (all ints).
 final adminDashboardProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
-  final json = await ref.watch(supabaseProvider).rpc<Map<String, dynamic>>('admin_dashboard');
-  return {for (final e in json.entries) e.key: (e.value as num).toInt()};
+  return ref.watch(ordersRepositoryProvider).dashboard();
 });
 
 typedef NeedsAction = ({List<Order> orders, List<RepairBooking> repairs});
 
 /// Confirmed orders to pack, packed orders to ship, requested repairs to confirm. Oldest first.
 final needsActionProvider = FutureProvider.autoDispose<NeedsAction>((ref) async {
-  final db = ref.watch(supabaseProvider);
-  final (orders, repairs) = await (
-    db
-        .from('orders')
-        .select('*, items:order_items(*)')
-        .inFilter('status', ['confirmed', 'packed'])
-        .order('created_at')
-        .limit(30),
-    ref.read(repairsRepositoryProvider).toConfirm(),
-  ).wait;
-  final list = [for (final r in orders) Order.fromJson(r)];
-  // packing comes before shipping
-  list.sort((a, b) => a.status.index.compareTo(b.status.index));
+  final (list, repairs) = await (ref.watch(ordersRepositoryProvider).toFulfil(), ref.read(repairsRepositoryProvider).toConfirm()).wait;
   return (orders: list, repairs: repairs);
 });
 
@@ -75,31 +60,12 @@ class AdminOrdersNotifier extends PagedNotifier<Order> {
 
   @override
   Future<List<Order>> fetch(int from, int size) async {
-    var q = ref.read(supabaseProvider).from('orders').select('*, items:order_items(*)');
-    q = switch (filter) {
-      'all' => q,
-      'open' => q.inFilter('status', ['confirmed', 'packed', 'shipped']),
-      'needs_refund' => q.eq('status', 'cancelled').eq('payment_status', 'paid'),
-      // the dashboard's "Orders today": placed since IST midnight and not unpaid or cancelled
-      'today' => q
-          .gte('created_at', istMidnight().toIso8601String())
-          .inFilter('status', ['confirmed', 'packed', 'shipped', 'delivered']),
-      _ => q.eq('status', filter),
-    };
-    // id breaks created_at ties, so no order repeats or goes missing between pages
-    final rows = await q.order('created_at', ascending: false).order('id').range(from, from + size - 1);
-    return [for (final r in rows) Order.fromJson(r)];
+    return ref.read(ordersRepositoryProvider).adminOrders(filter, from, size);
   }
 }
 
 final adminOrderProvider = FutureProvider.autoDispose.family<Order, String>((ref, id) async {
-  final row = await ref
-      .watch(supabaseProvider)
-      .from('orders')
-      .select('*, items:order_items(*), events:order_events(*)')
-      .eq('id', id)
-      .single();
-  return Order.fromJson(row);
+  return ref.watch(ordersRepositoryProvider).order(id);
 });
 
 void _ordersChanged(WidgetRef ref, String orderId) {
@@ -118,18 +84,12 @@ Future<void> updateOrder(
   String? courier,
   String? tracking,
 }) async {
-  await _db(ref).rpc<void>('admin_update_order', params: {
-    'p_order_id': orderId,
-    'p_status': status.value,
-    'p_note': note,
-    'p_courier': courier,
-    'p_tracking_number': tracking,
-  });
+  await ref.read(ordersRepositoryProvider).updateOrder(orderId, status, note: note, courier: courier, tracking: tracking);
   _ordersChanged(ref, orderId);
 }
 
 Future<void> setImeis(WidgetRef ref, String orderId, String itemId, List<String> imeis) async {
-  await _db(ref).rpc<void>('admin_set_imeis', params: {'p_order_item_id': itemId, 'p_imeis': imeis});
+  await ref.read(ordersRepositoryProvider).setImeis(orderId, itemId, imeis);
   ref.invalidate(adminOrderProvider(orderId));
 }
 
