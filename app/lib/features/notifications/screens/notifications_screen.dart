@@ -75,6 +75,7 @@ class NotificationsScreen extends ConsumerWidget {
           if (p.items.isEmpty) {
             return const EmptyState(
               icon: PhosphorIconsRegular.bell,
+              tone: Worlds.offers,
               art: NotificationArt(kind: '', size: 112),
               title: 'No notifications yet',
               message: 'Updates on your orders, repairs and offers show up here.',

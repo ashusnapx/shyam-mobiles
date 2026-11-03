@@ -29,8 +29,9 @@ enum ArtGroup {
   GenPalette get palette => _palettes[this]!;
 }
 
-/// done: emerald check; waiting: gold clock; failed (or cancelled): red ×; action (needs you): gold !.
-enum ArtBadge { none, done, waiting, failed, action }
+/// done: emerald check; waiting: gold clock; failed (an error): red ×; closed (cancelled, expired, declined: nothing
+/// went wrong): graphite ×; action (needs you): gold !.
+enum ArtBadge { none, done, waiting, failed, closed, action }
 
 /// Two-tone icons (Phosphor's duotone look: the filled shape faint under the line drawing).
 enum ArtIcon {
@@ -74,11 +75,11 @@ const notificationArt = <String, ArtSpec>{
   'order_tracking': (group: ArtGroup.orders, icon: ArtIcon.pin, badge: ArtBadge.none),
   'order_update': (group: ArtGroup.orders, icon: ArtIcon.note, badge: ArtBadge.none),
   'order_delivered': (group: ArtGroup.orders, icon: ArtIcon.home, badge: ArtBadge.done),
-  'order_cancelled': (group: ArtGroup.orders, icon: ArtIcon.box, badge: ArtBadge.failed),
+  'order_cancelled': (group: ArtGroup.orders, icon: ArtIcon.box, badge: ArtBadge.closed),
   'order_awaiting_payment': (group: ArtGroup.payments, icon: ArtIcon.wallet, badge: ArtBadge.waiting),
   'payment_received': (group: ArtGroup.payments, icon: ArtIcon.wallet, badge: ArtBadge.done),
   'payment_failed': (group: ArtGroup.payments, icon: ArtIcon.card, badge: ArtBadge.failed),
-  'order_expired': (group: ArtGroup.payments, icon: ArtIcon.hourglass, badge: ArtBadge.failed),
+  'order_expired': (group: ArtGroup.payments, icon: ArtIcon.hourglass, badge: ArtBadge.closed),
   'order_late_payment': (group: ArtGroup.payments, icon: ArtIcon.receipt, badge: ArtBadge.waiting),
   'order_refunded': (group: ArtGroup.payments, icon: ArtIcon.receipt, badge: ArtBadge.done),
   'repair_booked': (group: ArtGroup.repairs, icon: ArtIcon.calendar, badge: ArtBadge.waiting),
@@ -89,25 +90,25 @@ const notificationArt = <String, ArtSpec>{
   'repair_update': (group: ArtGroup.repairs, icon: ArtIcon.note, badge: ArtBadge.none),
   'repair_ready': (group: ArtGroup.repairs, icon: ArtIcon.phone, badge: ArtBadge.action),
   'repair_completed': (group: ArtGroup.repairs, icon: ArtIcon.phone, badge: ArtBadge.done),
-  'repair_cancelled': (group: ArtGroup.repairs, icon: ArtIcon.wrench, badge: ArtBadge.failed),
+  'repair_cancelled': (group: ArtGroup.repairs, icon: ArtIcon.wrench, badge: ArtBadge.closed),
   'referral_welcome': (group: ArtGroup.offers, icon: ArtIcon.gift, badge: ArtBadge.none),
   'referral_reward': (group: ArtGroup.offers, icon: ArtIcon.gift, badge: ArtBadge.done),
   'coupon': (group: ArtGroup.offers, icon: ArtIcon.ticket, badge: ArtBadge.none),
   'staff_new_order': (group: ArtGroup.staffOrders, icon: ArtIcon.newOrder, badge: ArtBadge.action),
   'staff_order_paid': (group: ArtGroup.staffOrders, icon: ArtIcon.rupee, badge: ArtBadge.done),
-  'staff_order_cancelled': (group: ArtGroup.staffOrders, icon: ArtIcon.box, badge: ArtBadge.failed),
+  'staff_order_cancelled': (group: ArtGroup.staffOrders, icon: ArtIcon.box, badge: ArtBadge.closed),
   'staff_refund_needed': (group: ArtGroup.staffOrders, icon: ArtIcon.receipt, badge: ArtBadge.action),
   'staff_refund_failed': (group: ArtGroup.staffOrders, icon: ArtIcon.receipt, badge: ArtBadge.failed),
   'staff_link_paid': (group: ArtGroup.staffOrders, icon: ArtIcon.link, badge: ArtBadge.done),
   'staff_dispute': (group: ArtGroup.staffOrders, icon: ArtIcon.scales, badge: ArtBadge.action),
   'staff_new_repair': (group: ArtGroup.staffRepairs, icon: ArtIcon.wrench, badge: ArtBadge.action),
   'staff_quote_approved': (group: ArtGroup.staffRepairs, icon: ArtIcon.clipboard, badge: ArtBadge.done),
-  'staff_quote_declined': (group: ArtGroup.staffRepairs, icon: ArtIcon.clipboard, badge: ArtBadge.failed),
-  'staff_repair_cancelled': (group: ArtGroup.staffRepairs, icon: ArtIcon.wrench, badge: ArtBadge.failed),
+  'staff_quote_declined': (group: ArtGroup.staffRepairs, icon: ArtIcon.clipboard, badge: ArtBadge.closed),
+  'staff_repair_cancelled': (group: ArtGroup.staffRepairs, icon: ArtIcon.wrench, badge: ArtBadge.closed),
   'staff_feedback': (group: ArtGroup.feedback, icon: ArtIcon.star, badge: ArtBadge.none),
   'staff_feedback_low': (group: ArtGroup.feedback, icon: ArtIcon.star, badge: ArtBadge.action),
   'staff_low_stock': (group: ArtGroup.stock, icon: ArtIcon.graph, badge: ArtBadge.action),
-  'staff_out_of_stock': (group: ArtGroup.stock, icon: ArtIcon.shelf, badge: ArtBadge.failed),
+  'staff_out_of_stock': (group: ArtGroup.stock, icon: ArtIcon.shelf, badge: ArtBadge.action),
 };
 
 /// A kind this build doesn't know yet (a newer server): a plain bell.
@@ -178,6 +179,7 @@ class StatusBadge extends StatelessWidget {
       ArtBadge.done => (BrandColors.emerald, Colors.white, PhosphorIconsBold.check),
       ArtBadge.waiting => (BrandColors.gold, BrandColors.goldInk, PhosphorIconsBold.clock),
       ArtBadge.failed => (lightScheme.error, Colors.white, PhosphorIconsBold.x),
+      ArtBadge.closed => (BrandColors.graphite, Colors.white, PhosphorIconsBold.x),
       ArtBadge.action || ArtBadge.none => (BrandColors.gold, BrandColors.goldInk, PhosphorIconsBold.exclamationMark),
     };
     return Container(
