@@ -59,8 +59,13 @@ String itemsSummary(Order o) => o.items.isEmpty
         ? o.items.first.productName
         : '${o.items.first.productName} +${o.items.length - 1} more';
 
-/// "COD" or the payment status ("Paid", "Pending", ...).
-String paymentShort(Order o) => o.paymentMethod == PaymentMethod.cod ? 'COD' : o.paymentStatus.label;
+/// "COD" or the payment status ("Paid", "Pending", ...); a cancelled order still pending was never paid. The order's
+/// own page keeps the raw status.
+String paymentShort(Order o) => switch (o) {
+      Order(paymentMethod: PaymentMethod.cod) => 'COD',
+      Order(status: OrderStatus.cancelled, paymentStatus: PaymentStatus.pending) => 'Not paid',
+      _ => o.paymentStatus.label,
+    };
 
 /// A loading page shaped like rows of cards, in place of a lone spinner (admin pages, forms that load first).
 class PageSkeleton extends StatelessWidget {
