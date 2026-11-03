@@ -121,7 +121,8 @@ class _Orders extends OrdersNotifier {
       );
 }
 
-Future<void> _pump(WidgetTester tester, Widget screen, {required Brightness brightness, List<Order>? orders}) async {
+Future<void> _pump(WidgetTester tester, Widget screen,
+    {required Brightness brightness, List<Order>? orders, List<String> pages = const []}) async {
   tester.view
     ..physicalSize = const Size(1080, 2400)
     ..devicePixelRatio = 3
@@ -144,7 +145,10 @@ Future<void> _pump(WidgetTester tester, Widget screen, {required Brightness brig
     ],
     child: MaterialApp.router(
       theme: ThemeData(colorScheme: lightScheme, fontFamily: 'Roboto'),
-      routerConfig: GoRouter(routes: [GoRoute(path: '/', builder: (_, _) => screen)]),
+      routerConfig: GoRouter(routes: [
+        GoRoute(path: '/', builder: (_, _) => screen),
+        for (final p in pages) GoRoute(path: p, builder: (_, _) => Scaffold(body: Text('Page $p'))),
+      ]),
     ),
   ));
   await tester.pump(const Duration(seconds: 1));
@@ -220,6 +224,14 @@ void main() {
       for (final f in [find.text('Need help with this order?'), find.text('Call shop'), find.text('Cancel order')]) {
         await tester.scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
       }
+    });
+
+    testWidgets('checkout with nothing below it (a sign-in return): Back goes to the cart ($b)', (tester) async {
+      await _pump(tester, const CheckoutScreen(), brightness: b, pages: ['/cart']);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Page /cart'), findsOneWidget);
     });
 
     testWidgets('a cancelled unpaid order says Not paid, not Not paid yet ($b)', (tester) async {

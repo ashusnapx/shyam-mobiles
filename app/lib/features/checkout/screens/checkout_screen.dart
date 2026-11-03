@@ -179,10 +179,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
 
+    // opened with go() after signing in: nothing below, so Back goes to the cart instead of closing the app
+    final alone = !(ModalRoute.of(context)?.canPop ?? true);
     return PopScope(
-      canPop: !busy, // an order may already exist; let the flow finish and land on its result
+      canPop: !busy && !alone, // busy: an order may already exist; let the flow finish and land on its result
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !busy && alone) context.go('/cart');
+      },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Checkout')),
+        appBar: AppBar(
+          title: const Text('Checkout'),
+          leading: alone ? BackButton(onPressed: busy ? null : () => context.go('/cart')) : null,
+        ),
         body: body,
         bottomNavigationBar: bar,
       ),
