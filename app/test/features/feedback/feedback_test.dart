@@ -230,7 +230,7 @@ void main() {
     expect(find.text('Marked resolved'), findsOneWidget);
   });
 
-  testWidgets('dashboard: a tile counts the new feedback', (tester) async {
+  testWidgets('dashboard: an alert chip counts the new feedback', (tester) async {
     final api = _Api()..rows = [_entry('f1'), _entry('f2'), _entry('f3', status: FeedbackStatus.seen)];
     await pumpScreen(tester, const AdminDashboardScreen(), overrides: [
       feedbackApiProvider.overrideWithValue(api),
@@ -238,7 +238,8 @@ void main() {
       needsActionProvider.overrideWithValue(const AsyncData((orders: <Order>[], repairs: <RepairBooking>[]))),
     ]);
     await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('New feedback, 2'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('New feedback 2'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('New feedback 2'), findsOneWidget);
   });
 
   testWidgets('a listing’s reports: the editor row counts them and opens the inbox filtered to that product', (tester) async {

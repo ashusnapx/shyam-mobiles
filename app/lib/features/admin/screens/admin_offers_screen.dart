@@ -9,6 +9,7 @@ import '../../../core/input.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/picker.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';

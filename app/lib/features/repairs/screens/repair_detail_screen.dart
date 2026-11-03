@@ -9,6 +9,7 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../data/repairs.dart';
@@ -271,7 +272,7 @@ class _QuoteCard extends StatelessWidget {
   }
 }
 
-/// Indigo status card with a serif headline (mockup 6 `.status-hero`). Shared with the admin detail.
+/// Status card in its status tone with a serif headline (mockup 6 `.status-hero`). Shared with the admin detail.
 class RepairStatusHero extends StatelessWidget {
   const RepairStatusHero({super.key, required this.booking});
 
@@ -280,32 +281,28 @@ class RepairStatusHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final c = Theme.of(context).colorScheme;
-    final colors = switch (booking.status) {
-      RepairStatus.cancelled => (bg: c.surfaceContainerHighest, fg: c.onSurface),
-      RepairStatus.ready => toneColors(c, TagTone.ok),
-      _ => toneColors(c, TagTone.info),
-    };
+    // the same tone as the status tag: one table for every status
+    final (bg, fg) = toneColors(booking.awaitingApproval ? TagTone.deal : repairTone(booking.status));
     return DecoratedBox(
-      decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.hero)),
       child: Padding(
-        padding: const EdgeInsets.all(Space.lg + 2),
+        padding: const EdgeInsets.all(Space.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               booking.number,
-              style: t.labelSmall?.copyWith(color: colors.fg, letterSpacing: 1),
+              style: t.labelSmall?.copyWith(color: fg, letterSpacing: 1),
             ),
             const SizedBox(height: Space.xs),
             Semantics(
               header: true,
-              child: Text(booking.status.label, style: t.displaySmall?.copyWith(color: colors.fg)),
+              child: Text(booking.status.label, style: t.displaySmall?.copyWith(color: fg)),
             ),
             const SizedBox(height: Space.xs),
             Text(
               '${repairWhen(booking)} · ${booking.slot.hours}',
-              style: t.bodySmall?.copyWith(color: colors.fg),
+              style: t.bodySmall?.copyWith(color: fg),
             ),
           ],
         ),

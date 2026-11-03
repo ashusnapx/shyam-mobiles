@@ -6,10 +6,10 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/format.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../feedback/data/feedback.dart';
 import '../../feedback/widgets/feedback_widgets.dart' show StarRating;
-import '../../repairs/widgets/repair_widgets.dart' show ListSection;
 import '../screens/admin_feedback_screen.dart' show feedbackTone;
 
 /// Staff: the customer's rating of this order or repair (one per order/repair), or null. Only reads: opening the

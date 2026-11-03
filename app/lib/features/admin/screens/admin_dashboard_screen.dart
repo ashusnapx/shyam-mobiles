@@ -12,6 +12,7 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
+import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../repairs/data/booking_days.dart';
 import '../../repairs/widgets/repair_widgets.dart';
@@ -206,7 +207,7 @@ class _Alerts extends ConsumerWidget {
     ].where((a) => a.$3 > 0).toList();
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    final deal = toneColors(c, TagTone.deal);
+    final (bg, fg) = toneColors(TagTone.deal);
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
       child: alerts.isEmpty
@@ -222,10 +223,10 @@ class _Alerts extends ConsumerWidget {
               children: [
                 for (final (icon, label, count, route) in alerts)
                   ActionChip(
-                    avatar: Icon(icon, size: 16, color: deal.fg),
+                    avatar: Icon(icon, size: 16, color: fg),
                     label: Text('$label $count'),
-                    labelStyle: t.labelLarge?.copyWith(color: deal.fg, fontWeight: FontWeight.w700),
-                    backgroundColor: deal.bg,
+                    labelStyle: t.labelLarge?.copyWith(color: fg, fontWeight: FontWeight.w700),
+                    backgroundColor: bg,
                     side: BorderSide.none,
                     onPressed: () => context.push(route),
                   ),

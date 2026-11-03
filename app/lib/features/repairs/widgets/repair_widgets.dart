@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -6,24 +5,15 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
-import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 
-/// Container colours for a [TagTone] (same as the core [Tag]); used by notes and heroes.
-({Color bg, Color fg}) toneColors(ColorScheme c, TagTone t) => switch (t) {
-      TagTone.info => (bg: c.primaryContainer, fg: c.onPrimaryContainer),
-      TagTone.ok => (bg: c.secondaryContainer, fg: c.onSecondaryContainer),
-      TagTone.deal => (bg: c.tertiaryContainer, fg: c.onTertiaryContainer),
-      TagTone.bad => (bg: c.errorContainer, fg: c.onErrorContainer),
-    };
-
 TagTone repairTone(RepairStatus s) => switch (s) {
-      RepairStatus.requested => TagTone.deal,
+      RepairStatus.requested => TagTone.repair,
       RepairStatus.confirmed || RepairStatus.inProgress => TagTone.info,
       RepairStatus.ready => TagTone.ok,
       RepairStatus.completed => TagTone.ok,
-      RepairStatus.cancelled => TagTone.bad,
+      RepairStatus.cancelled => TagTone.neutral,
     };
 
 const issueIcons = <RepairIssue, IconData>{
@@ -87,104 +77,6 @@ class ChipBar extends StatelessWidget {
       );
 }
 
-/// Bottom action bar for pushed screens; keeps clear of the gesture/nav bar (edge-to-edge).
-class StickyBar extends StatelessWidget {
-  const StickyBar({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.outlineVariant))),
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
-        child: child,
-      ),
-    );
-  }
-}
-
-/// Small bold label above a form group (mockup `.label`).
-class FieldLabel extends StatelessWidget {
-  const FieldLabel(this.text, {super.key});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: Space.xl, bottom: Space.sm),
-        child: Semantics(header: true, child: Text(text, style: Theme.of(context).textTheme.titleSmall)),
-      );
-}
-
-/// Tinted info box (mockup `.note`).
-class NoteBox extends StatelessWidget {
-  const NoteBox(this.text, {super.key, this.tone = TagTone.deal, this.icon = PhosphorIconsFill.info});
-
-  final String text;
-  final TagTone tone;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = toneColors(Theme.of(context).colorScheme, tone);
-    return DecoratedBox(
-      decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(Radii.md)),
-      child: Padding(
-        padding: const EdgeInsets.all(Space.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18, color: colors.fg),
-            const SizedBox(width: Space.sm + 2),
-            Expanded(child: Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.fg))),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-Uri telUri(String e164) => Uri(scheme: 'tel', path: e164);
-
-Uri whatsAppUri(String e164, {String? text}) =>
-    Uri.https('wa.me', '/${e164.replaceAll('+', '')}', text == null ? null : {'text': text});
-
-Future<void> openUri(BuildContext context, Uri uri) async {
-  if (!await launchExternal(uri) && context.mounted) showMessage(context, 'Couldn’t open that on this phone.');
-}
-
-/// "WhatsApp" and "Call store" buttons, from store_settings.store_phone.
-class StoreContactButtons extends ConsumerWidget {
-  const StoreContactButtons({super.key, required this.message});
-
-  final String message; // prefilled WhatsApp text, e.g. "Hi, about repair RP100012"
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final phone = ref.watch(storeSettingsProvider).value?.storePhone;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        FilledButton.tonalIcon(
-          onPressed: phone == null ? null : () => openUri(context, whatsAppUri(phone, text: message)),
-          icon: const WhatsAppIcon(),
-          label: const Text('WhatsApp'),
-        ),
-        const SizedBox(height: Space.sm),
-        OutlinedButton.icon(
-          onPressed: phone == null ? null : () => openUri(context, telUri(phone)),
-          icon: const Icon(PhosphorIconsRegular.phone),
-          label: const Text('Call store'),
-        ),
-      ],
-    );
-  }
-}
-
 /// List card for a booking; used by the customer list and the admin list.
 class RepairCard extends StatelessWidget {
   const RepairCard({super.key, required this.booking, required this.onTap, this.showPhone = false});
@@ -226,7 +118,7 @@ class RepairCard extends StatelessWidget {
                         Text(b.number, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                         Tag(b.status.label, tone: repairTone(b.status)),
                         if (b.awaitingApproval) const Tag('Awaiting approval', tone: TagTone.deal),
-                        if (b.quoteDeclined) const Tag('Quote declined', tone: TagTone.bad),
+                        if (b.quoteDeclined) const Tag('Quote declined', tone: TagTone.neutral),
                       ],
                     ),
                     const SizedBox(height: Space.xs),
@@ -404,27 +296,6 @@ class InfoRow extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Section title for already-padded lists.
-class ListSection extends StatelessWidget {
-  const ListSection(this.title, {super.key, this.trailing});
-
-  final String title;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: Space.xl, bottom: Space.sm),
-        child: Row(
-          children: [
-            Expanded(
-              child: Semantics(header: true, child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
-            ),
-            ?trailing,
-          ],
-        ),
-      );
 }
 
 /// Fake bookings for skeletons, so the skeleton matches the real card.
