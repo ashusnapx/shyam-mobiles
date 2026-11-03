@@ -179,7 +179,8 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# Customers sign in with their phone number and a password; the app asks for 8 too.
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -224,7 +225,7 @@ enable_signup = true
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 # On: /signup with a password must not mint a session for an email nobody proved (see the access token hook).
-# OTP sign-in is unaffected: a new user's first code is the confirmation.
+# The app has no email sign-up; only the dev and demo logins use email, and they are created confirmed.
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
@@ -263,16 +264,15 @@ content_path = "./supabase/templates/otp.html"
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
 enable_signup = true
-# If enabled, users need to confirm their phone number before signing in. On, for the same reason as email.
-enable_confirmations = true
-# Template for sending OTP to users. Production: must match the DLT-registered template word for word.
+# If enabled, users need to confirm their phone number before signing in. Off: sign-up with a phone number and a
+# password gets a session at once and no SMS is ever sent (no codes, no DLT). A forgotten password is reset by
+# the shop (functions/reset-password).
+enable_confirmations = false
+# Never sent while confirmations are off and the app has no code sign-in.
 template = "{{ .Code }} is your Shyam Mobiles sign-in code. Do not share it."
 # Controls the minimum amount of time that must pass before sending another sms otp.
 max_frequency = "60s"
 
-# Use pre-defined map of phone number to OTP for testing.
-[auth.sms.test_otp]
-919999999999 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -287,14 +287,16 @@ max_frequency = "60s"
 # uri = "pg-functions://postgres/auth/before-user-created-hook"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
-# Refuses tokens from the password grant (sign-in is passwordless); see 20261028000100_auth_rls.sql.
+# Passwords only for accounts with a phone number, or an email on private.password_sign_in_domains (the dev and
+# demo logins); see 20261103000000_phone_password.sql.
 [auth.hook.custom_access_token]
 enabled = true
 uri = "pg-functions://postgres/private/custom_access_token_hook"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
-# Local only: a provider must be enabled for phone sign-in; test_otp numbers never reach it.
-# Production SMS provider is configured in the dashboard.
+# The phone provider wants an SMS provider configured. This dummy account is never called: phone confirmations
+# are off and the app never asks for a code (a stray /otp request just fails, free). scripts/launch.py pushes the
+# same dummy to production.
 [auth.sms.twilio]
 enabled = true
 account_sid = "AC00000000000000000000000000000000"
@@ -343,16 +345,13 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
-# Native Google sign-in (google_sign_in + signInWithIdToken). client_id = web client id; add the
-# iOS/Android client ids comma-separated if their tokens carry those audiences.
+# Off: sign-in is a phone number and a password only.
 [auth.external.google]
-enabled = true
-client_id = "env(GOOGLE_WEB_CLIENT_ID)"
-secret = "env(GOOGLE_CLIENT_SECRET)"
+enabled = false
+client_id = ""
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 redirect_uri = ""
 url = ""
-# Android (v1) handles the nonce, so keep the check on. iOS google_sign_in can't pass it through:
-# turn this on only when iOS ships. https://supabase.com/docs/guides/auth/social-login/auth-google
 skip_nonce_check = false
 email_optional = false
 
@@ -441,8 +440,8 @@ enabled = true
 [functions.razorpay-webhook]
 verify_jwt = false
 
-# Auth's Send SMS hook calls it, signed with SEND_SMS_HOOK_SECRET. Locally phone codes use [auth.sms.test_otp];
-# scripts/launch.py points production's hook at it.
+# Unused since sign-in became phone + password (no codes): kept deployed for a later SMS, with Auth's Send SMS hook
+# off (scripts/launch.py turns it off in production). It would be signed with SEND_SMS_HOOK_SECRET.
 [functions.send-sms]
 verify_jwt = false
 

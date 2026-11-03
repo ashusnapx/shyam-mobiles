@@ -1,5 +1,5 @@
 -- Regressions for holes found by scripts/api_e2e.py (attack suite): checkout race, repair mass assignment,
--- IMEI array shape, the passwordless access token hook, and the abuse caps (pending orders, lines, repairs, size).
+-- IMEI array shape, the access token hook, and the abuse caps (pending orders, lines, repairs, size).
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(52);
@@ -185,7 +185,7 @@ insert into auth.users (id, email, raw_user_meta_data) values ('77777777-7777-77
 select is((select full_name from public.profiles where id = '77777777-7777-7777-7777-777777777777'), null,
   'a junk display name never blocks sign-up (stored as null)');
 
--- access token hook: no password sessions ----------------------------------------------------------
+-- access token hook: passwords only for phones ----------------------------------------------------------
 
 insert into private.password_sign_in_domains (domain) values ('devlogin.test');
 insert into auth.users (id, email, phone) values
@@ -202,7 +202,7 @@ $$;
 
 select is(tests.hook('11111111-1111-1111-1111-111111111111', 'password', 'password') #>> '{error,http_code}', '403', 'password grant refused');
 select is(tests.hook('11111111-1111-1111-1111-111111111111', 'password', 'token_refresh') #>> '{error,http_code}', '403', 'refreshing a password session refused');
-select is(tests.hook('66666666-6666-6666-6666-666666666666', 'password', 'password') #>> '{error,http_code}', '403', 'phone + password refused');
+select ok(tests.hook('66666666-6666-6666-6666-666666666666', 'password', 'password') ? 'claims', 'phone + password is the sign-in (20261103000000)');
 select is(tests.hook('55555555-5555-5555-5555-555555555555', 'password', 'password') #>> '{error,http_code}', '403', 'a look-alike domain is not the dev domain');
 select is(tests.hook('11111111-1111-1111-1111-111111111111', 'otp', 'otp'),
   tests.event('11111111-1111-1111-1111-111111111111', 'otp', 'otp'), 'OTP sign-in passes through unchanged');
