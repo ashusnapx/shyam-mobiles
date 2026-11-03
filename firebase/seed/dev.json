@@ -1,0 +1,2494 @@
+{
+ "about": "The dev catalogue for the emulators: supabase/seed.sql converted once (slugs as ids, variant ids = SKU lowercased, rupees → paise, color_hex → colorHex), plus the shop's settings. firebase/seed/seed.ts loads it; createdAt/updatedAt are set at load time and \"@now\" is the load time.",
+ "docs": {
+  "categories/smartphones": {
+   "name": "Smartphones",
+   "kind": "phone",
+   "sort": 0
+  },
+  "categories/keypad-phones": {
+   "name": "Keypad phones",
+   "kind": "phone",
+   "sort": 1
+  },
+  "categories/cases-covers": {
+   "name": "Cases & covers",
+   "kind": "accessory",
+   "sort": 2
+  },
+  "categories/screen-guards": {
+   "name": "Screen guards",
+   "kind": "accessory",
+   "sort": 3
+  },
+  "categories/chargers-cables": {
+   "name": "Chargers & cables",
+   "kind": "accessory",
+   "sort": 4
+  },
+  "categories/earbuds-headphones": {
+   "name": "Earbuds & headphones",
+   "kind": "accessory",
+   "sort": 5
+  },
+  "categories/power-banks": {
+   "name": "Power banks",
+   "kind": "accessory",
+   "sort": 6
+  },
+  "brands/samsung": {
+   "name": "Samsung"
+  },
+  "brands/apple": {
+   "name": "Apple"
+  },
+  "brands/oneplus": {
+   "name": "OnePlus"
+  },
+  "brands/xiaomi": {
+   "name": "Xiaomi"
+  },
+  "brands/vivo": {
+   "name": "vivo"
+  },
+  "brands/realme": {
+   "name": "realme"
+  },
+  "brands/motorola": {
+   "name": "Motorola"
+  },
+  "brands/google": {
+   "name": "Google"
+  },
+  "brands/nothing": {
+   "name": "Nothing"
+  },
+  "brands/oppo": {
+   "name": "OPPO"
+  },
+  "brands/lava": {
+   "name": "LAVA"
+  },
+  "brands/nokia": {
+   "name": "Nokia"
+  },
+  "brands/spigen": {
+   "name": "Spigen"
+  },
+  "brands/anker": {
+   "name": "Anker"
+  },
+  "brands/boat": {
+   "name": "boAt"
+  },
+  "brands/itel": {
+   "name": "itel"
+  },
+  "brands/jio": {
+   "name": "Jio"
+  },
+  "brands/jbl": {
+   "name": "JBL"
+  },
+  "brands/portronics": {
+   "name": "Portronics"
+  },
+  "brands/ambrane": {
+   "name": "Ambrane"
+  },
+  "products/samsung-galaxy-s25": {
+   "name": "Samsung Galaxy S25",
+   "brandId": "samsung",
+   "brandName": "Samsung",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Compact flagship with Galaxy AI, a bright 120 Hz screen and 7 years of updates.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.2-inch Dynamic AMOLED 2X, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "Snapdragon 8 Elite for Galaxy"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 12 MP ultra-wide + 10 MP 3x tele; 12 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "4000 mAh, 25 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15, One UI 7"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": true,
+   "images": []
+  },
+  "products/samsung-galaxy-a56-5g": {
+   "name": "Samsung Galaxy A56 5G",
+   "brandId": "samsung",
+   "brandName": "Samsung",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Metal frame, IP67 and six OS upgrades at a mid-range price.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.7-inch Super AMOLED+, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "Exynos 1580"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 12 MP ultra-wide + 5 MP macro; 12 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "5000 mAh, 45 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15, One UI 7"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/apple-iphone-16": {
+   "name": "Apple iPhone 16",
+   "brandId": "apple",
+   "brandName": "Apple",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "A18 chip, Camera Control and Apple Intelligence.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.1-inch Super Retina XDR OLED"
+    },
+    {
+     "label": "Processor",
+     "value": "A18"
+    },
+    {
+     "label": "Camera",
+     "value": "48 MP Fusion + 12 MP ultra-wide; 12 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "Up to 22 h video playback"
+    },
+    {
+     "label": "Software",
+     "value": "iOS 18"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": true,
+   "images": []
+  },
+  "products/apple-iphone-15": {
+   "name": "Apple iPhone 15",
+   "brandId": "apple",
+   "brandName": "Apple",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Dynamic Island, 48 MP camera and USB-C.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.1-inch Super Retina XDR OLED"
+    },
+    {
+     "label": "Processor",
+     "value": "A16 Bionic"
+    },
+    {
+     "label": "Camera",
+     "value": "48 MP + 12 MP ultra-wide; 12 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "Up to 20 h video playback"
+    },
+    {
+     "label": "Software",
+     "value": "iOS 17"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/oneplus-13": {
+   "name": "OnePlus 13",
+   "brandId": "oneplus",
+   "brandName": "OnePlus",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Hasselblad triple 50 MP cameras, 6000 mAh battery and 100 W charging.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.82-inch LTPO AMOLED, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "Snapdragon 8 Elite"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 50 MP ultra-wide + 50 MP 3x tele; 32 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "6000 mAh, 100 W wired, 50 W wireless"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15, OxygenOS 15"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": true,
+   "images": []
+  },
+  "products/oneplus-nord-5": {
+   "name": "OnePlus Nord 5",
+   "brandId": "oneplus",
+   "brandName": "OnePlus",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Flagship-grade chip and a 144 Hz display for gaming.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.83-inch AMOLED, 144 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "Snapdragon 8s Gen 3"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 8 MP ultra-wide; 50 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "6800 mAh, 80 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15, OxygenOS 15"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/xiaomi-redmi-note-14-pro-5g": {
+   "name": "Xiaomi Redmi Note 14 Pro 5G",
+   "brandId": "xiaomi",
+   "brandName": "Xiaomi",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Curved AMOLED, 50 MP OIS camera and IP68 dust and water resistance.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.67-inch AMOLED, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "MediaTek Dimensity 7300 Ultra"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 8 MP ultra-wide + 2 MP macro; 20 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "5110 mAh, 45 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 14, HyperOS"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/vivo-v50": {
+   "name": "vivo V50",
+   "brandId": "vivo",
+   "brandName": "vivo",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Slim body with ZEISS portrait cameras and a 6000 mAh battery.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.77-inch AMOLED, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "Snapdragon 7 Gen 3"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 50 MP ultra-wide; 50 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "6000 mAh, 90 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15, Funtouch OS 15"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/motorola-edge-60-fusion": {
+   "name": "Motorola Edge 60 Fusion",
+   "brandId": "motorola",
+   "brandName": "Motorola",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Quad-curved pOLED, Pantone colours and MIL-STD-810H toughness.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.67-inch pOLED, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "MediaTek Dimensity 7400"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 13 MP ultra-wide; 32 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "5500 mAh, 68 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/google-pixel-9a": {
+   "name": "Google Pixel 9a",
+   "brandId": "google",
+   "brandName": "Google",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Pixel camera and Gemini with 7 years of OS and security updates.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.3-inch Actua pOLED, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "Google Tensor G4"
+    },
+    {
+     "label": "Camera",
+     "value": "48 MP + 13 MP ultra-wide; 13 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "5100 mAh, 23 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": true,
+   "images": []
+  },
+  "products/nothing-phone-3a": {
+   "name": "Nothing Phone (3a)",
+   "brandId": "nothing",
+   "brandName": "Nothing",
+   "categoryId": "smartphones",
+   "categoryKind": "phone",
+   "description": "Glyph interface, 2x telephoto camera and a clean Nothing OS.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "6.77-inch AMOLED, 120 Hz"
+    },
+    {
+     "label": "Processor",
+     "value": "Snapdragon 7s Gen 3"
+    },
+    {
+     "label": "Camera",
+     "value": "50 MP + 50 MP 2x tele + 8 MP ultra-wide; 32 MP front"
+    },
+    {
+     "label": "Battery",
+     "value": "5000 mAh, 50 W"
+    },
+    {
+     "label": "Software",
+     "value": "Android 15, Nothing OS 3.1"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/spigen-ultra-hybrid-iphone-16": {
+   "name": "Spigen Ultra Hybrid Case for iPhone 16",
+   "brandId": "spigen",
+   "brandName": "Spigen",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "Clear hard back with a shock-absorbing bumper. MagSafe compatible.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "iPhone 16"
+    },
+    {
+     "label": "Material",
+     "value": "Polycarbonate back, TPU bumper"
+    },
+    {
+     "label": "Protection",
+     "value": "Military-grade drop tested"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/spigen-glastr-galaxy-s25": {
+   "name": "Spigen GlasTR Screen Guard for Galaxy S25 (2 pack)",
+   "brandId": "spigen",
+   "brandName": "Spigen",
+   "categoryId": "screen-guards",
+   "categoryKind": "accessory",
+   "description": "Tempered glass with an auto-align installer. Fingerprint sensor friendly.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "Galaxy S25"
+    },
+    {
+     "label": "In the box",
+     "value": "2 guards, alignment kit"
+    },
+    {
+     "label": "Hardness",
+     "value": "9H"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/anker-nano-20w-usb-c-charger": {
+   "name": "Anker Nano 20W USB-C Charger",
+   "brandId": "anker",
+   "brandName": "Anker",
+   "categoryId": "chargers-cables",
+   "categoryKind": "accessory",
+   "description": "Pocket-size fast charger for iPhone, Galaxy and Pixel.",
+   "specs": [
+    {
+     "label": "Output",
+     "value": "20 W USB-C Power Delivery"
+    },
+    {
+     "label": "Ports",
+     "value": "1 x USB-C"
+    },
+    {
+     "label": "In the box",
+     "value": "Charger only, no cable"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/boat-airdopes-141": {
+   "name": "boAt Airdopes 141",
+   "brandId": "boat",
+   "brandName": "boAt",
+   "categoryId": "earbuds-headphones",
+   "categoryKind": "accessory",
+   "description": "Truly wireless earbuds with up to 42 hours of playback.",
+   "specs": [
+    {
+     "label": "Playback",
+     "value": "Up to 42 h with case"
+    },
+    {
+     "label": "Drivers",
+     "value": "8 mm"
+    },
+    {
+     "label": "Calls",
+     "value": "ENx noise cancellation"
+    },
+    {
+     "label": "Water resistance",
+     "value": "IPX4"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": true,
+   "images": []
+  },
+  "products/anker-powercore-10000": {
+   "name": "Anker PowerCore 10000 Power Bank",
+   "brandId": "anker",
+   "brandName": "Anker",
+   "categoryId": "power-banks",
+   "categoryKind": "accessory",
+   "description": "Credit-card-size 10000 mAh power bank.",
+   "specs": [
+    {
+     "label": "Capacity",
+     "value": "10000 mAh"
+    },
+    {
+     "label": "Output",
+     "value": "12 W USB-A"
+    },
+    {
+     "label": "Weight",
+     "value": "180 g"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/nokia-105-classic": {
+   "name": "Nokia 105 Classic",
+   "brandId": "nokia",
+   "brandName": "Nokia",
+   "categoryId": "keypad-phones",
+   "categoryKind": "phone",
+   "description": "The everyday keypad phone: a battery that lasts days, a loud speaker, a torch and wireless FM radio.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "1.8-inch QQVGA"
+    },
+    {
+     "label": "Network",
+     "value": "2G, dual SIM"
+    },
+    {
+     "label": "Battery",
+     "value": "800 mAh, removable, up to 12 days standby"
+    },
+    {
+     "label": "Storage",
+     "value": "Up to 2,000 contacts and 500 SMS"
+    },
+    {
+     "label": "Extras",
+     "value": "Wireless FM radio, torch, Snake game"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year manufacturer"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/nokia-110-4g-2024": {
+   "name": "Nokia 110 4G (2024)",
+   "brandId": "nokia",
+   "brandName": "Nokia",
+   "categoryId": "keypad-phones",
+   "categoryKind": "phone",
+   "description": "4G calls in HD, a camera, and UPI payments with 123PAY, all on a keypad phone.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "2-inch QVGA"
+    },
+    {
+     "label": "Network",
+     "value": "4G VoLTE, dual SIM"
+    },
+    {
+     "label": "Camera",
+     "value": "0.3 MP rear with flash"
+    },
+    {
+     "label": "Battery",
+     "value": "1450 mAh, removable, Type-C charging"
+    },
+    {
+     "label": "Storage",
+     "value": "microSD up to 32 GB"
+    },
+    {
+     "label": "Extras",
+     "value": "UPI 123PAY, MP3 player, wireless FM radio"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year manufacturer"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/lava-a1-josh": {
+   "name": "LAVA A1 Josh",
+   "brandId": "lava",
+   "brandName": "LAVA",
+   "categoryId": "keypad-phones",
+   "categoryKind": "phone",
+   "description": "Made in India keypad phone with a big battery, number talker in Hindi and English, and a bright torch.",
+   "specs": [
+    {
+     "label": "Display",
+     "value": "1.77-inch QQVGA"
+    },
+    {
+     "label": "Network",
+     "value": "2G, dual SIM"
+    },
+    {
+     "label": "Battery",
+     "value": "1000 mAh, up to 6 days standby"
+    },
+    {
+     "label": "Storage",
+     "value": "microSD up to 32 GB"
+    },
+    {
+     "label": "Extras",
+     "value": "Number talker, call recording, FM radio, torch"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year manufacturer"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/apple-iphone-16-silicone-case-magsafe": {
+   "name": "Apple iPhone 16 Silicone Case with MagSafe",
+   "brandId": "apple",
+   "brandName": "Apple",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "Apple’s own silky silicone case with a soft microfibre lining. MagSafe chargers snap on through it.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "iPhone 16"
+    },
+    {
+     "label": "Material",
+     "value": "Silicone outside, microfibre lining"
+    },
+    {
+     "label": "MagSafe",
+     "value": "Yes, built-in magnets"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year Apple"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/spigen-tough-armor-galaxy-s25": {
+   "name": "Spigen Tough Armor Case for Galaxy S25",
+   "brandId": "spigen",
+   "brandName": "Spigen",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "Dual-layer protection with a built-in kickstand for watching videos hands-free.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "Galaxy S25"
+    },
+    {
+     "label": "Material",
+     "value": "Polycarbonate shell, TPU inner layer, foam corners"
+    },
+    {
+     "label": "Protection",
+     "value": "Military-grade drop tested"
+    },
+    {
+     "label": "Extras",
+     "value": "Built-in kickstand, raised camera lip"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/spigen-liquid-air-pixel-9a": {
+   "name": "Spigen Liquid Air Case for Pixel 9a",
+   "brandId": "spigen",
+   "brandName": "Spigen",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "Slim matte case with a textured grip pattern that keeps the phone light in the pocket.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "Pixel 9a"
+    },
+    {
+     "label": "Material",
+     "value": "Flexible TPU"
+    },
+    {
+     "label": "Protection",
+     "value": "Air Cushion corners"
+    },
+    {
+     "label": "Extras",
+     "value": "Tactile buttons, raised screen and camera lips"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/oneplus-13-sandstone-magnetic-case": {
+   "name": "OnePlus 13 Sandstone Magnetic Case",
+   "brandId": "oneplus",
+   "brandName": "OnePlus",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "The classic OnePlus sandstone grip with magnets for magnetic chargers and car mounts.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "OnePlus 13"
+    },
+    {
+     "label": "Material",
+     "value": "Sandstone-textured polycarbonate"
+    },
+    {
+     "label": "Magnetic",
+     "value": "Yes, works with magnetic chargers"
+    },
+    {
+     "label": "Warranty",
+     "value": "6 months OnePlus"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/spigen-glastr-ez-fit-iphone-16": {
+   "name": "Spigen GlasTR EZ Fit Screen Guard for iPhone 16 (2 pack)",
+   "brandId": "spigen",
+   "brandName": "Spigen",
+   "categoryId": "screen-guards",
+   "categoryKind": "accessory",
+   "description": "Bubble-free tempered glass that lines itself up with the EZ Fit tray in seconds.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "iPhone 16"
+    },
+    {
+     "label": "In the box",
+     "value": "2 guards, EZ Fit installer, cleaning kit"
+    },
+    {
+     "label": "Hardness",
+     "value": "9H"
+    },
+    {
+     "label": "Thickness",
+     "value": "0.33 mm"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/spigen-optik-lens-protector-iphone-16": {
+   "name": "Spigen Optik Camera Lens Protector for iPhone 16 (2 pack)",
+   "brandId": "spigen",
+   "brandName": "Spigen",
+   "categoryId": "screen-guards",
+   "categoryKind": "accessory",
+   "description": "Tempered glass for the camera bump, so scratches never reach your photos.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "iPhone 16"
+    },
+    {
+     "label": "In the box",
+     "value": "2 lens protectors, EZ Fit tray"
+    },
+    {
+     "label": "Hardness",
+     "value": "9H"
+    },
+    {
+     "label": "Flash",
+     "value": "Cut-out, no glare"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/samsung-25w-super-fast-charger": {
+   "name": "Samsung 25W Super Fast Charger (USB-C)",
+   "brandId": "samsung",
+   "brandName": "Samsung",
+   "categoryId": "chargers-cables",
+   "categoryKind": "accessory",
+   "description": "Samsung’s own 25 W adapter for Super Fast Charging on Galaxy phones. Cable not included.",
+   "specs": [
+    {
+     "label": "Output",
+     "value": "25 W USB-C, PD 3.0 PPS"
+    },
+    {
+     "label": "Ports",
+     "value": "1 x USB-C"
+    },
+    {
+     "label": "Works with",
+     "value": "Galaxy S, A and M series; any USB-C PD phone"
+    },
+    {
+     "label": "In the box",
+     "value": "Adapter only"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year Samsung"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/apple-20w-usb-c-power-adapter": {
+   "name": "Apple 20W USB-C Power Adapter",
+   "brandId": "apple",
+   "brandName": "Apple",
+   "categoryId": "chargers-cables",
+   "categoryKind": "accessory",
+   "description": "Apple’s fast charger: about 50% charge in 30 minutes on recent iPhones.",
+   "specs": [
+    {
+     "label": "Output",
+     "value": "20 W USB-C Power Delivery"
+    },
+    {
+     "label": "Ports",
+     "value": "1 x USB-C"
+    },
+    {
+     "label": "Works with",
+     "value": "iPhone 8 and later, iPad, AirPods"
+    },
+    {
+     "label": "In the box",
+     "value": "Adapter only"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year Apple"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/anker-322-usb-c-cable-1-8m": {
+   "name": "Anker 322 USB-C to USB-C Cable (1.8 m, 60 W)",
+   "brandId": "anker",
+   "brandName": "Anker",
+   "categoryId": "chargers-cables",
+   "categoryKind": "accessory",
+   "description": "Braided 1.8 m cable that fast-charges phones and laptops up to 60 W.",
+   "specs": [
+    {
+     "label": "Length",
+     "value": "1.8 m"
+    },
+    {
+     "label": "Power",
+     "value": "Up to 60 W"
+    },
+    {
+     "label": "Data",
+     "value": "USB 2.0, 480 Mbps"
+    },
+    {
+     "label": "Build",
+     "value": "Double-braided nylon, 10,000+ bend lifespan"
+    },
+    {
+     "label": "Warranty",
+     "value": "18 months Anker"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/oneplus-nord-buds-3-pro": {
+   "name": "OnePlus Nord Buds 3 Pro",
+   "brandId": "oneplus",
+   "brandName": "OnePlus",
+   "categoryId": "earbuds-headphones",
+   "categoryKind": "accessory",
+   "description": "Up to 49 dB noise cancellation, 44 hours with the case, and a 10-minute charge for 11 hours.",
+   "specs": [
+    {
+     "label": "Noise cancellation",
+     "value": "Active, up to 49 dB"
+    },
+    {
+     "label": "Playback",
+     "value": "Up to 44 h with case"
+    },
+    {
+     "label": "Fast charge",
+     "value": "10 min for 11 h"
+    },
+    {
+     "label": "Drivers",
+     "value": "12.4 mm titanium"
+    },
+    {
+     "label": "Water resistance",
+     "value": "IP55"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year OnePlus"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": true,
+   "images": []
+  },
+  "products/apple-airpods-4": {
+   "name": "Apple AirPods 4",
+   "brandId": "apple",
+   "brandName": "Apple",
+   "categoryId": "earbuds-headphones",
+   "categoryKind": "accessory",
+   "description": "Redesigned for comfort, with Personalised Spatial Audio and a USB-C case.",
+   "specs": [
+    {
+     "label": "Chip",
+     "value": "H2"
+    },
+    {
+     "label": "Playback",
+     "value": "Up to 30 h with case"
+    },
+    {
+     "label": "Audio",
+     "value": "Personalised Spatial Audio, Adaptive EQ"
+    },
+    {
+     "label": "Charging",
+     "value": "USB-C"
+    },
+    {
+     "label": "Water resistance",
+     "value": "IP54"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year Apple"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/jbl-tune-520bt": {
+   "name": "JBL Tune 520BT Wireless Headphones",
+   "brandId": "jbl",
+   "brandName": "JBL",
+   "categoryId": "earbuds-headphones",
+   "categoryKind": "accessory",
+   "description": "JBL Pure Bass sound, 57 hours of playback and a 5-minute charge for 3 more hours.",
+   "specs": [
+    {
+     "label": "Type",
+     "value": "On-ear, foldable"
+    },
+    {
+     "label": "Playback",
+     "value": "Up to 57 h"
+    },
+    {
+     "label": "Fast charge",
+     "value": "5 min for 3 h"
+    },
+    {
+     "label": "Bluetooth",
+     "value": "5.3, multipoint"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year JBL"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/boat-rockerz-450": {
+   "name": "boAt Rockerz 450 Bluetooth Headphones",
+   "brandId": "boat",
+   "brandName": "boAt",
+   "categoryId": "earbuds-headphones",
+   "categoryKind": "accessory",
+   "description": "Padded on-ear headphones with 15 hours of playback and a 3.5 mm cable for when the battery runs out.",
+   "specs": [
+    {
+     "label": "Type",
+     "value": "On-ear, adjustable"
+    },
+    {
+     "label": "Playback",
+     "value": "Up to 15 h"
+    },
+    {
+     "label": "Drivers",
+     "value": "40 mm"
+    },
+    {
+     "label": "Modes",
+     "value": "Bluetooth 5.0 and AUX"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year boAt"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/xiaomi-20000mah-33w-power-bank-4i": {
+   "name": "Xiaomi 20000 mAh 33W Power Bank 4i",
+   "brandId": "xiaomi",
+   "brandName": "Xiaomi",
+   "categoryId": "power-banks",
+   "categoryKind": "accessory",
+   "description": "Charges a phone about four times, and the phone and the bank fast-charge over USB-C.",
+   "specs": [
+    {
+     "label": "Capacity",
+     "value": "20000 mAh"
+    },
+    {
+     "label": "Output",
+     "value": "33 W max, 2 x USB-A + 1 x USB-C"
+    },
+    {
+     "label": "Input",
+     "value": "USB-C, 27 W"
+    },
+    {
+     "label": "Weight",
+     "value": "434 g"
+    },
+    {
+     "label": "Warranty",
+     "value": "6 months Xiaomi"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/anker-621-maggo-5000mah": {
+   "name": "Anker 621 MagGo Magnetic Battery (5000 mAh)",
+   "brandId": "anker",
+   "brandName": "Anker",
+   "categoryId": "power-banks",
+   "categoryKind": "accessory",
+   "description": "Snaps onto the back of a MagSafe iPhone and charges it wirelessly, no cable needed.",
+   "specs": [
+    {
+     "label": "Capacity",
+     "value": "5000 mAh"
+    },
+    {
+     "label": "Output",
+     "value": "7.5 W magnetic wireless"
+    },
+    {
+     "label": "Input",
+     "value": "USB-C, 12 W"
+    },
+    {
+     "label": "Works with",
+     "value": "iPhone 12 and later"
+    },
+    {
+     "label": "Warranty",
+     "value": "18 months Anker"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "products/samsung-10000mah-25w-battery-pack": {
+   "name": "Samsung 10000 mAh 25W Battery Pack",
+   "brandId": "samsung",
+   "brandName": "Samsung",
+   "categoryId": "power-banks",
+   "categoryKind": "accessory",
+   "description": "Super Fast Charging on the go for Galaxy phones, with two devices at once.",
+   "specs": [
+    {
+     "label": "Capacity",
+     "value": "10000 mAh"
+    },
+    {
+     "label": "Output",
+     "value": "25 W USB-C PD + USB-C"
+    },
+    {
+     "label": "Input",
+     "value": "USB-C, 25 W"
+    },
+    {
+     "label": "Weight",
+     "value": "208 g"
+    },
+    {
+     "label": "Warranty",
+     "value": "1 year Samsung"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "variants/sam-s25-12-256-nvy": {
+   "productId": "samsung-galaxy-s25",
+   "productName": "Samsung Galaxy S25",
+   "productActive": true,
+   "sku": "SAM-S25-12-256-NVY",
+   "name": "12 GB · 256 GB · Navy",
+   "attributes": {
+    "ram": "12 GB",
+    "storage": "256 GB",
+    "color": "Navy",
+    "colorHex": "#2C3646"
+   },
+   "pricePaise": 7499900,
+   "mrpPaise": 8099900,
+   "stock": 8,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sam-s25-12-256-icb": {
+   "productId": "samsung-galaxy-s25",
+   "productName": "Samsung Galaxy S25",
+   "productActive": true,
+   "sku": "SAM-S25-12-256-ICB",
+   "name": "12 GB · 256 GB · Icyblue",
+   "attributes": {
+    "ram": "12 GB",
+    "storage": "256 GB",
+    "color": "Icyblue",
+    "colorHex": "#B9CCE0"
+   },
+   "pricePaise": 7499900,
+   "mrpPaise": 8099900,
+   "stock": 5,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sam-s25-12-512-nvy": {
+   "productId": "samsung-galaxy-s25",
+   "productName": "Samsung Galaxy S25",
+   "productActive": true,
+   "sku": "SAM-S25-12-512-NVY",
+   "name": "12 GB · 512 GB · Navy",
+   "attributes": {
+    "ram": "12 GB",
+    "storage": "512 GB",
+    "color": "Navy",
+    "colorHex": "#2C3646"
+   },
+   "pricePaise": 8699900,
+   "mrpPaise": 9299900,
+   "stock": 2,
+   "isActive": true,
+   "sort": 2,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sam-a56-8-128-gph": {
+   "productId": "samsung-galaxy-a56-5g",
+   "productName": "Samsung Galaxy A56 5G",
+   "productActive": true,
+   "sku": "SAM-A56-8-128-GPH",
+   "name": "8 GB · 128 GB · Awesome Graphite",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "128 GB",
+    "color": "Awesome Graphite",
+    "colorHex": "#3B3B3D"
+   },
+   "pricePaise": 3899900,
+   "mrpPaise": 4199900,
+   "stock": 12,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sam-a56-8-256-olv": {
+   "productId": "samsung-galaxy-a56-5g",
+   "productName": "Samsung Galaxy A56 5G",
+   "productActive": true,
+   "sku": "SAM-A56-8-256-OLV",
+   "name": "8 GB · 256 GB · Awesome Olive",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "256 GB",
+    "color": "Awesome Olive",
+    "colorHex": "#8A8F6A"
+   },
+   "pricePaise": 4199900,
+   "mrpPaise": 4499900,
+   "stock": 6,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-ip16-128-blk": {
+   "productId": "apple-iphone-16",
+   "productName": "Apple iPhone 16",
+   "productActive": true,
+   "sku": "APL-IP16-128-BLK",
+   "name": "128 GB · Black",
+   "attributes": {
+    "storage": "128 GB",
+    "color": "Black",
+    "colorHex": "#3C3D3A"
+   },
+   "pricePaise": 6990000,
+   "mrpPaise": 7990000,
+   "stock": 6,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-ip16-128-ult": {
+   "productId": "apple-iphone-16",
+   "productName": "Apple iPhone 16",
+   "productActive": true,
+   "sku": "APL-IP16-128-ULT",
+   "name": "128 GB · Ultramarine",
+   "attributes": {
+    "storage": "128 GB",
+    "color": "Ultramarine",
+    "colorHex": "#9AADF6"
+   },
+   "pricePaise": 6990000,
+   "mrpPaise": 7990000,
+   "stock": 0,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-ip16-256-blk": {
+   "productId": "apple-iphone-16",
+   "productName": "Apple iPhone 16",
+   "productActive": true,
+   "sku": "APL-IP16-256-BLK",
+   "name": "256 GB · Black",
+   "attributes": {
+    "storage": "256 GB",
+    "color": "Black",
+    "colorHex": "#3C3D3A"
+   },
+   "pricePaise": 7990000,
+   "mrpPaise": 8990000,
+   "stock": 3,
+   "isActive": true,
+   "sort": 2,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-ip15-128-blk": {
+   "productId": "apple-iphone-15",
+   "productName": "Apple iPhone 15",
+   "productActive": true,
+   "sku": "APL-IP15-128-BLK",
+   "name": "128 GB · Black",
+   "attributes": {
+    "storage": "128 GB",
+    "color": "Black",
+    "colorHex": "#35393B"
+   },
+   "pricePaise": 5990000,
+   "mrpPaise": 6990000,
+   "stock": 0,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-ip15-128-blu": {
+   "productId": "apple-iphone-15",
+   "productName": "Apple iPhone 15",
+   "productActive": true,
+   "sku": "APL-IP15-128-BLU",
+   "name": "128 GB · Blue",
+   "attributes": {
+    "storage": "128 GB",
+    "color": "Blue",
+    "colorHex": "#D5DDDF"
+   },
+   "pricePaise": 5990000,
+   "mrpPaise": 6990000,
+   "stock": 0,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/op-13-12-256-moc": {
+   "productId": "oneplus-13",
+   "productName": "OnePlus 13",
+   "productActive": true,
+   "sku": "OP-13-12-256-MOC",
+   "name": "12 GB · 256 GB · Midnight Ocean",
+   "attributes": {
+    "ram": "12 GB",
+    "storage": "256 GB",
+    "color": "Midnight Ocean",
+    "colorHex": "#1F2A44"
+   },
+   "pricePaise": 6999900,
+   "mrpPaise": 7299900,
+   "stock": 4,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/op-13-16-512-bec": {
+   "productId": "oneplus-13",
+   "productName": "OnePlus 13",
+   "productActive": true,
+   "sku": "OP-13-16-512-BEC",
+   "name": "16 GB · 512 GB · Black Eclipse",
+   "attributes": {
+    "ram": "16 GB",
+    "storage": "512 GB",
+    "color": "Black Eclipse",
+    "colorHex": "#1A1A1A"
+   },
+   "pricePaise": 7699900,
+   "mrpPaise": 7999900,
+   "stock": 2,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/op-n5-8-256-msd": {
+   "productId": "oneplus-nord-5",
+   "productName": "OnePlus Nord 5",
+   "productActive": true,
+   "sku": "OP-N5-8-256-MSD",
+   "name": "8 GB · 256 GB · Marble Sands",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "256 GB",
+    "color": "Marble Sands",
+    "colorHex": "#E6E0D4"
+   },
+   "pricePaise": 3199900,
+   "mrpPaise": 3199900,
+   "stock": 10,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/op-n5-12-256-pgr": {
+   "productId": "oneplus-nord-5",
+   "productName": "OnePlus Nord 5",
+   "productActive": true,
+   "sku": "OP-N5-12-256-PGR",
+   "name": "12 GB · 256 GB · Phantom Grey",
+   "attributes": {
+    "ram": "12 GB",
+    "storage": "256 GB",
+    "color": "Phantom Grey",
+    "colorHex": "#4A4D52"
+   },
+   "pricePaise": 3499900,
+   "mrpPaise": 3499900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/xi-rn14p-8-128-tbk": {
+   "productId": "xiaomi-redmi-note-14-pro-5g",
+   "productName": "Xiaomi Redmi Note 14 Pro 5G",
+   "productActive": true,
+   "sku": "XI-RN14P-8-128-TBK",
+   "name": "8 GB · 128 GB · Titan Black",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "128 GB",
+    "color": "Titan Black",
+    "colorHex": "#2A2B2E"
+   },
+   "pricePaise": 2399900,
+   "mrpPaise": 2899900,
+   "stock": 15,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/xi-rn14p-8-256-ppl": {
+   "productId": "xiaomi-redmi-note-14-pro-5g",
+   "productName": "Xiaomi Redmi Note 14 Pro 5G",
+   "productActive": true,
+   "sku": "XI-RN14P-8-256-PPL",
+   "name": "8 GB · 256 GB · Phantom Purple",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "256 GB",
+    "color": "Phantom Purple",
+    "colorHex": "#8C7BA8"
+   },
+   "pricePaise": 2599900,
+   "mrpPaise": 3099900,
+   "stock": 7,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/vi-v50-8-128-rsr": {
+   "productId": "vivo-v50",
+   "productName": "vivo V50",
+   "productActive": true,
+   "sku": "VI-V50-8-128-RSR",
+   "name": "8 GB · 128 GB · Rose Red",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "128 GB",
+    "color": "Rose Red",
+    "colorHex": "#C9566B"
+   },
+   "pricePaise": 3499900,
+   "mrpPaise": 4099900,
+   "stock": 6,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/vi-v50-12-256-tgr": {
+   "productId": "vivo-v50",
+   "productName": "vivo V50",
+   "productActive": true,
+   "sku": "VI-V50-12-256-TGR",
+   "name": "12 GB · 256 GB · Titanium Grey",
+   "attributes": {
+    "ram": "12 GB",
+    "storage": "256 GB",
+    "color": "Titanium Grey",
+    "colorHex": "#7D7F82"
+   },
+   "pricePaise": 3899900,
+   "mrpPaise": 4499900,
+   "stock": 3,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/mo-e60f-8-256-amz": {
+   "productId": "motorola-edge-60-fusion",
+   "productName": "Motorola Edge 60 Fusion",
+   "productActive": true,
+   "sku": "MO-E60F-8-256-AMZ",
+   "name": "8 GB · 256 GB · Pantone Amazonite",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "256 GB",
+    "color": "Pantone Amazonite",
+    "colorHex": "#2F6F68"
+   },
+   "pricePaise": 2299900,
+   "mrpPaise": 2599900,
+   "stock": 9,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/mo-e60f-12-256-slp": {
+   "productId": "motorola-edge-60-fusion",
+   "productName": "Motorola Edge 60 Fusion",
+   "productActive": true,
+   "sku": "MO-E60F-12-256-SLP",
+   "name": "12 GB · 256 GB · Pantone Slipstream",
+   "attributes": {
+    "ram": "12 GB",
+    "storage": "256 GB",
+    "color": "Pantone Slipstream",
+    "colorHex": "#A9B7C6"
+   },
+   "pricePaise": 2499900,
+   "mrpPaise": 2799900,
+   "stock": 4,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/go-p9a-8-256-obs": {
+   "productId": "google-pixel-9a",
+   "productName": "Google Pixel 9a",
+   "productActive": true,
+   "sku": "GO-P9A-8-256-OBS",
+   "name": "8 GB · 256 GB · Obsidian",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "256 GB",
+    "color": "Obsidian",
+    "colorHex": "#2B2B2D"
+   },
+   "pricePaise": 4999900,
+   "mrpPaise": 4999900,
+   "stock": 5,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/go-p9a-8-256-prc": {
+   "productId": "google-pixel-9a",
+   "productName": "Google Pixel 9a",
+   "productActive": true,
+   "sku": "GO-P9A-8-256-PRC",
+   "name": "8 GB · 256 GB · Porcelain",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "256 GB",
+    "color": "Porcelain",
+    "colorHex": "#EDE8DF"
+   },
+   "pricePaise": 4999900,
+   "mrpPaise": 4999900,
+   "stock": 1,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/no-p3a-8-128-blk": {
+   "productId": "nothing-phone-3a",
+   "productName": "Nothing Phone (3a)",
+   "productActive": true,
+   "sku": "NO-P3A-8-128-BLK",
+   "name": "8 GB · 128 GB · Black",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "128 GB",
+    "color": "Black",
+    "colorHex": "#1C1C1C"
+   },
+   "pricePaise": 2499900,
+   "mrpPaise": 2799900,
+   "stock": 12,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/no-p3a-8-256-wht": {
+   "productId": "nothing-phone-3a",
+   "productName": "Nothing Phone (3a)",
+   "productActive": true,
+   "sku": "NO-P3A-8-256-WHT",
+   "name": "8 GB · 256 GB · White",
+   "attributes": {
+    "ram": "8 GB",
+    "storage": "256 GB",
+    "color": "White",
+    "colorHex": "#F2F2F0"
+   },
+   "pricePaise": 2699900,
+   "mrpPaise": 2999900,
+   "stock": 6,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-uh-ip16-clr": {
+   "productId": "spigen-ultra-hybrid-iphone-16",
+   "productName": "Spigen Ultra Hybrid Case for iPhone 16",
+   "productActive": true,
+   "sku": "SP-UH-IP16-CLR",
+   "name": "Crystal Clear",
+   "attributes": {
+    "color": "Crystal Clear",
+    "colorHex": "#E8EEF2"
+   },
+   "pricePaise": 129900,
+   "mrpPaise": 299900,
+   "stock": 25,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-uh-ip16-mbk": {
+   "productId": "spigen-ultra-hybrid-iphone-16",
+   "productName": "Spigen Ultra Hybrid Case for iPhone 16",
+   "productActive": true,
+   "sku": "SP-UH-IP16-MBK",
+   "name": "Matte Black",
+   "attributes": {
+    "color": "Matte Black",
+    "colorHex": "#222222"
+   },
+   "pricePaise": 139900,
+   "mrpPaise": 299900,
+   "stock": 10,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-gls-s25-2pk": {
+   "productId": "spigen-glastr-galaxy-s25",
+   "productName": "Spigen GlasTR Screen Guard for Galaxy S25 (2 pack)",
+   "productActive": true,
+   "sku": "SP-GLS-S25-2PK",
+   "name": "2 pack",
+   "attributes": {},
+   "pricePaise": 119900,
+   "mrpPaise": 249900,
+   "stock": 30,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/an-nano20-blk": {
+   "productId": "anker-nano-20w-usb-c-charger",
+   "productName": "Anker Nano 20W USB-C Charger",
+   "productActive": true,
+   "sku": "AN-NANO20-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#1F1F1F"
+   },
+   "pricePaise": 129900,
+   "mrpPaise": 199900,
+   "stock": 20,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/bt-ad141-blk": {
+   "productId": "boat-airdopes-141",
+   "productName": "boAt Airdopes 141",
+   "productActive": true,
+   "sku": "BT-AD141-BLK",
+   "name": "Bold Black",
+   "attributes": {
+    "color": "Bold Black",
+    "colorHex": "#1E1E1E"
+   },
+   "pricePaise": 109900,
+   "mrpPaise": 449000,
+   "stock": 40,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/bt-ad141-wht": {
+   "productId": "boat-airdopes-141",
+   "productName": "boAt Airdopes 141",
+   "productActive": true,
+   "sku": "BT-AD141-WHT",
+   "name": "Pure White",
+   "attributes": {
+    "color": "Pure White",
+    "colorHex": "#FAFAFA"
+   },
+   "pricePaise": 109900,
+   "mrpPaise": 449000,
+   "stock": 0,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/an-pc10k-blk": {
+   "productId": "anker-powercore-10000",
+   "productName": "Anker PowerCore 10000 Power Bank",
+   "productActive": true,
+   "sku": "AN-PC10K-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#202020"
+   },
+   "pricePaise": 199900,
+   "mrpPaise": 399900,
+   "stock": 2,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/nk-105c-chr": {
+   "productId": "nokia-105-classic",
+   "productName": "Nokia 105 Classic",
+   "productActive": true,
+   "sku": "NK-105C-CHR",
+   "name": "Charcoal",
+   "attributes": {
+    "color": "Charcoal",
+    "colorHex": "#2E2E30"
+   },
+   "pricePaise": 99900,
+   "mrpPaise": 119900,
+   "stock": 40,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/nk-105c-blu": {
+   "productId": "nokia-105-classic",
+   "productName": "Nokia 105 Classic",
+   "productActive": true,
+   "sku": "NK-105C-BLU",
+   "name": "Blue",
+   "attributes": {
+    "color": "Blue",
+    "colorHex": "#2F5D8C"
+   },
+   "pricePaise": 99900,
+   "mrpPaise": 119900,
+   "stock": 18,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/nk-110-4g-chr": {
+   "productId": "nokia-110-4g-2024",
+   "productName": "Nokia 110 4G (2024)",
+   "productActive": true,
+   "sku": "NK-110-4G-CHR",
+   "name": "Charcoal",
+   "attributes": {
+    "color": "Charcoal",
+    "colorHex": "#2E2E30"
+   },
+   "pricePaise": 239900,
+   "mrpPaise": 279900,
+   "stock": 12,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/nk-110-4g-blu": {
+   "productId": "nokia-110-4g-2024",
+   "productName": "Nokia 110 4G (2024)",
+   "productActive": true,
+   "sku": "NK-110-4G-BLU",
+   "name": "Blue",
+   "attributes": {
+    "color": "Blue",
+    "colorHex": "#3B6EA5"
+   },
+   "pricePaise": 239900,
+   "mrpPaise": 279900,
+   "stock": 3,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/lv-a1j-blk": {
+   "productId": "lava-a1-josh",
+   "productName": "LAVA A1 Josh",
+   "productActive": true,
+   "sku": "LV-A1J-BLK",
+   "name": "Black Blue",
+   "attributes": {
+    "color": "Black Blue",
+    "colorHex": "#1F2A3A"
+   },
+   "pricePaise": 104900,
+   "mrpPaise": 134900,
+   "stock": 35,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/lv-a1j-brs": {
+   "productId": "lava-a1-josh",
+   "productName": "LAVA A1 Josh",
+   "productActive": true,
+   "sku": "LV-A1J-BRS",
+   "name": "Black Red",
+   "attributes": {
+    "color": "Black Red",
+    "colorHex": "#5A1F24"
+   },
+   "pricePaise": 104900,
+   "mrpPaise": 134900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-sc-ip16-dnm": {
+   "productId": "apple-iphone-16-silicone-case-magsafe",
+   "productName": "Apple iPhone 16 Silicone Case with MagSafe",
+   "productActive": true,
+   "sku": "APL-SC-IP16-DNM",
+   "name": "Denim",
+   "attributes": {
+    "color": "Denim",
+    "colorHex": "#4C6A8E"
+   },
+   "pricePaise": 490000,
+   "mrpPaise": 490000,
+   "stock": 4,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-sc-ip16-blk": {
+   "productId": "apple-iphone-16-silicone-case-magsafe",
+   "productName": "Apple iPhone 16 Silicone Case with MagSafe",
+   "productActive": true,
+   "sku": "APL-SC-IP16-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#2B2B2B"
+   },
+   "pricePaise": 490000,
+   "mrpPaise": 490000,
+   "stock": 6,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-sc-ip16-plm": {
+   "productId": "apple-iphone-16-silicone-case-magsafe",
+   "productName": "Apple iPhone 16 Silicone Case with MagSafe",
+   "productActive": true,
+   "sku": "APL-SC-IP16-PLM",
+   "name": "Plum",
+   "attributes": {
+    "color": "Plum",
+    "colorHex": "#7A4A6B"
+   },
+   "pricePaise": 490000,
+   "mrpPaise": 490000,
+   "stock": 0,
+   "isActive": true,
+   "sort": 2,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-ta-s25-blk": {
+   "productId": "spigen-tough-armor-galaxy-s25",
+   "productName": "Spigen Tough Armor Case for Galaxy S25",
+   "productActive": true,
+   "sku": "SP-TA-S25-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#1E1E1E"
+   },
+   "pricePaise": 189900,
+   "mrpPaise": 399900,
+   "stock": 14,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-ta-s25-gnm": {
+   "productId": "spigen-tough-armor-galaxy-s25",
+   "productName": "Spigen Tough Armor Case for Galaxy S25",
+   "productActive": true,
+   "sku": "SP-TA-S25-GNM",
+   "name": "Gunmetal",
+   "attributes": {
+    "color": "Gunmetal",
+    "colorHex": "#53565A"
+   },
+   "pricePaise": 189900,
+   "mrpPaise": 399900,
+   "stock": 5,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-la-p9a-mbk": {
+   "productId": "spigen-liquid-air-pixel-9a",
+   "productName": "Spigen Liquid Air Case for Pixel 9a",
+   "productActive": true,
+   "sku": "SP-LA-P9A-MBK",
+   "name": "Matte Black",
+   "attributes": {
+    "color": "Matte Black",
+    "colorHex": "#222222"
+   },
+   "pricePaise": 119900,
+   "mrpPaise": 249900,
+   "stock": 11,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/op-13-ssc-blk": {
+   "productId": "oneplus-13-sandstone-magnetic-case",
+   "productName": "OnePlus 13 Sandstone Magnetic Case",
+   "productActive": true,
+   "sku": "OP-13-SSC-BLK",
+   "name": "Sandstone Black",
+   "attributes": {
+    "color": "Sandstone Black",
+    "colorHex": "#2A2A2A"
+   },
+   "pricePaise": 149900,
+   "mrpPaise": 199900,
+   "stock": 7,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-gez-ip16-2pk": {
+   "productId": "spigen-glastr-ez-fit-iphone-16",
+   "productName": "Spigen GlasTR EZ Fit Screen Guard for iPhone 16 (2 pack)",
+   "productActive": true,
+   "sku": "SP-GEZ-IP16-2PK",
+   "name": "2 pack",
+   "attributes": {},
+   "pricePaise": 149900,
+   "mrpPaise": 319900,
+   "stock": 22,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sp-opt-ip16-2pk": {
+   "productId": "spigen-optik-lens-protector-iphone-16",
+   "productName": "Spigen Optik Camera Lens Protector for iPhone 16 (2 pack)",
+   "productActive": true,
+   "sku": "SP-OPT-IP16-2PK",
+   "name": "2 pack",
+   "attributes": {},
+   "pricePaise": 89900,
+   "mrpPaise": 179900,
+   "stock": 19,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sam-ta25-blk": {
+   "productId": "samsung-25w-super-fast-charger",
+   "productName": "Samsung 25W Super Fast Charger (USB-C)",
+   "productActive": true,
+   "sku": "SAM-TA25-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#1F1F1F"
+   },
+   "pricePaise": 114900,
+   "mrpPaise": 169900,
+   "stock": 24,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sam-ta25-wht": {
+   "productId": "samsung-25w-super-fast-charger",
+   "productName": "Samsung 25W Super Fast Charger (USB-C)",
+   "productActive": true,
+   "sku": "SAM-TA25-WHT",
+   "name": "White",
+   "attributes": {
+    "color": "White",
+    "colorHex": "#F4F4F4"
+   },
+   "pricePaise": 114900,
+   "mrpPaise": 169900,
+   "stock": 8,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-20w-wht": {
+   "productId": "apple-20w-usb-c-power-adapter",
+   "productName": "Apple 20W USB-C Power Adapter",
+   "productActive": true,
+   "sku": "APL-20W-WHT",
+   "name": "White",
+   "attributes": {
+    "color": "White",
+    "colorHex": "#F7F7F7"
+   },
+   "pricePaise": 159900,
+   "mrpPaise": 190000,
+   "stock": 15,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/an-322-cc18-blk": {
+   "productId": "anker-322-usb-c-cable-1-8m",
+   "productName": "Anker 322 USB-C to USB-C Cable (1.8 m, 60 W)",
+   "productActive": true,
+   "sku": "AN-322-CC18-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#1E1E1E"
+   },
+   "pricePaise": 69900,
+   "mrpPaise": 129900,
+   "stock": 30,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/an-322-cc18-wht": {
+   "productId": "anker-322-usb-c-cable-1-8m",
+   "productName": "Anker 322 USB-C to USB-C Cable (1.8 m, 60 W)",
+   "productActive": true,
+   "sku": "AN-322-CC18-WHT",
+   "name": "White",
+   "attributes": {
+    "color": "White",
+    "colorHex": "#F2F2F2"
+   },
+   "pricePaise": 69900,
+   "mrpPaise": 129900,
+   "stock": 12,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/op-nb3p-sjd": {
+   "productId": "oneplus-nord-buds-3-pro",
+   "productName": "OnePlus Nord Buds 3 Pro",
+   "productActive": true,
+   "sku": "OP-NB3P-SJD",
+   "name": "Soft Jade",
+   "attributes": {
+    "color": "Soft Jade",
+    "colorHex": "#9FC5B5"
+   },
+   "pricePaise": 279900,
+   "mrpPaise": 329900,
+   "stock": 10,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/op-nb3p-sbk": {
+   "productId": "oneplus-nord-buds-3-pro",
+   "productName": "OnePlus Nord Buds 3 Pro",
+   "productActive": true,
+   "sku": "OP-NB3P-SBK",
+   "name": "Starry Black",
+   "attributes": {
+    "color": "Starry Black",
+    "colorHex": "#1D1F24"
+   },
+   "pricePaise": 279900,
+   "mrpPaise": 329900,
+   "stock": 6,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/apl-apd4-wht": {
+   "productId": "apple-airpods-4",
+   "productName": "Apple AirPods 4",
+   "productActive": true,
+   "sku": "APL-APD4-WHT",
+   "name": "White",
+   "attributes": {
+    "color": "White",
+    "colorHex": "#F5F5F5"
+   },
+   "pricePaise": 1290000,
+   "mrpPaise": 1290000,
+   "stock": 3,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/jbl-t520-blk": {
+   "productId": "jbl-tune-520bt",
+   "productName": "JBL Tune 520BT Wireless Headphones",
+   "productActive": true,
+   "sku": "JBL-T520-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#1A1A1A"
+   },
+   "pricePaise": 299900,
+   "mrpPaise": 499900,
+   "stock": 9,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/jbl-t520-blu": {
+   "productId": "jbl-tune-520bt",
+   "productName": "JBL Tune 520BT Wireless Headphones",
+   "productActive": true,
+   "sku": "JBL-T520-BLU",
+   "name": "Blue",
+   "attributes": {
+    "color": "Blue",
+    "colorHex": "#2F5BA8"
+   },
+   "pricePaise": 299900,
+   "mrpPaise": 499900,
+   "stock": 4,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/jbl-t520-wht": {
+   "productId": "jbl-tune-520bt",
+   "productName": "JBL Tune 520BT Wireless Headphones",
+   "productActive": true,
+   "sku": "JBL-T520-WHT",
+   "name": "White",
+   "attributes": {
+    "color": "White",
+    "colorHex": "#EFEFEF"
+   },
+   "pricePaise": 299900,
+   "mrpPaise": 499900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 2,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/bt-rz450-lbk": {
+   "productId": "boat-rockerz-450",
+   "productName": "boAt Rockerz 450 Bluetooth Headphones",
+   "productActive": true,
+   "sku": "BT-RZ450-LBK",
+   "name": "Luscious Black",
+   "attributes": {
+    "color": "Luscious Black",
+    "colorHex": "#1C1C1C"
+   },
+   "pricePaise": 149900,
+   "mrpPaise": 399000,
+   "stock": 20,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/bt-rz450-aqb": {
+   "productId": "boat-rockerz-450",
+   "productName": "boAt Rockerz 450 Bluetooth Headphones",
+   "productActive": true,
+   "sku": "BT-RZ450-AQB",
+   "name": "Aqua Blue",
+   "attributes": {
+    "color": "Aqua Blue",
+    "colorHex": "#2E8FB8"
+   },
+   "pricePaise": 149900,
+   "mrpPaise": 399000,
+   "stock": 7,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/xi-pb4i-20k-blk": {
+   "productId": "xiaomi-20000mah-33w-power-bank-4i",
+   "productName": "Xiaomi 20000 mAh 33W Power Bank 4i",
+   "productActive": true,
+   "sku": "XI-PB4I-20K-BLK",
+   "name": "Black",
+   "attributes": {
+    "color": "Black",
+    "colorHex": "#1F1F1F"
+   },
+   "pricePaise": 219900,
+   "mrpPaise": 399900,
+   "stock": 13,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/xi-pb4i-20k-wht": {
+   "productId": "xiaomi-20000mah-33w-power-bank-4i",
+   "productName": "Xiaomi 20000 mAh 33W Power Bank 4i",
+   "productActive": true,
+   "sku": "XI-PB4I-20K-WHT",
+   "name": "White",
+   "attributes": {
+    "color": "White",
+    "colorHex": "#F3F3F3"
+   },
+   "pricePaise": 219900,
+   "mrpPaise": 399900,
+   "stock": 2,
+   "isActive": true,
+   "sort": 1,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/an-621-mg5k-wht": {
+   "productId": "anker-621-maggo-5000mah",
+   "productName": "Anker 621 MagGo Magnetic Battery (5000 mAh)",
+   "productActive": true,
+   "sku": "AN-621-MG5K-WHT",
+   "name": "Ice White",
+   "attributes": {
+    "color": "Ice White",
+    "colorHex": "#F0F2F4"
+   },
+   "pricePaise": 299900,
+   "mrpPaise": 499900,
+   "stock": 5,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "variants/sam-ebp10-beg": {
+   "productId": "samsung-10000mah-25w-battery-pack",
+   "productName": "Samsung 10000 mAh 25W Battery Pack",
+   "productActive": true,
+   "sku": "SAM-EBP10-BEG",
+   "name": "Beige",
+   "attributes": {
+    "color": "Beige",
+    "colorHex": "#D9CBB3"
+   },
+   "pricePaise": 199900,
+   "mrpPaise": 299900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0
+  },
+  "collections/under-1500": {
+   "name": "Under ₹1,500",
+   "productIds": [
+    "anker-322-usb-c-cable-1-8m",
+    "anker-nano-20w-usb-c-charger",
+    "boat-airdopes-141",
+    "boat-rockerz-450",
+    "oneplus-13-sandstone-magnetic-case",
+    "samsung-25w-super-fast-charger",
+    "spigen-glastr-ez-fit-iphone-16",
+    "spigen-glastr-galaxy-s25",
+    "spigen-liquid-air-pixel-9a",
+    "spigen-optik-lens-protector-iphone-16",
+    "spigen-ultra-hybrid-iphone-16"
+   ]
+  },
+  "banners/repairs": {
+   "title": "Phone repairs, same day",
+   "subtitle": "Screens, batteries and charging ports fixed at the shop in Waidhan.",
+   "ctaLabel": "Book a repair",
+   "link": "/repairs",
+   "tone": 2,
+   "sort": 1,
+   "isActive": true,
+   "startsAt": "@now"
+  },
+  "settings/store": {
+   "deliveryFeePaise": 4900,
+   "freeDeliveryMinPaise": 99900,
+   "codEnabled": true,
+   "codMaxPaise": 2500000,
+   "onlinePaymentEnabled": true,
+   "storeHours": "Every day, 9 am – 10 pm",
+   "mapPin": {
+    "lat": 24.0670269,
+    "lng": 82.6307508
+   },
+   "mapsUrl": "https://maps.google.com/?cid=3396347197360889573",
+   "storePhotos": [],
+   "repairNote": "Final price is confirmed after inspection at the store.",
+   "returnsPolicy": "Unopened items can be returned within 7 days of delivery for a full refund. Phones are covered by the brand's warranty, and we help you claim it at the store. Got a damaged or wrong item? Tell us within 48 hours of delivery and share an unboxing video.",
+   "referral": {
+    "enabled": true,
+    "friendPaise": 20000,
+    "rewardPaise": 20000,
+    "minOrderPaise": 199900,
+    "monthlyCap": 10
+   }
+  },
+  "settings/business": {
+   "tradeName": "Shyam Online Shop",
+   "brandName": "Shyam Mobiles",
+   "legalName": "Shyam Sundar Gupta",
+   "gstin": "23BXEPG0619P2ZG",
+   "stateCode": "23",
+   "phone": "+917987559272",
+   "email": "shyammobilesshopes7@gmail.com",
+   "address": {
+    "line1": "Rajeev Complex",
+    "city": "Waidhan",
+    "district": "Singrauli",
+    "state": "Madhya Pradesh",
+    "pincode": "486886"
+   },
+   "businessTypes": [
+    "retailer",
+    "wholesaler",
+    "distributor",
+    "services"
+   ],
+   "invoicePrefix": "SOS"
+  }
+ }
+}

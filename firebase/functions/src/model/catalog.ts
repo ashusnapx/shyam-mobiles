@@ -59,6 +59,8 @@ export interface VariantDoc {
   isActive: boolean;
   sort: number;
   lastStockChange: "order" | "staff" | "refund";
+  /** +1 whenever stock goes 0 → > 0 (back-in-stock alerts key on it). Only catalog/stock.ts applyStockChange sets it. */
+  restockSeq: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -87,10 +89,20 @@ export interface CatalogCard {
   cv: string | null; // cover image path
   col: string[]; // collection ids
   t: number; // createdAt millis
+  ft?: string[]; // the "Fits" spec values (accessories: "Fits this phone"); absent when none
 }
 
-/** One variant row in catalogIndex/staff: [id, sku, name, pricePaise, mrpPaise, stock, isActive]. */
-export type StaffVariantRow = [string, string, string, number, number, number, boolean];
+/** One variant in catalogIndex/staff, short keys (Firestore allows no arrays inside arrays, so not a tuple). */
+export interface StaffVariantRow {
+  id: string;
+  sku: string;
+  n: string; // name
+  p: number; // pricePaise
+  m: number; // mrpPaise
+  st: number; // stock
+  a: boolean; // isActive
+  u: number; // updatedAt millis
+}
 
 /** catalogIndex/public (S, trigger): active products only. */
 export interface PublicCatalogIndexDoc {
@@ -98,16 +110,20 @@ export interface PublicCatalogIndexDoc {
   updatedAt: Timestamp;
 }
 
+export type StaffCatalogCard = CatalogCard & { active: boolean; u: number; variants: StaffVariantRow[] };
+
 /** catalogIndex/staff (S, trigger): every product, with its variants. */
 export interface StaffCatalogIndexDoc {
-  cards: Record<string, CatalogCard & { active: boolean; variants: StaffVariantRow[] }>;
+  /** [active]: the product is shown; [u]: its updatedAt millis. Every variant, hidden ones too, in sort order. */
+  cards: Record<string, StaffCatalogCard>;
   updatedAt: Timestamp;
 }
 
-/** wishlists/{uid} (C) */
+/** users/{uid}/wishlist/{productId} (C). [waitVariant]: the back-in-stock mark (docs/FIREBASE.md §6). */
 export interface WishlistDoc {
-  productIds: string[]; // ≤ 200, newest last
-  updatedAt: Timestamp;
+  productId: string; // = the doc id
+  addedAt: Timestamp;
+  waitVariant: string | null; // a variant id, '*' (any variant), or null (no alert)
 }
 
 /** banners/{id} (St; promotion banners S via savePromotion) */
@@ -135,5 +151,5 @@ export const retention: Record<string, Retention> = {
   collections: { kind: "shop" },
   catalogIndex: { kind: "shop" },
   banners: { kind: "shop" },
-  wishlists: { kind: "account" },
+  "users/*/wishlist": { kind: "account" },
 };

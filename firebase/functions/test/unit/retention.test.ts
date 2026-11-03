@@ -8,7 +8,7 @@ const files = readdirSync(dir).filter((f) => f.endsWith(".ts") && f !== "retenti
 
 /** Every collection in docs/FIREBASE.md §3. */
 const COLLECTIONS = [
-  "users", "users/*/addresses", "users/*/notifications", "users/*/coupons", "carts", "wishlists", "devices",
+  "users", "users/*/addresses", "users/*/notifications", "users/*/coupons", "carts", "users/*/wishlist", "devices",
   "categories", "brands", "products", "variants", "collections", "catalogIndex", "banners", "settings",
   "promotions", "promoCodes", "publicOffers", "redemptions", "rateLimits", "referralCodes", "referrals",
   "orders", "orders/*/payments", "orders/*/refunds", "repairs", "feedback", "counters",

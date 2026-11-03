@@ -16,7 +16,16 @@ service firebase.storage {
     }
 
     // ── catalog (owner: B) ─────────────────────────────────────────────────────────────────────────────────────
-    // TODO(B): product-images/** public read; staff write of image/(webp|jpeg|png) ≤ 1 MB (SECURITY §2.3).
+    // Product, banner and shop photos: public read (the app builds plain URLs), staff write of one folder level,
+    // image/(webp|jpeg|png) only, at most 1 MB (the old bucket's 1048576-byte cap). Keys are never reused.
+    match /product-images/{folder}/{file} {
+      allow read: if true;
+      allow create, update: if isStaff() && folder.matches('[A-Za-z0-9_-]{1,80}')
+        && file.matches('[A-Za-z0-9_@-]{1,80}[.](webp|jpe?g|png)')
+        && request.resource.size <= 1048576
+        && request.resource.contentType.matches('image/(webp|jpeg|png)');
+      allow delete: if isStaff();
+    }
 
     // ── invoices (owner: D, Phase 2) ───────────────────────────────────────────────────────────────────────────
     // TODO(D): invoices/{uid}/{orderId}.pdf readable by that uid or staff; no client writes.

@@ -42,7 +42,7 @@ export const saveVariant = contract(
     mrpPaise: v.pricePaise,
     stock: v.stock,
     isActive: z.boolean(),
-    sort: z.number().int().min(0).max(1000),
+    sort: z.number().int().min(0).max(1000).optional(), // absent: kept (0 on create)
   }).refine((x) => x.mrpPaise >= x.pricePaise, { message: "mrp", path: ["mrpPaise"] }),
   id,
 );
