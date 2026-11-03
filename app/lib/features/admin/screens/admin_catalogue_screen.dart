@@ -39,20 +39,25 @@ enum BulkAction {
   final String label;
 }
 
-/// Every variant with its stock, price and visibility; quick edits inline, bulk edits for a selection.
+/// Every product and variant with its stock, price and visibility (the one admin product list); quick edits
+/// inline, bulk edits for a selection. [stock], [visibility] and [query] come from the route (`?stock=low`).
 class AdminCatalogueScreen extends ConsumerStatefulWidget {
-  const AdminCatalogueScreen({super.key});
+  const AdminCatalogueScreen({super.key, this.stock, this.visibility, this.query});
+
+  final String? stock; // a StockFilter name
+  final String? visibility; // a VisibilityFilter name
+  final String? query;
 
   @override
   ConsumerState<AdminCatalogueScreen> createState() => _AdminCatalogueScreenState();
 }
 
 class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
-  String _query = '';
+  late String _query = tidy(widget.query ?? '');
   String? _categoryId;
   String? _brandId;
-  StockFilter _stock = StockFilter.all;
-  VisibilityFilter _visibility = VisibilityFilter.all;
+  late StockFilter _stock = StockFilter.values.asNameMap()[widget.stock] ?? StockFilter.all;
+  late VisibilityFilter _visibility = VisibilityFilter.values.asNameMap()[widget.visibility] ?? VisibilityFilter.all;
   CatalogueSort _sort = CatalogueSort.name;
 
   bool _selecting = false;
@@ -62,7 +67,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   final _want = <String, int>{}; // stock from −/+ taps not saved yet
   final _sending = <String>{}; // rows with a write on the way
 
-  final _search = TextEditingController();
+  late final _search = TextEditingController(text: _query);
   Timer? _debounce; // the server searches once typing pauses, not on every letter
 
   @override
@@ -337,7 +342,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
             leading: _selecting
                 ? IconButton(tooltip: 'Stop selecting', icon: const Icon(PhosphorIconsRegular.x), onPressed: _endSelect)
                 : null,
-            title: Text(_selecting ? '${_selected.length} selected' : 'Catalogue'),
+            title: Text(_selecting ? '${_selected.length} selected' : 'Products & stock'),
             actions: [
               if (_selecting)
                 IconButton(
@@ -356,6 +361,13 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
           bottomNavigationBar: _selecting
               ? BulkBar(count: selectedRows.length, onPressed: selectedRows.isEmpty || _busy ? null : () => _bulk(selectedRows))
               : null,
+          floatingActionButton: _selecting
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () => _open('/admin/products/new'),
+                  icon: const Icon(PhosphorIconsRegular.plus),
+                  label: const Text('Add product'),
+                ),
           body: Column(
             children: [
               Padding(
@@ -456,7 +468,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                         title: 'No products yet',
                         message: 'Add a product and its variants to see them here.',
                         action: FilledButton(
-                          onPressed: () => context.push('/admin/products/new'),
+                          onPressed: () => _open('/admin/products/new'),
                           child: const Text('Add product'),
                         ),
                       );
@@ -507,13 +519,36 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
     );
   }
 
-  Widget _list(List<CatalogueRow> rows, {required AsyncValue<CatalogueSummary> summary, Widget? footer, bool interactive = true}) =>
-      ListView.builder(
+  /// Opens the product editor; the editor may have changed it, so the list reloads after.
+  Future<void> _open(String route) async {
+    await context.push(route);
+    if (mounted) {
+      ref
+        ..invalidate(catalogueProvider)
+        ..invalidate(catalogueSummaryProvider);
+    }
+  }
+
+  Widget _list(List<CatalogueRow> rows, {required AsyncValue<CatalogueSummary> summary, Widget? footer, bool interactive = true}) {
+    // sorted by name, a product's variants come together: each run gets its product's header
+    final grouped = _sort == CatalogueSort.name;
+    final entries = <(CatalogueRow, bool)>[
+      for (final (i, r) in rows.indexed) ...[
+        if (grouped && (i == 0 || rows[i - 1].productId != r.productId)) (r, true),
+        (r, false),
+      ],
+    ];
+    final totals = <String, ({int variants, int units})>{};
+    for (final r in rows) {
+      final t = totals[r.productId] ?? (variants: 0, units: 0);
+      totals[r.productId] = (variants: t.variants + 1, units: t.units + (_want[r.variantId] ?? r.stock));
+    }
+    return ListView.builder(
         key: PageStorageKey(_view), // a new search or filter starts at the top, not at the old list's offset
         physics: const AlwaysScrollableScrollPhysics(),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.only(bottom: Space.xl + MediaQuery.paddingOf(context).bottom),
-        itemCount: rows.length + 1 + (footer == null ? 0 : 1),
+        padding: EdgeInsets.only(bottom: 96 + MediaQuery.paddingOf(context).bottom), // clear of the FAB
+        itemCount: entries.length + 1 + (footer == null ? 0 : 1),
         itemBuilder: (context, i) {
           if (i == 0) {
             // the server's totals over every matching row; quietly absent if they fail (the rows still work)
@@ -523,11 +558,21 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
               _ => const Skeletonizer(child: CatalogueSummaryCard(_skeletonSummary)),
             };
           }
-          if (i > rows.length) return footer!;
-          final r = rows[i - 1];
+          if (i > entries.length) return footer!;
+          final (r, header) = entries[i - 1];
+          if (header) {
+            return ProductHeader(
+              key: ValueKey('product-${r.productId}-${r.variantId}'),
+              row: r,
+              variants: totals[r.productId]!.variants,
+              units: totals[r.productId]!.units,
+              onTap: !interactive || _selecting ? null : () => _open('/admin/products/${r.productId}'),
+            );
+          }
           return CatalogueTile(
             key: ValueKey(r.variantId),
             row: r,
+            grouped: grouped,
             stock: _want[r.variantId] ?? r.stock,
             selecting: _selecting,
             selected: _selected.contains(r.variantId),
@@ -535,15 +580,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                 ? null
                 : _selecting
                     ? () => _toggle(r.variantId)
-                    : () async {
-                        await context.push('/admin/products/${r.productId}');
-                        if (mounted) {
-                          // the editor may have changed it
-                          ref
-                            ..invalidate(catalogueProvider)
-                            ..invalidate(catalogueSummaryProvider);
-                        }
-                      },
+                    : () => _open('/admin/products/${r.productId}'),
             onLongPress: !interactive || _selecting
                 ? null
                 : () => setState(() {
@@ -557,6 +594,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
           );
         },
       );
+  }
 }
 
 String _rowsLabel(int n) => '$n variant${n == 1 ? '' : 's'}';
@@ -618,10 +656,64 @@ class CatalogueSummaryCard extends StatelessWidget {
   }
 }
 
+/// "Anker 322 USB-C Cable · 2 variants · 42 in stock ›" above its variants; opens the product editor.
+class ProductHeader extends StatelessWidget {
+  const ProductHeader({super.key, required this.row, required this.variants, required this.units, required this.onTap});
+
+  final CatalogueRow row; // the product's first listed variant
+  final int variants; // listed (loaded and matching) variants of this product
+  final int units;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    final r = row;
+    return Semantics(
+      button: onTap != null,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.md, Space.sm),
+          child: Row(
+            children: [
+              SizedBox(width: 44, child: ProductImage(r.coverPath, radius: Radii.sm, padding: 2)),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(r.productName, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      '$variants variant${variants == 1 ? '' : 's'} · ${units == 0 ? 'none in stock' : '$units in stock'}',
+                      style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
+                    ),
+                    if (!r.productActive || r.featured)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Space.xs),
+                        child: Wrap(spacing: Space.xs, runSpacing: Space.xs, children: [
+                          if (!r.productActive) const Tag('Product hidden', tone: TagTone.bad),
+                          if (r.featured) const Tag('Featured', tone: TagTone.ok),
+                        ]),
+                      ),
+                  ],
+                ),
+              ),
+              Icon(PhosphorIconsRegular.caretRight, size: 18, color: c.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class CatalogueTile extends StatelessWidget {
   const CatalogueTile({
     super.key,
     required this.row,
+    this.grouped = false,
     required this.stock,
     required this.selecting,
     required this.selected,
@@ -634,6 +726,7 @@ class CatalogueTile extends StatelessWidget {
   });
 
   final CatalogueRow row;
+  final bool grouped; // under a ProductHeader: the variant leads, the product's name, photo and tags sit above
   final int stock; // shown: includes −/+ taps not saved yet
   final bool selecting;
   final bool selected;
@@ -677,14 +770,21 @@ class CatalogueTile extends StatelessWidget {
                       onChanged: onTap == null ? null : (_) => onTap!(),
                       semanticLabel: 'Select ${r.productName}, ${r.variantName}',
                     ),
-                  SizedBox(width: 56, child: ProductImage(r.coverPath, radius: Radii.md, padding: Space.xs)),
-                  const SizedBox(width: Space.md),
+                  if (!grouped) ...[
+                    SizedBox(width: 56, child: ProductImage(r.coverPath, radius: Radii.md, padding: Space.xs)),
+                    const SizedBox(width: Space.md),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(r.productName, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleSmall),
-                        Text('${r.variantName} · ${r.sku}', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                        if (grouped) ...[
+                          Text(r.variantName, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleSmall),
+                          Text(r.sku, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                        ] else ...[
+                          Text(r.productName, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleSmall),
+                          Text('${r.variantName} · ${r.sku}', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                        ],
                         const SizedBox(height: 2),
                         Text.rich(
                           TextSpan(children: [
@@ -694,7 +794,7 @@ class CatalogueTile extends StatelessWidget {
                           ]),
                           style: t.bodyMedium?.copyWith(fontFeatures: tabular),
                         ),
-                        if (!r.variantActive || !r.productActive || r.featured || stock <= lowStockMax)
+                        if (!r.variantActive || (!grouped && (!r.productActive || r.featured)) || stock <= lowStockMax)
                           Padding(
                             padding: const EdgeInsets.only(top: Space.xs),
                             child: Wrap(
@@ -702,12 +802,12 @@ class CatalogueTile extends StatelessWidget {
                               runSpacing: Space.xs,
                               children: [
                                 if (!r.variantActive) const Tag('Hidden', tone: TagTone.bad),
-                                if (!r.productActive) const Tag('Product hidden', tone: TagTone.bad),
+                                if (!grouped && !r.productActive) const Tag('Product hidden', tone: TagTone.bad),
                                 if (stock == 0)
                                   const Tag('Out of stock', tone: TagTone.bad)
                                 else if (stock <= lowStockMax)
                                   const Tag('Low stock', tone: TagTone.deal),
-                                if (r.featured) const Tag('Featured', tone: TagTone.ok),
+                                if (!grouped && r.featured) const Tag('Featured', tone: TagTone.ok),
                               ],
                             ),
                           ),

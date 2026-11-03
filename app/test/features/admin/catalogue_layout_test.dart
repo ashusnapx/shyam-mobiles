@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
 import 'package:shyam_mobiles/features/admin/data/admin.dart';
 import 'package:shyam_mobiles/features/admin/data/catalogue.dart';
@@ -102,7 +103,8 @@ final _rows = [
   _row('v3', 'Spigen Ultra Hybrid Case for iPhone 16 Pro Max', 'Crystal Clear', 'SPG-UH-IP16PM-CLR', 1299, 0, active: false),
 ];
 
-Future<void> _pump(WidgetTester tester, {List<CatalogueRow>? rows, _Api? api}) => pumpScreen(tester, const AdminCatalogueScreen(), overrides: [
+Future<void> _pump(WidgetTester tester, {List<CatalogueRow>? rows, _Api? api, AdminCatalogueScreen screen = const AdminCatalogueScreen()}) =>
+    pumpScreen(tester, screen, overrides: [
       catalogueApiProvider.overrideWithValue(api ?? _Api(rows ?? _rows)),
       catalogueProvider.overrideWith2(_Fixed.new),
       adminCategoriesProvider.overrideWithValue(
@@ -113,7 +115,9 @@ Future<void> _pump(WidgetTester tester, {List<CatalogueRow>? rows, _Api? api}) =
 void main() {
   testWidgets('summary and rows fit at 360 dp with large text', (tester) async {
     await _pump(tester);
-    expect(find.text('Catalogue'), findsOneWidget);
+    expect(find.text('Products & stock'), findsOneWidget);
+    expect(find.text('Add product'), findsOneWidget, reason: 'the one product list adds products too');
+    expect(find.text('1 variant · 99999 in stock'), findsOneWidget, reason: 'sorted by name, rows sit under their product');
     expect(find.byType(CatalogueSummaryCard), findsOneWidget);
     expect(find.text('3'), findsWidgets); // SKUs
     expect(find.text('Stock value at MRP'), findsOneWidget);
@@ -167,7 +171,8 @@ void main() {
   testWidgets('hiding a variant from its card offers Undo', (tester) async {
     await _pump(tester);
     const sku = 'SAM-S25U-12-512-SLV';
-    await tester.tap(find.byTooltip('Hide $sku from the shop'));
+    // pressed directly: at this size the Add product button floats over the first card's eye
+    tester.widget<IconButton>(find.widgetWithIcon(IconButton, PhosphorIconsRegular.eye).first).onPressed!();
     await tester.pumpAndSettle();
     expect(find.text('$sku hidden from the shop'), findsOneWidget);
     expect(find.byTooltip('Show $sku in the shop'), findsOneWidget);
@@ -198,7 +203,7 @@ void main() {
     await tester.tap(find.text('Couldn’t load more. Try again'));
     await tester.pumpAndSettle();
     expect(api.calls.last, '|all|50');
-    await tester.scrollUntilVisible(find.text('8 GB · 128 GB · SKU-119'), 600, scrollable: list);
+    await tester.scrollUntilVisible(find.text('SKU-119'), 600, scrollable: list);
     expect(api.calls.last, '|all|100');
     expect(find.text('Couldn’t load more. Try again'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing, reason: 'all 120 loaded');
@@ -209,5 +214,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.calls.last, '|out|0', reason: 'a new filter is a new list from page 1');
     expect(find.text('Showing 18 of 120 variants'), findsOneWidget);
+  });
+
+  testWidgets('the dashboard’s stock alerts open the list already filtered', (tester) async {
+    final api = _Api(_rows);
+    await _pump(tester, api: api, screen: const AdminCatalogueScreen(stock: 'out', visibility: 'shown'));
+    expect(api.calls, ['|out|0']);
+    expect(find.text('Out of stock'), findsWidgets, reason: 'the stock chip shows the filter');
+    expect(find.text('Shown in the shop'), findsOneWidget);
+  });
+
+  testWidgets('other sorts list variants flat, each with its product name', (tester) async {
+    await _pump(tester);
+    await tester.ensureVisible(find.text('Name'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Name'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(CatalogueSort.stock.label));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProductHeader), findsNothing);
+    expect(find.text('Samsung Galaxy S25 Ultra 5G'), findsOneWidget);
   });
 }

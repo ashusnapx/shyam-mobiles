@@ -273,7 +273,6 @@ class CatalogueNotifier extends PagedNotifier<CatalogueRow> {
     if (!ref.mounted) return;
     ref.invalidate(catalogueSummaryProvider); // stock and values moved
     ref.invalidate(adminProductsProvider);
-    ref.invalidate(adminProductPagesProvider);
     ref.invalidate(adminProductProvider);
     ref.invalidate(adminDashboardProvider); // low stock
   }

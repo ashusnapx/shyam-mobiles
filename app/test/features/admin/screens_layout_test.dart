@@ -4,15 +4,16 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
 import 'package:shyam_mobiles/features/admin/data/admin.dart';
+import 'package:shyam_mobiles/features/admin/data/catalogue.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_dashboard_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_order_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_orders_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_product_edit_screen.dart';
-import 'package:shyam_mobiles/features/admin/screens/admin_products_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_repair_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_repairs_screen.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_settings_screen.dart';
 import 'package:shyam_mobiles/features/admin/widgets/feedback_card.dart';
+import 'package:shyam_mobiles/features/feedback/data/feedback.dart';
 import 'package:shyam_mobiles/features/repairs/data/repairs.dart';
 
 import '../repairs/layout_harness.dart';
@@ -85,7 +86,11 @@ void main() {
           'open_repairs': 5,
           'low_stock': 3,
           'needs_refund': 1,
+          'repairs_awaiting_approval': 0,
         })),
+        catalogueSummaryProvider.overrideWith(
+            (ref, v) => (skus: 40, units: 300, valueAtPricePaise: 0, valueAtMrpPaise: 0, low: 9, out: 0, total: 44)),
+        feedbackNewCountProvider.overrideWith((ref) => 0),
         needsActionProvider.overrideWithValue(AsyncData((
           orders: [_order(OrderStatus.confirmed), _order(OrderStatus.packed)],
           repairs: [testBooking(status: RepairStatus.requested)],
@@ -96,6 +101,14 @@ void main() {
       expect(find.text('₹4.82L'), findsOneWidget);
       await scrollTo(tester, find.text('Confirm'));
       expect(find.text('Confirm'), findsOneWidget);
+      // only alerts above zero, as chips; stock counts per variant from the catalogue
+      await scrollTo(tester, find.text('Low stock 9'));
+      expect(find.text('Needs refund 1'), findsOneWidget);
+      expect(find.textContaining('Out of stock'), findsNothing);
+      expect(find.textContaining('Awaiting approval'), findsNothing);
+      expect(find.textContaining('All clear'), findsNothing);
+      await scrollTo(tester, find.text('Products & stock'));
+      expect(find.text('All products'), findsNothing, reason: 'one product list now');
     });
 
     testWidgets('order detail, needs refund ($theme)', (tester) async {
@@ -144,24 +157,7 @@ void main() {
       await scrollTo(tester, find.text('Timeline'));
     });
 
-    testWidgets('products list and editor ($theme)', (tester) async {
-      await pumpScreen(tester, const AdminProductsScreen(), dark: dark, overrides: [
-        adminProductPagesProvider.overrideWithBuild((ref, _) => (items: const [
-          AdminProductRow(
-            id: 'p1',
-            name: 'Samsung Galaxy S25 Ultra 5G',
-            brandName: 'Samsung',
-            categoryName: 'Phones',
-            isActive: false,
-            isFeatured: true,
-            coverPath: null,
-            activeVariants: 1,
-            stock: 2,
-            lowStock: true,
-          ),
-        ], hasMore: false, moreFailed: false)),
-      ]);
-      expect(find.text('Hidden'), findsOneWidget);
+    testWidgets('product editor ($theme)', (tester) async {
       await pumpScreen(tester, const AdminProductEditScreen(productId: 'p1'), dark: dark, overrides: [
         adminBrandsProvider.overrideWithValue(const AsyncData([_brand])),
         adminCategoriesProvider.overrideWithValue(const AsyncData([_category])),

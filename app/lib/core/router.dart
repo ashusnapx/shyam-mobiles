@@ -19,7 +19,6 @@ import '../features/admin/screens/admin_offers_screen.dart';
 import '../features/admin/screens/admin_order_screen.dart';
 import '../features/admin/screens/admin_orders_screen.dart';
 import '../features/admin/screens/admin_product_edit_screen.dart';
-import '../features/admin/screens/admin_products_screen.dart';
 import '../features/admin/screens/admin_repair_screen.dart';
 import '../features/admin/screens/admin_repairs_screen.dart';
 import '../features/admin/screens/admin_settings_screen.dart';
@@ -120,17 +119,27 @@ final routerProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/admin', builder: (_, _) => const AdminDashboardScreen(), routes: [
-              sub('products', (_) => const AdminProductsScreen(), routes: [
-                sub('new', (_) => const AdminProductEditScreen()),
-                sub(':id', (s) => AdminProductEditScreen(productId: s.pathParameters['id'])),
-              ]),
+              // one product list: the old Products screen's links open Products & stock; the editor stays here
+              GoRoute(
+                path: 'products',
+                parentNavigatorKey: rootNavigatorKey,
+                redirect: (_, s) => s.uri.path == '/admin/products' ? s.uri.replace(path: '/admin/catalogue').toString() : null,
+                routes: [
+                  sub('new', (_) => const AdminProductEditScreen()),
+                  sub(':id', (s) => AdminProductEditScreen(productId: s.pathParameters['id'])),
+                ],
+              ),
               sub('orders', (s) => AdminOrdersScreen(status: s.uri.queryParameters['status']), routes: [
                 sub(':id', (s) => AdminOrderScreen(orderId: s.pathParameters['id']!)),
               ]),
               sub('repairs', (_) => const AdminRepairsScreen(), routes: [
                 sub(':id', (s) => AdminRepairScreen(bookingId: s.pathParameters['id']!)),
               ]),
-              sub('catalogue', (_) => const AdminCatalogueScreen()),
+              sub('catalogue', (s) => AdminCatalogueScreen(
+                    stock: s.uri.queryParameters['stock'],
+                    visibility: s.uri.queryParameters['visibility'],
+                    query: s.uri.queryParameters['q'],
+                  )),
               sub('offers', (_) => const AdminOffersScreen(), routes: [
                 sub('new', (s) => AdminOfferEditScreen(copyOf: s.uri.queryParameters['copy'])),
                 sub(':id', (s) => AdminOfferEditScreen(promotionId: s.pathParameters['id'])),

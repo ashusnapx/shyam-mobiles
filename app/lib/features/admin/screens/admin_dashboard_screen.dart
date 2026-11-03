@@ -18,6 +18,7 @@ import '../../repairs/widgets/repair_widgets.dart';
 import '../../feedback/data/feedback.dart';
 import '../../notifications/widgets/notification_widgets.dart';
 import '../data/admin.dart';
+import '../data/catalogue.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
 
@@ -34,6 +35,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ref.refresh(adminDashboardProvider.future),
                 ref.refresh(needsActionProvider.future),
                 ref.refresh(feedbackNewCountProvider.future),
+                ref.refresh(catalogueSummaryProvider(shownStock).future),
               ]),
               child: ListView(
                 padding: const EdgeInsets.only(bottom: Space.xl),
@@ -64,19 +66,17 @@ class AdminDashboardScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const _Stats(),
-                  SectionHeader(
-                    'Manage',
-                    actionLabel: 'All products',
-                    onAction: () => context.push('/admin/products'),
-                  ),
-                  const _QuickActions(),
+                  const _Today(),
+                  // what to do next sits above the numbers that only need a glance
                   SectionHeader(
                     'Needs action',
                     actionLabel: 'All orders',
                     onAction: () => context.push('/admin/orders?status=open'),
                   ),
                   const _NeedsAction(),
+                  const _Alerts(),
+                  const SectionHeader('Manage'),
+                  const _QuickActions(),
                 ],
               ),
             ),
@@ -85,8 +85,19 @@ class AdminDashboardScreen extends ConsumerWidget {
       );
 }
 
-class _Stats extends ConsumerWidget {
-  const _Stats();
+/// Customers can see these variants: the stock alerts count only them, per variant (low = 1–3 left, out = 0).
+const shownStock = (
+  query: '',
+  categoryId: null,
+  brandId: null,
+  stock: StockFilter.all,
+  visibility: VisibilityFilter.shown,
+  sort: CatalogueSort.name,
+);
+
+/// Four numbers in one block: today's orders and revenue, and what is still open.
+class _Today extends ConsumerWidget {
+  const _Today();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,58 +107,47 @@ class _Stats extends ConsumerWidget {
     }
     final d = value.value;
     int n(String k) => d?[k] ?? 0;
-    final fresh = ref.watch(feedbackNewCountProvider).value ?? 0; // feedback with status new
-    final tiles = [
-      _Tile(PhosphorIconsRegular.receipt, 'Orders today', n('orders_today'), '/admin/orders?status=today'),
-      _Tile(PhosphorIconsRegular.currencyInr, 'Revenue today', n('revenue_today_paise'),
-          '/admin/orders?status=today', format: shortInr),
-      _Tile(PhosphorIconsRegular.package, 'Open orders', n('open_orders'), '/admin/orders?status=open'),
-      _Tile(PhosphorIconsRegular.wrench, 'Open repairs', n('open_repairs'), '/admin/repairs'),
-      _Tile(PhosphorIconsRegular.hourglassMedium, 'Awaiting approval', n('repairs_awaiting_approval'),
-          '/admin/repairs?status=awaiting_approval'),
-      _Tile(PhosphorIconsBold.warning, 'Low stock', n('low_stock'), '/admin/products?stock=low',
-          tone: n('low_stock') > 0 ? TagTone.deal : null),
-      _Tile(PhosphorIconsBold.arrowCounterClockwise, 'Needs refund', n('needs_refund'),
-          '/admin/orders?status=needs_refund',
-          tone: n('needs_refund') > 0 ? TagTone.bad : null),
-      _Tile(PhosphorIconsRegular.chatCircleText, 'New feedback', fresh, '/admin/feedback',
-          tone: fresh > 0 ? TagTone.info : null),
+    final c = Theme.of(context).colorScheme;
+    const cells = [
+      (PhosphorIconsRegular.receipt, 'Orders today', 'orders_today', '/admin/orders?status=today'),
+      (PhosphorIconsRegular.currencyInr, 'Revenue today', 'revenue_today_paise', '/admin/orders?status=today'),
+      (PhosphorIconsRegular.package, 'Open orders', 'open_orders', '/admin/orders?status=open'),
+      (PhosphorIconsRegular.wrench, 'Open repairs', 'open_repairs', '/admin/repairs'),
     ];
+    Widget cell(int i) {
+      final (icon, label, key, route) = cells[i];
+      return Expanded(
+        child: _Stat(icon, label, n(key), route, format: key == 'revenue_today_paise' ? shortInr : _Stat._plain),
+      );
+    }
+
     return Skeletonizer(
       enabled: d == null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-        child: Column(
-          children: [
-            for (var i = 0; i < tiles.length; i += 2)
-              Padding(
-                padding: const EdgeInsets.only(bottom: Space.sm + 2),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: tiles[i]),
-                      const SizedBox(width: Space.sm + 2),
-                      Expanded(child: i + 1 < tiles.length ? tiles[i + 1] : const SizedBox()),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+        child: Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [cell(0), const VerticalDivider(width: 1), cell(1)])),
+              Divider(height: 1, color: c.outlineVariant),
+              IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [cell(2), const VerticalDivider(width: 1), cell(3)])),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _Tile extends StatelessWidget {
-  const _Tile(this.icon, this.label, this.count, this.route, {this.tone, this.format = _plain});
+class _Stat extends StatelessWidget {
+  const _Stat(this.icon, this.label, this.count, this.route, {this.format = _plain});
 
   final IconData icon;
   final String label;
   final int count;
   final String route;
-  final TagTone? tone; // null = plain tile
   final String Function(int) format;
 
   static String _plain(int n) => '$n';
@@ -156,50 +156,81 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    final colors = tone == null ? (bg: c.surfaceContainerLow, fg: c.onSurface) : toneColors(c, tone!);
     return Semantics(
       button: true,
       label: '$label, ${format(count)}',
       excludeSemantics: true,
-      child: Material(
-        color: colors.bg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Radii.lg),
-          side: tone == null ? BorderSide(color: c.outlineVariant) : BorderSide.none,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => context.push(route),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, size: 16, color: tone == null ? c.onSurfaceVariant : colors.fg),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: t.labelMedium?.copyWith(color: tone == null ? c.onSurfaceVariant : colors.fg),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // counts up when the numbers arrive, and rolls when they change
-                CountTo(
-                  count,
-                  format: format,
-                  fromZero: true,
-                  style: t.headlineSmall?.copyWith(color: colors.fg, fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
+      child: InkWell(
+        onTap: () => context.push(route),
+        child: Padding(
+          padding: const EdgeInsets.all(Space.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 16, color: c.onSurfaceVariant),
+                  const SizedBox(width: Space.xs),
+                  Expanded(child: Text(label, style: t.labelMedium?.copyWith(color: c.onSurfaceVariant))),
+                ],
+              ),
+              const SizedBox(height: Space.xs),
+              // counts up when the numbers arrive, and rolls when they change
+              CountTo(count, format: format, fromZero: true, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Only what needs a look, each opening its list; "All clear" when nothing does.
+class _Alerts extends ConsumerWidget {
+  const _Alerts();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final d = ref.watch(adminDashboardProvider).value;
+    final stock = ref.watch(catalogueSummaryProvider(shownStock)).value; // absent if it fails: the rest still shows
+    final fresh = ref.watch(feedbackNewCountProvider).value ?? 0; // feedback with status new
+    if (d == null) return const SizedBox.shrink();
+    int n(String k) => d[k] ?? 0;
+    final alerts = [
+      (PhosphorIconsBold.arrowCounterClockwise, 'Needs refund', n('needs_refund'), '/admin/orders?status=needs_refund'),
+      (PhosphorIconsRegular.hourglassMedium, 'Awaiting approval', n('repairs_awaiting_approval'),
+          '/admin/repairs?status=awaiting_approval'),
+      (PhosphorIconsRegular.trendDown, 'Low stock', stock?.low ?? 0, '/admin/catalogue?stock=low&visibility=shown'),
+      (PhosphorIconsBold.warning, 'Out of stock', stock?.out ?? 0, '/admin/catalogue?stock=out&visibility=shown'),
+      (PhosphorIconsRegular.chatCircleText, 'New feedback', fresh, '/admin/feedback'),
+    ].where((a) => a.$3 > 0).toList();
+    final c = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    final deal = toneColors(c, TagTone.deal);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
+      child: alerts.isEmpty
+          ? Row(
+              children: [
+                Icon(PhosphorIconsRegular.checkCircle, color: c.secondary),
+                const SizedBox(width: Space.sm),
+                Text('All clear', style: t.titleSmall),
+              ],
+            )
+          : Wrap(
+              spacing: Space.sm,
+              children: [
+                for (final (icon, label, count, route) in alerts)
+                  ActionChip(
+                    avatar: Icon(icon, size: 16, color: deal.fg),
+                    label: Text('$label $count'),
+                    labelStyle: t.labelLarge?.copyWith(color: deal.fg, fontWeight: FontWeight.w700),
+                    backgroundColor: deal.bg,
+                    side: BorderSide.none,
+                    onPressed: () => context.push(route),
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -209,18 +240,22 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const actions = [
+    // by how often the shop uses them; the rest under "More"
+    const daily = [
       (PhosphorIconsRegular.plus, 'Add product', '/admin/products/new'),
-      (PhosphorIconsRegular.package, 'Catalogue', '/admin/catalogue'),
+      (PhosphorIconsRegular.package, 'Products & stock', '/admin/catalogue'),
       (PhosphorIconsRegular.receipt, 'Orders', '/admin/orders'),
       (PhosphorIconsRegular.wrench, 'Repairs', '/admin/repairs'),
+      (PhosphorIconsRegular.link, 'Payment link', '/admin/payment-links'),
       (PhosphorIconsRegular.sealPercent, 'Offers', '/admin/offers'),
+    ];
+    const more = [
       (PhosphorIconsRegular.stack, 'Groups', '/admin/groups'),
       (PhosphorIconsRegular.flagBanner, 'Banners', '/admin/banners'),
-      (PhosphorIconsRegular.link, 'Payment links', '/admin/payment-links'),
       (PhosphorIconsRegular.gearSix, 'Settings', '/admin/settings'),
     ];
     final c = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
     Widget tile(IconData icon, String label, String route) => InkWell(
           borderRadius: BorderRadius.circular(Radii.lg),
           onTap: () => context.push(route),
@@ -229,28 +264,39 @@ class _QuickActions extends StatelessWidget {
             child: Column(
               children: [
                 DecoratedBox(
-                  decoration: BoxDecoration(color: c.primaryContainer, borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(color: c.primaryContainer, borderRadius: BorderRadius.circular(Radii.lg)),
                   child: SizedBox.square(dimension: 52, child: Icon(icon, color: c.onPrimaryContainer)),
                 ),
-                const SizedBox(height: 6),
-                Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: Space.xs),
+                Text(label, textAlign: TextAlign.center, style: t.labelMedium),
               ],
             ),
           ),
         );
-    // three a row, so "Catalogue" and "Add product" fit on one line at large text
+    // three a row, so "Products & stock" and "Add product" fit at large text
+    Widget grid(List<(IconData, String, String)> actions) => Column(
+          children: [
+            for (var i = 0; i < actions.length; i += 3)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var j = i; j < i + 3; j++)
+                    Expanded(child: j < actions.length ? tile(actions[j].$1, actions[j].$2, actions[j].$3) : const SizedBox()),
+                ],
+              ),
+          ],
+        );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Space.sm),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < actions.length; i += 3)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var j = i; j < i + 3; j++)
-                  Expanded(child: j < actions.length ? tile(actions[j].$1, actions[j].$2, actions[j].$3) : const SizedBox()),
-              ],
-            ),
+          grid(daily),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.sm, Space.md, Space.sm, Space.xs),
+            child: Text('More', style: t.labelLarge?.copyWith(color: c.onSurfaceVariant)),
+          ),
+          grid(more),
         ],
       ),
     );
@@ -406,8 +452,8 @@ class _Row extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Space.sm),
-              FilledButton.tonal(
-                style: FilledButton.styleFrom(minimumSize: const Size(64, 48), padding: const EdgeInsets.symmetric(horizontal: 14)),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48), padding: const EdgeInsets.symmetric(horizontal: 14)),
                 onPressed: onAction,
                 child: Text(action, semanticsLabel: '$action $number'),
               ),

@@ -7,6 +7,7 @@ import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../catalog/data/catalog.dart' show brandsProvider;
+import 'catalogue.dart' show catalogueSummaryProvider;
 import 'photos.dart';
 import 'rules.dart';
 import '../../repairs/data/booking_days.dart' show istMidnight;
@@ -256,35 +257,6 @@ final adminProductsProvider = FutureProvider.autoDispose<List<AdminProductRow>>(
   return [for (final r in rows) AdminProductRow.fromJson(r)];
 });
 
-typedef ProductListView = ({String query, bool lowOnly});
-
-/// The Products screen, a page at a time: name search and the low-stock filter run on the server.
-final adminProductPagesProvider = AsyncNotifierProvider.autoDispose
-    .family<AdminProductPages, Paged<AdminProductRow>, ProductListView>(AdminProductPages.new);
-
-class AdminProductPages extends PagedNotifier<AdminProductRow> {
-  AdminProductPages(this.view);
-
-  final ProductListView view;
-
-  @override
-  Object idOf(AdminProductRow p) => p.id;
-
-  @override
-  Future<List<AdminProductRow>> fetch(int from, int size) async {
-    // "low" embeds the variants a second time, inner-joined and filtered, so only products with a low active
-    // variant come back while `variants` still lists them all for the stock count (admin_dashboard's rule)
-    var q = ref
-        .read(supabaseProvider)
-        .from('products')
-        .select(view.lowOnly ? '$_productColumns, low:variants!inner(id)' : _productColumns);
-    if (view.query.isNotEmpty) q = q.ilike('name', '%${view.query}%');
-    if (view.lowOnly) q = q.eq('is_active', true).eq('low.is_active', true).lte('low.stock', 3);
-    final rows = await q.order('name', ascending: true).order('id').range(from, from + size - 1);
-    return [for (final r in rows) AdminProductRow.fromJson(r)];
-  }
-}
-
 final adminProductProvider = FutureProvider.autoDispose.family<Product, String>((ref, id) async {
   final row = await ref
       .watch(supabaseProvider)
@@ -327,8 +299,8 @@ final adminCategoriesProvider = FutureProvider.autoDispose<List<Category>>((ref)
 void _productChanged(WidgetRef ref, String productId) {
   ref.invalidate(adminProductProvider(productId));
   ref.invalidate(adminProductsProvider);
-  ref.invalidate(adminProductPagesProvider);
-  ref.invalidate(adminDashboardProvider); // low stock
+  ref.invalidate(adminDashboardProvider);
+  ref.invalidate(catalogueSummaryProvider); // the stock alerts
 }
 
 /// Inserts when [id] is null. Returns the product id.
