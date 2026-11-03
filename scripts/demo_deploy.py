@@ -231,7 +231,7 @@ class Deploy:
             'SUPABASE_URL': self.url,
             'SUPABASE_PUBLISHABLE_KEY': self.env['SUPABASE_PUBLISHABLE_KEY'],
             'RAZORPAY_KEY_ID': rz['RAZORPAY_KEY_ID'],
-            'POLICIES_URL': '',
+            'POLICIES_URL': 'https://shyam-mobiles.web.app',
             'LINK_HOST': 'shyammobiles.example',
             'DEV_LOGIN': 'true',
             'DEMO_BUILD': 'true',
