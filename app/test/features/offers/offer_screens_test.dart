@@ -285,7 +285,7 @@ void main() {
     expect(find.text('Refer & earn isn’t running right now'), findsOneWidget);
   });
 
-  testWidgets('product page: a gold chip per offer, tap for its terms', (tester) async {
+  testWidgets('product page: the best offer with the price after it, tap for its terms', (tester) async {
     final product = Product(
       id: 'p1',
       slug: 'galaxy-s25',
@@ -299,9 +299,14 @@ void main() {
       offersApiProvider.overrideWithValue(FakeOffersApi(offers: [diwali, festiveSale])),
     ]);
     await tester.pumpAndSettle();
-    expect(find.text('₹500 off with DIWALI500'), findsOneWidget);
-    expect(find.text('10% off · Festive sale: 10% off accessories'), findsOneWidget);
-    await tester.tap(find.text('₹500 off with DIWALI500'));
+    // both save ₹500 on ₹12,999 (the sale is capped): the first one listed wins the tie
+    final best = find.textContaining('Pay ₹12,499 with code DIWALI500', findRichText: true);
+    expect(best, findsOneWidget);
+    expect(find.text('+1 more offer'), findsOneWidget);
+    // the line sits under the price and pickers, behind the sticky bar at first
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+    await tester.pump();
+    await tester.tap(best);
     await tester.pumpAndSettle();
     expect(find.text('Page /offers/${diwali.id}'), findsOneWidget);
   });
