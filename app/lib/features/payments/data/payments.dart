@@ -203,7 +203,7 @@ int refundablePaise(Order o, List<Refund> refunds) =>
 /// Which refunds staff may start on [o]: everything left (a cancelled or delivered order), and/or chosen lines (an
 /// order that isn't cancelled). Neither while a refund is on its way, or when it wasn't paid online.
 ({bool full, bool items}) refundChoices(Order o, List<Refund> refunds) {
-  final paid = o.paymentMethod == PaymentMethod.razorpay && o.paymentStatus == PaymentStatus.paid;
+  final paid = o.paymentMethod != PaymentMethod.cod && o.paymentStatus == PaymentStatus.paid; // any online gateway
   if (!paid || refunds.any((r) => r.status == RefundStatus.pending) || refundablePaise(o, refunds) < 100) {
     return (full: false, items: false);
   }
