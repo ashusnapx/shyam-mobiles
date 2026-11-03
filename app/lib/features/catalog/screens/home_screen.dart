@@ -605,7 +605,7 @@ class _ProductSlide extends StatelessWidget {
   }
 }
 
-/// Short one-line label and icon per category; its colours are fixed ([categoryTint]).
+/// Short label and icon per category; its colours are fixed ([categoryTint]).
 const _categoryLooks = {
   'smartphones': ('Phones', PhosphorIconsRegular.deviceMobile),
   'keypad-phones': ('Keypad', PhosphorIconsRegular.deviceMobileSpeaker),
@@ -681,7 +681,7 @@ class _CategoryTile extends StatelessWidget {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                maxLines: 1,
+                maxLines: 2, // "Power bank" wraps at large text instead of ending in "Power ba…"
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelMedium,
               ),

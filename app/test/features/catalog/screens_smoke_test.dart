@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/rendering.dart' show SemanticsAction;
+import 'package:flutter/rendering.dart' show RenderParagraph, SemanticsAction;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -174,6 +174,21 @@ void main() {
   setUpAll(loadRoboto);
 
   final homeData = (categories: <Category>[], featured: cards, accessories: cards.sublist(3));
+
+  testWidgets('home category labels are never cut short at large text', (tester) async {
+    final categories = [
+      for (final (i, s) in ['smartphones', 'keypad-phones', 'cases-covers', 'screen-guards', 'chargers-cables', 'earbuds-headphones', 'power-banks'].indexed)
+        Category(id: '$i', slug: s, name: s, kind: i < 2 ? CategoryKind.phone : CategoryKind.accessory),
+    ];
+    await pump(tester, '/', overrides: [
+      homeProvider.overrideWith((ref) async => (categories: categories, featured: cards, accessories: cards.sublist(3))),
+    ]);
+    await tester.pump(const Duration(seconds: 1));
+    for (final label in ['Power bank', 'Chargers', 'Earbuds', 'Keypad']) {
+      final text = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(text.didExceedMaxLines, isFalse, reason: '$label is cut short');
+    }
+  });
 
   for (final scheme in [lightScheme]) {
     testWidgets('home renders without overflow (${scheme.brightness.name})', (tester) async {
