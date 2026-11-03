@@ -28,14 +28,19 @@ int seedHash(String seed) {
   return h;
 }
 
-/// Hue offsets that look good together: mostly analogous, one with a quiet complementary hint. No triads: red and
-/// green side by side look cheap.
+/// Hue offsets that look good together: analogous only (a complement next to the brand looks cheap).
 const _harmonies = [
-  [0.0, 28.0, 56.0],
-  [0.0, -32.0, 32.0],
-  [0.0, 35.0, 70.0],
-  [0.0, -25.0, 165.0],
+  [0.0, 15.0, 30.0],
+  [0.0, -15.0, 15.0],
+  [0.0, 20.0, 40.0],
+  [0.0, -20.0, -40.0],
 ];
+
+/// The house hues (peacock, ocean, indigo, violet, plum, jade, brass, copper): a seed picks one and drifts ±8°, so
+/// nothing lands on olive, yellow-green or red.
+const _hues = [200.0, 240.0, 272.0, 298.0, 328.0, 160.0, 75.0, 58.0];
+
+double _houseHue(int h) => _hues[h % _hues.length] + ((h >> 5) % 17 - 8);
 
 /// Red means an error in this app, so a hue in the red band (OKLCH 340°–50°: wine, crimson, red, rust) is folded out of
 /// it across its nearer edge, to raspberry or amber.
@@ -49,34 +54,32 @@ double _noRed(double hue) {
 
 GenPalette deepPalette(String seed) {
   final h = seedHash(seed);
-  var hue = (h % 360).toDouble();
-  // deep yellows and olive greens come out brown; nudge the base hue past that band
-  if (hue > 70 && hue < 115) hue += 45;
+  final hue = _houseHue(h);
   final offsets = _harmonies[(h >> 9) % _harmonies.length];
-  final chroma = 0.10 + ((h >> 13) % 5) * 0.01; // 0.10..0.14
+  final chroma = 0.055 + ((h >> 13) % 6) * 0.005; // 0.055..0.080: calm, not candy
   final stops = [
-    for (final (i, o) in offsets.indexed) _readableOnWhite(oklch(0.30 + i * 0.05, chroma, _noRed(hue + o))),
+    for (final (i, o) in offsets.indexed) _readableOnWhite(oklch(0.28 + i * 0.07, chroma, _noRed(hue + o))),
   ];
   return GenPalette(
     stops: stops,
-    glows: [for (final o in offsets) oklch(0.78, 0.13, _noRed(hue + o + 12))],
-    accent: oklch(0.82, 0.14, _noRed(hue + offsets[1])),
-    band: oklch(0.965, 0.02, _noRed(hue)),
+    glows: [for (final o in offsets) oklch(0.70, 0.06, _noRed(hue + o + 12)).withValues(alpha: 0.55)],
+    accent: oklch(0.85, 0.07, _noRed(hue + offsets[1])),
+    band: oklch(0.975, 0.010, _noRed(hue)),
   );
 }
 
 GenPalette softPalette(String seed) {
   final h = seedHash(seed);
-  final hue = _noRed((h % 360).toDouble());
+  final hue = _noRed(_houseHue(h));
   final offsets = _harmonies[(h >> 9) % _harmonies.length];
-  final band = oklch(0.96, 0.04, hue);
-  var accent = oklch(0.52, 0.15, hue);
-  for (var l = 0.52; contrast(accent, band) < 3 && l > 0.2; l -= 0.03) {
-    accent = oklch(l, 0.15, hue);
+  final band = oklch(0.975, 0.012, hue);
+  var accent = oklch(0.50, 0.09, hue);
+  for (var l = 0.50; contrast(accent, band) < 4.5 && l > 0.2; l -= 0.02) {
+    accent = oklch(l, 0.09, hue);
   }
   return GenPalette(
-    stops: [band, oklch(0.965, 0.035, _noRed(hue + offsets[1])), oklch(0.975, 0.03, _noRed(hue + offsets[2]))],
-    glows: [for (final o in offsets) oklch(0.88, 0.09, _noRed(hue + o)).withValues(alpha: 0.7)],
+    stops: [band, oklch(0.978, 0.010, _noRed(hue + offsets[1])), oklch(0.982, 0.008, _noRed(hue + offsets[2]))],
+    glows: [for (final o in offsets) oklch(0.93, 0.035, _noRed(hue + o)).withValues(alpha: 0.5)],
     accent: accent,
     band: band,
   );
@@ -86,7 +89,7 @@ GenPalette softPalette(String seed) {
 /// generated.
 GenPalette tintPalette(Tint t) => GenPalette(
       stops: [t.$1, Color.lerp(t.$1, Colors.white, .5)!, t.$1],
-      glows: List.filled(3, t.$2.withValues(alpha: .08)),
+      glows: List.filled(3, t.$2.withValues(alpha: .06)),
       accent: t.$2,
       band: t.$1,
     );

@@ -14,7 +14,7 @@ import 'widgets.dart';
 Tint toneColors(TagTone t) => switch (t) {
       TagTone.info => (BrandColors.peacockMist, BrandColors.peacockInk),
       TagTone.ok => (BrandColors.mint, BrandColors.mintInk),
-      TagTone.deal => (BrandColors.gold, BrandColors.goldInk),
+      TagTone.deal => (BrandColors.goldSoft, BrandColors.goldInk), // never solid gold under text
       TagTone.repair => (BrandColors.cream, BrandColors.creamInk),
       TagTone.neutral => (lightScheme.surfaceContainerHigh, BrandColors.graphite),
       TagTone.bad => (lightScheme.errorContainer, lightScheme.onErrorContainer),

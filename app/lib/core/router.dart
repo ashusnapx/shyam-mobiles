@@ -44,7 +44,6 @@ import '../features/wishlist/screens/wishlist_screen.dart';
 import 'deep_links.dart';
 import 'links.dart';
 import 'supabase.dart';
-import 'theme/tokens.dart';
 import 'widgets/widgets.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -220,17 +219,17 @@ class AppShell extends ConsumerWidget {
     final destinations = [
       const NavigationDestination(
         icon: Icon(PhosphorIconsRegular.house),
-        selectedIcon: Icon(PhosphorIconsFill.house, color: BrandColors.peacock),
+        selectedIcon: Icon(PhosphorIconsFill.house),
         label: 'Home',
       ),
       const NavigationDestination(
         icon: Icon(PhosphorIconsRegular.magnifyingGlass),
-        selectedIcon: Icon(PhosphorIconsBold.magnifyingGlass, color: BrandColors.ocean),
+        selectedIcon: Icon(PhosphorIconsBold.magnifyingGlass),
         label: 'Search',
       ),
       const NavigationDestination(
         icon: Icon(PhosphorIconsRegular.wrench),
-        selectedIcon: Icon(PhosphorIconsFill.wrench, color: BrandColors.saffron),
+        selectedIcon: Icon(PhosphorIconsFill.wrench),
         label: 'Repairs',
       ),
       NavigationDestination(
@@ -247,7 +246,7 @@ class AppShell extends ConsumerWidget {
           child: Badge(
             isLabelVisible: cartCount > 0,
             label: Text('$cartCount'),
-            child: const Icon(PhosphorIconsFill.shoppingBag, color: BrandColors.emerald),
+            child: const Icon(PhosphorIconsFill.shoppingBag),
           ),
         ),
         label: 'Cart',
@@ -255,23 +254,20 @@ class AppShell extends ConsumerWidget {
       ),
       const NavigationDestination(
         icon: Icon(PhosphorIconsRegular.user),
-        selectedIcon: Icon(PhosphorIconsFill.user, color: BrandColors.plum),
+        selectedIcon: Icon(PhosphorIconsFill.user),
         label: 'Account',
       ),
       if (isAdmin)
         const NavigationDestination(
           icon: Icon(PhosphorIconsRegular.storefront),
-          selectedIcon: Icon(PhosphorIconsFill.storefront, color: BrandColors.indigo),
+          selectedIcon: Icon(PhosphorIconsFill.storefront),
           label: 'Admin',
         ),
     ];
     final selected = shell.currentIndex < destinations.length ? shell.currentIndex : 0;
-    // each tab in its own world's colour (Worlds), so you always know where you are
-    const worlds = [Worlds.shop, Worlds.search, Worlds.repairs, Worlds.cart, Worlds.account, Worlds.admin];
     return Scaffold(
       body: shell,
       bottomNavigationBar: NavigationBar(
-        indicatorColor: worlds[selected].$1,
         selectedIndex: selected,
         onDestinationSelected: (i) {
           HapticFeedback.selectionClick();

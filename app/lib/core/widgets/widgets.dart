@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show ImageFilter;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:material_ui/material_ui.dart';
@@ -654,10 +655,10 @@ class _BrandMarkPainter extends CustomPainter {
     canvas.scale(size.width / 100);
     canvas.drawRRect(
       RRect.fromRectAndRadius(const Rect.fromLTWH(0, 0, 100, 100), const Radius.circular(26)),
-      Paint()..color = onDark ? Colors.white.withValues(alpha: 0.14) : BrandColors.ink,
+      Paint()..color = onDark ? Colors.white.withValues(alpha: 0.14) : BrandColors.logoInk,
     );
     final white = Paint()..color = Colors.white;
-    final paints = {_Dot.plain: white, _Dot.ring: Paint()..color = BrandColors.gold, _Dot.core: Paint()..color = BrandColors.sky};
+    final paints = {_Dot.plain: white, _Dot.ring: Paint()..color = BrandColors.logoGold, _Dot.core: Paint()..color = BrandColors.sky};
     final t = ripple?.value ?? 1;
     for (final (p, dot) in _dots) {
       // the eye (50, 63) first, the feather's tip and edges last (≈ 46 units away)
@@ -799,4 +800,47 @@ class ButtonSpinner extends StatelessWidget {
         dimension: 20,
         child: CircularProgressIndicator(strokeWidth: 2.5, color: IconTheme.of(context).color),
       );
+}
+
+/// Which glass: [bar] for pinned bars (blur 24), [card] for chips over a light aurora or photo (blur 16), [onDeep] for
+/// pills on a hero gradient (a tint, no blur: a smooth gradient looks the same blurred).
+enum GlassKind { bar, card, onDeep }
+
+/// Frosted glass ([Glass]) that blurs what scrolls under it, with a hairline edge. At most two on screen (a bar and
+/// the nav); low-RAM phones and reduced motion get the opaque fallback.
+class GlassSurface extends ConsumerWidget {
+  const GlassSurface({super.key, required this.child, this.kind = GlassKind.bar, this.radius = 0, this.border});
+
+  final Widget child;
+  final GlassKind kind;
+  final double radius;
+  final BoxBorder? border; // default: a hairline all round when rounded, none when square (the caller picks the edge)
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rich = ref.watch(richMotionProvider) && !MediaQuery.disableAnimationsOf(context);
+    final shape = BorderRadius.circular(radius);
+    final deep = kind == GlassKind.onDeep;
+    final blur = rich && !deep;
+    final color = switch (kind) {
+      GlassKind.onDeep => Glass.onDeep,
+      _ when !rich => Glass.fallback,
+      GlassKind.bar => Glass.bar,
+      GlassKind.card => Glass.card,
+    };
+    final veil = DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: radius > 0 ? shape : null,
+        border: border ?? (radius > 0 ? Border.all(color: deep ? Glass.hairlineOnDeep : Glass.hairline) : null),
+      ),
+      child: child,
+    );
+    if (!blur) return veil;
+    final sigma = kind == GlassKind.bar ? Glass.barBlur : Glass.cardBlur;
+    return ClipRRect(
+      borderRadius: shape,
+      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma), child: veil),
+    );
+  }
 }

@@ -8,19 +8,27 @@ void main() {
     expect(deepPalette('banner-1').stops, isNot(deepPalette('banner-2').stops));
   });
 
-  test('white text passes AA on every deep stop, for many seeds', () {
+  test('white text reads easily on every deep stop (v2: dark and calm, 7:1 or more), for many seeds', () {
     for (var i = 0; i < 400; i++) {
       for (final c in deepPalette('seed-$i').stops) {
-        expect(contrast(c, Colors.white), greaterThanOrEqualTo(4.5), reason: 'seed-$i $c');
+        expect(contrast(c, Colors.white), greaterThanOrEqualTo(7), reason: 'seed-$i $c');
       }
     }
   });
 
-  test('soft accents read on their band (3:1), and bands stay near white', () {
+  test('soft accents pass AA as text on their band, and bands stay all but white', () {
     for (var i = 0; i < 400; i++) {
       final p = softPalette('cat-$i');
-      expect(contrast(p.accent, p.band), greaterThanOrEqualTo(3), reason: 'cat-$i');
-      expect(p.band.computeLuminance(), greaterThan(0.8), reason: 'cat-$i');
+      expect(contrast(p.accent, p.band), greaterThanOrEqualTo(4.5), reason: 'cat-$i');
+      expect(p.band.computeLuminance(), greaterThan(0.88), reason: 'cat-$i');
+    }
+  });
+
+  test('deep palettes are calm: no stop is loud', () {
+    for (var i = 0; i < 400; i++) {
+      for (final c in deepPalette('seed-$i').stops) {
+        expect(HSVColor.fromColor(c).value, lessThan(0.55), reason: 'seed-$i $c');
+      }
     }
   });
 

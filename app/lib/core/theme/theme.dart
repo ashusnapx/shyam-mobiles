@@ -64,14 +64,26 @@ ThemeData buildTheme(ColorScheme c) {
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(minimumSize: const Size(48, 48), textStyle: text.labelLarge),
+      // links carry the brand
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        textStyle: text.labelLarge,
+        foregroundColor: BrandColors.peacockInk,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
+      // white with a hairline: a filled grey field looks muddy on ivory
       filled: true,
-      fillColor: c.surfaceContainer,
+      fillColor: c.surfaceContainerLowest,
       contentPadding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.lg),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md), borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(Radii.md),
+        borderSide: BorderSide(color: c.outlineVariant),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(Radii.md),
+        borderSide: BorderSide(color: c.outlineVariant),
+      ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(Radii.md),
         borderSide: BorderSide(color: c.primary, width: 1.5),
@@ -84,12 +96,12 @@ ThemeData buildTheme(ColorScheme c) {
       hintStyle: text.bodyMedium?.copyWith(color: c.onSurfaceVariant),
     ),
     cardTheme: CardThemeData(
-      // the hairline plus the faintest lift, so cards float on the soft section bands
+      // white with a hairline and the faintest lift, floating on the ivory canvas
       elevation: 1,
-      shadowColor: Colors.black.withValues(alpha: 0.05),
+      shadowColor: c.shadow.withValues(alpha: 0.06),
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
-      color: c.surface,
+      color: c.surfaceContainerLowest,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Radii.lg),
         side: BorderSide(color: c.outlineVariant),
@@ -113,7 +125,7 @@ ThemeData buildTheme(ColorScheme c) {
       height: 68,
       backgroundColor: c.surface,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: BrandColors.peacockMist, // the open tab: a peacock pill and icon
+      indicatorColor: BrandColors.peacockMist, // the open tab: one brand pill on every tab
       iconTheme: WidgetStateProperty.resolveWith(
         (s) => IconThemeData(color: s.contains(WidgetState.selected) ? BrandColors.peacock : c.onSurfaceVariant),
       ),

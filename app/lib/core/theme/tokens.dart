@@ -2,62 +2,70 @@ import 'package:material_ui/material_ui.dart';
 
 import 'generative.dart' show seedHash;
 
-/// Ink + colour (docs/palette-ideas.html, option 4 with 1–3 folded in): black buttons and text stay, and colour
-/// comes from the peacock feather in the logo. Peacock teal for information, emerald for savings and anything done,
-/// saffron for repairs, gold for deals. Plum, indigo and ocean widen the range for slides, categories and section
-/// bands, and sand is the quiet warm neutral behind premium touches. The app is light-only by product decision. No
-/// red anywhere: red means an error.
+/// "Ivory & Peacock" (palette v2, scratch spec of 3 Nov 2026): a warm ivory canvas with white cards, a deep blue-black
+/// ink for text and commit buttons, one brand hue (deep peacock), one warm accent (brass) for deals, desaturated
+/// semantic colours, and calm identity colours whose backgrounds and icons share one lightness. The app is light-only
+/// by product decision. Red means an error, nothing else.
 abstract final class BrandColors {
-  static const ink = Color(0xFF0A0A0A);
-  static const graphite = Color(0xFF262626);
-  static const mist = Color(0xFF8C8C8C);
+  static const ink = Color(0xFF111922);
+  static const graphite = Color(0xFF2A3139);
+  static const mist = Color(0xFF7B8187); // icons and disabled states only, never text (3.78 on ivory)
+  static const ivory = Color(0xFFFCFAF6); // the canvas
 
-  static const peacock = Color(0xFF0F766E);
-  static const peacockDeep = Color(0xFF0A3532);
-  static const peacockMist = Color(0xFFE3F3F0);
-  static const peacockInk = Color(0xFF0B4F4A);
-  static const sky = Color(0xFF38BDF8); // the feather eye's core
+  // the launcher icon's own colours: the mark never follows the palette
+  static const logoInk = Color(0xFF0A0A0A);
+  static const logoGold = Color(0xFFE0A82E);
 
-  static const emerald = Color(0xFF047857);
-  static const emeraldDeep = Color(0xFF03291F);
-  static const mint = Color(0xFFE2F5EC);
-  static const mintInk = Color(0xFF064E3B);
+  static const peacock = Color(0xFF0B6B6F);
+  static const peacockDeep = Color(0xFF032729);
+  static const peacockMist = Color(0xFFE0F5F6);
+  static const peacockInk = Color(0xFF025559); // text links
+  static const sky = Color(0xFF38BDF8); // the feather eye's core (logo only)
 
-  static const saffron = Color(0xFFC2410C);
-  static const saffronDeep = Color(0xFF5A1E08);
-  static const cream = Color(0xFFFFEEDF);
-  static const creamInk = Color(0xFF7C2D12);
+  // success: jade
+  static const emerald = Color(0xFF337250);
+  static const emeraldDeep = Color(0xFF112A1C);
+  static const mint = Color(0xFFE4F5EB);
+  static const mintInk = Color(0xFF1E4731);
 
-  static const gold = Color(0xFFE0A82E);
-  static const goldInk = Color(0xFF241A00);
+  // repairs: copper, identity only (the Repairs button stays ink)
+  static const saffron = Color(0xFF975529);
+  static const saffronDeep = Color(0xFF3A1E0E);
+  static const cream = Color(0xFFFDEDE0);
+  static const creamInk = Color(0xFF61361C);
 
-  static const plum = Color(0xFF86198F);
-  static const plumDeep = Color(0xFF3B0F33);
-  static const plumMist = Color(0xFFF6EAF4);
-  static const plumInk = Color(0xFF6B1D5C);
+  // the warm accent: brass. gold is a fill only (2.16 on ivory: never text); text goes on goldSoft or amberMist
+  static const gold = Color(0xFFCEA766);
+  static const goldSoft = Color(0xFFF1DDB9);
+  static const goldInk = Color(0xFF432E14);
+  static const amber = Color(0xFF815B26);
+  static const amberMist = Color(0xFFF8EFDD);
 
-  static const indigo = Color(0xFF4338CA);
-  static const indigoDeep = Color(0xFF1E1B4B);
-  static const indigoMist = Color(0xFFEEF0FF);
-  static const indigoInk = Color(0xFF3730A3);
+  static const plum = Color(0xFF824D80);
+  static const plumDeep = Color(0xFF351C34);
+  static const plumMist = Color(0xFFF9EBF8);
+  static const plumInk = Color(0xFF593258);
 
-  static const ocean = Color(0xFF0369A1);
-  static const oceanDeep = Color(0xFF082F49);
-  static const oceanMist = Color(0xFFE0F2FE);
-  static const oceanInk = Color(0xFF075985);
+  static const indigo = Color(0xFF4E5EA2);
+  static const indigoDeep = Color(0xFF1C2444);
+  static const indigoMist = Color(0xFFEBF0FE);
+  static const indigoInk = Color(0xFF323E71);
 
-  static const sand = Color(0xFFF7F0E3);
-  static const sandInk = Color(0xFF7A5B2E);
+  static const ocean = Color(0xFF1F6A96);
+  static const oceanDeep = Color(0xFF06293E);
+  static const oceanMist = Color(0xFFE5F2FD);
+  static const oceanInk = Color(0xFF0D4768);
 
-  // gold can never be text (2.14 on white): amber is the deal family's text and icon colour (7.09 on white)
-  static const amber = Color(0xFF92400E);
-  static const amberMist = Color(0xFFFEF3C7);
+  static const violet = Color(0xFF6B5499);
+  static const violetMist = Color(0xFFF1EEFC);
+  static const violetInk = Color(0xFF48366B);
 
-  static const violet = Color(0xFF6D28D9);
-  static const violetMist = Color(0xFFEDE9FE);
+  static const slate = Color(0xFF50667C);
+  static const slateMist = Color(0xFFEBF1F7);
+  static const slateInk = Color(0xFF344455);
 
-  static const slate = Color(0xFF475569);
-  static const slateMist = Color(0xFFF1F5F9);
+  static const sand = Color(0xFFF8EFE0);
+  static const sandInk = Color(0xFF75603B);
 
   static const whatsapp = Color(0xFF25D366); // WhatsApp's own green: ink text on it (white fails)
 }
@@ -92,25 +100,25 @@ const categoryTints = <String, Tint>{
 Tint categoryTint(String slug) =>
     categoryTints[slug] ?? categoryTints.values.elementAt(seedHash(slug) % categoryTints.length);
 
-/// One gradient per featured slide, in turn: peacock, marigold, emerald, plum, indigo, ocean. White text passes AA on
-/// every stop. Banners store their tone as this index (0..5, a DB check).
+/// One gradient per featured slide, in turn: peacock, brass, jade, plum, indigo, ocean (dark to light, OKLCH L .28 to
+/// .42 at low chroma). White text passes 8:1 on every stop. Banners store their tone as this index (0..5, a DB check).
 const heroGradients = [
-  [BrandColors.peacockDeep, BrandColors.peacock, Color(0xFF155E75)],
-  [BrandColors.saffronDeep, BrandColors.saffron, Color(0xFFB4530A)],
-  [BrandColors.emeraldDeep, BrandColors.emerald, Color(0xFF0E7490)],
-  [BrandColors.plumDeep, Color(0xFF701A75), BrandColors.plum],
-  [BrandColors.indigoDeep, BrandColors.indigoInk, BrandColors.indigo],
-  [BrandColors.oceanDeep, BrandColors.oceanInk, BrandColors.ocean],
+  [Color(0xFF042F33), Color(0xFF0A4346), Color(0xFF075957)],
+  [Color(0xFF3C2208), Color(0xFF513308), Color(0xFF65470F)],
+  [Color(0xFF013125), Color(0xFF0F452E), Color(0xFF085955)],
+  [Color(0xFF391E34), Color(0xFF4E2C4D), Color(0xFF5F3E69)],
+  [Color(0xFF232644), Color(0xFF2E375F), Color(0xFF344C79)],
+  [Color(0xFF102B43), Color(0xFF0F3F5B), Color(0xFF05556F)],
 ];
 
 /// The dot under each slide and the glow behind it, matched to [heroGradients].
 const heroAccents = [
-  BrandColors.gold,
-  Color(0xFFF5B014),
-  Color(0xFFB7EB4F),
-  Color(0xFFF0ABFC),
-  Color(0xFFA5B4FC),
-  Color(0xFF7DD3FC),
+  Color(0xFF97DBE7),
+  Color(0xFFE6C99A),
+  Color(0xFFA0DDC7),
+  Color(0xFFEDBDDE),
+  Color(0xFFC6C9FB),
+  Color(0xFFACD2FB),
 ];
 
 /// Old category tile tints, kept only for the sign-in perks until that screen moves to [Worlds] (its pink pair reads
@@ -120,33 +128,36 @@ const tileTints = [
   (BrandColors.cream, BrandColors.saffron),
   (BrandColors.mint, BrandColors.emerald),
   (BrandColors.oceanMist, BrandColors.ocean),
-  (Color(0xFFFEF3C7), Color(0xFF92400E)),
-  (Color(0xFFEDE9FE), Color(0xFF6D28D9)),
-  (Color(0xFFFCE7F3), Color(0xFFBE185D)),
+  (BrandColors.amberMist, BrandColors.amber),
+  (BrandColors.violetMist, BrandColors.violet),
+  (BrandColors.violetMist, BrandColors.violet),
   (BrandColors.plumMist, BrandColors.plum),
   (BrandColors.indigoMist, BrandColors.indigo),
   (BrandColors.sand, BrandColors.sandInk),
 ];
 
-/// Soft band behind a Home or product-page section and the accent pill beside its title (background, accent), so
-/// each section reads as its own place without loud colour. Deals are amber: saffron belongs to repairs.
+/// The band behind a Home or product-page section and the accent bar beside its title (band, accent): near white with
+/// a trace of hue. At most one tinted band per screen; the others sit on [explore] or the plain canvas.
 const sectionTints = (
-  deals: (BrandColors.amberMist, BrandColors.amber),
-  phones: (BrandColors.indigoMist, BrandColors.indigo),
-  recent: (BrandColors.plumMist, BrandColors.plum),
-  explore: (BrandColors.sand, BrandColors.sandInk),
-  offers: (BrandColors.mint, BrandColors.emerald),
-  fits: (BrandColors.peacockMist, BrandColors.peacock),
-  similar: (BrandColors.oceanMist, BrandColors.ocean),
+  deals: (Color(0xFFFBF6EE), BrandColors.amber),
+  phones: (Color(0xFFF5F7FC), BrandColors.indigo),
+  recent: (Color(0xFFFBF4FB), BrandColors.plum),
+  explore: (Color(0xFFF7F6F2), BrandColors.sandInk), // surfaceContainerLow: the neutral band
+  offers: (Color(0xFFF0F9F4), BrandColors.emerald),
+  fits: (Color(0xFFEEF9FA), BrandColors.peacock),
+  similar: (Color(0xFFF0F8FE), BrandColors.ocean),
 );
 
+/// One 4/8-pt scale. [gutter] is the page's side margin, [section] the gap between Home's sections.
 abstract final class Space {
   static const xs = 4.0;
   static const sm = 8.0;
   static const md = 12.0;
   static const lg = 16.0;
+  static const gutter = 20.0;
   static const xl = 24.0;
   static const xxl = 32.0;
+  static const section = 32.0;
 }
 
 abstract final class Radii {
@@ -157,7 +168,34 @@ abstract final class Radii {
   static const button = 14.0;
   static const lg = 16.0;
   static const hero = 20.0; // status heroes, carousel slides
-  static const xl = 24.0;
+  static const xl = 24.0; // section panels, sheets
+}
+
+/// Resting cards and tiles ([card]), and what floats above the page: bars, sheets, the hero ([raised]).
+abstract final class Shadows {
+  static const card = [
+    BoxShadow(color: Color(0x0A111922), offset: Offset(0, 1), blurRadius: 2),
+    BoxShadow(color: Color(0x0A111922), offset: Offset(0, 2), blurRadius: 8),
+  ];
+  static const raised = [
+    BoxShadow(color: Color(0x14111922), offset: Offset(0, 8), blurRadius: 24),
+    BoxShadow(color: Color(0x0D111922), offset: Offset(0, 2), blurRadius: 6),
+  ];
+}
+
+/// Frosted glass. [bar]: pinned bars (never below 0.88: ink, onSurfaceVariant and peacock still pass AA over black).
+/// [card]: floating chips over light aurora or a photo well only. [onDeep]: pills on a hero gradient, white text at
+/// labelLarge or larger. Glass never holds a price or an error. At most two blurs on screen ([GlassSurface]).
+abstract final class Glass {
+  static const bar = Color(0xE0FCFAF6); // ivory at 0.88
+  static const card = Color(0xB8FFFFFF); // white at 0.72
+  static const onDeep = Color(0x24FFFFFF); // white at 0.14
+  static const hairline = Color(0x14111922); // ink at 0.08
+  static const highlight = Color(0xB3FFFFFF); // the 1px top edge
+  static const hairlineOnDeep = Color(0x38FFFFFF);
+  static const fallback = Color(0xF7FCFAF6); // ivory at 0.97: low-RAM phones and reduced motion, no blur
+  static const barBlur = 24.0;
+  static const cardBlur = 16.0;
 }
 
 abstract final class IconSizes {
@@ -173,44 +211,45 @@ abstract final class Motion {
   static const fast = Duration(milliseconds: 150);
   static const normal = Duration(milliseconds: 250);
   static const enter = Duration(milliseconds: 420);
+  static const hero = Duration(milliseconds: 5500); // how long a carousel slide stays
   static const slide = Duration(milliseconds: 500); // the home carousel
   static const bump = Duration(milliseconds: 550);
   static const slow = Duration(milliseconds: 700);
   static const stagger = Duration(milliseconds: 55); // between items rising in
 }
 
-// Ink stays primary (buttons, selection); the roles below carry the colour into every screen.
+// Ink stays primary (buttons, selection); white cards float on the ivory canvas.
 const lightScheme = ColorScheme(
   brightness: Brightness.light,
   primary: BrandColors.ink,
   onPrimary: Colors.white,
-  primaryContainer: Color(0xFFEBEBEB),
+  primaryContainer: Color(0xFFEDEAE5),
   onPrimaryContainer: BrandColors.ink,
-  secondary: BrandColors.emerald, // "% off", free delivery, done steps, success: emerald
+  secondary: BrandColors.emerald, // "% off", free delivery, done steps, success
   onSecondary: Colors.white,
   secondaryContainer: BrandColors.mint,
   onSecondaryContainer: BrandColors.mintInk,
-  tertiary: BrandColors.saffron, // repairs
+  tertiary: BrandColors.saffron, // repairs (identity)
   onTertiary: Colors.white,
-  tertiaryContainer: BrandColors.gold, // deal tags: gold pill, dark text
+  tertiaryContainer: BrandColors.goldSoft, // deal pills: brass, dark text
   onTertiaryContainer: BrandColors.goldInk,
-  error: Color(0xFFB3261E),
+  error: Color(0xFFA23D37),
   onError: Colors.white,
-  errorContainer: Color(0xFFFBE9E8),
-  onErrorContainer: Color(0xFF6E120D),
-  surface: Colors.white,
+  errorContainer: Color(0xFFFDEBE9),
+  onErrorContainer: Color(0xFF692823),
+  surface: BrandColors.ivory,
   onSurface: BrandColors.ink,
-  onSurfaceVariant: Color(0xFF5E5E5E),
-  surfaceContainerLowest: Colors.white,
-  surfaceContainerLow: Color(0xFFFAFAFA),
-  surfaceContainer: Color(0xFFF3F3F3),
-  surfaceContainerHigh: Color(0xFFEBEBEB),
-  surfaceContainerHighest: Color(0xFFE2E2E2),
-  outline: Color(0xFFCFCFCF),
-  outlineVariant: Color(0xFFE6E6E6),
-  inverseSurface: Color(0xFF1F1F1F),
-  onInverseSurface: Color(0xFFF2F2F2),
-  inversePrimary: Color(0xFFF2F2F2),
-  shadow: Colors.black,
-  scrim: Colors.black,
+  onSurfaceVariant: Color(0xFF5B6168),
+  surfaceContainerLowest: Colors.white, // cards
+  surfaceContainerLow: Color(0xFFF7F6F2),
+  surfaceContainer: Color(0xFFF3F0EC), // image wells
+  surfaceContainerHigh: Color(0xFFEDEAE5),
+  surfaceContainerHighest: Color(0xFFE6E3DE),
+  outline: Color(0xFFC7C4BD),
+  outlineVariant: Color(0xFFE2DFDA), // hairlines
+  inverseSurface: Color(0xFF1A222B),
+  onInverseSurface: Color(0xFFF3F0EC),
+  inversePrimary: Color(0xFF82C5C8),
+  shadow: BrandColors.ink,
+  scrim: BrandColors.ink,
 );
