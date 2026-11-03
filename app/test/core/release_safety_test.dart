@@ -111,12 +111,30 @@ void main() {
     });
 
     test('runtime permissions are only the ones we ask for', () {
-      final perms = [for (final m in RegExp(r'uses-permission android:name="([^"]+)"').allMatches(main)) m[1]];
+      final perms = [for (final m in RegExp(r'uses-permission android:name="([^"]+)"/>').allMatches(main)) m[1]];
       expect(perms, [
         'android.permission.INTERNET',
         'android.permission.ACCESS_COARSE_LOCATION', // address form, asked on tap
         'android.permission.ACCESS_FINE_LOCATION',
       ]);
+    });
+
+    test('analytics never touches the advertising ID and starts off (docs/SECURITY.md §4.3)', () {
+      for (final perm in [
+        'com.google.android.gms.permission.AD_ID',
+        'android.permission.ACCESS_ADSERVICES_AD_ID',
+        'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+      ]) {
+        expect(main, contains('<uses-permission android:name="$perm" tools:node="remove"/>'));
+      }
+      for (final flag in [
+        'firebase_analytics_collection_enabled',
+        'google_analytics_adid_collection_enabled',
+        'google_analytics_ssaid_collection_enabled',
+        'google_analytics_default_allow_ad_personalization_signals',
+      ]) {
+        expect(main, contains('<meta-data android:name="$flag" android:value="false" />'));
+      }
     });
 
     test('R8 shrinks and obfuscates release, signed with the upload key when present', () {

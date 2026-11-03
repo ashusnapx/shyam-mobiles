@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cloud_functions/cloud_functions.dart' show FirebaseFunctionsException;
 import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -31,6 +32,9 @@ const _codes = {
   'PAYMENT_MISMATCH': 'That payment doesn’t match this order. If money left your account, call or WhatsApp the store with the order number and we’ll sort it out.',
   'INTERNAL': fallbackError,
   'UNAUTHORIZED': 'Your session has ended. Sign in again to continue.',
+  // Firebase callables (docs/SECURITY.md §2.2, §2.6): a sensitive step needs a fresh sign-in; per-user rate limits.
+  'REAUTH_REQUIRED': 'For your security, sign in again to do this.',
+  'RATE_LIMITED': 'Too many tries. Wait a few minutes and try again.',
   'COUPON_NOT_FOUND': 'That code isn’t valid. Check the spelling and try again.',
   'COUPON_NOT_STARTED': 'That offer hasn’t started yet. Try again when it begins.',
   'COUPON_EXPIRED': 'That code has expired. See Offers for what’s on now.',
@@ -113,6 +117,7 @@ bool isSessionError(Object e) => switch (e) {
       FunctionException(status: 401) => true,
       AuthSessionMissingException() => true,
       AuthException(:final code) => _authSessionCodes.contains(code),
+      FirebaseFunctionsException(:final details) => details is Map && details['reason'] == 'UNAUTHORIZED',
       _ => false,
     };
 
@@ -150,6 +155,14 @@ String friendlyError(Object e) {
       if (code == 'signup_disabled' || code == 'otp_disabled') return 'Sign-in with a code isn’t available right now.';
       // Our own `AuthException('Sign in to …')` guards carry their copy; server codes above cover the rest.
       return code == null && statusCode == null ? message : fallbackError;
+    // Firebase callables: HttpsError(code, reason, {reason, detail}) from firebase/functions/src/shared/errors.ts.
+    case FirebaseFunctionsException(:final code, :final details):
+      final reason = details is Map ? details['reason'] : null;
+      final detail = details is Map ? details['detail'] : null;
+      if (reason is String && reason.startsWith('COUPON_')) return couponError(reason, minPaise: detail is int ? detail : null);
+      if (reason == 'INVALID_PROMOTION' && _promotionRules[detail] != null) return _promotionRules[detail]!;
+      if (_codes[reason] case final copy?) return copy;
+      return code == 'unavailable' || code == 'deadline-exceeded' ? _offline : fallbackError;
     case TimeoutException():
       return 'That took too long. Check your connection and try again.';
     case SocketException() || HttpException() || ClientException() || HandshakeException():
