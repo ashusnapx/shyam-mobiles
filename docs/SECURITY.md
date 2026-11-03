@@ -245,3 +245,13 @@ Account → Download my data → `exportMyData` returns JSON: profile, addresses
 - Analytics data collection flags: https://firebase.google.com/docs/analytics/android/configure-data-collection
 - Play account deletion: https://support.google.com/googleplay/android-developer/answer/13327111
 - DPDP Rules 2025 (notified 13–14 Nov 2025, 18-month phase-in, 72-hour breach report): https://static.pib.gov.in/WriteReadData/specificdocs/documents/2025/nov/doc20251117695301.pdf, https://www.hoganlovells.com/en/publications/indias-digital-personal-data-protection-act-2023-brought-into-force- · Rule 6 log retention: https://dpdpa.com/dpdparules/rule6.html
+
+## Applied on the live project (2026-11-03, by CLI)
+
+- Firestore `(default)` in asia-south1, default closed rules, delete protection on.
+- Auth: Google and phone on; email/password off; SMS to India only; improved email privacy on; authorized domains only `shyam-mobiles.web.app` and `shyam-mobiles.firebaseapp.com` (localhost removed).
+- Android API key locked to `com.shyammobiles.app` + the debug signing SHA-1 (27 Firebase APIs). **Add the Play App Signing and upload-key SHA-1s to this key before the Play release**, or the Play build's Firebase calls fail.
+- Browser API key locked to the two Hosting domains.
+- IAM: only the owner and Firebase service agents. One user-made key exists (the FCM service account used by today's Supabase `send-push`): delete it at cut-over. The duplicate in Downloads was moved to the Trash.
+- GitHub: secret scanning, push protection and Dependabot security updates on (non-provider patterns and validity checks aren't offered on this plan).
+- Waiting for billing (Blaze): budget alert, Storage bucket, PITR + daily backups, TOTP MFA for staff (Identity Platform), audit log retention, App Check enforcement after the Play listing.
