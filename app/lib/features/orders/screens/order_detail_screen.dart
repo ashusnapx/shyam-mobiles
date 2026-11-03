@@ -27,6 +27,7 @@ import '../data/orders.dart';
 String _paymentLine(Order o) => switch ((o.paymentMethod, o.paymentStatus)) {
       (_, PaymentStatus.refunded) => 'Refunded',
       (PaymentMethod.razorpay, PaymentStatus.paid) => 'Paid online',
+      (PaymentMethod.razorpay, _) when o.status == OrderStatus.cancelled => 'Not paid', // no payment is coming
       (PaymentMethod.razorpay, _) => 'Not paid yet',
       (PaymentMethod.cod, PaymentStatus.paid) => 'Paid on delivery',
       (PaymentMethod.cod, _) => 'Cash on delivery',

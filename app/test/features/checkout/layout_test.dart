@@ -222,6 +222,14 @@ void main() {
       }
     });
 
+    testWidgets('a cancelled unpaid order says Not paid, not Not paid yet ($b)', (tester) async {
+      final order = _order(OrderStatus.cancelled, pay: PaymentStatus.pending);
+      await _pump(tester, const OrderDetailScreen(orderId: 'o1'), brightness: b, orders: [order]);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining('Not paid yet'), findsNothing);
+      expect(find.textContaining('· Not paid'), findsWidgets);
+    });
+
     testWidgets('result screens ($b)', (tester) async {
       for (final o in [
         _order(OrderStatus.confirmed, method: PaymentMethod.cod, pay: PaymentStatus.pending),
