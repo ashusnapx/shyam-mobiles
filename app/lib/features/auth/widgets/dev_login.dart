@@ -8,7 +8,8 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 
-/// Dev builds only (Env.devLogin): one tap into the local test customer or staff account.
+/// Dev and client-demo builds only (Env.devLogin): one tap into the test customer or staff account. The demo build
+/// words it for the client ("Try the demo"), dev builds keep the dev label.
 /// After sign-in the router's redirect takes over, exactly as it does after an OTP.
 class DevLoginButtons extends ConsumerStatefulWidget {
   const DevLoginButtons({super.key});
@@ -45,12 +46,12 @@ class _DevLoginButtonsState extends ConsumerState<DevLoginButtons> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Center(child: Tag('DEV BUILD · TEST ACCOUNTS', tone: TagTone.deal)),
+            Center(child: Tag(Env.demoBuild ? 'TRY THE DEMO' : 'DEV BUILD · TEST ACCOUNTS', tone: TagTone.deal)),
             const SizedBox(height: Space.md),
-            _button('customer', PhosphorIconsRegular.user, 'Continue as test customer', Env.devCustomerEmail,
+            _button('customer', PhosphorIconsRegular.user, Env.demoBuild ? 'Shop as a customer' : 'Continue as test customer', Env.devCustomerEmail,
                 Env.devCustomerPassword),
             const SizedBox(height: Space.sm),
-            _button('admin', PhosphorIconsRegular.storefront, 'Continue as test admin', Env.devAdminEmail,
+            _button('admin', PhosphorIconsRegular.storefront, Env.demoBuild ? 'Run the shop (owner)' : 'Continue as test admin', Env.devAdminEmail,
                 Env.devAdminPassword),
           ],
         ),
