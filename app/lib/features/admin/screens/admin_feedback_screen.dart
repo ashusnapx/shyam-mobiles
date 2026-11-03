@@ -358,7 +358,7 @@ class ListingReportsRow extends ConsumerWidget {
             ? 'None so far'
             : '$n',
       ),
-      trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
+      trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
       onTap: () => context.push('/admin/feedback?product=$productId'),
     );
   }

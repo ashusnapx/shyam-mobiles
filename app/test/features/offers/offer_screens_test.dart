@@ -253,9 +253,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Give ₹200, get ₹200'), findsOneWidget);
     expect(find.text('Your friend saves ₹200. You get ₹200 when their order arrives.'), findsOneWidget);
+    expect(find.text('ASHA2026'), findsOneWidget);
     await scrollTo(tester, find.text('When that order is delivered, you get a ₹200 coupon.'));
     await scrollTo(tester, find.textContaining('up to 10 rewards a month'));
-    expect(find.text('ASHA2026'), findsOneWidget);
     await scrollTo(tester, find.text('Friends joined'));
     expect(find.bySemanticsLabel('Friends joined: 3'), findsOneWidget);
     final share = referralShareUri(api.referral!, host: 'shyammobiles.example');

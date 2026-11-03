@@ -710,7 +710,7 @@ class ProductHeader extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(PhosphorIconsRegular.caretRight, size: 18, color: c.onSurfaceVariant),
+              Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm, color: c.onSurfaceVariant),
             ],
           ),
         ),

@@ -250,7 +250,7 @@ class CouponRow extends ConsumerWidget {
               )
             : Text(subtitle, style: color == null ? null : TextStyle(color: color)),
         trailing: code == null
-            ? const Icon(PhosphorIconsRegular.caretRight, size: 18)
+            ? const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm)
             : TextButton(
                 onPressed: enabled ? () => ref.read(couponCodeProvider.notifier).set(null) : null,
                 child: Text('Remove', semanticsLabel: 'Remove code $code'),

@@ -22,6 +22,6 @@ void main() {
     expect([for (final (i, x) in e.indexed) repairEventTitle(x, i == 0 ? null : e[i - 1])],
         ['Requested', 'Confirmed', 'Quote sent · ₹2,499']);
     final note = RepairEvent(id: 9, status: RepairStatus.confirmed, createdAt: DateTime(2026, 10, 30), note: 'Hi');
-    expect(repairEventTitle(note, e[1]), 'Note from the store');
+    expect(repairEventTitle(note, e[1]), 'Note from the shop');
   });
 }

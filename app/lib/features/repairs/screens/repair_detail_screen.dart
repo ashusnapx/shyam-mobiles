@@ -35,7 +35,7 @@ String repairStepCopy(RepairBooking b) => switch (b.status) {
           ? 'Price approved. We’ll start the repair soon.'
           : 'Bring your phone in at your slot. We’ll check it and send you the price here.',
       RepairStatus.inProgress => 'Our technician is on it.',
-      RepairStatus.ready => 'Pick it up from the store.',
+      RepairStatus.ready => 'Pick it up from the shop.',
       RepairStatus.completed => 'All done. Thanks for coming in.',
       RepairStatus.cancelled => 'This booking is cancelled.',
     };

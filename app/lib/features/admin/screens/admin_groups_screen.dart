@@ -55,7 +55,7 @@ class AdminGroupsScreen extends ConsumerWidget {
                           leading: const Icon(PhosphorIconsRegular.stack),
                           title: Text(g.name),
                           subtitle: Text('${g.productIds.length} product${g.productIds.length == 1 ? '' : 's'}'),
-                          trailing: const Icon(PhosphorIconsRegular.caretRight, size: 18),
+                          trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
                           onTap: () => context.push('/admin/groups/${g.id}'),
                         ),
                     ],

@@ -226,7 +226,7 @@ String repairEventTitle(RepairEvent e, RepairEvent? before) => switch (e.quoteSt
       RepairQuoteStatus.pending => 'Quote sent · ${formatInr(e.quotePaise!)}',
       RepairQuoteStatus.approved => 'Quote approved · ${formatInr(e.quotePaise!)}',
       RepairQuoteStatus.declined => 'Quote declined · ${formatInr(e.quotePaise!)}',
-      _ => before == null || before.status != e.status ? e.status.label : 'Note from the store',
+      _ => before == null || before.status != e.status ? e.status.label : 'Note from the shop',
     };
 
 /// A destructive choice with a reason (decline a quote, cancel a booking): quiet red [action] on the left, the safe

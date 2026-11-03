@@ -75,7 +75,7 @@ class CustomerFeedbackCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  Icon(PhosphorIconsRegular.caretRight, color: c.onSurfaceVariant),
+                  Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm, color: c.onSurfaceVariant),
                 ],
               ),
             ),
