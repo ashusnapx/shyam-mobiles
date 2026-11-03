@@ -19,7 +19,7 @@ IAM, DPDP) live in **[`docs/SECURITY.md`](SECURITY.md)**. Where the two differ, 
 | D7 | App: **repository interfaces per domain** behind Riverpod providers. One compile-time switch, `BACKEND=supabase\|firebase`, picks the implementation. The Supabase implementations wrap today's code until Phase 2 deletes them. | The app keeps working at every step. A single switch avoids an untested mix of backends. |
 | D8 | **Notifications** are written by Firestore triggers from a pure `notices(before, after)` function. A second trigger pushes data-only FCM messages through the Admin SDK, with the same payload keys as today's `send-push`. | No pg_net, no Vault, no service-account JSON. `lib/core/push.dart` keeps working unchanged. |
 | D9 | One **scheduled** job (expire unpaid orders, every 5 min). Cleanup uses **Firestore TTL policies**. | This fits in Cloud Scheduler's 3 free jobs per billing account. |
-| D10 | Node **22** runtime (`nodejs22`), `firebase-functions` 7, `firebase-admin` 14, zod 4, vitest, `@firebase/rules-unit-testing` **5.0.1** (pinned: 6.x needs Node ≥ 24.12). | Node 22 is the newest version the Firebase docs list. Deprecation is due 2027-04-30, so move to `nodejs24` before then. |
+| D10 | Node **22** runtime (`nodejs22`), `firebase-functions` 7, `firebase-admin` 14, zod 4, vitest 5, TypeScript **6.0** (typescript-eslint 8 supports < 6.1, so not TS 7), `@firebase/rules-unit-testing` **5.0.1** (pinned: 6.x needs Node ≥ 24.12). | Node 22 is the newest version the Firebase docs list. Deprecation is due 2027-04-30, so move to `nodejs24` before then. |
 
 ## 1. Inventory: Supabase → Firebase
 
@@ -68,7 +68,7 @@ IAM, DPDP) live in **[`docs/SECURITY.md`](SECURITY.md)**. Where the two differ, 
 | `available_offers`, `offers_for_product`, `offer_products` | reads of `publicOffers` and `users/{uid}/coupons`, plus a pure Dart `offerOpenFor()`. `quoteOrder` stays the source of truth | C |
 | `admin_save_promotion`, `admin_promotions`, `sync_promotion_banner` | `savePromotion` (writes promotion, `promoCodes`, mirrors and banner in one transaction). Staff read `promotions` | C |
 | `my_referral`, `apply_referral_code`, trigger `reward_referral` | `myReferral`, `applyReferralCode`. The reward is paid inside `adminUpdateOrder`'s transaction on → delivered | C |
-| `admin_catalogue`, product/variant/image writes, `product-images` policies | `saveProduct`, `setStock` callables. Client search over `catalogIndex/staff`. Storage Rules | B |
+| `admin_catalogue`, product/variant/image writes, `product-images` policies | `saveProduct`, `saveVariant`, `setProductImages`, `updateVariants` (the catalogue's guarded stock, price and visibility edits), `setFeatured`, `deleteProduct` callables. Client search over `catalogIndex/staff`. Storage Rules | B |
 | `cancel_repair`, `approve_repair_quote`, `decline_repair_quote`, repair insert (RLS), `admin_update_repair`, `admin_set_repair_quote`, `repair_booking_*` triggers, `REPAIR_LIMIT` trigger | `bookRepair`, `cancelRepair`, `approveRepairQuote`, `declineRepairQuote`, `adminUpdateRepair`, `adminSetRepairQuote` | D |
 | `send_feedback` | `sendFeedback`. Staff update `status`/`adminNote` under Rules | D |
 | `notify_order_change`, `notify_order_event`, `notify_repair_event`, `notify_personal_coupon`, `notify_feedback`, `notify_low_stock`, `notification_image`, `inr`/`clip`/copy helpers | `notifications/notices.ts` (pure) + `copy.ts`. Triggers on `orders`, `repairs`, `feedback`, `users/{uid}/coupons`, `variants`, `orders/{id}/refunds` | D |
@@ -108,7 +108,7 @@ Layers, top to bottom. Each layer depends only on the one below:
 3. **Domain**: models in `lib/core/models/` (pure Dart, as today) and pure functions (`best_offer.dart`, `offerOpenFor`, `searchCards`, GST math, cart rules).
 4. **Data**: one `abstract interface class` per boundary, plus a Firebase implementation (and a Supabase one until Phase 2).
 
-Interfaces exist only at real boundaries: `AuthRepository`, `ProfileRepository` (profile, addresses, delete account), `CatalogRepository` (with the staff catalogue methods), `CartRepository`, `OrdersRepository` (quote, place, cancel, staff updates, refunds), `OffersRepository` (offers, referrals, staff promotions, banners), `RepairsRepository`, `FeedbackRepository`, `NotificationsRepository`, `PaymentGateway` (PhonePe SDK), `PhotoStore` (Storage uploads), `PushService`, `Telemetry` (Analytics + Crashlytics). Formatters, pure rules, widgets and the router get no interface.
+Interfaces exist only at real boundaries (Phase 0 wrote them; each sits in its feature's `data/` folder with its provider): `AuthRepository`, `ProfileRepository` (profile, addresses, delete account), `CatalogRepository` (customer reads), `WishlistRepository`, `SettingsRepository` (`settings/store`), `CatalogAdminRepository` (the staff catalogue and product edits), `PhotoStore` (Storage uploads), `CartRepository`, `OrdersRepository` (quote, place, cancel, staff updates, dashboard), `OffersRepository` (offers, home banners, referrals), `OffersAdminRepository` (staff promotions, groups, banners), `RepairsRepository`, `FeedbackRepository`, `NotificationsRepository`, `PaymentGateway` (PhonePe SDK, D's `features/payments/data/`), `PushService` (`core/push.dart`), `Telemetry` (`core/telemetry.dart`: Analytics + Crashlytics). Customer and staff sides get separate interfaces. Formatters, pure rules, widgets and the router get no interface.
 
 Per-feature layout, which keeps today's convention:
 
@@ -121,7 +121,7 @@ lib/features/cart/data/
 lib/core/
   backend.dart     # enum Backend { supabase, firebase } from --dart-define=BACKEND (default supabase until cut-over)
   firebase.dart    # init (firebase_options.dart), emulator wiring, firestore/functions(region asia-south1)/storage/auth providers
-  callable.dart    # call<T>(name, data): FirebaseFunctionsException → AppError(code from details.reason)
+  callable.dart    # callFunction(functions, name, data, replayProtected); errors.dart reads details.reason
 app/test/fakes/    # one fake per interface; widget tests override the providers with these
 ```
 
@@ -143,7 +143,7 @@ firebase/
     package.json (engines node 22, type module)  tsconfig.json (strict, noUncheckedIndexedAccess)
     eslint.config.mjs (typescript-eslint strict)  vitest.config.ts
     src/
-      index.ts           # exports only: export * from './orders/handlers.js' … ; setGlobalOptions({region:'asia-south1'})
+      index.ts           # FROZEN: import './shared/options.js'; export * from './<domain>/index.js' (one line each)
       shared/            # money.ts (Paise brand, integer-only helpers), errors.ts (fail(reason, detail)),
                          # auth.ts (requireUser, requireStaff, requireOwner), validation.ts (zod: phone, name, cleanText…),
                          # time.ts (IST day/month, FY), db.ts (typed refs + converters), gst.ts (Phase 2)
@@ -159,7 +159,7 @@ firebase/
 ```
 
 - Layering rule: handlers may import services and repositories. Services import only `shared/` and `model/` (no `firebase-admin`). Repositories import `firebase-admin/firestore`. ESLint `no-restricted-imports` enforces this.
-- Callables: `onCall({ enforceAppCheck: true /* after rollout, §4 */, cors: false }, handler)`. Webhook: `onRequest` (no App Check). Defaults: `memory: '256MiB'`, `concurrency: 80`, `maxInstances: 10`, `minInstances: 0`.
+- Callables: `callable(contract, handler, options?)` from `shared/callable.ts`, never a bare `onCall`. It applies `shared/options.ts` (region, `setGlobalOptions`): App Check enforced on every project but the emulator's `demo-` one, `cors: false`, `maxInstances: 10`, a 30 s timeout, `REPLAY_PROTECTED` for the SECURITY §2.1 list; plus `shared/log.ts` (PII-safe logger, `audit()`) and `shared/rateLimit.ts`. Webhook: `onRequest` (no App Check). Defaults: `memory: '256MiB'`, `concurrency: 80`, `maxInstances: 10`, `minInstances: 0`.
 - Money: `type Paise = number & { readonly __paise: true }`. Every constructor asserts `Number.isSafeInteger(n) && n >= 0`. Percentages use integer math (`Math.floor(v * pct / 100)`). `ORDER_TOO_LARGE` keeps the 2³¹−1 cap. GST rates are integer basis points (`1800` = 18%). Floats appear only at the Analytics boundary (`value: paise / 100`).
 - Tests come first: Phase 0 ports the money, coupon and referral cases from `supabase/tests/*.test.sql` (offers, best_offer, orders, payments, refunds) and `scripts/api_e2e.py` into `test-vectors/*.json`. They must pass against `pricing.ts` before any handler is written.
 
@@ -206,10 +206,10 @@ settings/business      { tradeName: 'Shyam Online Shop', brandName: 'Shyam Mobil
 
 promotions/{id}        { title, description, code: string|null, kind: 'percent'|'flat'|'free_delivery', value, maxDiscountPaise?,
                          minSubtotalPaise, appliesTo: 'order'|'items', targets: [{type:'product'|'category'|'brand'|'collection', id}],
-                         startsAt, endsAt?, usageLimit?, perUserLimit?, firstOrderOnly, onlineOnly, isPublic, uid?, isActive,
+                         startsAt, endsAt?, usageLimit?, perUserLimit? (savePromotion defaults it to 1, as the SQL did; null = no limit), firstOrderOnly, onlineOnly, isPublic, uid?, isActive,
                          showBanner, usesActive: int S, discountTotalPaise: int S } S (savePromotion)
 promoCodes/{CODE}      { promotionId } S        publicOffers/{id} { public fields, usedUp: bool } S
-redemptions/{orderId}  { promotionId, uid|null, discountPaise, active } S      rateLimits/{uid} { couponFails: Timestamp[], expireAt } S
+redemptions/{orderId}  { promotionId, uid|null, discountPaise, active (false only on cancel/expiry, never on refund) } S      rateLimits/{uid} { couponFails: Timestamp[], expireAt } S
 referralCodes/{CODE}   { uid } S      referrals/{refereeUid} { referrerUid, status: 'pending'|'rewarded'|'void', rewardedAt? } S
 
 orders/{id}            { number: 'SM100001', uid|null, status, paymentMethod: 'online'|'cod', paymentStatus: 'pending'|'paid'|'failed'|'refunded',
@@ -366,11 +366,11 @@ Shared files: `firestore.rules` is one file split into commented sections. Each 
 
 ## 8. Local development (8 GB RAM Mac)
 
-- **Node:** nvm is installed with only v20.18.1. Run `nvm install 22 && nvm alias default 22`. `firebase-tools` 15 accepts Node ≥ 20, but `firebase-admin` 14 needs Node ≥ 22 and the deploy runtime is `nodejs22`. `firebase/.nvmrc` pins 22.
-- **CLI:** `npm i -g firebase-tools` (15.34.2 on npm today) and `firebase login`. Java 22 is already installed; CLI 15's Firestore emulator needs Java ≥ 21.
+- **Node:** nvm has v20.18.1 (still the default, for other tools) and v22.23.4; run `nvm use` in `firebase/functions`. `firebase-tools` 15 accepts Node ≥ 20, but `firebase-admin` 14 and vitest 5 need Node ≥ 22 and the deploy runtime is `nodejs22`. `firebase/.nvmrc` pins 22.
+- **CLI:** `npm i -g firebase-tools` under Node 22 (15.34.2, installed) and `firebase login` (the owner's step). Java 22 is already installed; CLI 15's Firestore emulator needs Java ≥ 21.
 - **Emulator suite replaces Colima + the Supabase stack:** `firebase emulators:start --only auth,firestore,functions,storage --project demo-shyam-mobiles --import .emulator-data --export-on-exit`. The `demo-` project id means nothing real can be touched and no credentials are needed. Ports: auth 9099, firestore 8080, functions 5001, storage 9199, UI 4000. Run with `JAVA_TOOL_OPTIONS=-Xmx512m` for the Firestore JVM. The expected total is about 1–1.3 GB, against the 3 GB Colima VM today. `npm run seed:emulator` loads `seed/dev.json`, the two dev logins and the brand photos. `colima delete` after Phase 2.
 - **App against the emulators:** `flutter run --dart-define=BACKEND=firebase --dart-define=USE_EMULATORS=true`. On a USB phone, `adb reverse tcp:9099 tcp:9099` (same for 8080, 5001, 9199) lets the app use `127.0.0.1`. The emulator image uses `10.0.2.2`.
-- **One heavy command at a time:** never run emulators, `flutter test` and a Gradle build together. Scripts: `npm run test:unit` (vitest, no emulator, `--pool=forks --poolOptions.forks.singleFork`), `npm run test:rules` (`firebase emulators:exec --only firestore,storage "vitest run test/rules"`), `npm run test:int` (`firebase emulators:exec --only auth,firestore,functions,storage "vitest run test/integration"`), `flutter test test/features/<one>`.
+- **One heavy command at a time:** never run emulators, `flutter test` and a Gradle build together. Scripts: `npm test` (vitest, no emulator, one fork via `vitest.config.ts`; vitest 5 has no `poolOptions`), `npm run test:rules` (`firebase emulators:exec --only firestore,storage "vitest run test/rules"`), `npm run test:int` (`firebase emulators:exec --only auth,firestore,functions,storage "vitest run test/integration"`), `flutter test test/features/<one>`.
 - **CI:** GitHub Actions job `firebase`: Node 22, Java 21, `npm ci`, lint, `tsc --noEmit`, unit, then rules and integration through `emulators:exec`. The `app` job stays as it is.
 
 ## 9. Costs, and what the owner does
