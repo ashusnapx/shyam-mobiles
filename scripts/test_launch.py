@@ -56,11 +56,11 @@ class Site(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / 'site'
             left = fill_site(ROOT / 'firebase/hosting', out, {'LEGAL_BUSINESS_NAME': 'Shyam Mobile Center', 'GSTIN': '23ABCDE1234F1Z5'})
-            self.assertEqual(left, ['[[DELIVERY TIME]]', '[[GRIEVANCE OFFICER NAME]]', '[[SUPPORT EMAIL]]'])
+            self.assertEqual(left, ['[[DELIVERY TIME]]', '[[GRIEVANCE OFFICER NAME]]'])  # the email is filled in the pages now
             terms = (out / 'terms.html').read_text()
-            self.assertIn('Shyam Mobile Center', terms)
+            self.assertIn('Shyam Sundar Gupta', terms)  # the legal name and email are written into the pages themselves now
             self.assertIn('23BXEPG0619P2ZG', terms)  # the shop's GSTIN is written into the pages
-            self.assertIn('[[LEGAL BUSINESS NAME]]', (ROOT / 'firebase/hosting/terms.html').read_text())  # source untouched
+            self.assertIn('[[DELIVERY TIME]]', (ROOT / 'firebase/hosting/shipping.html').read_text())  # source untouched
             self.assertIn('package=com.shyammobiles.app', (out / 'open.js').read_text())  # the share-link page
             self.assertTrue((out / '.well-known/assetlinks.json').exists())
 
