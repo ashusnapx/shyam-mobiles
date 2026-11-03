@@ -17,6 +17,7 @@ export const offerOut = z.object({
   appliesTo: z.enum(["order", "items"]),
   startsAt: z.string(),
   endsAt: z.string().nullable(),
+  automatic: z.boolean(),
   onlineOnly: z.boolean(),
   firstOrderOnly: z.boolean(),
 });

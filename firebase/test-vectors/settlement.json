@@ -1493,7 +1493,7 @@
       "input": {
         "orderId": "o8",
         "refundId": "rf1",
-        "state": "processed",
+        "state": "completed",
         "gatewayRefundId": "GW-RF1"
       },
       "expect": {
@@ -1652,7 +1652,7 @@
       "input": {
         "orderId": "o8",
         "refundId": "rf1",
-        "state": "processed",
+        "state": "completed",
         "gatewayRefundId": "GW-RF1"
       },
       "expect": {
@@ -2200,7 +2200,7 @@
       "input": {
         "orderId": "o8",
         "refundId": "rf2",
-        "state": "processed",
+        "state": "completed",
         "gatewayRefundId": "GW-LATE"
       },
       "expect": {
@@ -2471,7 +2471,7 @@
       "input": {
         "orderId": "o8",
         "refundId": "rf3",
-        "state": "processed",
+        "state": "completed",
         "gatewayRefundId": "GW-RF3"
       },
       "expect": {
@@ -2723,7 +2723,7 @@
       "input": {
         "orderId": "o11",
         "refundId": "rf4",
-        "state": "processed",
+        "state": "completed",
         "gatewayRefundId": "GW-RF4"
       },
       "expect": {
@@ -2765,7 +2765,7 @@
       "input": {
         "orderId": "o8",
         "refundId": "rf99",
-        "state": "processed"
+        "state": "completed"
       },
       "error": "NOT_FOUND"
     }

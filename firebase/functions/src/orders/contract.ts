@@ -52,10 +52,11 @@ export const adminUpdateOrder = contract(
   ok,
 );
 
-/** Staff: the IMEIs of one line, exactly qty distinct values (or [] to clear). */
+/** Staff: the IMEIs of one line, exactly qty distinct values (or [] to clear). `imeis` is checked by the handler against
+ * the line's qty (detail "need 2 distinct 15-digit IMEIs"), after the staff and order checks. */
 export const adminSetImeis = contract(
   "adminSetImeis",
-  z.strictObject({ orderId: v.docId, itemId: v.docId, imeis: z.array(v.imei).max(5) }),
+  z.strictObject({ orderId: v.docId, itemId: v.docId, imeis: z.unknown() }),
   ok,
   "INVALID_IMEIS",
 );

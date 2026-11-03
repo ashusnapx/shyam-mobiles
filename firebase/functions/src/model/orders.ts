@@ -27,7 +27,7 @@ export interface OrderItem {
   hsnCode?: string;
   discountPaise: number; // this line's share of the order discount
   imeis: string[];
-  refundId?: string;
+  refundId?: string | null; // the refund in flight or processed for this line; null again when it failed
 }
 
 export interface OrderEvent {

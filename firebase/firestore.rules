@@ -246,9 +246,27 @@ service cloud.firestore {
     }
 
     // ── carts, addresses, orders, offers, referrals (owner: C) ─────────────────────────────────────────────────────
-    // TODO(C): carts/{uid} (lines ≤ 20), orders read-only (owner or staff),
-    // publicOffers read, users/{uid}/coupons owner read, promotions staff read; promoCodes, redemptions,
-    // referralCodes, referrals, counters: no client access.
+    // Money moves only through callables (quoteOrder, placeOrder, savePromotion…): clients write nothing here but their
+    // cart. promoCodes, redemptions, referralCodes, counters and orders/*/payments stay closed (deny by default), so
+    // hidden and personal codes can't be listed.
+    // The cart: ≤ 20 lines; qty 1..5 and the variant ids are checked by quoteOrder/placeOrder (Rules can't loop a map).
+    match /carts/{uid} {
+      allow get, delete: if isMe(uid);
+      allow create, update: if isMe(uid) && incoming().keys().hasOnly(['lines', 'updatedAt'])
+        && incoming().lines is map && incoming().lines.size() <= 20 && stampedNow('updatedAt');
+    }
+    // Orders: the customer reads their own (a list must filter uid == their uid), staff read all. Never written here.
+    match /orders/{id} {
+      allow get: if isStaff() || isMe(resource.data.uid);
+      allow list: if request.query.limit <= 100 && (isStaff() || isMe(resource.data.uid));
+      match /refunds/{refundId} {
+        allow read: if isStaff() || isMe(get(/databases/$(database)/documents/orders/$(id)).data.uid);
+      }
+    }
+    match /promotions/{id} { allow read: if isStaff(); }
+    match /publicOffers/{id} { allow get: if true; allow list: if request.query.limit <= 100; }
+    match /users/{uid}/coupons/{id} { allow read: if isMe(uid); }
+    match /referrals/{refereeUid} { allow read: if isStaff(); }
 
     // ── repairs, feedback, notifications (owner: D) ────────────────────────────────────────────────────────────────
     // Repairs and feedback are written only by their callables; the customer reads their own (a list must filter on
