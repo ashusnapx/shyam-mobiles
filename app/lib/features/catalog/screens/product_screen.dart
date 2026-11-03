@@ -9,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
+import '../../notifications/data/back_in_stock.dart';
 import '../../../core/format.dart';
 import '../../../core/links.dart';
 import '../../../core/models/models.dart';
@@ -76,16 +77,19 @@ final _fakeProduct = Product(
 );
 
 class ProductScreen extends ConsumerStatefulWidget {
-  const ProductScreen({super.key, required this.slug});
+  const ProductScreen({super.key, required this.slug, this.variantId});
 
   final String slug;
+
+  /// `?variant=`: the variant a link (a back-in-stock alert) is about, picked on open.
+  final String? variantId;
 
   @override
   ConsumerState<ProductScreen> createState() => _ProductScreenState();
 }
 
 class _ProductScreenState extends ConsumerState<ProductScreen> {
-  String? _variantId; // the shopper's pick; until then the cheapest in-stock variant
+  late String? _variantId = widget.variantId; // the shopper's pick; until then the cheapest in-stock variant
   bool _zoomed = false; // a gallery photo is zoomed in: one-finger drags pan it instead of scrolling the page
   bool _busy = false;
   bool _scrolled = false; // past the gallery: the top bar turns solid and shows the name
@@ -289,6 +293,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       ],
                     )
                   : _SoldOutBar(
+                      productId: product.id,
+                      waitFor: variants.any((v) => v.inStock) ? variant.id : '*',
                       item: '${product.name} (${variant.name})',
                       variant: variant,
                       alternative: alternative,
@@ -676,7 +682,17 @@ class _Swatch extends StatelessWidget {
 /// The sticky bar for a sold-out pick: says so instead of Add to cart / Buy now, and offers the nearest one in stock,
 /// or a WhatsApp message asking to hear when it's back.
 class _SoldOutBar extends ConsumerWidget {
-  const _SoldOutBar({required this.item, required this.variant, required this.alternative, required this.onSwitch});
+  const _SoldOutBar({
+    required this.productId,
+    required this.waitFor,
+    required this.item,
+    required this.variant,
+    required this.alternative,
+    required this.onSwitch,
+  });
+
+  final String productId;
+  final String waitFor; // the back-in-stock mark: this variant, or '*' when every variant is sold out
 
   final String item; // "Samsung Galaxy S25 (12 GB · 256 GB · Navy)"
   final Variant variant;
@@ -724,6 +740,18 @@ class _SoldOutBar extends ConsumerWidget {
             icon: const Icon(PhosphorIconsFill.whatsappLogo),
             label: const Text('Ask on WhatsApp when it’s back'),
           ),
+        TextButton.icon(
+          onPressed: () async {
+            try {
+              await notifyWhenBack(ref, productId, waitFor);
+              if (context.mounted) showMessage(context, backInStockSaved);
+            } catch (e) {
+              if (context.mounted) showMessage(context, friendlyError(e));
+            }
+          },
+          icon: const Icon(PhosphorIconsRegular.bellRinging),
+          label: const Text('Notify me'),
+        ),
       ],
     );
   }

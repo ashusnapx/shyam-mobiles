@@ -178,7 +178,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       // HomeBelow: a shared link or a sign-in return opens these with go(), so nothing is below them
-      GoRoute(path: '/product/:slug', builder: (_, s) => HomeBelow(ProductScreen(slug: s.pathParameters['slug']!))),
+      GoRoute(path: '/product/:slug', builder: (_, s) => HomeBelow(ProductScreen(slug: s.pathParameters['slug']!, variantId: s.uri.queryParameters['variant']))),
       // Search and Cart again, for screens above the tabs (product, wishlist, offers) to push: a tab can't be pushed
       // over them, and going to it drops them, so Back would skip the page the shopper came from
       GoRoute(path: '/browse', builder: (_, s) => HomeBelow(search(s))),
