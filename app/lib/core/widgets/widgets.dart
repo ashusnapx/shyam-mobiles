@@ -428,9 +428,10 @@ class QtyStepper extends StatelessWidget {
   }
 }
 
-/// Every section title in the app: the brand face, an [accent] pill before it when it sits on a coloured band, and
-/// a 48 dp "See all ›" ([onSeeAll]) that opens the full list of what the section shows. [inset] false: the list
-/// around it already has side padding. [actionLabel] / [onAction] are the older spelling of a link.
+/// Every section title in the app: the brand face (titleLarge), an [accent] bar before it when it sits on a coloured
+/// panel, and a 48 dp "See all ›" ([onSeeAll]) that opens the full list of what the section shows. 32 dp above it
+/// (one section from the next), 12 dp to its content. [inset] false: the list around it already has side padding;
+/// [gutter] is the side padding otherwise. [actionLabel] / [onAction] are the older spelling of a link.
 class SectionHeader extends StatelessWidget {
   const SectionHeader(
     this.title, {
@@ -441,6 +442,8 @@ class SectionHeader extends StatelessWidget {
     this.onAction,
     this.trailing,
     this.inset = true,
+    this.gutter = Space.lg,
+    this.top,
   });
 
   final String title;
@@ -450,43 +453,45 @@ class SectionHeader extends StatelessWidget {
   final VoidCallback? onAction;
   final Widget? trailing; // in place of the link
   final bool inset;
+  final double gutter;
+  final double? top; // default [Space.section]
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final onLink = onSeeAll ?? onAction;
-    final side = inset ? Space.lg : 0.0;
+    final side = inset ? gutter : 0.0;
+    // the link's own padding lines its caret up with the gutter
+    final end = inset ? max(0.0, gutter - Space.md) : 0.0;
     return Padding(
-      padding: EdgeInsets.fromLTRB(side, accent == null ? Space.xl : Space.md, inset ? Space.xs : 0, Space.sm),
-      child: Row(
-        children: [
-          if (accent != null) ...[
-            DecoratedBox(
-              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
-              child: const SizedBox(width: 4, height: 18),
-            ),
-            const SizedBox(width: Space.sm),
-          ],
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(title, style: t.displaySmall?.copyWith(fontSize: 19, height: 1.2, letterSpacing: -0.3)),
-            ),
-          ),
-          if (trailing != null)
-            trailing!
-          else if (onLink != null || actionLabel != null)
-            TextButton.icon(
-              onPressed: onLink,
-              iconAlignment: IconAlignment.end,
-              style: TextButton.styleFrom(
-                minimumSize: const Size(48, 48),
-                padding: const EdgeInsets.symmetric(horizontal: Space.md),
+      padding: EdgeInsets.fromLTRB(side, top ?? Space.section, end, Space.md),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          children: [
+            if (accent != null) ...[
+              DecoratedBox(
+                decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+                child: const SizedBox(width: 4, height: 16),
               ),
-              icon: const Icon(PhosphorIconsBold.caretRight, size: 14),
-              label: Text(actionLabel ?? 'See all'),
-            ),
-        ],
+              const SizedBox(width: Space.sm),
+            ],
+            Expanded(child: Semantics(header: true, child: Text(title, style: t.titleLarge))),
+            if (trailing != null)
+              trailing!
+            else if (onLink != null || actionLabel != null)
+              TextButton.icon(
+                onPressed: onLink,
+                iconAlignment: IconAlignment.end,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                ),
+                icon: const Icon(PhosphorIconsBold.caretRight, size: 14),
+                label: Text(actionLabel ?? 'See all'),
+              ),
+          ],
+        ),
       ),
     );
   }

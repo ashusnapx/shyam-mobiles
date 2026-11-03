@@ -44,6 +44,7 @@ import '../features/wishlist/screens/wishlist_screen.dart';
 import 'deep_links.dart';
 import 'links.dart';
 import 'supabase.dart';
+import 'theme/tokens.dart';
 import 'widgets/widgets.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -267,13 +268,20 @@ class AppShell extends ConsumerWidget {
     final selected = shell.currentIndex < destinations.length ? shell.currentIndex : 0;
     return Scaffold(
       body: shell,
-      bottomNavigationBar: NavigationBar(
+      // Home and Search scroll under the frosted nav (they pad their ends for it); other tabs stop above it
+      extendBody: selected <= 1,
+      bottomNavigationBar: GlassSurface(
+        border: const Border(top: BorderSide(color: Glass.hairline)),
+        child: NavigationBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         selectedIndex: selected,
         onDestinationSelected: (i) {
           HapticFeedback.selectionClick();
           shell.goBranch(i, initialLocation: i == shell.currentIndex);
         },
         destinations: destinations,
+        ),
       ),
     );
   }

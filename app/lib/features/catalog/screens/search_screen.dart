@@ -160,7 +160,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+              padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, 0),
               child: ValueListenableBuilder(
                 valueListenable: _text,
                 builder: (context, value, _) => TextField(
@@ -191,7 +191,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             const SizedBox(height: Space.sm),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+              padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
               child: Row(
                 spacing: Space.sm,
                 children: [
@@ -327,7 +327,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               SliverToBoxAdapter(
                 key: const ValueKey('suggest'),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+                  padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, 0),
                   child: Wrap(
                     spacing: Space.sm,
                     runSpacing: Space.xs,
@@ -347,7 +347,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             SliverToBoxAdapter(
               key: const ValueKey('count'),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
+                padding: const EdgeInsets.fromLTRB(Space.gutter, Space.md, Space.gutter, Space.md),
                 child: Text(_count(r.total, category), style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
               ),
             ),
@@ -400,7 +400,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 ),
               ),
-            const SliverPadding(key: ValueKey('end'), padding: EdgeInsets.only(bottom: Space.lg)),
+            // clear of the see-through nav bar
+            SliverPadding(
+              key: const ValueKey('end'),
+              padding: EdgeInsets.only(bottom: Space.lg + MediaQuery.paddingOf(context).bottom),
+            ),
           ],
         ),
       ),

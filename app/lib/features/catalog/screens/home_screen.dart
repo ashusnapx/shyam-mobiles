@@ -130,71 +130,60 @@ class HomeScreen extends ConsumerWidget {
           key: const ValueKey('phones'),
           child: ProductRail(
             title: 'Featured phones',
-            band: sectionTints.phones,
+            band: sectionTints.explore, // neutral: the one tinted panel on Home is the deals'
             value: AsyncData(phones),
             onSeeAll: () => context.go('/search?category=$phoneCategory'),
           ).enter(context, index: 3),
         ),
       SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairStrip().enter(context, index: 4)),
-      SliverToBoxAdapter(key: const ValueKey('budget'), child: RevealOnScroll(child: _BudgetRow(phoneCategory))),
+      // below the fold, sections are simply there: no reveal that could leave one invisible
+      SliverToBoxAdapter(key: const ValueKey('budget'), child: _BudgetRow(phoneCategory)),
       if (d.accessories.isNotEmpty)
         SliverToBoxAdapter(
           key: const ValueKey('deals'),
-          child: RevealOnScroll(
-            child: ProductRail(
-              title: 'Deals under ₹1,500',
-              band: sectionTints.deals,
-              value: AsyncData(d.accessories),
-              onSeeAll: () => context.go('/search?max=150000'),
-            ),
+          child: ProductRail(
+            title: 'Deals under ₹1,500',
+            band: sectionTints.deals,
+            value: AsyncData(d.accessories),
+            onSeeAll: () => context.go('/search?max=150000'),
           ),
         ),
-      SliverToBoxAdapter(key: const ValueKey('brands'), child: RevealOnScroll(child: _BrandRow(phones))),
+      SliverToBoxAdapter(key: const ValueKey('brands'), child: _BrandRow(phones)),
       ..._moreGrid(context, ref),
       if (settings != null) SliverToBoxAdapter(key: const ValueKey('store'), child: _StoreCard(settings)),
-      const SliverPadding(key: ValueKey('end'), padding: EdgeInsets.only(bottom: Space.xl)),
+      // the page ends a section gap below the last card, clear of the (see-through) nav bar
+      SliverPadding(
+        key: const ValueKey('end'),
+        padding: EdgeInsets.only(bottom: Space.section + MediaQuery.paddingOf(context).bottom),
+      ),
     ];
   }
 
-  /// "New in the shop": the newest products, two to a row on their own band. Hidden while loading, empty or failing.
+  /// "New in the shop": the newest products, two to a row on the plain canvas. Nothing at all while loading, empty or
+  /// failing.
   List<Widget> _moreGrid(BuildContext context, WidgetRef ref) {
     final more = ref.watch(latestProvider).value ?? const <ProductCard>[];
     if (more.isEmpty) return const [];
-    final c = Theme.of(context).colorScheme;
-    Widget tile(ProductCard card) => DecoratedBox(
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(Radii.lg),
-            border: Border.all(color: c.outlineVariant),
-          ),
-          child: Padding(padding: const EdgeInsets.all(6), child: ProductTile(card)),
-        );
     return [
       SliverToBoxAdapter(
         key: const ValueKey('more'),
-        child: RevealOnScroll(
-            child: SectionBand(
-              tint: sectionTints.explore,
-              child: Column(
-                children: [
-                  SectionHeader('New in the shop', accent: sectionTints.explore.$2,
-                      onSeeAll: () => context.go('/search?sort=newest')),
-                  for (var i = 0; i < more.length; i += 2)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.md),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        spacing: Space.md,
-                        children: [
-                          Expanded(child: tile(more[i])),
-                          Expanded(child: i + 1 < more.length ? tile(more[i + 1]) : const SizedBox()),
-                        ],
-                      ),
-                    ),
-                ],
+        child: Column(
+          children: [
+            SectionHeader('New in the shop', gutter: Space.gutter, onSeeAll: () => context.go('/search?sort=newest')),
+            for (var i = 0; i < more.length; i += 2)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, Space.md),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: Space.md,
+                  children: [
+                    Expanded(child: ProductTile(more[i])),
+                    Expanded(child: i + 1 < more.length ? ProductTile(more[i + 1]) : const SizedBox()),
+                  ],
+                ),
               ),
-            ),
-          ),
+          ],
+        ),
       ),
     ];
   }
@@ -204,7 +193,7 @@ class HomeScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
           child: _ProductSlide(fakeCards(1).first),
         ),
         const SizedBox(height: 48), // the carousel's controls
@@ -238,20 +227,16 @@ class _TopBar extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final t = Theme.of(context).textTheme;
-    final c = Theme.of(context).colorScheme;
     final s = settings;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.surface,
-        // a hairline once products scroll under it
-        border: Border(bottom: BorderSide(color: shrinkOffset > 0 ? c.outlineVariant : c.surface)),
-      ),
+    // frosted: products blur as they scroll under it, with a hairline once they do
+    return GlassSurface(
+      border: Border(bottom: BorderSide(color: shrinkOffset > 0 ? Glass.hairline : Colors.transparent)),
       child: Column(
         children: [
           SizedBox(
             height: 56,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.xs, 0),
+              padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.sm, 0),
               child: Row(
                 children: [
                   const BrandMark(size: 32),
@@ -297,7 +282,7 @@ class _OfflineBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.md),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, Space.md),
       child: DecoratedBox(
         decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(Radii.md)),
         child: Padding(
@@ -325,10 +310,13 @@ class _SearchField extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final hint = Theme.of(context).textTheme.bodyMedium?.copyWith(color: c.onSurfaceVariant);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, Space.sm),
       child: Material(
-        color: c.surfaceContainer,
-        borderRadius: BorderRadius.circular(Radii.md),
+        color: c.surfaceContainerLowest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+          side: BorderSide(color: c.outlineVariant),
+        ),
         child: InkWell(
           onTap: () => context.go('/search'),
           borderRadius: BorderRadius.circular(Radii.md),
@@ -356,9 +344,9 @@ class _SearchField extends StatelessWidget {
 /// One carousel slide: an offer banner or a featured product; [build] gets whether to load its photo.
 typedef _Slide = ({String key, Widget Function(bool photo) build});
 
-/// Offers and featured products in one carousel that moves on every few seconds. Previous / Next and the dots as
-/// well as the swipe (nothing is swipe-only); touching it pauses it. Stays still with reduce-motion or TalkBack on,
-/// in data-saver mode, and while another tab is showing.
+/// Offers and featured products in one carousel that moves on every few seconds. Small dots jump to a slide, a
+/// screen reader swipes up / down to step it (nothing is swipe-only); touching it pauses it. Stays still with
+/// reduce-motion or TalkBack on, in data-saver mode, and while another tab is showing.
 class _HeroCarousel extends StatefulWidget {
   const _HeroCarousel(this.slides, {required this.saver});
 
@@ -370,13 +358,7 @@ class _HeroCarousel extends StatefulWidget {
 }
 
 class _HeroCarouselState extends State<_HeroCarousel> {
-  static const _interval = Duration(milliseconds: 4500);
-  // a short row under the slide: full width for a thumb, less height than a toolbar
-  static final _controlStyle = IconButton.styleFrom(
-    minimumSize: const Size(48, 32),
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    padding: EdgeInsets.zero,
-  );
+  static const _interval = Motion.hero;
   int _index = 0;
   int _direction = 1;
   Timer? _timer;
@@ -423,7 +405,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   }
 
   Widget _slide(int i, {bool photo = true}) =>
-      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.lg), child: widget.slides[i].build(photo));
+      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.gutter), child: widget.slides[i].build(photo));
 
   @override
   Widget build(BuildContext context) {
@@ -481,53 +463,41 @@ class _HeroCarouselState extends State<_HeroCarousel> {
               ],
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                tooltip: 'Previous slide',
-                style: _controlStyle,
-                icon: const Icon(PhosphorIconsBold.caretLeft, size: 18),
-                onPressed: () => _step(-1),
-              ),
-              // the dots jump straight to a slide; Previous / Next carry the screen-reader label
-              Semantics(
-                label: 'Slide ${_index + 1} of $_count',
-                excludeSemantics: true,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < _count; i++)
-                      InkResponse(
-                        onTap: () => _go(i),
-                        radius: 16,
-                        child: SizedBox(
-                          width: 26,
-                          height: 32,
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: duration,
-                              curve: Curves.easeOutCubic,
-                              width: i == _index ? 18 : 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: i == _index ? c.primary : c.outline,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
+          // the dots jump straight to a slide; a screen reader swipes up / down to step through them
+          Semantics(
+            label: 'Slide ${_index + 1} of $_count',
+            onIncrease: () => _step(1),
+            onDecrease: () => _step(-1),
+            excludeSemantics: true,
+            child: Padding(
+              padding: const EdgeInsets.only(top: Space.xs),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < _count; i++)
+                    InkResponse(
+                      onTap: () => _go(i),
+                      radius: 12,
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: duration,
+                            curve: Curves.easeOutCubic,
+                            width: i == _index ? 16 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: i == _index ? c.primary : c.outline,
+                              borderRadius: BorderRadius.circular(3),
                             ),
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-              IconButton(
-                tooltip: 'Next slide',
-                style: _controlStyle,
-                icon: const Icon(PhosphorIconsBold.caretRight, size: 18),
-                onPressed: () => _step(1),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -535,8 +505,8 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   }
 }
 
-/// A featured product on its own deep colours ([deepPalette] of its id), like the offer banners beside it; the whole
-/// card opens it.
+/// A featured product on its own deep, calm aurora ([deepPalette] of its id): the words on a glass panel, the photo
+/// on white beside it; the whole card opens it.
 class _ProductSlide extends StatelessWidget {
   const _ProductSlide(this.card, {this.photo = true});
 
@@ -546,81 +516,90 @@ class _ProductSlide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final palette = deepPalette(card.id); // white text passes 4.5:1 on every stop
+    final palette = deepPalette(card.id); // white text passes 7:1 on every stop
     final off = discountPercent(card.minPricePaise, card.mrpPaise);
+    const white = Colors.white;
     return Pressable(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(Radii.hero),
-        // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
-        child: AuroraBackground(
-          palette: palette,
-          seed: card.id,
-          still: true,
-          child: Material(
+      child: DecoratedBox(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.hero), boxShadow: Shadows.raised),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(Radii.hero),
+          // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
+          child: AuroraBackground(
+            palette: palette,
+            seed: card.id,
+            still: true,
+            child: Material(
               type: MaterialType.transparency,
               child: InkWell(
                 onTap: () => context.push('/product/${card.slug}'),
-                child: Padding(
-                  padding: const EdgeInsets.all(Space.md),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center, // shorter slides sit centred at the carousel's height
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('FEATURED', style: t.labelSmall?.copyWith(color: Colors.white70, letterSpacing: 1.3)),
-                            const SizedBox(height: 2),
-                            Semantics(
-                              header: true,
-                              child: Text(
-                                card.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: t.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 184),
+                  child: Padding(
+                    padding: const EdgeInsets.all(Space.lg),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GlassSurface(
+                            kind: GlassKind.onDeep,
+                            radius: Radii.lg,
+                            child: Padding(
+                              padding: const EdgeInsets.all(Space.md),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('FEATURED',
+                                      style: t.labelSmall?.copyWith(color: white, letterSpacing: 1.3, fontWeight: FontWeight.w700)),
+                                  const SizedBox(height: Space.xs),
+                                  Semantics(
+                                    header: true,
+                                    child: Text(card.name,
+                                        maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleLarge?.copyWith(color: white)),
+                                  ),
+                                  const SizedBox(height: Space.xs),
+                                  Text(
+                                    ['From ${formatInr(card.minPricePaise)}', if (off > 0) '$off% off'].join(' · '),
+                                    style: t.labelLarge?.copyWith(color: white),
+                                  ),
+                                  const SizedBox(height: Space.md),
+                                  // a pill like the banners' button; the whole card is the tap target
+                                  DecoratedBox(
+                                    decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(Radii.xl)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        spacing: Space.xs,
+                                        children: [
+                                          Text(card.categorySlug == 'smartphones' ? 'View phone' : 'View',
+                                              style: t.labelMedium?.copyWith(color: BrandColors.ink)),
+                                          const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.ink),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              ['From ${formatInr(card.minPricePaise)}', if (off > 0) '$off% off MRP'].join('  ·  '),
-                              style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
-                            ),
-                            const SizedBox(height: Space.md),
-                            // looks like the banners' white button; the whole card is the tap target
-                            DecoratedBox(
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.md)),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 5),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  spacing: Space.xs,
-                                  children: [
-                                    Text(card.categorySlug == 'smartphones' ? 'View phone' : 'View',
-                                        style: t.labelMedium?.copyWith(color: palette.stops.first)),
-                                    Icon(PhosphorIconsBold.arrowRight, size: 14, color: palette.stops.first),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      SizedBox(
-                        width: 84,
-                        // drifts a little slower than the page; the card clips it
-                        child: Parallax(
-                          rate: 0.12,
-                          child: ProductImage(photo ? card.coverPath : null, radius: Radii.md, padding: Space.xs,
-                              color: Theme.of(context).colorScheme.surface),
+                        const SizedBox(width: Space.md),
+                        SizedBox(
+                          width: 96,
+                          // drifts a little slower than the page; the card clips it
+                          child: Parallax(
+                            rate: 0.12,
+                            child: ProductImage(photo ? card.coverPath : null, radius: Radii.lg, padding: Space.xs, color: white),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
+        ),
       ),
     );
   }
@@ -637,7 +616,7 @@ const _categoryLooks = {
   'power-banks': ('Power bank', PhosphorIconsRegular.batteryCharging),
 };
 
-/// One row of round category tiles that scrolls sideways (the next tile peeks out), with All first. Repairs has its
+/// The categories as even tiles, four to a row, All first, so none is cut off at the screen's edge. Repairs has its
 /// own tab and strip.
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow(this.categories);
@@ -656,12 +635,20 @@ class _CategoryRow extends StatelessWidget {
           onTap: () => context.go('/search?category=${cat.slug}'),
         ),
     ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [for (final t in tiles) SizedBox(width: 72, child: t)],
+    const perRow = 4;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.gutter - Space.xs, Space.lg, Space.gutter - Space.xs, 0),
+      child: Column(
+        spacing: Space.sm,
+        children: [
+          for (var i = 0; i < tiles.length; i += perRow)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var j = i; j < i + perRow; j++) Expanded(child: j < tiles.length ? tiles[j] : const SizedBox()),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -688,15 +675,15 @@ class _CategoryTile extends StatelessWidget {
             children: [
               DecoratedBox(
                 decoration: BoxDecoration(color: tint?.$1 ?? c.surfaceContainer, shape: BoxShape.circle),
-                child: SizedBox.square(dimension: 44, child: Icon(icon, size: 20, color: tint?.$2 ?? c.primary)),
+                child: SizedBox.square(dimension: 52, child: Icon(icon, size: IconSizes.lg, color: tint?.$2 ?? c.primary)),
               ),
-              const SizedBox(height: Space.xs),
+              const SizedBox(height: Space.sm),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall,
+                style: Theme.of(context).textTheme.labelMedium,
               ),
             ],
           ),
@@ -714,15 +701,15 @@ class _RepairStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.xl, Space.gutter, 0),
       child: Material(
         color: BrandColors.cream,
-        borderRadius: BorderRadius.circular(Radii.button),
+        borderRadius: BorderRadius.circular(Radii.lg),
         child: InkWell(
           onTap: () => context.push('/repairs/new'),
-          borderRadius: BorderRadius.circular(Radii.button),
+          borderRadius: BorderRadius.circular(Radii.lg),
           child: Padding(
-            padding: const EdgeInsets.all(Space.md),
+            padding: const EdgeInsets.all(Space.lg),
             child: Row(
               children: [
                 const IconWell(PhosphorIconsFill.wrench, tint: (Colors.white, BrandColors.saffron), size: 40),
@@ -731,17 +718,20 @@ class _RepairStrip extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Phone repair at our shop',
-                          style: t.titleSmall?.copyWith(color: BrandColors.creamInk, fontWeight: FontWeight.w700)),
+                      Text('Phone repair at our shop', style: t.titleSmall?.copyWith(color: BrandColors.creamInk)),
                       Text('Screen, battery, charging port · You approve the price first',
                           style: t.bodySmall?.copyWith(color: BrandColors.creamInk)),
+                      const SizedBox(height: Space.sm),
+                      Row(
+                        spacing: Space.xs,
+                        children: [
+                          Text('Book free', style: t.labelLarge?.copyWith(color: BrandColors.saffron)),
+                          const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.saffron),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(width: Space.sm),
-                Text('Book free', style: t.labelLarge?.copyWith(color: BrandColors.saffron, fontWeight: FontWeight.w800)),
-                const SizedBox(width: Space.xs),
-                const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.saffron),
               ],
             ),
           ),
@@ -770,7 +760,7 @@ class _TrustStrip extends StatelessWidget {
     ];
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.sm, Space.sm, Space.sm, 0),
+      padding: const EdgeInsets.fromLTRB(Space.gutter - Space.sm, Space.md, Space.gutter - Space.sm, 0),
       child: Semantics(
         button: true,
         label: '${items.map((i) => i.$2).join(', ')}. Why buy from us',
@@ -869,10 +859,10 @@ class _BudgetRow extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionHeader('Shop by budget'),
+          const SectionHeader('Shop by budget', gutter: Space.gutter),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+            padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
             child: Row(
               spacing: Space.sm,
               children: [
@@ -903,10 +893,10 @@ class _BrandRow extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader('Shop by brand'),
+        const SectionHeader('Shop by brand', gutter: Space.gutter),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
           child: Row(
             spacing: Space.sm,
             children: [
@@ -935,7 +925,7 @@ class _StoreCard extends StatelessWidget {
     ].where((s) => s.isNotEmpty).join(' · ');
     final listing = settings.mapsListingUri;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.xl, Space.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.section, Space.gutter, 0),
       child: Card(
         clipBehavior: Clip.antiAlias, // rounds the photos' top corners
         child: Column(

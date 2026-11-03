@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/rendering.dart' show SemanticsAction;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -224,7 +225,7 @@ void main() {
     expect(find.text('Samsung Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Slide 1 of 3'), findsOneWidget);
 
-    await tester.pump(const Duration(milliseconds: 4600));
+    await tester.pump(Motion.hero + const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
     expect(find.text('Xiaomi Redmi Note 14 Pro 5G').hitTestable(), findsOneWidget);
     expect(find.text('Samsung Galaxy S25').hitTestable(), findsNothing);
@@ -236,18 +237,26 @@ void main() {
     await tester.pumpWidget(const SizedBox()); // dispose, so the carousel's timer is cancelled
   });
 
-  testWidgets('featured hero also has Previous and Next buttons, so no swipe is needed', (tester) async {
+  testWidgets('featured hero: dots jump to a slide, and a screen reader steps it with swipe up / down', (tester) async {
+    final handle = tester.ensureSemantics();
     final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Next slide'));
+    expect(find.byTooltip('Next slide'), findsNothing, reason: 'small dots only, no arrow buttons');
+    void act(SemanticsAction a) {
+      final node = tester.getSemantics(find.bySemanticsLabel(RegExp(r'^Slide \d of 3$')));
+      node.owner!.performAction(node.id, a);
+    }
+
+    act(SemanticsAction.increase);
     await tester.pumpAndSettle();
     expect(find.bySemanticsLabel('Slide 2 of 3'), findsOneWidget);
-    await tester.tap(find.byTooltip('Previous slide'));
-    await tester.tap(find.byTooltip('Previous slide'));
+    act(SemanticsAction.decrease);
+    act(SemanticsAction.decrease);
     await tester.pumpAndSettle();
     expect(find.bySemanticsLabel('Slide 3 of 3'), findsOneWidget, reason: 'wraps around');
     await tester.pumpWidget(const SizedBox());
+    handle.dispose();
   });
 
   testWidgets('featured carousel keeps one height for every card, so the page never jumps', (tester) async {
@@ -258,7 +267,7 @@ void main() {
     final carousel = find.bySemanticsLabel('Slide 1 of 3');
     final categoriesTop = tester.getTopLeft(find.text('All')).dy;
     for (var i = 0; i < 3; i++) {
-      await tester.pump(const Duration(milliseconds: 4600));
+      await tester.pump(Motion.hero + const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text('All')).dy, categoriesTop, reason: 'slide ${i + 1} moved the content below');
       expect(find.bySemanticsLabel('Slide ${(i + 1) % 3 + 1} of 3'), findsOneWidget);

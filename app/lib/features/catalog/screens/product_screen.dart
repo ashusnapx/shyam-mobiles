@@ -182,15 +182,16 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        scrolledUnderElevation: 0, // its own solid layer below
-        // solid once the photos scroll away, so the page never runs under the buttons
+        scrolledUnderElevation: 0, // its own frosted layer below
+        // frosted once the photos scroll away, so the page never runs under the buttons
         flexibleSpace: AnimatedOpacity(
           opacity: _scrolled ? 1 : 0,
           duration: Motion.fast,
-          // expand: a childless DecoratedBox in the app bar's stack sizes to zero height and paints nothing
-          child: SizedBox.expand(
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: c.surface, border: Border(bottom: BorderSide(color: c.outlineVariant))),
+          // expand: a childless box in the app bar's stack sizes to zero height and paints nothing
+          child: const SizedBox.expand(
+            child: GlassSurface(
+              border: Border(bottom: BorderSide(color: Glass.hairline)),
+              child: SizedBox.expand(),
             ),
           ),
         ),
@@ -319,7 +320,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           _variantId = pickVariant(variants, v, memory: memory, color: color).id;
           _zoomed = false; // the gallery starts over on the new colour's photos
         });
-    const side = EdgeInsets.symmetric(horizontal: Space.lg);
+    const side = EdgeInsets.symmetric(horizontal: Space.gutter);
     final specs = _allSpecs ? p.specs : p.specs.take(6).toList();
 
     return ListView(
@@ -331,7 +332,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           onZoom: (zoomed) => setState(() => _zoomed = zoomed),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, Space.md, Space.gutter, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -480,9 +481,10 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           ),
         ),
         if (p.id.isNotEmpty)
-          ProductRail(title: 'Similar products', band: sectionTints.similar, value: ref.watch(similarProvider(p.slug))),
+          // neutral: the one tinted panel on this page is "Fits this phone"
+          ProductRail(title: 'Similar products', band: sectionTints.explore, value: ref.watch(similarProvider(p.slug))),
         Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, Space.xl),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, Space.xl),
           child: p.id.isEmpty ? const SizedBox.shrink() : ReportListingLink(productId: p.id),
         ),
       ],

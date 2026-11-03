@@ -13,15 +13,16 @@ ThemeData buildTheme(ColorScheme c) {
     displaySmall: GoogleFonts.familjenGrotesk(fontSize: 28, fontWeight: FontWeight.w700, height: 1.05, letterSpacing: -0.8),
     headlineMedium: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.6, height: 1.15),
     headlineSmall: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.4, height: 1.2),
-    titleLarge: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.2),
-    titleMedium: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600),
-    titleSmall: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
-    bodyLarge: GoogleFonts.plusJakartaSans(fontSize: 16, height: 1.5),
-    bodyMedium: GoogleFonts.plusJakartaSans(fontSize: 14, height: 1.45),
-    bodySmall: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.4),
-    labelLarge: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600),
-    labelMedium: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
-    labelSmall: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.2),
+    // section titles, sheets and dialogs: the brand face, like the app bar
+    titleLarge: GoogleFonts.familjenGrotesk(fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.3, height: 1.3),
+    titleMedium: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, height: 1.3),
+    titleSmall: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, height: 1.3),
+    bodyLarge: GoogleFonts.plusJakartaSans(fontSize: 16, height: 1.4),
+    bodyMedium: GoogleFonts.plusJakartaSans(fontSize: 14, height: 1.4),
+    bodySmall: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.35),
+    labelLarge: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, height: 1.3),
+    labelMedium: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
+    labelSmall: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.2, height: 1.3),
   ).apply(bodyColor: c.onSurface, displayColor: c.onSurface);
 
   final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button));
@@ -119,6 +120,7 @@ ThemeData buildTheme(ColorScheme c) {
       checkmarkColor: c.onPrimary,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.chip)),
       side: BorderSide(color: c.outlineVariant),
+      backgroundColor: c.surfaceContainerLowest, // white chips, like the cards
       labelStyle: text.labelMedium,
     ),
     navigationBarTheme: NavigationBarThemeData(

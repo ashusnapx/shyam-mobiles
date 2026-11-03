@@ -9,29 +9,30 @@ import '../../../core/widgets/widgets.dart';
 import '../data/rails.dart';
 import 'product_tile.dart';
 
-const _tileWidth = 132.0; // two and a half show at 360 dp (the peek says there's more), prices above the fold
+const _tileWidth = 132.0; // two and a peek show at 360 dp, in a panel too (the peek says there's more)
 
-/// A titled, sideways-scrolling row of product tiles, on its [band] when given. Hidden when there's nothing to show
-/// or it failed (a rail is a nice-to-have: no error screen for it).
+/// A titled, sideways-scrolling row of product cards, inside its [band] panel when given. Hidden (no header, no
+/// space) when there's nothing to show or it failed: a rail is a nice-to-have, no error screen for it.
 class ProductRail extends StatelessWidget {
   const ProductRail({super.key, required this.title, required this.value, this.onSeeAll, this.band});
 
   final String title;
   final AsyncValue<List<ProductCard>> value;
   final VoidCallback? onSeeAll; // the header's "See all": the full list of what the rail shows
-  final Tint? band; // one of [sectionTints]
+  final Tint? band; // one of [sectionTints]; at most one tinted band per screen, [sectionTints.explore] is neutral
 
   @override
   Widget build(BuildContext context) {
     if (value.hasError || (value.hasValue && value.value!.isEmpty)) return const SizedBox.shrink();
+    final side = band == null ? Space.gutter : Space.lg; // a panel already sits a gutter in
     final rail = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionHeader(title, onSeeAll: onSeeAll, accent: band?.$2),
+        SectionHeader(title, onSeeAll: onSeeAll, accent: band?.$2, gutter: side, top: band == null ? null : Space.lg),
         AsyncBody<List<ProductCard>>(
           value: value,
-          loading: Skeletonizer(child: _Row(fakeCards(3))),
-          data: (cards) => _Row(cards).enter(context),
+          loading: Skeletonizer(child: _Row(fakeCards(3), side: side)),
+          data: (cards) => _Row(cards, side: side).enter(context),
         ),
       ],
     );
@@ -39,8 +40,8 @@ class ProductRail extends StatelessWidget {
   }
 }
 
-/// A section on its own soft band of a fixed [tint] ([sectionTints]): full width and still (a big band never
-/// drifts). The section's title pill takes the tint's accent.
+/// A section on its own panel of a fixed [tint] ([sectionTints]): inset a gutter from the screen's edges, rounded,
+/// and still (a big panel never drifts). The section's title bar takes the tint's accent.
 class SectionBand extends StatelessWidget {
   const SectionBand({super.key, required this.tint, required this.child});
 
@@ -49,46 +50,34 @@ class SectionBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: Space.md), // a white gap between bands
-    child: AuroraBackground(
-      palette: tintPalette(tint),
-      still: true,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: Space.lg),
-        child: child,
+    padding: const EdgeInsets.fromLTRB(Space.gutter, Space.xl, Space.gutter, 0),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(Radii.xl),
+      child: AuroraBackground(
+        palette: tintPalette(tint),
+        still: true,
+        child: Padding(padding: const EdgeInsets.only(bottom: Space.sm), child: child),
       ),
     ),
   );
 }
 
 class _Row extends StatelessWidget {
-  const _Row(this.cards);
+  const _Row(this.cards, {required this.side});
 
   final List<ProductCard> cards;
+  final double side;
 
   // a Row, not a ListView: tiles take their natural height at any text size (≤ 10 tiles, so building all is fine)
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     scrollDirection: Axis.horizontal,
-    padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+    // room above and below for the cards' shadow
+    padding: EdgeInsets.fromLTRB(side, Space.xs, side, Space.md),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: Space.md,
-      // white cards with a hairline, so they float on a band
-      children: [
-        for (final c in cards)
-          SizedBox(
-            width: _tileWidth,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(Radii.lg),
-                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-              ),
-              child: Padding(padding: const EdgeInsets.all(6), child: ProductTile(c)),
-            ),
-          ),
-      ],
+      children: [for (final c in cards) SizedBox(width: _tileWidth, child: ProductTile(c))],
     ),
   );
 }

@@ -36,8 +36,9 @@ List<ProductCard> fakeCards(int n) => [
         ),
     ];
 
-/// The same card in rails, grids and search: photo, the full name on exactly two lines, then the price and the
-/// MRP with "% off" on fixed-height lines, so every tile in a row is the same height.
+/// The same card in rails, grids and search: one white surface with a hairline and a soft shadow, the photo filling
+/// a rounded well, the full name on exactly two lines, then the price and the MRP with "% off" on fixed-height lines,
+/// so every card in a row is the same height. It dips under the finger.
 class ProductTile extends StatelessWidget {
   const ProductTile(this.card, {super.key});
 
@@ -48,25 +49,37 @@ class ProductTile extends StatelessWidget {
 
   Widget _tile(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
     final nameStyle = t.bodyMedium!.copyWith(fontWeight: FontWeight.w600, height: 1.3);
-    return InkWell(
-      onTap: () => context.push('/product/${card.slug}'),
-      borderRadius: BorderRadius.circular(Radii.lg),
-      child: Column(
+    // the photo fills its well: no white square framed in a tint
+    final photo = ProductImage(card.coverPath, radius: Radii.md, padding: 0);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: c.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        border: Border.all(color: c.outlineVariant),
+        boxShadow: Shadows.card,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: () => context.push('/product/${card.slug}'),
+          borderRadius: BorderRadius.circular(Radii.lg),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.sm),
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Stack(
             children: [
-              card.inStock
-                  ? ProductImage(card.coverPath, radius: Radii.md)
-                  : Opacity(opacity: 0.45, child: ProductImage(card.coverPath, radius: Radii.md)),
+              card.inStock ? photo : Opacity(opacity: 0.45, child: photo),
               if (!card.inStock)
                 const Positioned(left: Space.sm, top: Space.sm, child: Tag('Out of stock', tone: TagTone.neutral)),
               Positioned(top: 0, right: 0, child: HeartButton(card.id)),
             ],
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(2, Space.sm, 2, Space.xs),
+            padding: const EdgeInsets.fromLTRB(Space.xs, Space.md, Space.xs, Space.xs),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -81,6 +94,9 @@ class ProductTile extends StatelessWidget {
             ),
           ),
         ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -94,7 +110,7 @@ class SliverProductGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+        padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
         sliver: SliverList.builder(
           itemCount: (cards.length + 1) ~/ 2,
           itemBuilder: (context, i) {

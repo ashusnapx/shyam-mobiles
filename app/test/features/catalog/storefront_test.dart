@@ -191,4 +191,27 @@ void main() {
     expect(find.text('Above ₹25,000'), findsOneWidget);
     expect(find.text('Under ₹1,500'), findsNothing, reason: 'accessory caps are for accessories');
   });
+
+  testWidgets('Home with no deals, no new products and no phones has no empty tail', (tester) async {
+    await pump(tester, '/', overrides: [
+      homeProvider.overrideWith((ref) async => (
+            categories: const [Category(id: 'c', slug: 'cases-covers', name: 'Cases', kind: CategoryKind.accessory)],
+            featured: <ProductCard>[],
+            accessories: <ProductCard>[],
+          )),
+      latestProvider.overrideWith((ref) async => const []),
+      railsApiProvider.overrideWithValue(FakeRailsApi()),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('Featured phones'), findsNothing);
+    expect(find.text('Deals under ₹1,500'), findsNothing);
+    expect(find.text('New in the shop'), findsNothing);
+    final scrollable = find.byType(Scrollable).first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final cardBottom = tester.getBottomLeft(find.ancestor(of: find.text('Visit the shop'), matching: find.byType(Card))).dy;
+    final viewBottom = tester.getBottomLeft(scrollable).dy;
+    expect(viewBottom - cardBottom, lessThanOrEqualTo(Space.section + 1), reason: 'only the end gap below the last card');
+  });
 }
