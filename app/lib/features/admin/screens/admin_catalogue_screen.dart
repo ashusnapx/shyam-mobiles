@@ -465,6 +465,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                     if (rows.isEmpty && !_filtered && _query.isEmpty) {
                       return EmptyState(
                         icon: PhosphorIconsRegular.package,
+                        tone: Worlds.admin,
                         title: 'No products yet',
                         message: 'Add a product and its variants to see them here.',
                         action: FilledButton(
@@ -485,6 +486,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                               children: [
                                 EmptyState(
                                   icon: PhosphorIconsRegular.magnifyingGlass,
+                                  tone: Worlds.admin,
                                   title: 'Nothing matches',
                                   message: _filtered ? 'Try another word or clear the filters.' : 'Try another word.',
                                   action: _filtered
@@ -610,7 +612,7 @@ class CatalogueSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    Widget stat(String label, String value) => Expanded(
+    Widget stat(String label, String value, {Color? color}) => Expanded(
           child: Semantics(
             label: '$label, $value',
             excludeSemantics: true,
@@ -620,7 +622,11 @@ class CatalogueSummaryCard extends StatelessWidget {
                 Text(label, style: t.labelSmall?.copyWith(color: c.onSurfaceVariant)),
                 Text(
                   value,
-                  style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontFeatures: const [FontFeature.tabularFigures()]),
+                  style: t.titleMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
@@ -647,7 +653,11 @@ class CatalogueSummaryCard extends StatelessWidget {
                 stat('Stock value at MRP', shortInr(s.valueAtMrpPaise)),
               ]),
               gap,
-              Row(spacing: Space.md, children: [stat('Low (1–3 left)', '${s.low}'), stat('Out of stock', '${s.out}')]),
+              // brass when something needs restocking
+              Row(spacing: Space.md, children: [
+                stat('Low stock (1–3 left)', '${s.low}', color: s.low > 0 ? BrandColors.amber : null),
+                stat('Out of stock', '${s.out}', color: s.out > 0 ? BrandColors.amber : null),
+              ]),
             ],
           ),
         ),

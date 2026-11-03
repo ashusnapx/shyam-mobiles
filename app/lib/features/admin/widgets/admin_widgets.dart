@@ -105,6 +105,7 @@ class AdminGate extends ConsumerWidget {
               ? const PageSkeleton()
               : const EmptyState(
                   icon: PhosphorIconsRegular.lockSimple,
+                  tone: Worlds.admin,
                   title: 'Staff only',
                   message: 'This part of the app is for Shyam Mobiles staff.',
                 ),

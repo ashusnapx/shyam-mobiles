@@ -100,6 +100,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                 data: (page) => page.items.isEmpty
                     ? EmptyState(
                         icon: PhosphorIconsRegular.chatCircleText,
+                        tone: Worlds.admin,
                         title: _status == 'new' ? 'All caught up' : 'Nothing here',
                         message: 'Ratings, comments and problem reports from customers show up here.',
                       )

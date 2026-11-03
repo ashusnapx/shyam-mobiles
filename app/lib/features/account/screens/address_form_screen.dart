@@ -40,6 +40,7 @@ class AddressFormScreen extends ConsumerWidget {
           if (addressId != null && existing == null) {
             return EmptyState(
               icon: PhosphorIconsRegular.mapPin,
+              tone: Worlds.search,
               title: 'Address not found',
               message: 'It may have been deleted.',
               action: OutlinedButton(onPressed: () => context.pop(), child: const Text('Go back')),

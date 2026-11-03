@@ -46,6 +46,7 @@ class AdminPaymentLinksScreen extends ConsumerWidget {
                     children: const [
                       EmptyState(
                         icon: PhosphorIconsRegular.link,
+                        tone: Worlds.admin,
                         title: 'No payment links yet',
                         message: 'Make one for a wholesale or phone order and send it on WhatsApp.',
                       ),

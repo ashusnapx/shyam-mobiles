@@ -117,7 +117,7 @@ CatalogueSummary catalogueSummaryFromJson(Map<String, dynamic> j) {
 
 enum StockFilter {
   all('Any stock'),
-  low('Low (1–3 left)'),
+  low('Low stock (1–3 left)'),
   out('Out of stock');
 
   const StockFilter(this.label);

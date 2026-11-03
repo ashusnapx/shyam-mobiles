@@ -150,6 +150,7 @@ class _AdminOffersScreenState extends ConsumerState<AdminOffersScreen> {
                   if (list.isEmpty) {
                     return EmptyState(
                       icon: PhosphorIconsRegular.sealPercent,
+                      tone: Worlds.admin,
                       title: _filter == 'personal' ? 'No referral coupons yet' : 'No offers yet',
                       message: _filter == 'personal'
                           ? 'Refer & earn makes these for customers. They show up here.'
@@ -284,7 +285,7 @@ class AdminOfferEditScreen extends ConsumerWidget {
                       },
                     )
                   : promotion.hasValue
-                      ? const EmptyState(icon: PhosphorIconsRegular.sealPercent, title: 'This offer was deleted')
+                      ? const EmptyState(tone: Worlds.admin, icon: PhosphorIconsRegular.sealPercent, title: 'This offer was deleted')
                       : const PageSkeleton(),
             ),
     );

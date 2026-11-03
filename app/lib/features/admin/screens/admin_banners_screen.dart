@@ -74,6 +74,7 @@ class _AdminBannersScreenState extends ConsumerState<AdminBannersScreen> {
           data: (list) => list.isEmpty
               ? const EmptyState(
                   icon: PhosphorIconsRegular.flagBanner,
+                  tone: Worlds.admin,
                   title: 'No banners yet',
                   message: 'Banners show under the featured phones on home. Offers can make one for you too.',
                 )
@@ -182,7 +183,7 @@ class AdminBannerEditScreen extends ConsumerWidget {
                         ..invalidate(adminBrandsProvider),
                     )
                   : banners.hasValue
-                      ? const EmptyState(icon: PhosphorIconsRegular.flagBanner, title: 'This banner was deleted')
+                      ? const EmptyState(tone: Worlds.admin, icon: PhosphorIconsRegular.flagBanner, title: 'This banner was deleted')
                       : const PageSkeleton(),
             ),
     );

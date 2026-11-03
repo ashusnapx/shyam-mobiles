@@ -38,6 +38,7 @@ class AdminGroupsScreen extends ConsumerWidget {
           data: (list) => list.isEmpty
               ? const EmptyState(
                   icon: PhosphorIconsRegular.stack,
+                  tone: Worlds.admin,
                   title: 'No groups yet',
                   message: 'Group products like “Diwali picks”, then point an offer at the group.',
                 )
@@ -92,7 +93,7 @@ class AdminGroupEditScreen extends ConsumerWidget {
                         ..invalidate(adminProductsProvider),
                     )
                   : groups.hasValue
-                      ? const EmptyState(icon: PhosphorIconsRegular.stack, title: 'This group was deleted')
+                      ? const EmptyState(tone: Worlds.admin, icon: PhosphorIconsRegular.stack, title: 'This group was deleted')
                       : const PageSkeleton(),
             ),
     );

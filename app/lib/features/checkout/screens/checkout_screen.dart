@@ -107,6 +107,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (lines.isEmpty && !busy) {
         body = EmptyState(
           icon: PhosphorIconsRegular.shoppingBag,
+          tone: Worlds.cart,
           title: 'Nothing to check out',
           message: 'Your cart is empty. If you just placed an order, you’ll find it in Orders.',
           action: FilledButton(onPressed: () => context.go('/orders'), child: const Text('View orders')),
@@ -313,7 +314,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         widthFactor: i == (lines.length < 3 ? lines.length : 3) - 1 ? 1 : 0.8,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(Radii.sm + 2),
+                            borderRadius: BorderRadius.circular(Radii.chip),
                             border: Border.all(color: c.surface, width: 2),
                           ),
                           child: SizedBox.square(
@@ -425,7 +426,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       (null, 'EMI'),
                     ])
                       DecoratedBox(
-                        decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(color: c.surfaceContainer, borderRadius: BorderRadius.circular(Radii.xs)),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xs),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -437,7 +438,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: Space.sm),
               _PayOption(
                 value: PaymentMethod.cod,
                 selected: method == PaymentMethod.cod,
@@ -455,12 +456,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: DecoratedBox(
               decoration: BoxDecoration(color: c.surfaceContainerLow, borderRadius: BorderRadius.circular(Radii.md)),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: Space.md),
+                padding: const EdgeInsets.all(Space.md),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(PhosphorIconsFill.lockKey, size: 18, color: c.secondary),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: Space.sm),
                     Expanded(
                       child: Text(
                         'Payments go through Razorpay. Shyam Mobiles never sees your card details or UPI PIN.',

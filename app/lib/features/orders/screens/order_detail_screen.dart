@@ -327,6 +327,7 @@ class _Timeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
+    final current = steps.lastIndexWhere((s) => s.done); // where the order is now: a soft halo
     return Column(
       children: [
         for (final (i, s) in steps.indexed)
@@ -347,6 +348,9 @@ class _Timeline extends StatelessWidget {
                                   ? BrandColors.graphite // closed, not an error
                                   : c.secondary,
                           border: s.done ? null : Border.all(color: c.outlineVariant, width: 2),
+                          boxShadow: i == current && s.status != OrderStatus.cancelled
+                              ? const [BoxShadow(color: BrandColors.mint, spreadRadius: 4)]
+                              : null,
                         ),
                         child: SizedBox.square(
                           dimension: 28,

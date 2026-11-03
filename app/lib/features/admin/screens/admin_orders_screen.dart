@@ -57,6 +57,7 @@ class _OrderList extends ConsumerWidget {
       data: (page) => page.items.isEmpty
           ? EmptyState(
               icon: PhosphorIconsRegular.receipt,
+              tone: Worlds.admin,
               title: 'No orders here',
               message: filter == 'all' ? 'Orders show up here as soon as customers place them.' : 'Try another filter.',
             )

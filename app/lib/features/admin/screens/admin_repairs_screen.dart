@@ -58,6 +58,7 @@ class _RepairList extends ConsumerWidget {
       data: (page) => page.items.isEmpty
           ? EmptyState(
               icon: PhosphorIconsRegular.wrench,
+              tone: Worlds.admin,
               title: 'No repairs here',
               message: filter == 'awaiting_approval'
                   ? 'Quotes you send show up here until the customer answers.'

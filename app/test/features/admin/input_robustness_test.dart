@@ -153,7 +153,7 @@ void main() {
     Navigator.of(tester.element(find.text('Mark shipped'))).pop();
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Add IMEI'));
+    await scrollTo(tester, find.text('Add IMEI')); // built only once scrolled near: the list is lazy
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add IMEI'));
     await tester.pumpAndSettle();

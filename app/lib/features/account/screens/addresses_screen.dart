@@ -45,6 +45,7 @@ class AddressesScreen extends ConsumerWidget {
         data: (list) => list.isEmpty
             ? EmptyState(
                 icon: PhosphorIconsRegular.mapPin,
+                tone: Worlds.search,
                 title: 'No saved addresses',
                 message: 'Add one now and checkout gets quicker.',
                 action: FilledButton.icon(

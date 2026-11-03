@@ -59,11 +59,25 @@ class OrdersScreen extends ConsumerWidget {
           ),
           data: (page) {
             if (page.items.isEmpty) {
-              return EmptyState(
-                icon: PhosphorIconsRegular.package,
-                title: 'No orders yet',
-                message: 'Orders you place show up here.',
-                action: FilledButton(onPressed: () => context.go('/'), child: const Text('Start shopping')),
+              // pull to refresh works here too: an order just placed on another phone
+              return RefreshIndicator(
+                onRefresh: () => ref.refresh(ordersProvider.future),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    EmptyState(
+                      icon: PhosphorIconsRegular.package,
+                      tone: Worlds.shop,
+                      title: 'No orders yet',
+                      message: 'Orders you place show up here, with where each one is.',
+                      action: FilledButton.icon(
+                        onPressed: () => context.go('/'),
+                        icon: const Icon(PhosphorIconsRegular.storefront),
+                        label: const Text('Start shopping'),
+                      ),
+                    ),
+                  ],
+                ),
               );
             }
             final n = page.items.length;
