@@ -1,5 +1,4 @@
 // The storefront's anatomy: one tile layout everywhere, Home's order, and the product page's selling blocks.
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,7 +24,7 @@ void main() {
       wishlistCardsProvider.overrideWithBuild((ref, _) async => (
             items: [
               card('s25', 'Samsung Galaxy S25', 'Samsung', 74999),
-              ProductCard(
+              const ProductCard(
                 id: 'case',
                 slug: 'case',
                 name: 'OnePlus 13',

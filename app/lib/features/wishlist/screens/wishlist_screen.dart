@@ -38,22 +38,26 @@ class WishlistScreen extends ConsumerWidget {
           if (saved.isEmpty && dropped > 0) {
             return EmptyState(
               icon: PhosphorIconsRegular.heartBreak,
+              tone: Worlds.account,
               title: 'Your saved items are no longer sold',
               message: 'The shop stopped selling what you saved. Have a look at what’s in stock.',
-              action: FilledButton(
+              action: FilledButton.icon(
                 onPressed: () => context.go('/search?category=smartphones'),
-                child: const Text('Browse phones'),
+                icon: const Icon(PhosphorIconsRegular.storefront),
+                label: const Text('Shop phones'),
               ),
             );
           }
           if (saved.isEmpty) {
             return EmptyState(
               icon: PhosphorIconsRegular.heart,
+              tone: Worlds.account,
               title: 'Nothing saved yet',
-              message: 'Tap the heart on any phone to keep it here.',
-              action: FilledButton(
+              message: 'Tap the heart on any phone to keep it here, and find it again in a tap.',
+              action: FilledButton.icon(
                 onPressed: () => context.go('/search?category=smartphones'),
-                child: const Text('Browse phones'),
+                icon: const Icon(PhosphorIconsRegular.storefront),
+                label: const Text('Shop phones'),
               ),
             );
           }

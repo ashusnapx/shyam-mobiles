@@ -235,9 +235,10 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
             icon: PhosphorIconsRegular.smileySad,
             title: 'This product isn’t available',
             message: 'It may have been removed. Have a look at what’s in stock.',
-            action: FilledButton(
+            action: FilledButton.icon(
               onPressed: () => context.go('/search?category=smartphones'),
-              child: const Text('Browse phones'),
+              icon: const Icon(PhosphorIconsRegular.storefront),
+              label: const Text('Shop phones'),
             ),
           ),
         AsyncValue(:final error?) => ErrorView(
@@ -803,6 +804,10 @@ class _WhyBuy extends StatelessWidget {
         subtitle: product.category.kind == CategoryKind.phone
             ? const Text('Check the IMEI with *#06# when it arrives')
             : null,
+      ),
+      const ListTile(
+        leading: IconWell(PhosphorIconsRegular.certificate, tint: Worlds.shop),
+        title: Text('GST-registered shop'),
       ),
       if (warranty != null && warranty.isNotEmpty)
         ListTile(

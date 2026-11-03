@@ -832,6 +832,7 @@ Future<void> showWhyBuySheet(BuildContext context, StoreSettings s) => showModal
                 row(PhosphorIconsRegular.deviceMobile, 'IMEI shown on your order: check it with *#06#'),
                 if (s.codEnabled) row(PhosphorIconsRegular.money, 'Cash on delivery up to ${formatInr(s.codMaxPaise)}'),
                 row(PhosphorIconsRegular.receipt, 'No platform, COD or packing fees'),
+                row(PhosphorIconsRegular.certificate, 'GST-registered shop'),
                 if (s.storeAddress.isNotEmpty)
                   row(
                     PhosphorIconsRegular.storefront,
