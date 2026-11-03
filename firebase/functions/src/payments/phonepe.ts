@@ -1,62 +1,27 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { GatewayError, type GatewayRefund, type GatewayState, type PaymentGateway } from "./gateway.js";
 
 // PhonePe Payment Gateway, PG v2 Standard Checkout (docs/PHONEPE.md). Hosts from PhonePe's own SDKs.
 const HOSTS = {
-  sandbox: { pg: "https://api-preprod.phonepe.com/apis/pg-sandbox", auth: "https://api-preprod.phonepe.com/apis/pg-sandbox" },
-  production: { pg: "https://api.phonepe.com/apis/pg", auth: "https://api.phonepe.com/apis/identity-manager" },
+  SANDBOX: { pg: "https://api-preprod.phonepe.com/apis/pg-sandbox", auth: "https://api-preprod.phonepe.com/apis/pg-sandbox" },
+  PRODUCTION: { pg: "https://api.phonepe.com/apis/pg", auth: "https://api.phonepe.com/apis/identity-manager" },
 };
 
 export type PhonePeConfig = {
-  env: string; // "sandbox" | "production", nothing else, so a typo can't mix test and live traffic
+  env: string; // PHONEPE_ENV: "SANDBOX" | "PRODUCTION", nothing else, so a typo can't mix test and live traffic
   clientId: string;
   clientSecret: string;
   clientVersion: string;
-  merchantId: string; // public: the app's SDK init takes it
+  merchantId: string;
 };
 
-/** Our error contract: `code` for the app (errors.dart), `message` as short human text, `status` for HTTP. */
-export class PaymentError extends Error {
-  status: number;
-  code: string;
-  constructor(status: number, code: string, message: string) {
-    super(message);
-    this.status = status;
-    this.code = code;
-  }
-}
+const state = (s: unknown): GatewayState => (s === "COMPLETED" ? "completed" : s === "FAILED" ? "failed" : "pending");
 
-// PhonePe answered with an error. Staff-facing callers (refunds) read gatewayStatus / gatewayCode / description.
-export class PhonePeError extends PaymentError {
-  gatewayStatus: number;
-  gatewayCode: string;
-  description: string;
-  constructor(gatewayStatus: number, gatewayCode: string, description: string) {
-    super(502, "GATEWAY_ERROR", "Payment service error. Try again.");
-    this.gatewayStatus = gatewayStatus;
-    this.gatewayCode = gatewayCode;
-    this.description = description;
-  }
-}
-
-/** Order status reply (GET /checkout/v2/order/{merchantOrderId}/status). */
-export type PhonePeOrder = {
-  orderId?: string;
-  state?: string; // PENDING | COMPLETED | FAILED
-  amount?: number;
-  errorCode?: string;
-  paymentDetails?: { transactionId?: string; state?: string; amount?: number; paymentMode?: string }[];
-};
-
-export type PhonePe = {
-  config: PhonePeConfig;
-  environment: "SANDBOX" | "PRODUCTION"; // the SDK's init value matching these hosts
-  call<T = Record<string, unknown>>(path: string, body?: unknown): Promise<T>;
-};
-
-// One client per instance: OAuth token cached and renewed halfway through its life (what PhonePe's SDKs do); a 401
-// renews it once; 10 s timeouts. Unreachable -> 502 GATEWAY_ERROR; an error reply -> PhonePeError.
-export function phonePe(config: PhonePeConfig, fetcher: typeof fetch = fetch): PhonePe {
-  if (config.env !== "sandbox" && config.env !== "production") throw new Error("PHONEPE_ENV must be sandbox or production");
+// One client per instance: the OAuth token is cached and renewed halfway through its life (what PhonePe's SDKs do), a
+// 401 renews it once, every call times out after 10 s. Unreachable -> GatewayError status 0; an error reply ->
+// GatewayError with PhonePe's status, code and message.
+export function phonePeGateway(config: PhonePeConfig, fetcher: typeof fetch = fetch): PaymentGateway {
+  if (config.env !== "SANDBOX" && config.env !== "PRODUCTION") throw new Error("PHONEPE_ENV must be SANDBOX or PRODUCTION");
   for (const [k, v] of Object.entries(config)) if (!v) throw new Error(`Missing PhonePe setting ${k}`);
   const hosts = HOSTS[config.env];
   let cached: { token: string; renewAt: number } | null = null;
@@ -66,20 +31,20 @@ export function phonePe(config: PhonePeConfig, fetcher: typeof fetch = fetch): P
       return await fetcher(url, { ...init, signal: AbortSignal.timeout(10_000) });
     } catch (e) {
       console.error(`phonepe ${what}:`, e);
-      throw new PaymentError(502, "GATEWAY_ERROR", "Payment service is unreachable. Try again.");
+      throw new GatewayError(0, "UNREACHABLE", String(e));
     }
   }
 
-  async function failure(res: Response, what: string): Promise<PhonePeError> {
+  async function failure(res: Response, what: string): Promise<GatewayError> {
     const text = await res.text();
     console.error(`phonepe ${what}: ${res.status} ${text.slice(0, 500)}`);
-    let code = "", description = "";
+    let code = "", message = "";
     try {
       const body = JSON.parse(text);
       code = String(body?.errorCode ?? body?.code ?? "");
-      description = String(body?.message ?? "");
+      message = String(body?.message ?? "");
     } catch { /* not JSON */ }
-    return new PhonePeError(res.status, code, description);
+    return new GatewayError(res.status, code, message);
   }
 
   async function token(): Promise<string> {
@@ -102,24 +67,67 @@ export function phonePe(config: PhonePeConfig, fetcher: typeof fetch = fetch): P
     return cached.token;
   }
 
+  async function call(path: string, body?: unknown): Promise<Record<string, unknown>> {
+    for (let attempt = 0; ; attempt++) {
+      const res = await send(`${hosts.pg}${path}`, {
+        method: body === undefined ? "GET" : "POST",
+        headers: { Authorization: await token(), "Content-Type": "application/json", Accept: "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }, path);
+      if (res.status === 401 && attempt === 0) {
+        await res.body?.cancel();
+        cached = null;
+        continue;
+      }
+      if (!res.ok) throw await failure(res, path);
+      const text = await res.text();
+      return text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    }
+  }
+
+  const refundReply = (r: { state?: unknown; refundId?: unknown }): GatewayRefund =>
+    ({ state: state(r.state), gatewayRefundId: typeof r.refundId === "string" ? r.refundId : null });
+
   return {
-    config,
-    environment: config.env === "production" ? "PRODUCTION" : "SANDBOX",
-    async call<T>(path: string, body?: unknown): Promise<T> {
-      for (let attempt = 0; ; attempt++) {
-        const res = await send(`${hosts.pg}${path}`, {
-          method: body === undefined ? "GET" : "POST",
-          headers: { Authorization: await token(), "Content-Type": "application/json", Accept: "application/json" },
-          body: body === undefined ? undefined : JSON.stringify(body),
-        }, path);
-        if (res.status === 401 && attempt === 0) {
-          await res.body?.cancel();
-          cached = null;
-          continue;
-        }
-        if (!res.ok) throw await failure(res, path);
-        const text = await res.text();
-        return (text ? JSON.parse(text) : {}) as T;
+    merchantId: config.merchantId,
+    env: config.env,
+    async createOrder(o) {
+      const made = await call("/checkout/v2/sdk/order", {
+        merchantOrderId: o.merchantOrderId,
+        amount: o.amountPaise,
+        expireAfter: o.expireAfterSeconds,
+        metaInfo: { udf1: o.orderId, udf2: o.orderNumber },
+        paymentFlow: { type: "PG_CHECKOUT" },
+      });
+      if (typeof made.orderId !== "string" || typeof made.token !== "string" || !made.token) {
+        throw new GatewayError(502, "BAD_REPLY", "create order: no orderId or token");
+      }
+      const expireAt = Number.isFinite(made.expireAt) ? new Date(made.expireAt as number) : null;
+      return { phonepeOrderId: made.orderId, token: made.token, expireAt };
+    },
+    async orderStatus(merchantOrderId) {
+      const s = await call(`/checkout/v2/order/${encodeURIComponent(merchantOrderId)}/status?details=false`);
+      const details = (Array.isArray(s.paymentDetails) ? s.paymentDetails : []) as { state?: unknown; transactionId?: unknown }[];
+      const paid = details.find((p) => p.state === "COMPLETED") ?? details[0];
+      return {
+        state: state(s.state),
+        amountPaise: Number.isSafeInteger(s.amount) ? (s.amount as number) : null,
+        transactionId: typeof paid?.transactionId === "string" ? paid.transactionId : null,
+      };
+    },
+    async refund(r) {
+      return refundReply(await call("/payments/v2/refund", {
+        merchantRefundId: r.merchantRefundId, originalMerchantOrderId: r.merchantOrderId, amount: r.amountPaise,
+      }));
+    },
+    async refundStatus(merchantRefundId) {
+      try {
+        return refundReply(await call(`/payments/v2/refund/${encodeURIComponent(merchantRefundId)}/status`));
+      } catch (e) {
+        // shortcut: PhonePe's exact "unknown refund" reply isn't documented; any 400/404 counts as "never heard of it".
+        // Safe either way: a resend reuses the same merchantRefundId, which PhonePe refuses to pay twice.
+        if (e instanceof GatewayError && (e.status === 400 || e.status === 404)) return null;
+        throw e;
       }
     },
   };
