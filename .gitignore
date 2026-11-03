@@ -26,3 +26,6 @@ ui-debug.log*
 firebase/functions/.secret.local
 !firebase/functions/.env.demo-shyam-mobiles
 firebase/.emulator-data/
+# Firebase config files are per-machine, never committed
+app/android/app/google-services.json
+app/ios/Runner/GoogleService-Info.plist
