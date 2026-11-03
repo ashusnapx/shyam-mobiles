@@ -1,31 +1,28 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/errors.dart';
 import '../../../core/format.dart';
-import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
-import '../widgets/auth_hero.dart';
+import '../data/auth_errors.dart';
+import '../data/auth_repository.dart';
 import '../widgets/otp_field.dart';
 
-/// Matches `max_frequency` for SMS and email in supabase/config.toml; asking sooner is rejected.
+/// Matches `max_frequency` for SMS in supabase/config.toml (and the 60 s in docs/FIREBASE.md §4); asking sooner is
+/// refused.
 const resendAfterSeconds = 60;
 
-/// When "Use email instead" / "Use phone instead" appears (SPEC v1 additions).
-const switchMethodAfterSeconds = 30;
-
+/// The code step: the number with Change beside it, six boxes that fill from the SMS and check themselves on the
+/// sixth digit, and a resend countdown.
 class VerifyCodeScreen extends ConsumerStatefulWidget {
-  const VerifyCodeScreen({super.key, this.phone, this.email, this.from});
+  const VerifyCodeScreen({super.key, this.phone, this.request, this.from});
 
-  final String? phone;
-  final String? email;
+  final String? phone; // E.164, from the link
+  final PhoneCodeRequest? request; // the sign-in screen's request; Firebase needs its verification id
   final String? from;
 
   @override
@@ -38,10 +35,10 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
   Timer? _timer;
   int _secondsLeft = resendAfterSeconds;
   bool _verifying = false;
-  bool _offerSwitch = false;
-  String? _error;
+  ({String message, bool badCode})? _error;
+  late PhoneCodeRequest? _request = widget.request ?? switch (widget.phone) { final p? => PhoneCodeRequest(phone: p), _ => null };
 
-  GoTrueClient get _auth => ref.read(supabaseProvider).auth;
+  AuthRepository get _auth => ref.read(authRepositoryProvider);
 
   @override
   void initState() {
@@ -62,10 +59,7 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
     _secondsLeft = resendAfterSeconds;
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_secondsLeft <= 1) t.cancel();
-      setState(() {
-        _secondsLeft--;
-        if (resendAfterSeconds - _secondsLeft >= switchMethodAfterSeconds) _offerSwitch = true;
-      });
+      setState(() => _secondsLeft--);
     });
   }
 
@@ -76,16 +70,16 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
       _error = null;
     });
     try {
-      widget.phone != null
-          ? await _auth.verifyOTP(phone: widget.phone, token: code, type: OtpType.sms)
-          : await _auth.verifyOTP(email: widget.email, token: code, type: OtpType.email);
-      // Success: the router sees the new session and redirects to `from`.
+      await _auth.verifyPhoneCode(_request!, code);
+      // Signed in: the sign-in screen below leaves for `from`, or the name step first.
     } catch (e) {
       if (!mounted) return;
+      final error = authError(e);
       setState(() {
         _verifying = false;
-        _error = friendlyError(e);
+        _error = error;
       });
+      if (!error.badCode) return; // offline or too many tries: the code stays for Try again
       _code.clear();
       // The field is re-enabled on the next frame; focus it then so the keyboard comes back.
       WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
@@ -98,84 +92,74 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
       _startCountdown();
     });
     try {
-      widget.phone != null
-          ? await _auth.signInWithOtp(phone: widget.phone)
-          : await _auth.signInWithOtp(email: widget.email, shouldCreateUser: true);
+      _request = await _auth.requestPhoneCode(_request!.phone, resend: _request);
       if (mounted) showMessage(context, 'New code sent.');
     } catch (e) {
       if (!mounted) return;
       _timer?.cancel();
       setState(() => _secondsLeft = 0);
-      showMessage(context, friendlyError(e));
+      showMessage(context, authError(e).message);
     }
   }
 
-  /// Back to sign-in; [method] ('phone' | 'email') tells it which tab to open.
-  void _back([String? method]) {
-    if (context.canPop()) return context.pop(method);
-    context.go(Uri(path: '/sign-in', queryParameters: {if (widget.from != null) 'from': widget.from}).toString());
+  void _back() {
+    if (context.canPop()) return context.pop();
+    final from = widget.from;
+    context.go(from == null ? '/sign-in' : Uri(path: '/sign-in', queryParameters: {'from': from}).toString());
   }
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
-    final target = widget.phone != null ? displayPhone(widget.phone!) : widget.email;
+    final quiet = t.bodyMedium?.copyWith(color: c.onSurfaceVariant);
+    const tabular = [FontFeature.tabularFigures()];
+    final back = IconButton(tooltip: 'Back', icon: const Icon(PhosphorIconsRegular.arrowLeft), onPressed: _back);
 
-    if (target == null) {
+    final request = _request;
+    if (request == null) {
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(leading: back),
         body: EmptyState(
           icon: PhosphorIconsRegular.signIn,
           title: 'Start again',
-          message: 'Enter your phone number or email to get a code.',
+          message: 'Enter your mobile number to get a code.',
           action: FilledButton(onPressed: _back, child: const Text('Back to sign in')),
         ),
       );
     }
 
+    final error = _error;
     final mm = _secondsLeft ~/ 60, ss = (_secondsLeft % 60).toString().padLeft(2, '0');
     return Scaffold(
-      // the sign-in hero, folded to its bar
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(68),
-        child: AnnotatedRegion<SystemUiOverlayStyle>(
-          value: SystemUiOverlayStyle.light,
-          child: AuthHero(
-            compact: true,
-            overlap: 0,
-            leading: heroButton(tooltip: 'Back', icon: PhosphorIconsRegular.arrowLeft, onPressed: _back),
-          ),
-        ),
-      ),
+      appBar: AppBar(leading: back),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(Space.xl, Space.sm, Space.xl, Space.xl + MediaQuery.paddingOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+            Space.gutter, Space.sm, Space.gutter, Space.xl + MediaQuery.paddingOf(context).bottom),
         children: [
-          Semantics(header: true, child: Text('Enter the code', style: t.displaySmall)),
-          const SizedBox(height: Space.sm),
-          Text.rich(
-            TextSpan(children: [
-              const TextSpan(text: 'We sent a 6-digit code to '),
-              TextSpan(text: target, style: const TextStyle(fontWeight: FontWeight.w700)),
-            ]),
-            style: t.bodyMedium?.copyWith(color: c.onSurfaceVariant),
-          ),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton(
-              onPressed: _back,
-              style: TextButton.styleFrom(padding: EdgeInsets.zero),
-              child: Text(widget.phone != null ? 'Change number' : 'Change email'),
-            ),
-          ),
-          const SizedBox(height: Space.lg),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(header: true, child: Text('Enter the code', style: t.displaySmall)),
+              const SizedBox(height: Space.sm),
+              Text('We sent a 6-digit code by SMS to', style: quiet),
+              Row(
+                children: [
+                  Flexible(child: Text(displayPhone(request.phone), style: t.titleMedium?.copyWith(fontFeatures: tabular))),
+                  const SizedBox(width: Space.xs),
+                  TextButton(onPressed: _back, child: const Text('Change', semanticsLabel: 'Change number')),
+                ],
+              ),
+            ],
+          ).enter(context),
+          const SizedBox(height: Space.md),
           OtpField(
             controller: _code,
             focusNode: _focus,
             enabled: !_verifying,
-            hasError: _error != null,
+            hasError: error?.badCode ?? false,
             onCompleted: _verify,
-          ),
+          ).enter(context, index: 1),
           const SizedBox(height: Space.md),
           if (_verifying)
             Row(
@@ -185,24 +169,29 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
                 Text('Checking…', style: t.bodyMedium),
               ],
             )
-          else if (_error != null)
+          else if (error != null) ...[
             Semantics(
               liveRegion: true,
-              child: Text(_error!, style: t.bodyMedium?.copyWith(color: c.error)),
+              // red only for a refused code; no signal is not something the customer did wrong
+              child: Text(error.message, style: t.bodyMedium?.copyWith(color: error.badCode ? c.error : c.onSurface)),
             ),
-          const SizedBox(height: Space.lg),
+            if (!error.badCode && _code.text.length == otpLength)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: () => _verify(_code.text),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                  child: const Text('Try again'),
+                ),
+              ),
+          ],
+          const SizedBox(height: Space.md),
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: _secondsLeft > 0
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: Space.md),
-                    child: Text(
-                      'Resend code in $mm:$ss',
-                      style: t.bodyMedium?.copyWith(
-                        color: c.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
+                    child: Text('Resend code in $mm:$ss', style: quiet?.copyWith(fontFeatures: tabular)),
                   )
                 : TextButton.icon(
                     onPressed: _verifying ? null : _resend,
@@ -211,15 +200,6 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
                     label: const Text('Resend code'),
                   ),
           ),
-          if (_offerSwitch)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton(
-                onPressed: () => _back(widget.phone != null ? 'email' : 'phone'),
-                style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                child: Text('Didn’t get it? Use ${widget.phone != null ? 'email' : 'phone'} instead'),
-              ),
-            ),
         ],
       ),
     );

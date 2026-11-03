@@ -121,21 +121,6 @@ const heroAccents = [
   Color(0xFFACD2FB),
 ];
 
-/// Old category tile tints, kept only for the sign-in perks until that screen moves to [Worlds] (its pink pair reads
-/// as red, so nothing new should use this).
-const tileTints = [
-  (BrandColors.peacockMist, BrandColors.peacock),
-  (BrandColors.cream, BrandColors.saffron),
-  (BrandColors.mint, BrandColors.emerald),
-  (BrandColors.oceanMist, BrandColors.ocean),
-  (BrandColors.amberMist, BrandColors.amber),
-  (BrandColors.violetMist, BrandColors.violet),
-  (BrandColors.violetMist, BrandColors.violet),
-  (BrandColors.plumMist, BrandColors.plum),
-  (BrandColors.indigoMist, BrandColors.indigo),
-  (BrandColors.sand, BrandColors.sandInk),
-];
-
 /// The band behind a Home or product-page section and the accent bar beside its title (band, accent): near white with
 /// a trace of hue. At most one tinted band per screen; the others sit on [explore] or the plain canvas.
 const sectionTints = (

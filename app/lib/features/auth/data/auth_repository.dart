@@ -1,5 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend.dart';
+import '../../../core/supabase.dart';
+import 'auth_repository_supabase.dart';
+
 /// The signed-in person as the app needs them: no Supabase or Firebase types past this file.
 class AppUser {
   const AppUser({required this.id, this.phone, this.email, this.displayName, this.photoUrl});
@@ -57,4 +61,6 @@ abstract interface class AuthRepository {
 
 /// The DI seam. Phase 1 (engineer A) returns SupabaseAuthRepository or FirebaseAuthRepository by `backend`; tests
 /// override it with test/fakes/fake_auth_repository.dart.
-final authRepositoryProvider = Provider<AuthRepository>((ref) => throw UnimplementedError('Phase 1: AuthRepository'));
+final authRepositoryProvider = Provider<AuthRepository>((ref) => backend == Backend.firebase
+    ? throw UnimplementedError('Phase 1: FirebaseAuthRepository')
+    : SupabaseAuthRepository(ref.watch(supabaseProvider)));

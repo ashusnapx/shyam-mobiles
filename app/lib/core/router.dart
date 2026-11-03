@@ -23,6 +23,8 @@ import '../features/admin/screens/admin_product_edit_screen.dart';
 import '../features/admin/screens/admin_repair_screen.dart';
 import '../features/admin/screens/admin_repairs_screen.dart';
 import '../features/admin/screens/admin_settings_screen.dart';
+import '../features/auth/data/auth_repository.dart';
+import '../features/auth/screens/name_screen.dart';
 import '../features/auth/screens/sign_in_screen.dart';
 import '../features/auth/screens/verify_code_screen.dart';
 import '../features/cart/data/cart.dart';
@@ -89,7 +91,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!signedIn && _authOnly.any(path.startsWith)) {
         return '/sign-in?from=${Uri.encodeComponent(state.uri.toString())}';
       }
-      if (signedIn && path.startsWith('/sign-in')) return safeReturnPath(state.uri.queryParameters['from']) ?? '/';
+      if (signedIn && path.startsWith('/sign-in')) {
+        return afterSignInPath(state.uri.queryParameters['from'], byPhone: auth.currentUser?.phone?.isNotEmpty ?? false);
+      }
       // Server enforces admin rights; this just keeps non-staff out of screens they can't use.
       if (path.startsWith('/admin') && ref.read(isAdminProvider).value == false) return '/';
       return null;
@@ -189,12 +193,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'verify',
             builder: (_, s) => VerifyCodeScreen(
               phone: s.uri.queryParameters['phone'],
-              email: s.uri.queryParameters['email'],
+              request: s.extra as PhoneCodeRequest?,
               from: s.uri.queryParameters['from'],
             ),
           ),
         ],
       ),
+      // a first phone sign-up's name, then `from` (afterSignInPath)
+      GoRoute(path: '/welcome', builder: (_, s) => NameScreen(from: s.uri.queryParameters['from'])),
     ],
   );
 });
