@@ -64,6 +64,12 @@ class FakeFeedbackRepository with Fake implements FeedbackRepository {
   }
 
   @override
+  Future<FeedbackEntry?> about(FeedbackKind kind, String id) async {
+    record('about ${kind.name} $id');
+    return entries.where((e) => e.kind == kind && (e.orderId == id || e.repairId == id)).firstOrNull;
+  }
+
+  @override
   Future<int> listingReports(String productId) async {
     record('listingReports $productId');
     return entries.where((e) => e.kind == FeedbackKind.product && e.productId == productId).length;

@@ -54,6 +54,9 @@ class _Api implements FeedbackApi {
           .toList();
 
   @override
+  Future<FeedbackEntry?> about(FeedbackKind kind, String id) async => null;
+
+  @override
   Future<int> listingReports(String productId) async =>
       rows.where((r) => r.kind == FeedbackKind.product && r.productId == productId).length;
 

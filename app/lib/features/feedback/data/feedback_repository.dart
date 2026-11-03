@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'feedback.dart' show FeedbackEntry, FeedbackFilter, FeedbackKind, FeedbackStatus;
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart';
+import '../../../core/supabase.dart';
+import 'feedback.dart' show FeedbackApi, FeedbackEntry, FeedbackFilter, FeedbackKind, FeedbackStatus;
+import 'feedback_repository_firebase.dart';
 
 /// Ratings and comments (docs/FIREBASE.md §6: sendFeedback; staff track each one new → seen → resolved). Owner: D.
 abstract interface class FeedbackRepository {
@@ -30,8 +34,13 @@ abstract interface class FeedbackRepository {
 
   Future<int> newCount();
 
+  /// Staff: the customer's rating of this order or repair ([kind] order or repair), if any.
+  Future<FeedbackEntry?> about(FeedbackKind kind, String id);
+
   /// Reports about one product listing (kind product), any status.
   Future<int> listingReports(String productId);
 }
 
-final feedbackRepositoryProvider = Provider<FeedbackRepository>((ref) => throw UnimplementedError('Phase 1: FeedbackRepository'));
+final feedbackRepositoryProvider = Provider<FeedbackRepository>((ref) => backend == Backend.firebase
+    ? FirebaseFeedbackRepository(ref.watch(firestoreProvider), ref.watch(functionsProvider))
+    : FeedbackApi(ref.watch(supabaseProvider)));

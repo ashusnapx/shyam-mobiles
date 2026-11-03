@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/format.dart';
-import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
@@ -17,14 +16,7 @@ import '../screens/admin_feedback_screen.dart' show feedbackTone;
 final aboutFeedbackProvider =
     FutureProvider.autoDispose.family<FeedbackEntry?, (FeedbackKind, String)>((ref, key) async {
   final (kind, id) = key;
-  final row = await ref
-      .watch(supabaseProvider)
-      .from('feedback')
-      .select()
-      .eq('kind', kind.name)
-      .eq(kind == FeedbackKind.order ? 'order_id' : 'repair_id', id)
-      .maybeSingle();
-  return row == null ? null : FeedbackEntry.fromJson(row);
+  return ref.watch(feedbackApiProvider).about(kind, id);
 });
 
 /// "Customer feedback" on the admin order and repair screens: stars, comment, when and its status; opens the inbox

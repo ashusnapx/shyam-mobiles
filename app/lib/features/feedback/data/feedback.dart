@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
+import 'feedback_repository.dart';
 
 // Feedback (docs/SPEC.md `send_feedback`): a rating, a comment or both, about an order, a repair, a product listing,
 // a bug, or anything. Customers write only through the RPC and read their own rows; staff read all and track each
@@ -110,13 +111,14 @@ const _select = '*, order:orders(number, address), repair:repair_bookings(number
 
 typedef FeedbackFilter = ({FeedbackStatus? status, FeedbackKind? kind, String? productId});
 
-/// Feedback reads and writes; a provider so tests can swap it.
-class FeedbackApi {
+/// The Supabase [FeedbackRepository] (today's queries; deleted in Phase 2 with Supabase).
+class FeedbackApi implements FeedbackRepository {
   const FeedbackApi(this._db);
 
   final SupabaseClient _db;
 
   /// `send_feedback`. Rating an order or a repair again replaces the earlier rating. Returns the row id.
+  @override
   Future<String> send({
     required FeedbackKind kind,
     int? rating,
@@ -137,6 +139,7 @@ class FeedbackApi {
       });
 
   /// The signed-in customer's rating of an order or a repair, if they gave one. Filtered on user_id: staff read all.
+  @override
   Future<FeedbackEntry?> mine(String userId, FeedbackKind kind, String id) async {
     final row = await _db
         .from('feedback')
@@ -149,6 +152,7 @@ class FeedbackApi {
   }
 
   /// Staff: newest first, rows [from]..[from + size - 1].
+  @override
   Future<List<FeedbackEntry>> inbox(FeedbackFilter f, int from, int size) async {
     var q = _db.from('feedback').select(_select);
     if (f.status != null) q = q.eq('status', f.status!.value);
@@ -158,10 +162,12 @@ class FeedbackApi {
     return [for (final r in rows) FeedbackEntry.fromJson(r)];
   }
 
+  @override
   Future<FeedbackEntry> entry(String id) async =>
       FeedbackEntry.fromJson(await _db.from('feedback').select(_select).eq('id', id).single());
 
   /// Staff may change only these two columns.
+  @override
   Future<void> update(String id, {FeedbackStatus? status, String? adminNote}) async {
     await _db
         .from('feedback')
@@ -171,9 +177,22 @@ class FeedbackApi {
         .single();
   }
 
+  @override
   Future<int> newCount() async => (await _db.from('feedback').select('id').eq('status', 'new').count(CountOption.exact)).count;
 
   /// Staff: reports about one product listing (kind product), any status.
+  @override
+  Future<FeedbackEntry?> about(FeedbackKind kind, String id) async {
+    final row = await _db
+        .from('feedback')
+        .select()
+        .eq('kind', kind.name)
+        .eq(kind == FeedbackKind.order ? 'order_id' : 'repair_id', id)
+        .maybeSingle();
+    return row == null ? null : FeedbackEntry.fromJson(row);
+  }
+
+  @override
   Future<int> listingReports(String productId) async => (await _db
           .from('feedback')
           .select('id')
@@ -183,7 +202,8 @@ class FeedbackApi {
       .count;
 }
 
-final feedbackApiProvider = Provider<FeedbackApi>((ref) => FeedbackApi(ref.watch(supabaseProvider)));
+/// The old name of [feedbackRepositoryProvider], kept for the screens and tests that use it.
+final feedbackApiProvider = feedbackRepositoryProvider;
 
 /// The customer's own rating of an order or a repair (null: not rated yet).
 final myFeedbackProvider = FutureProvider.autoDispose.family<FeedbackEntry?, (FeedbackKind, String)>((ref, key) async {
