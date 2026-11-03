@@ -22,6 +22,8 @@ void main() {
       (const PostgrestException(message: 'OUT_OF_STOCK', code: 'P0001', details: 'v1,v2'), 'Some items just went out of stock. Check your cart and try again.'),
       (const PostgrestException(message: 'COD_UNAVAILABLE', code: 'P0001'), 'Cash on delivery isn’t available for this order. Pay online instead.'),
       (const PostgrestException(message: 'ADDRESS_LIMIT', code: 'P0001'), 'You can save up to 10 addresses. Delete one to add another.'),
+      // names no payment company: the shop may switch from Razorpay to PhonePe
+      (const PostgrestException(message: 'REFUND_UNCONFIRMED', code: 'P0001'), 'The payment service didn’t confirm the refund. Tap Refund again: it retries this same refund, never a second one.'),
       (const PostgrestException(message: 'permission denied for table orders', code: '42501'), 'You don’t have access to this.'),
       // /orders/garbage, /repairs/garbage: a malformed uuid; .single() on a missing row
       (const PostgrestException(message: 'invalid input syntax for type uuid: "garbage"', code: '22P02'), _notFound),
