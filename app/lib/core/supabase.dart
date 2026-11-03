@@ -5,12 +5,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'backend.dart';
 import 'env.dart';
-import 'models/models.dart';
-import 'network.dart';
+import 'firebase.dart' show emulatorHost, firebaseOptions;
 
 // The session moved behind AuthRepository; re-exported so the app's imports stay put until Phase 2 deletes this file.
 export '../features/auth/data/auth_repository.dart' show currentUserProvider, currentUserIdProvider, isAdminProvider;
+export '../features/catalog/data/settings_repository.dart' show storeSettingsProvider;
 
 const _secure = FlutterSecureStorage();
 
@@ -86,7 +87,11 @@ void cacheFor(Ref ref, Duration d) {
   ref.onDispose(timer.cancel);
 }
 
-String publicImageUrl(String path) => '${Env.supabaseUrl}/storage/v1/object/public/product-images/$path';
+/// A product, banner or shop photo's public URL (Storage Rules: product-images/** is public read on Firebase).
+String publicImageUrl(String path) => backend == Backend.firebase
+    ? '${useEmulators ? 'http://$emulatorHost:9199' : 'https://firebasestorage.googleapis.com'}'
+        '/v0/b/${firebaseOptions.storageBucket}/o/${Uri.encodeComponent('product-images/$path')}?alt=media'
+    : '${Env.supabaseUrl}/storage/v1/object/public/product-images/$path';
 
 /// "p1/1730000000000.webp" → "p1/1730000000000@thumb.webp", the 480 px copy uploaded beside each photo. Null for
 /// JPEG/PNG keys (older uploads never had one). Older WebP uploads have none either: ProductImage falls back on error.
@@ -95,13 +100,3 @@ String? thumbPathFor(String path) =>
 
 final supabaseProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
 
-/// Saved on the phone: a cold start (or no signal) shows the last copy at once and refreshes in the background.
-final storeSettingsProvider = FutureProvider<StoreSettings>((ref) {
-  final db = ref.watch(supabaseProvider);
-  return savedOrFetch(
-    ref,
-    'store_settings',
-    () async => await db.from('store_settings').select().single(),
-    (json) => StoreSettings.fromJson(json! as Map<String, dynamic>),
-  );
-});

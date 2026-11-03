@@ -6,20 +6,22 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
 import 'package:shyam_mobiles/features/catalog/data/catalog.dart';
+import 'package:shyam_mobiles/features/catalog/data/catalog_repository.dart';
 import 'package:shyam_mobiles/features/catalog/data/rails.dart';
 import 'package:shyam_mobiles/features/catalog/screens/product_screen.dart';
 import 'package:shyam_mobiles/features/catalog/widgets/product_rail.dart';
 
+import '../../fakes/fake_catalog_repository.dart';
+
 import '../repairs/layout_harness.dart';
 import 'screens_smoke_test.dart' show card, cards, product;
 
-class FakeRailsApi implements RailsApi {
+class FakeRailsApi extends FakeCatalogRepository {
   FakeRailsApi({this.fitting = const [], this.near = const [], this.all = const []});
 
   final List<ProductCard> fitting;
   final List<ProductCard> near;
   final List<ProductCard> all;
-  final calls = <String>[];
 
   @override
   Future<List<ProductCard>> fits(Set<String> names) async {
@@ -65,7 +67,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'recently_viewed': ['pixel', 'gone', 's25'],
     });
-    final c = ProviderContainer(overrides: [railsApiProvider.overrideWithValue(FakeRailsApi(all: cards))]);
+    final c = ProviderContainer(overrides: [catalogRepositoryProvider.overrideWithValue(FakeRailsApi(all: cards))]);
     addTearDown(c.dispose);
     final sub = c.listen(recentCardsProvider, (_, _) {});
     addTearDown(sub.close);
@@ -92,7 +94,7 @@ void main() {
     );
     await pumpScreen(tester, const ProductScreen(slug: 's25'), overrides: [
       productProvider.overrideWith((ref, slug) async => phone),
-      railsApiProvider.overrideWithValue(api),
+      catalogRepositoryProvider.overrideWithValue(api),
     ]);
     await tester.pump();
     expect(find.byTooltip('Share'), findsOneWidget);
@@ -110,7 +112,7 @@ void main() {
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(ProviderScope(
-      overrides: [railsApiProvider.overrideWithValue(FakeRailsApi(all: cards))],
+      overrides: [catalogRepositoryProvider.overrideWithValue(FakeRailsApi(all: cards))],
       child: MaterialApp(
         home: Scaffold(
           body: ListView(children: [

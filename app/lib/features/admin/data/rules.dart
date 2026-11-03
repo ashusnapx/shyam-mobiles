@@ -225,3 +225,19 @@ bool isMapsPlaceLink(String input) {
   final s = input.trim();
   return s.length <= 500 && s.startsWith('https://') && s.contains('/maps/place/') && parseMapPin(s) != null;
 }
+
+const _gstChars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+final _gstinShape = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$');
+
+/// Null for a well-formed GSTIN (firestore.rules checks the same shape) whose last character is its mod-36 check
+/// character, else what to fix. Uppercase it first.
+String? gstinError(String? v) {
+  final g = (v ?? '').trim();
+  if (!_gstinShape.hasMatch(g)) return 'Enter the 15-character GSTIN, like 23ABCDE1234F1Z5.';
+  var sum = 0;
+  for (var i = 0; i < 14; i++) {
+    final p = _gstChars.indexOf(g[i]) * (i.isOdd ? 2 : 1);
+    sum += p ~/ 36 + p % 36;
+  }
+  return _gstChars[(36 - sum % 36) % 36] == g[14] ? null : 'That GSTIN doesn’t check out. Copy it again from the GST certificate.';
+}

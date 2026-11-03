@@ -11,6 +11,8 @@ import 'package:shyam_mobiles/features/catalog/widgets/product_tile.dart';
 import 'package:shyam_mobiles/features/offers/data/offers.dart';
 import 'package:shyam_mobiles/features/wishlist/data/wishlist.dart';
 
+import 'package:shyam_mobiles/features/catalog/data/catalog_repository.dart';
+
 import 'rails_test.dart' show FakeRailsApi;
 import 'screens_smoke_test.dart';
 
@@ -67,7 +69,7 @@ void main() {
             featured: phones,
             accessories: [cards[3]],
           )),
-      railsApiProvider.overrideWithValue(FakeRailsApi(all: cards)),
+      catalogRepositoryProvider.overrideWithValue(FakeRailsApi(all: cards)),
     ]);
     await tester.pumpAndSettle();
     final order = [
@@ -113,7 +115,7 @@ void main() {
     await pump(tester, '/product/s25', overrides: [
       productProvider.overrideWith((ref, slug) async => product),
       productOffersProvider.overrideWith((ref, id) async => [coupon, sale]),
-      railsApiProvider.overrideWithValue(FakeRailsApi()),
+      catalogRepositoryProvider.overrideWithValue(FakeRailsApi()),
     ]);
     await tester.pump();
     expect(find.text('Samsung Galaxy S25'), findsOneWidget);
@@ -146,7 +148,7 @@ void main() {
     await pump(tester, '/product/s25', overrides: [
       productProvider.overrideWith((ref, slug) async => gone),
       productOffersProvider.overrideWith((ref, id) async => const []),
-      railsApiProvider.overrideWithValue(FakeRailsApi()),
+      catalogRepositoryProvider.overrideWithValue(FakeRailsApi()),
     ]);
     await tester.pump();
     expect(find.text('Ask on WhatsApp when it’s back'), findsOneWidget);
@@ -200,7 +202,7 @@ void main() {
             accessories: <ProductCard>[],
           )),
       latestProvider.overrideWith((ref) async => const []),
-      railsApiProvider.overrideWithValue(FakeRailsApi()),
+      catalogRepositoryProvider.overrideWithValue(FakeRailsApi()),
     ]);
     await tester.pumpAndSettle();
     expect(find.text('Featured phones'), findsNothing);

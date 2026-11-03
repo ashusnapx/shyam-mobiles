@@ -16,6 +16,8 @@ class Category {
         kind: CategoryKind.values.byName(j['kind']),
         sort: j['sort'] ?? 0,
       );
+
+  Map<String, dynamic> toJson() => {'id': id, 'slug': slug, 'name': name, 'kind': kind.name, 'sort': sort};
 }
 
 class Brand {
@@ -66,6 +68,19 @@ class ProductCard {
         coverPath: j['cover_path'],
         isFeatured: j['is_featured'] ?? false,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'slug': slug,
+        'name': name,
+        'brand_name': brandName,
+        'category_slug': categorySlug,
+        'min_price_paise': minPricePaise,
+        'mrp_paise': mrpPaise,
+        'in_stock': inStock,
+        'cover_path': coverPath,
+        'is_featured': isFeatured,
+      };
 }
 
 class ProductPhoto {

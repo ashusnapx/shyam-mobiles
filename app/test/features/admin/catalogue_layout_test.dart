@@ -6,62 +6,33 @@ import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
 import 'package:shyam_mobiles/features/admin/data/admin.dart';
+import 'package:shyam_mobiles/features/admin/data/catalog_admin_repository.dart';
+import 'package:shyam_mobiles/features/admin/data/catalog_admin_repository_firebase.dart' show cataloguePage;
 import 'package:shyam_mobiles/features/admin/data/catalogue.dart';
 import 'package:shyam_mobiles/features/admin/screens/admin_catalogue_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
+import '../../fakes/fake_catalog_admin_repository.dart';
 import '../repairs/layout_harness.dart';
 
 /// admin_catalogue over [rows]: search, the stock filter, paging and the totals, like the SQL.
-class _Api implements CatalogueApi {
-  _Api(this.rows);
+/// Pages and totals as the Firebase build computes them from catalogIndex/staff.
+class _Api extends FakeCatalogAdminRepository {
+  _Api(List<CatalogueRow> rows) {
+    this.rows = rows;
+  }
 
-  final List<CatalogueRow> rows;
-  final calls = <String>[]; // "query|stock|offset"
   bool failNextPage = false;
 
   @override
-  Future<Map<String, dynamic>> page(CatalogueView v, int offset, int limit) async {
+  Future<({List<CatalogueRow> rows, CatalogueSummary summary})> catalogue(CatalogueView v,
+      {required int offset, required int limit}) async {
     if (limit > 1) calls.add('${v.query}|${v.stock.name}|$offset'); // limit 1 is the totals card
     if (failNextPage && offset > 0) {
       failNextPage = false;
       throw const PostgrestException(message: 'boom', code: '500');
     }
-    final q = v.query.toLowerCase();
-    final match = [
-      for (final r in rows)
-        if ((q.isEmpty || '${r.productName} ${r.variantName} ${r.sku}'.toLowerCase().contains(q)) &&
-            switch (v.stock) {
-              StockFilter.all => true,
-              StockFilter.low => r.stock >= 1 && r.stock <= 3,
-              StockFilter.out => r.stock == 0,
-            })
-          r,
-    ];
-    int sum(int Function(CatalogueRow) f) => match.fold(0, (a, r) => a + f(r));
-    return {
-      'rows': [
-        for (final r in match.skip(offset).take(limit))
-          {
-            'variant_id': r.variantId, 'product_id': r.productId, 'product_name': r.productName,
-            'variant_name': r.variantName, 'sku': r.sku, 'price_paise': r.pricePaise, 'mrp_paise': r.mrpPaise,
-            'stock': r.stock, 'variant_active': r.variantActive, 'product_active': r.productActive,
-            'featured': r.featured, 'category_id': r.categoryId, 'brand_id': r.brandId,
-            'updated_at': r.updatedAt.toIso8601String(), 'cover_path': r.coverPath,
-          },
-      ],
-      'summary': offset > 0
-          ? null
-          : {
-              'skus': match.length,
-              'units': sum((r) => r.stock),
-              'value_at_price_paise': sum((r) => r.pricePaise * r.stock),
-              'value_at_mrp_paise': sum((r) => r.mrpPaise * r.stock),
-              'low': match.where((r) => r.stock >= 1 && r.stock <= 3).length,
-              'out': match.where((r) => r.stock == 0).length,
-              'total_skus': rows.length,
-            },
-    };
+    return cataloguePage(rows, v, offset: offset, limit: limit);
   }
 }
 
@@ -105,7 +76,7 @@ final _rows = [
 
 Future<void> _pump(WidgetTester tester, {List<CatalogueRow>? rows, _Api? api, AdminCatalogueScreen screen = const AdminCatalogueScreen()}) =>
     pumpScreen(tester, screen, overrides: [
-      catalogueApiProvider.overrideWithValue(api ?? _Api(rows ?? _rows)),
+      catalogAdminRepositoryProvider.overrideWithValue(api ?? _Api(rows ?? _rows)),
       catalogueProvider.overrideWith2(_Fixed.new),
       adminCategoriesProvider.overrideWithValue(
           const AsyncData([Category(id: 'c1', slug: 'smartphones', name: 'Smartphones', kind: CategoryKind.phone)])),
@@ -233,6 +204,6 @@ void main() {
     await tester.tap(find.text(CatalogueSort.stock.label));
     await tester.pumpAndSettle();
     expect(find.byType(ProductHeader), findsNothing);
-    expect(find.text('Samsung Galaxy S25 Ultra 5G'), findsOneWidget);
+    expect(find.text('Spigen Ultra Hybrid Case for iPhone 16 Pro Max'), findsOneWidget, reason: 'lowest stock first');
   });
 }

@@ -2,13 +2,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../../core/backend.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
-import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/data/address_form.dart' show gstStateCodes, validatePincode;
+
+import 'package:cloud_firestore/cloud_firestore.dart' show FirebaseException;
+import 'package:flutter/services.dart';
+
+import '../../catalog/data/settings_repository.dart';
 import '../../catalog/widgets/store_links.dart';
 import '../data/admin.dart';
 import '../data/photos.dart';
@@ -66,7 +72,21 @@ class _FormState extends ConsumerState<_Form> {
 
   @override
   void dispose() {
-    for (final c in [_fee, _freeMin, _codMax, _phone, _address, _pin, _hours, _repairNote, _returns, _friend, _reward, _referralMin, _referralCap]) {
+    for (final c in [
+      _fee,
+      _freeMin,
+      _codMax,
+      _phone,
+      _address,
+      _pin,
+      _hours,
+      _repairNote,
+      _returns,
+      _friend,
+      _reward,
+      _referralMin,
+      _referralCap,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -180,15 +200,21 @@ class _FormState extends ConsumerState<_Form> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Run Refer & earn'),
-                subtitle: const Text('Customers share a code. The friend gets money off their first order, and the '
-                    'customer gets a coupon once it’s delivered.'),
+                subtitle: const Text(
+                  'Customers share a code. The friend gets money off their first order, and the '
+                  'customer gets a coupon once it’s delivered.',
+                ),
                 value: _referral,
                 onChanged: (v) => setState(() => _referral = v),
               ),
               TextFormField(
                 controller: _friend,
                 enabled: _referral,
-                decoration: const InputDecoration(labelText: 'Friend gets', prefixText: '₹ ', helperText: 'Off their first order'),
+                decoration: const InputDecoration(
+                  labelText: 'Friend gets',
+                  prefixText: '₹ ',
+                  helperText: 'Off their first order',
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: const [RupeesFormatter(maxDigits: 5)],
                 textInputAction: TextInputAction.next,
@@ -198,7 +224,11 @@ class _FormState extends ConsumerState<_Form> {
               TextFormField(
                 controller: _reward,
                 enabled: _referral,
-                decoration: const InputDecoration(labelText: 'Customer gets', prefixText: '₹ ', helperText: 'A coupon when the friend’s order is delivered'),
+                decoration: const InputDecoration(
+                  labelText: 'Customer gets',
+                  prefixText: '₹ ',
+                  helperText: 'A coupon when the friend’s order is delivered',
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: const [RupeesFormatter(maxDigits: 5)],
                 textInputAction: TextInputAction.next,
@@ -208,7 +238,11 @@ class _FormState extends ConsumerState<_Form> {
               TextFormField(
                 controller: _referralMin,
                 enabled: _referral,
-                decoration: const InputDecoration(labelText: 'Minimum order', prefixText: '₹ ', helperText: 'For both coupons'),
+                decoration: const InputDecoration(
+                  labelText: 'Minimum order',
+                  prefixText: '₹ ',
+                  helperText: 'For both coupons',
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: const [RupeesFormatter(maxDigits: 7)],
                 textInputAction: TextInputAction.next,
@@ -218,36 +252,46 @@ class _FormState extends ConsumerState<_Form> {
               TextFormField(
                 controller: _referralCap,
                 enabled: _referral,
-                decoration: const InputDecoration(labelText: 'Rewards per customer a month', helperText: 'Stops one person farming codes'),
+                decoration: const InputDecoration(
+                  labelText: 'Rewards per customer a month',
+                  helperText: 'Stops one person farming codes',
+                ),
                 keyboardType: TextInputType.number,
                 inputFormatters: const [DigitsFormatter(3)],
                 textInputAction: TextInputAction.next,
                 validator: (v) => int.tryParse(v ?? '') == null ? 'Enter a number, 0 or more.' : null,
               ),
               const ListSection('Store'),
-              TextFormField(
-                controller: _phone,
-                decoration: const InputDecoration(labelText: 'Store phone (also WhatsApp)', prefixText: '+91 ', hintText: '98765 43210'),
-                keyboardType: TextInputType.phone,
-                inputFormatters: const [IndianMobileFormatter()],
-                textInputAction: TextInputAction.next,
-                validator: validateMobile,
-              ),
-              _gap(),
-              TextFormField(
-                controller: _address,
-                decoration: InputDecoration(
-                  labelText: 'Address',
-                  alignLabelWithHint: true,
-                  counter: LengthCounter(_address, MaxLen.storeAddress),
+              // Firebase: the phone and address are the business details below, the one copy invoices use too
+              if (backend == Backend.supabase) ...[
+                TextFormField(
+                  controller: _phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Store phone (also WhatsApp)',
+                    prefixText: '+91 ',
+                    hintText: '98765 43210',
+                  ),
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: const [IndianMobileFormatter()],
+                  textInputAction: TextInputAction.next,
+                  validator: validateMobile,
                 ),
-                minLines: 2,
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-                inputFormatters: textInput(MaxLen.storeAddress, multiline: true),
-                validator: (v) => checkText(v, max: MaxLen.storeAddress, multiline: true),
-              ),
-              _gap(),
+                _gap(),
+                TextFormField(
+                  controller: _address,
+                  decoration: InputDecoration(
+                    labelText: 'Address',
+                    alignLabelWithHint: true,
+                    counter: LengthCounter(_address, MaxLen.storeAddress),
+                  ),
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: textInput(MaxLen.storeAddress, multiline: true),
+                  validator: (v) => checkText(v, max: MaxLen.storeAddress, multiline: true),
+                ),
+                _gap(),
+              ],
               TextFormField(
                 controller: _pin,
                 decoration: InputDecoration(
@@ -268,16 +312,13 @@ class _FormState extends ConsumerState<_Form> {
                 minLines: 1,
                 maxLines: 3,
                 onChanged: (_) => setState(() {}),
-                validator: (v) => (v ?? '').trim().isEmpty || parseMapPin(v!) != null
-                    ? null
-                    : 'No pin in India found. Paste “lat, lng” or the full link from the browser, not a maps.app.goo.gl short link.',
+                validator: (v) => (v ?? '').trim().isEmpty || parseMapPin(v!) != null ? null : 'No pin in India found. Paste “lat, lng” or the full link from the browser, not a maps.app.goo.gl short link.',
               ),
               if (pin != null)
                 Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: TextButton.icon(
-                    onPressed: () =>
-                        openExternal(context, mapPinUri(pin.lat, pin.lng), 'Couldn’t open Google Maps.'),
+                    onPressed: () => openExternal(context, mapPinUri(pin.lat, pin.lng), 'Couldn’t open Google Maps.'),
                     icon: const Icon(PhosphorIconsRegular.mapPin),
                     label: const Text('Open in Google Maps'),
                   ),
@@ -304,7 +345,8 @@ class _FormState extends ConsumerState<_Form> {
                 maxLines: 4,
                 inputFormatters: textInput(MaxLen.storeAddress, multiline: true),
                 textCapitalization: TextCapitalization.sentences,
-                validator: (v) => tidy(v).isEmpty ? 'Add a short note' : checkText(v, max: MaxLen.storeAddress, multiline: true),
+                validator: (v) =>
+                    tidy(v).isEmpty ? 'Add a short note' : checkText(v, max: MaxLen.storeAddress, multiline: true),
               ),
               _gap(),
               TextFormField(
@@ -319,9 +361,11 @@ class _FormState extends ConsumerState<_Form> {
                 maxLines: 10,
                 inputFormatters: textInput(MaxLen.returnsPolicy, multiline: true),
                 textCapitalization: TextCapitalization.sentences,
-                validator: (v) =>
-                    tidy(v).isEmpty ? 'Add your returns policy' : checkText(v, max: MaxLen.returnsPolicy, multiline: true),
+                validator: (v) => tidy(v).isEmpty
+                    ? 'Add your returns policy'
+                    : checkText(v, max: MaxLen.returnsPolicy, multiline: true),
               ),
+              const _Business(),
             ],
           ),
         ),
@@ -363,7 +407,10 @@ class _ShopPhotosState extends ConsumerState<_ShopPhotos> {
     await _run(() async {
       final saved = await addStorePhoto(ref, _photos, await readPhoto(file));
       if (mounted) {
-        showMessage(context, 'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}. Customers see it now.');
+        showMessage(
+          context,
+          'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}. Customers see it now.',
+        );
       }
     });
   }
@@ -458,4 +505,188 @@ class _ShopPhotosState extends ConsumerState<_ShopPhotos> {
       ],
     );
   }
+}
+
+/// settings/business (Firebase only): the legal identity on invoices and the policy pages. Its own Save, because the
+/// Rules want a sign-in within 5 minutes for it. There is no PAN field: the GSTIN is the only tax id kept.
+class _Business extends ConsumerWidget {
+  const _Business();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => switch (ref.watch(businessProfileProvider)) {
+    AsyncData(value: final p?) => _BusinessForm(profile: p),
+    AsyncError(:final error) => ErrorView(error: error, onRetry: () => ref.invalidate(businessProfileProvider)),
+    _ => const SizedBox.shrink(), // loading, or the Supabase build
+  };
+}
+
+class _BusinessForm extends ConsumerStatefulWidget {
+  const _BusinessForm({required this.profile});
+
+  final BusinessProfile profile;
+
+  @override
+  ConsumerState<_BusinessForm> createState() => _BusinessFormState();
+}
+
+class _BusinessFormState extends ConsumerState<_BusinessForm> {
+  final _form = GlobalKey<FormState>();
+  late final BusinessProfile _p = widget.profile;
+  late final _trade = TextEditingController(text: _p.tradeName);
+  late final _legal = TextEditingController(text: _p.legalName);
+  late final _gstin = TextEditingController(text: _p.gstin);
+  late final _phone = TextEditingController(text: localPhone(_p.phone));
+  late final _email = TextEditingController(text: _p.email);
+  late final _line1 = TextEditingController(text: _p.line1);
+  late final _city = TextEditingController(text: _p.city);
+  late final _district = TextEditingController(text: _p.district);
+  late final _state = TextEditingController(text: _p.state);
+  late final _pincode = TextEditingController(text: _p.pincode);
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    for (final c in [_trade, _legal, _gstin, _phone, _email, _line1, _city, _district, _state, _pincode]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String get _code => _gstin.text.trim().length >= 2 ? _gstin.text.trim().substring(0, 2) : '';
+
+  Future<void> _save() async {
+    if (_busy || !_form.currentState!.validate()) return;
+    setState(() => _busy = true);
+    try {
+      await saveBusinessProfile(
+        ref,
+        BusinessProfile(
+          tradeName: tidy(_trade.text),
+          legalName: tidy(_legal.text),
+          gstin: _gstin.text.trim(),
+          phone: normalizeIndianPhone(_phone.text)!,
+          email: tidy(_email.text).isEmpty ? null : normalizeEmail(_email.text),
+          line1: tidy(_line1.text),
+          city: tidy(_city.text),
+          district: tidy(_district.text),
+          state: tidy(_state.text),
+          pincode: _pincode.text.trim(),
+        ),
+      );
+      if (mounted) showMessage(context, 'Business details saved');
+    } catch (e) {
+      // Rules refuse this doc unless the sign-in is under 5 minutes old
+      if (mounted) {
+        showMessage(
+          context,
+          e is FirebaseException && e.code == 'permission-denied'
+              ? 'For your security, sign out and in again, then save within 5 minutes.'
+              : adminError(e),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _text(
+    TextEditingController c,
+    String label, {
+    int max = 60,
+    String? hint,
+    TextCapitalization caps = TextCapitalization.words,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: Space.md),
+    child: TextFormField(
+      controller: c,
+      decoration: InputDecoration(labelText: label, hintText: hint),
+      textCapitalization: caps,
+      inputFormatters: textInput(max),
+      textInputAction: TextInputAction.next,
+      validator: (v) => tidy(v).length < 2 ? 'Enter the $label' : checkText(v, max: max),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => Form(
+    key: _form,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ListSection('Business details'),
+        _text(_trade, 'Trade name', max: 100, hint: 'Shyam Online Shop'),
+        _text(_legal, 'Legal name (proprietor)', max: 100),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          child: TextFormField(
+            controller: _gstin,
+            decoration: InputDecoration(
+              labelText: 'GSTIN',
+              helperText: _code.isEmpty ? 'Printed on every invoice.' : 'State code $_code, from the GSTIN.',
+            ),
+            textCapitalization: TextCapitalization.characters,
+            autocorrect: false,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp('[0-9A-Za-z]')),
+              LengthLimitingTextInputFormatter(15),
+              TextInputFormatter.withFunction((_, v) => v.copyWith(text: v.text.toUpperCase())),
+            ],
+            onChanged: (_) => setState(() {}),
+            validator: gstinError,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          child: TextFormField(
+            controller: _phone,
+            decoration: const InputDecoration(labelText: 'Shop phone (also WhatsApp)', prefixText: '+91 '),
+            keyboardType: TextInputType.phone,
+            inputFormatters: const [IndianMobileFormatter()],
+            textInputAction: TextInputAction.next,
+            validator: validateMobile,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          child: TextFormField(
+            controller: _email,
+            decoration: const InputDecoration(labelText: 'Email (optional)'),
+            keyboardType: TextInputType.emailAddress,
+            inputFormatters: emailInput,
+            textInputAction: TextInputAction.next,
+            validator: (v) => tidy(v).isEmpty ? null : validateEmail(v),
+          ),
+        ),
+        _text(_line1, 'Building and street', max: 120, caps: TextCapitalization.sentences),
+        _text(_city, 'Town or city'),
+        _text(_district, 'District'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          child: TextFormField(
+            controller: _state,
+            decoration: const InputDecoration(labelText: 'State'),
+            textCapitalization: TextCapitalization.words,
+            inputFormatters: textInput(60),
+            textInputAction: TextInputAction.next,
+            validator: (v) => gstStateCodes[tidy(v)] == null
+                ? 'Enter the state’s full name, like Madhya Pradesh.'
+                : gstStateCodes[tidy(v)] != _code
+                ? 'This GSTIN is registered in state $_code, not ${tidy(v)}.'
+                : null,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          child: TextFormField(
+            controller: _pincode,
+            decoration: const InputDecoration(labelText: 'Pincode'),
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+            validator: validatePincode,
+          ),
+        ),
+        OutlinedButton(onPressed: _busy ? null : _save, child: const Text('Save business details')),
+      ],
+    ),
+  );
 }

@@ -1,7 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart' show firestoreProvider;
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart' show supabaseProvider;
 import 'catalog.dart' show HomeData, SearchParams;
+import 'catalog_repository_firebase.dart';
+import 'catalog_repository_supabase.dart';
 
 /// What customers browse: categories, brands, the home rails, product pages and search (docs/FIREBASE.md D3: on
 /// Firebase all card reads come from catalogIndex/public, searched on the phone). Owner: engineer B.
@@ -35,5 +40,7 @@ abstract interface class CatalogRepository {
   Future<List<Variant>> variants(List<String> ids);
 }
 
-/// The DI seam (Phase 1: Supabase or Firebase by `backend`); tests use test/fakes/fake_catalog_repository.dart.
-final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => throw UnimplementedError('Phase 1: CatalogRepository'));
+/// The DI seam: Supabase or Firebase by `backend`; tests use test/fakes/fake_catalog_repository.dart.
+final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => backend == Backend.firebase
+    ? FirebaseCatalogRepository(ref.watch(firestoreProvider))
+    : SupabaseCatalogRepository(ref.watch(supabaseProvider)));

@@ -1,57 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/models.dart';
 import '../../../core/network.dart';
-import '../../../core/supabase.dart';
+import '../../../core/supabase.dart' show cacheFor;
+import 'catalog_repository.dart';
 
-/// Columns of `product_cards` that [ProductCard] reads (skips the `search` tsvector).
-const cardColumns =
-    'id, slug, name, is_featured, category_slug, brand_name, min_price_paise, mrp_paise, in_stock, cover_path';
+// shortcut: re-exported for offers.dart and search_query_test until Phase 2 deletes the Supabase side.
+export 'catalog_repository_supabase.dart' show cardColumns, searchQuery;
 
 const searchPageSize = 20;
 const saverPageSize = 12; // data-saver mode
 
-final categoriesProvider = FutureProvider<List<Category>>((ref) async {
-  final rows = await ref.watch(supabaseProvider).from('categories').select().order('sort', ascending: true);
-  return [for (final r in rows) Category.fromJson(r)];
-});
+final categoriesProvider = FutureProvider<List<Category>>((ref) => ref.watch(catalogRepositoryProvider).categories());
 
-final brandsProvider = FutureProvider<List<Brand>>((ref) async {
-  final rows = await ref.watch(supabaseProvider).from('brands').select().order('name', ascending: true);
-  return [for (final r in rows) Brand.fromJson(r)];
-});
+final brandsProvider = FutureProvider<List<Brand>>((ref) => ref.watch(catalogRepositoryProvider).brands());
 
 typedef HomeData = ({List<Category> categories, List<ProductCard> featured, List<ProductCard> accessories});
 
 /// Saved on the phone: a cold start (or no signal) shows the last home at once and refreshes in the background.
 final homeProvider = FutureProvider<HomeData>((ref) {
-  final db = ref.watch(supabaseProvider);
-  return savedOrFetch(ref, 'home', () async {
-    final (categories, featured, accessories) = await (
-      db.from('categories').select().order('sort', ascending: true),
-      // phones first (enum order), so the hero is a phone when one is featured
-      db
-          .from('product_cards')
-          .select(cardColumns)
-          .eq('is_featured', true)
-          .order('category_kind', ascending: true)
-          .order('created_at')
-          .order('id', ascending: true)
-          .limit(10),
-      db
-          .from('product_cards')
-          .select(cardColumns)
-          .eq('category_kind', 'accessory')
-          .eq('in_stock', true) // a deal you can't buy isn't one
-          .lte('min_price_paise', 150000)
-          .order('min_price_paise', ascending: true)
-          .order('id', ascending: true)
-          .limit(10), // Home's "Deals under ₹1,500" rail
-    ).wait;
-    return {'categories': categories, 'featured': featured, 'accessories': accessories};
-  }, homeFromJson);
+  final repo = ref.watch(catalogRepositoryProvider);
+  return savedOrFetch(ref, 'home', () async => homeToJson(await repo.home()), homeFromJson);
 });
+
+/// [HomeData] as the saved copy stores it (the PostgREST row shapes, so copies saved by older builds still parse).
+Map<String, Object?> homeToJson(HomeData h) => {
+      'categories': [for (final c in h.categories) c.toJson()],
+      'featured': [for (final c in h.featured) c.toJson()],
+      'accessories': [for (final c in h.accessories) c.toJson()],
+    };
 
 /// The saved/fetched home payload (PostgREST rows by section) as [HomeData].
 HomeData homeFromJson(Object? json) {
@@ -64,16 +41,10 @@ HomeData homeFromJson(Object? json) {
   );
 }
 
-/// Null when the slug doesn't exist or the product is inactive (RLS hides it).
-final productProvider = FutureProvider.autoDispose.family<Product?, String>((ref, slug) async {
+/// Null when the slug doesn't exist or the product is hidden.
+final productProvider = FutureProvider.autoDispose.family<Product?, String>((ref, slug) {
   cacheFor(ref, const Duration(minutes: 5));
-  final row = await ref
-      .watch(supabaseProvider)
-      .from('products')
-      .select('*, brand:brands(*), category:categories(*), images:product_images(*), variants(*)')
-      .eq('slug', slug)
-      .maybeSingle();
-  return row == null ? null : Product.fromJson(row);
+  return ref.watch(catalogRepositoryProvider).product(slug);
 });
 
 // Search ----------------------------------------------------------------------
@@ -103,32 +74,6 @@ typedef SearchParams = ({
   SearchSort sort,
 });
 
-/// One page of `product_cards` for [p], starting at row [offset]. Always ends on `id` so paging is stable.
-PostgrestTransformBuilder<PostgrestList> searchQuery(
-  PostgrestQueryBuilder table,
-  SearchParams p, {
-  int offset = 0,
-  int pageSize = searchPageSize,
-}) {
-  var q = table.select(cardColumns);
-  final tsquery = prefixTsQuery(p.q);
-  if (tsquery != null) q = q.textSearch('search', tsquery, config: 'simple');
-  if (p.category != null) q = q.eq('category_slug', p.category!);
-  if (p.brand != null) q = q.eq('brand_slug', p.brand!);
-  if (p.minPricePaise != null) q = q.gte('min_price_paise', p.minPricePaise!);
-  if (p.maxPricePaise != null) q = q.lte('min_price_paise', p.maxPricePaise!);
-  if (p.inStock) q = q.eq('in_stock', true);
-  final stocked = q.order('in_stock'); // what can be bought first, in every sort
-  final sorted = switch (p.sort) {
-    // shortcut: no ts_rank through PostgREST, so "relevance" is featured first; needs an RPC for real ranking
-    SearchSort.relevance => stocked.order('is_featured').order('name', ascending: true),
-    SearchSort.newest => stocked.order('created_at'),
-    SearchSort.priceAsc => stocked.order('min_price_paise', ascending: true),
-    SearchSort.priceDesc => stocked.order('min_price_paise'),
-  };
-  return sorted.order('id', ascending: true).range(offset, offset + pageSize - 1);
-}
-
 /// [moreFailed]: the last next-page load failed; paging pauses until a retry.
 typedef SearchResults = ({List<ProductCard> items, int total, bool moreFailed});
 
@@ -151,9 +96,8 @@ class SearchNotifier extends AsyncNotifier<SearchResults> {
 
   Future<(List<ProductCard>, int)> _page(int offset) async {
     final size = ref.read(dataSaverProvider) == DataMode.saver ? saverPageSize : searchPageSize;
-    final res = await searchQuery(ref.read(supabaseProvider).from('product_cards'), params, offset: offset, pageSize: size)
-        .count(CountOption.exact);
-    return ([for (final r in res.data) ProductCard.fromJson(r)], res.count);
+    final res = await ref.read(catalogRepositoryProvider).search(params, offset: offset, limit: size);
+    return (res.items, res.total);
   }
 
   /// Appends the next page. No-op while one is loading, when all rows are loaded, or after a failure unless [retry].

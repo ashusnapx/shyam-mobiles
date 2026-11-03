@@ -17,6 +17,7 @@ import 'package:shyam_mobiles/features/catalog/screens/home_screen.dart';
 import 'package:shyam_mobiles/features/catalog/screens/product_screen.dart';
 import 'package:shyam_mobiles/features/catalog/screens/search_screen.dart';
 import 'package:shyam_mobiles/features/wishlist/data/wishlist.dart';
+import 'package:shyam_mobiles/features/wishlist/data/wishlist_repository.dart';
 import 'package:shyam_mobiles/features/wishlist/screens/wishlist_screen.dart';
 
 ProductCard card(String id, String name, String brand, int rupees, {bool inStock = true}) => ProductCard(
@@ -101,9 +102,9 @@ class FakeCart extends CartNotifier {
   Future<void> add(Variant variant, {int qty = 1}) async => added.add(variant.id);
 }
 
-class FakeWishlistApi implements WishlistApi {
+class FakeWishlistApi implements WishlistRepository {
   @override
-  Future<Set<String>> productIds() async => {'s25', 'case'};
+  Future<List<String>> productIds(String uid) async => ['s25', 'case'];
   @override
   Future<void> add(String userId, String productId) async {}
   @override
@@ -141,7 +142,7 @@ Future<void> pump(
   await tester.pumpWidget(ProviderScope(
     overrides: [
       currentUserIdProvider.overrideWithValue(userId),
-      wishlistApiProvider.overrideWithValue(FakeWishlistApi()),
+      wishlistRepositoryProvider.overrideWithValue(FakeWishlistApi()),
       storeSettingsProvider.overrideWith((ref) async => store),
       categoriesProvider.overrideWith((ref) async => [
             for (final (i, s) in ['smartphones', 'cases-covers', 'screen-guards', 'chargers-cables', 'earbuds-headphones', 'power-banks'].indexed)

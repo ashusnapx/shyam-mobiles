@@ -21,6 +21,20 @@ class FakeSettingsRepository with Fake implements SettingsRepository {
     this.settings = settings;
   }
 
+  BusinessProfile? business;
+
+  @override
+  Future<BusinessProfile?> businessProfile() async {
+    record('businessProfile');
+    return business;
+  }
+
+  @override
+  Future<void> saveBusinessProfile(BusinessProfile profile) async {
+    record('saveBusinessProfile ${profile.gstin}');
+    business = profile;
+  }
+
   @override
   Future<void> saveStorePhotos(List<String> paths) async {
     record('saveStorePhotos ${paths.length}');

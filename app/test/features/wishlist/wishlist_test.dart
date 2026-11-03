@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shyam_mobiles/core/supabase.dart';
 import 'package:shyam_mobiles/features/wishlist/data/wishlist.dart';
+import 'package:shyam_mobiles/features/wishlist/data/wishlist_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class FakeWishlistApi implements WishlistApi {
+class FakeWishlistApi implements WishlistRepository {
   Set<String> ids = {'a'};
   final calls = <String>[];
   final pending = <String, Completer<void>>{}; // writes held open by the test
@@ -17,7 +18,7 @@ class FakeWishlistApi implements WishlistApi {
   }
 
   @override
-  Future<Set<String>> productIds() async => {...ids};
+  Future<List<String>> productIds(String uid) async => [...ids];
   @override
   Future<void> add(String userId, String productId) => _write('add $userId $productId', productId);
   @override
@@ -30,7 +31,7 @@ void main() {
 
   ProviderContainer make(String? userId) {
     final c = ProviderContainer(overrides: [
-      wishlistApiProvider.overrideWithValue(api),
+      wishlistRepositoryProvider.overrideWithValue(api),
       currentUserIdProvider.overrideWithValue(userId),
     ]);
     addTearDown(c.dispose);

@@ -1,7 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/backend.dart';
+import '../../../core/firebase.dart' show firestoreProvider, functionsProvider;
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart' show supabaseProvider;
 import 'admin.dart' show AdminProductRow;
+import 'catalog_admin_repository_firebase.dart';
+import 'catalog_admin_repository_supabase.dart';
 import 'catalogue.dart' show CatalogueRow, CatalogueSummary, CatalogueView;
 
 /// One staff catalogue edit: the new values, guarded by the value the screen showed ([expectStock] /
@@ -50,5 +55,6 @@ abstract interface class CatalogAdminRepository {
   Future<Brand> createBrand(String name);
 }
 
-final catalogAdminRepositoryProvider =
-    Provider<CatalogAdminRepository>((ref) => throw UnimplementedError('Phase 1: CatalogAdminRepository'));
+final catalogAdminRepositoryProvider = Provider<CatalogAdminRepository>((ref) => backend == Backend.firebase
+    ? FirebaseCatalogAdminRepository(ref.watch(firestoreProvider), ref.watch(functionsProvider))
+    : SupabaseCatalogAdminRepository(ref.watch(supabaseProvider)));

@@ -1,15 +1,15 @@
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/paging.dart';
-import '../../../core/supabase.dart';
+import '../../../core/supabase.dart' show cacheFor;
 import 'admin.dart';
+import 'catalog_admin_repository.dart';
 
-// Admin → Catalogue: every variant, 50 at a time from `admin_catalogue` (search, filters, sort and totals run on
-// the server), with quick and bulk edits on the loaded rows. Staff write variants/products directly (RLS "admin
-// write"); hiding is the only removal, nothing is deleted.
+// Admin → Catalogue: every variant, 50 at a time (Supabase: admin_catalogue; Firebase: catalogIndex/staff searched
+// on the phone), with quick and bulk edits on the loaded rows through CatalogAdminRepository.updateVariants, each
+// guarded by the value the screen showed. Hiding is the only removal, nothing is deleted.
 
 const lowStockMax = 3; // same rule as admin_dashboard's low_stock
 const maxStock = 99999;
@@ -186,32 +186,10 @@ typedef RowChange = ({CatalogueRow before, CatalogueRow after});
 
 // Data --------------------------------------------------------------------------
 
-/// `admin_catalogue`: a page of rows for a view, with the totals on the first page. A provider so tests can swap it.
-class CatalogueApi {
-  const CatalogueApi(this._db);
-
-  final SupabaseClient _db;
-
-  Future<Map<String, dynamic>> page(CatalogueView v, int offset, int limit) async =>
-      await _db.rpc<Map<String, dynamic>>('admin_catalogue', params: {
-        'p_query': v.query,
-        'p_category_id': v.categoryId,
-        'p_brand_id': v.brandId,
-        'p_stock': v.stock.name,
-        'p_visibility': v.visibility.name,
-        'p_sort': v.sort.name,
-        'p_offset': offset,
-        'p_limit': limit,
-      });
-}
-
-final catalogueApiProvider = Provider<CatalogueApi>((ref) => CatalogueApi(ref.watch(supabaseProvider)));
-
 /// The totals card for a view. Its own one-row request, so an edit can refresh the totals without reloading pages.
 final catalogueSummaryProvider = FutureProvider.autoDispose.family<CatalogueSummary, CatalogueView>((ref, v) async {
   cacheFor(ref, const Duration(minutes: 2));
-  final j = await ref.watch(catalogueApiProvider).page(v, 0, 1);
-  return catalogueSummaryFromJson(j['summary'] as Map<String, dynamic>);
+  return (await ref.watch(catalogAdminRepositoryProvider).catalogue(v, offset: 0, limit: 1)).summary;
 });
 
 /// The row changed since this screen loaded it (an order sold one, another phone edited it), so nothing was written.
@@ -242,8 +220,7 @@ class CatalogueNotifier extends PagedNotifier<CatalogueRow> {
 
   @override
   Future<List<CatalogueRow>> fetch(int from, int size) async {
-    final j = await ref.read(catalogueApiProvider).page(view, from, size);
-    return [for (final r in j['rows'] as List) CatalogueRow.fromJson(r as Map<String, dynamic>)];
+    return (await ref.read(catalogAdminRepositoryProvider).catalogue(view, offset: from, limit: size)).rows;
   }
 
   CatalogueRow? row(String variantId) => state.value?.items.where((r) => r.variantId == variantId).firstOrNull;
@@ -277,91 +254,91 @@ class CatalogueNotifier extends PagedNotifier<CatalogueRow> {
     ref.invalidate(adminDashboardProvider); // low stock
   }
 
-  /// Writes the stock/price change of [c], only if the row still holds the value this screen showed.
-  Future<void> _writeGuarded(SupabaseClient db, RowChange c) async {
+  CatalogAdminRepository get _repo => ref.read(catalogAdminRepositoryProvider);
+
+  /// Writes [edits]; any skipped as stale (or gone) fails the whole call with [StaleRowException].
+  Future<void> _write(List<VariantEdit> edits) async {
+    if ((await _repo.updateVariants(edits)).isNotEmpty) throw const StaleRowException();
+  }
+
+  /// The stock/price change of [c], guarded by the value this screen showed.
+  static VariantEdit _guarded(RowChange c) {
     final (:before, :after) = c;
     final stock = after.stock != before.stock;
-    var q = db.from('variants').update({
-      if (stock) 'stock': after.stock,
-      if (after.pricePaise != before.pricePaise) 'price_paise': after.pricePaise,
-    }).eq('id', before.variantId);
-    q = stock ? q.eq('stock', before.stock) : q.eq('price_paise', before.pricePaise);
-    if ((await q.select('id')).isEmpty) throw const StaleRowException();
+    return (
+      variantId: before.variantId,
+      expectStock: stock ? before.stock : null,
+      expectPricePaise: stock ? null : before.pricePaise,
+      stock: stock ? after.stock : null,
+      pricePaise: after.pricePaise != before.pricePaise ? after.pricePaise : null,
+      mrpPaise: null,
+      isActive: null,
+    );
   }
+
+  static VariantEdit _set(String variantId, {int? stock, int? pricePaise, int? mrpPaise, bool? isActive}) => (
+        variantId: variantId,
+        expectStock: null,
+        expectPricePaise: null,
+        stock: stock,
+        pricePaise: pricePaise,
+        mrpPaise: mrpPaise,
+        isActive: isActive,
+      );
 
   /// Inline −/+ or a typed number.
   Future<void> setStock(CatalogueRow row, int stock) {
-    final db = ref.read(supabaseProvider);
     final change = (before: row, after: row.copyWith(stock: stock));
-    return _optimistic([row], [change.after], () => _writeGuarded(db, change));
+    return _optimistic([row], [change.after], () => _write([_guarded(change)]));
   }
 
-  /// From the price sheet; the form already checked MRP ≥ price > 0 (the DB checks again).
-  Future<void> setPrice(CatalogueRow row, int pricePaise, int mrpPaise) {
-    final db = ref.read(supabaseProvider);
-    return _optimistic([row], [row.copyWith(pricePaise: pricePaise, mrpPaise: mrpPaise)], () async {
-      await db
-          .from('variants')
-          .update({'price_paise': pricePaise, 'mrp_paise': mrpPaise})
-          .eq('id', row.variantId)
-          .select('id')
-          .single();
-    });
-  }
+  /// From the price sheet; the form already checked MRP ≥ price > 0 (the server checks again).
+  Future<void> setPrice(CatalogueRow row, int pricePaise, int mrpPaise) =>
+      _optimistic([row], [row.copyWith(pricePaise: pricePaise, mrpPaise: mrpPaise)],
+          () => _write([_set(row.variantId, pricePaise: pricePaise, mrpPaise: mrpPaise)]));
 
   /// Show/hide variants: one request.
-  Future<void> setVisible(List<CatalogueRow> rows, bool active) {
-    final db = ref.read(supabaseProvider);
-    return _optimistic(rows, [for (final r in rows) r.copyWith(variantActive: active)],
-        () => _updateIn(db, 'variants', {'is_active': active}, [for (final r in rows) r.variantId]));
-  }
+  Future<void> setVisible(List<CatalogueRow> rows, bool active) =>
+      _optimistic(rows, [for (final r in rows) r.copyWith(variantActive: active)],
+          () => _write([for (final r in rows) _set(r.variantId, isActive: active)]));
 
   /// Feature/unfeature the products of [rows] (every variant row of those products changes).
   Future<void> setFeatured(List<CatalogueRow> rows, bool featured) {
-    final db = ref.read(supabaseProvider);
     final ids = {for (final r in rows) r.productId};
     final affected = [...?state.value?.items.where((r) => ids.contains(r.productId))];
     return _optimistic(affected, [for (final r in affected) r.copyWith(featured: featured)],
-        () => _updateIn(db, 'products', {'is_featured': featured}, [...ids]));
+        () => _repo.setFeatured([...ids], featured));
   }
 
   /// The same stock count for every row (a stock take): one request.
-  Future<void> setStockAll(List<CatalogueRow> rows, int stock) {
-    final db = ref.read(supabaseProvider);
-    return _optimistic(rows, [for (final r in rows) r.copyWith(stock: stock)],
-        () => _updateIn(db, 'variants', {'stock': stock}, [for (final r in rows) r.variantId]));
-  }
-
-  /// Same change on many rows: one PATCH per 100 ids (keeps the URL near 4 KB).
-  Future<void> _updateIn(SupabaseClient db, String table, Map<String, Object> fields, List<String> ids) async {
-    for (var i = 0; i < ids.length; i += 100) {
-      final chunk = ids.sublist(i, min(i + 100, ids.length));
-      final done = await db.from(table).update(fields).inFilter('id', chunk).select('id');
-      if (done.length != chunk.length) throw const StaleRowException(); // a row vanished, or RLS refused it
-    }
-  }
+  Future<void> setStockAll(List<CatalogueRow> rows, int stock) =>
+      _optimistic(rows, [for (final r in rows) r.copyWith(stock: stock)],
+          () => _write([for (final r in rows) _set(r.variantId, stock: stock)]));
 
   /// A different value per row (add/remove stock, price changes): one guarded request each, in order. A row that
   /// changed meanwhile is skipped; a network or server error stops the run. Rows not saved go back to how they were.
   /// Returns each row that wasn't saved with the reason (null: not tried after the run stopped).
   Future<List<(RowChange, Object?)>> applyEach(List<RowChange> changes, void Function(int done) onProgress) async {
-    final db = ref.read(supabaseProvider);
     _put([for (final c in changes) c.after]);
     final failed = <(RowChange, Object?)>[];
     var stale = false;
-    for (final (i, c) in changes.indexed) {
+    // shortcut: 50 edits per request; on Supabase a network error mid-request may leave some of those 50 saved while
+    // the screen shows them unsaved; their guards then skip them on a retry, and a reload shows the truth.
+    for (var i = 0; i < changes.length; i += 50) {
+      final part = changes.sublist(i, min(i + 50, changes.length));
       try {
-        await _writeGuarded(db, c);
-      } on StaleRowException catch (e) {
-        stale = true;
-        failed.add((c, e));
+        final skipped = (await _repo.updateVariants([for (final c in part) _guarded(c)])).toSet();
+        for (final c in part.where((c) => skipped.contains(c.before.variantId))) {
+          stale = true;
+          failed.add((c, const StaleRowException()));
+        }
       } catch (e) {
         failed
-          ..add((c, e))
-          ..addAll([for (final rest in changes.skip(i + 1)) (rest, null)]);
+          ..addAll([for (final c in part) (c, e)])
+          ..addAll([for (final rest in changes.skip(i + part.length)) (rest, null)]);
         break;
       } finally {
-        onProgress(i + 1);
+        onProgress(min(i + 50, changes.length));
       }
     }
     _put([for (final (c, _) in failed) c.before]);
