@@ -119,12 +119,11 @@ def prod_config(text, env, sms_hook):
 
 
 def fill_site(src, dst, env):
-    """Copies site/ to dst with the business details filled in; returns the placeholders still empty."""
+    """Copies firebase/hosting/ to dst with the business details filled in; returns the placeholders still empty."""
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(src, dst)
     values = {ph: env.get(key, '') for ph, key in PLACEHOLDERS.items()}
-    values['[[SMS PROVIDER]]'] = 'MSG91 (Walkover Web Solutions Pvt Ltd)'
     left = set()
     for page in dst.glob('*.html'):
         html = page.read_text()
@@ -345,9 +344,9 @@ class Launch:
             self.skip('site', 'PLAY_SIGNING_SHA256 is empty, so share links won’t open copies installed from Play')
         if self.dry:
             return
-        left = fill_site(ROOT / 'site', ROOT / 'build/site', self.env)
+        left = fill_site(ROOT / 'firebase/hosting', ROOT / 'build/site', self.env)
         if keys:
-            (ROOT / 'build/site/.well-known').mkdir()
+            (ROOT / 'build/site/.well-known').mkdir(exist_ok=True)  # the source has a placeholder copy
             (ROOT / 'build/site/.well-known/assetlinks.json').write_text(assetlinks(keys))
             print(f'  wrote .well-known/assetlinks.json ({len(keys)} key{"s" if len(keys) > 1 else ""})')
         if left:

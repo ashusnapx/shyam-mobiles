@@ -86,7 +86,27 @@ tbody th { font-weight: 700; width: 38%; }
   display: grid; place-items: center; font-size: .8125rem; font-weight: 700;
 }
 
+/* Privacy's What / Why / How long table: one card per row on phones, the last cell labelled */
+@media (max-width: 36rem) {
+  .inventory thead { display: none; }
+  .inventory tr { display: block; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .inventory tr:last-child { border-bottom: 0; }
+  .inventory tbody th, .inventory td { display: block; width: auto; padding: 0; border: 0; }
+  .inventory td { margin-top: 4px; }
+  .inventory td:last-child::before { content: "Kept: "; font-weight: 700; }
+}
+
 address { font-style: normal; }
+
+/* open.html's two buttons */
+.actions { display: grid; gap: 12px; margin: 28px 0; max-width: 22rem; }
+.button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 20px;
+  border-radius: 14px; font-weight: 700; text-decoration: none; text-align: center;
+}
+.button.primary { background: var(--ink); color: var(--paper); }
+.button.secondary { box-shadow: inset 0 0 0 1px var(--outline); }
+.button.secondary:hover { background: var(--well); }
 
 /* Footer --------------------------------------------------------------------- */
 footer.site { background: var(--ink); color: var(--paper); padding: 32px 0 40px; font-size: .875rem; }

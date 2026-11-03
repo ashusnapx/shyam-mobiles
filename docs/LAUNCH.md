@@ -15,7 +15,7 @@ template, with where to get each key, is in the chat of 2026-10-29 and below).
 | `GOOGLE_WEB_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in, in Supabase and in the app build |
 | `RAZORPAY_KEY_ID`, `_KEY_SECRET`, `_WEBHOOK_SECRET` | online payments (`rzp_test_` keys first) |
 | `ANDROID_KEYSTORE_PASSWORD` | the Play upload key, `key.properties`, and the SHA-1 for Google's Android client |
-| `LINK_HOST` (where `site/` is published, e.g. `shyammobiles.in`) | share links `https://<LINK_HOST>/open?p=…&ref=…` in the app, and the App Link the build claims |
+| `LINK_HOST` (where `firebase/hosting/` is deployed: `shyam-mobiles.web.app`) | share links `https://<LINK_HOST>/open?p=…&ref=…` in the app, and the App Link the build claims |
 | `PLAY_SIGNING_SHA256` (Play Console > Setup > App signing, after the first upload) | share links open copies installed from Play, not only the sideloaded `.apk` |
 | `FCM_SERVICE_ACCOUNT` + `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_PROJECT_ID` | phone notifications (paste these to turn them on; see below). Without them the app still shows every notification inside the app |
 | business details | policy pages filled into `build/site/`, ready to publish |
@@ -33,8 +33,9 @@ After the first run:
   need (EMI, saved cards, instant refunds, payment links): docs/RAZORPAY.md.
 - Google Cloud Android client: package `com.shyammobiles.app`, the SHA-1 the script prints, and Play's app-signing
   SHA-1 (Play Console > Setup > App signing) once the first bundle is uploaded.
-- Share links work once `build/site/` is published at `https://<LINK_HOST>`: `/open` must serve `open.html`
-  (most hosts drop the `.html`; GitHub Pages also needs an empty `.nojekyll` to publish `.well-known/`). Without the
+- Share links work once `firebase/hosting/` is deployed (`firebase deploy --only hosting --project shyam-mobiles`
+  from `firebase/`) with the two SHA-256 keys in its `.well-known/assetlinks.json` (the one in `build/site/` has
+  them filled in): it serves `/open` and `/p/<slug>` from `open.html`. Without the
   app, the page sends people to Play with the link as the install referrer, so the app opens it on first launch.
   Rebuild the app after setting `LINK_HOST`: the manifest's App Link host comes from `env/prod.json`.
 - Phone notifications: in the Firebase console make a project, add an Android app with package

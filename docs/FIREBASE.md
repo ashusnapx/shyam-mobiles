@@ -82,7 +82,7 @@ IAM, DPDP) live in **[`docs/SECURITY.md`](SECURITY.md)**. Where the two differ, 
 | `addresses_before_write`, `cart_items_before_insert` (advisory locks + counts) | fixed address ids + `defaultAddressId`, and Rules `lines.size() <= 20` | A / C |
 | pg_cron `notifications-cleanup`, `job-run-details-cleanup` | TTL policies on `expireAt` (notifications, devices, rateLimits) | A |
 | Integrations: Razorpay, MSG91 + DLT, Resend SMTP, Supabase Vault | removed. Phone OTP SMS comes from Firebase. Secrets live in Secret Manager (`defineSecret`) | — |
-| Integrations kept: FCM, Google sign-in, Play Install Referrer, App Links (`site/open.html`) | unchanged. Firebase Dynamic Links shut down on 2025-08-25, and this app never used them | — |
+| Integrations kept: FCM, Google sign-in, Play Install Referrer, App Links (`firebase/hosting/open.html`) | unchanged. Firebase Dynamic Links shut down on 2025-08-25, and this app never used them | — |
 
 ### No clean equivalent, and the replacement chosen
 
@@ -232,7 +232,7 @@ feedback/{id}          { uid|null, kind, rating?, message ≤1000, orderId?, rep
 counters/{orders|repairs|invoice-2026-27}  { next: int } S
 ```
 
-`cancelledBy` replaces today's "`reserved_until` null means a deliberate cancel" trick. `settings/store` loses `storePhone`/`storeAddress`: they now live in `settings/business`, the single source used by invoices, the policy pages (`site/`) and the app's call and WhatsApp buttons. **The proprietor's PAN is never stored, logged or derived as its own field anywhere.** The GSTIN is the only tax identifier we keep.
+`cancelledBy` replaces today's "`reserved_until` null means a deliberate cancel" trick. `settings/store` loses `storePhone`/`storeAddress`: they now live in `settings/business`, the single source used by invoices, the policy pages (`firebase/hosting/`) and the app's call and WhatsApp buttons. **The proprietor's PAN is never stored, logged or derived as its own field anywhere.** The GSTIN is the only tax identifier we keep.
 
 ### Denormalised fields and how they stay in sync
 
@@ -396,7 +396,7 @@ SMS is now the one cost that grows. Sessions persist until sign-out, so a phone 
 4. Build → **Authentication** → Sign-in method → enable **Google** (support email) and **Phone**. Add the test numbers from §4. Settings → **Upgrade to Identity Platform** (free under 50k MAU) → **SMS region policy: allow India only**.
 5. Project settings → Android app → **add SHA-1 and SHA-256** for (a) the debug key (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`), (b) the upload key, and (c) **Play App Signing** (Play Console → Test and release → App integrity → App signing key certificate).
 6. Play Console → App integrity → **Play Integrity API → link the Cloud project**. Firebase → **App Check** → register the Android app with Play Integrity.
-7. Enable **Analytics** (GA4, turn off Google signals) and **Crashlytics**. Update the privacy policy (`site/`) and the Play **Data safety** form (crash logs, app interactions).
+7. Enable **Analytics** (GA4, turn off Google signals) and **Crashlytics**. Update the privacy policy (`firebase/hosting/`) and the Play **Data safety** form (crash logs, app interactions).
 8. On the Mac: `nvm install 22`, `npm i -g firebase-tools`, `firebase login`, then `firebase use shyam-mobiles` in `firebase/`.
 9. PhonePe Business dashboard: paste the test, then live, Client ID, Client Secret, Client Version and Merchant ID into `firebase functions:secrets:set …` (engineer D runs it with you). Set the webhook URL to the `phonepeWebhook` URL printed by deploy, with a username and password you choose.
 10. After the first deploy: sign in on the app with **7987559272** and tap **Set up as shop owner**. Then add staff in Admin → Staff.

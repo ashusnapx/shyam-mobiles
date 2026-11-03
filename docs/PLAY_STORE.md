@@ -1,21 +1,21 @@
 # Launch checklist: policy site, Google Play, Razorpay
 
-Policy pages live in `site/` (static HTML + one `style.css`, no JS). Host the folder on GitHub Pages or similar. Every page is dated 29 October 2026. Requirements were checked on 29 Oct 2026; sources are at the bottom.
+Policy pages live in `firebase/hosting/` (static HTML + one `style.css`; only the share-link page has a script, `open.js`), served by Firebase Hosting at https://shyam-mobiles.web.app (`firebase/firebase.json` → `hosting`). The app opens them inside its own screen (`/policy/<page>`, a WebView with JavaScript off). Every page is dated 3 November 2026. Requirements were checked on 29 Oct 2026; sources are at the bottom.
 
 ## 1. Fill the placeholders
 
-Search `site/` for `[[` and replace each one everywhere. Six remain:
+Search `firebase/hosting/` for `[[` and replace each one everywhere, then deploy (§3). Four remain in the pages, plus the two key fingerprints in `.well-known/assetlinks.json`:
 
 | Placeholder | Put in | Appears in |
 |---|---|---|
-| `[[LEGAL BUSINESS NAME]]` | Proprietor or firm name exactly as on PAN/GST/Razorpay KYC (e.g. "Ram Kumar, proprietor") | every page (footer), plus About, Privacy, Terms, Contact, Delete account |
-| `[[GSTIN]]` | 15-character GSTIN | every page (footer), About, Contact |
+| `[[LEGAL BUSINESS NAME]]` | Legal name exactly as on the GST certificate (e.g. "Ram Kumar, proprietor"). Until then the pages name the seller "Shyam Online Shop (Shyam Mobiles)" | the Business/Seller details tables on About, Terms and Contact |
 | `[[SUPPORT EMAIL]]` | A monitored inbox. It is also the grievance and deletion address. Keep `mailto:` links valid. | every page (footer), Privacy, Refunds, Contact, Delete account |
 | `[[GRIEVANCE OFFICER NAME]]` | A real person, usually the owner | Contact, Privacy |
 | `[[DELIVERY TIME]]` | e.g. "1–2 days in Waidhan, 2–4 days elsewhere in Singrauli district" | Shipping |
-| `[[SMS PROVIDER]]` | MSG91 or Twilio, whichever sends the OTPs | Privacy |
+| `[[PLAY APP SIGNING KEY SHA-256]]` | Play Console > Test and release > Setup > App signing > "App signing key certificate" SHA-256 (after the first upload) | `.well-known/assetlinks.json` |
+| `[[UPLOAD KEY SHA-256]]` | the upload key's SHA-256 (`keytool -list -v -keystore app/android/upload-keystore.jks`; `scripts/launch.py --only signing` prints it). Delete this line if you never share a sideloaded `.apk` | `.well-known/assetlinks.json` |
 
-Already filled from the founder's details: shop name (श्याम मोबाइल शॉप, Shyam Mobile Shop), address (Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886), phone and WhatsApp (+91 79875 59272), brands. **Check:** the pages say "Shop address". If the GST registered address differs, add it on About and Contact. Store hours say "as shown in the app", so keep `store_settings.store_hours` correct.
+Already filled from the founder's details and GST profile: business name Shyam Online Shop, GSTIN 23BXEPG0619P2ZG (Madhya Pradesh), shop name (श्याम मोबाइल शॉप, Shyam Mobile Shop), address (Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886), phone and WhatsApp (+91 79875 59272), brands. **Check:** the pages say "Shop address". If the GST registered address differs, add it on About and Contact. Store hours say "as shown in the app", so keep `store_settings.store_hours` correct.
 
 ## 2. Decisions written into the pages: confirm or edit
 
@@ -24,17 +24,17 @@ These are promises to shoppers. Change the page if you can't keep one.
 - **Money values match `store_settings` defaults:** delivery ₹49 below ₹999, free at ₹999+, COD up to ₹25,000 total. If you change them in Admin, change About, Terms and Shipping too.
 - **Delivery area:** "Waidhan and nearby areas of Singrauli district". The app accepts any Indian PIN code, so the page promises a call and a full refund if you can't deliver.
 - **Returns** (matches the app's default `returns_policy`): unopened items within 7 days; damaged, wrong or fake items reported within 48 hours; free pickup when it's our fault; change-of-mind returns at the buyer's cost, with the delivery fee not refunded.
-- **Refunds:** issued from the Razorpay dashboard within 2 working days; banks usually take 5–7 working days (Razorpay's stated normal-refund time). COD refunds go by UPI, bank transfer or cash at the shop.
-- **Grievances:** acknowledged within 24 hours (with a complaint number), resolved within 15 days. That is the IT Rules timeline, which is also stricter than the E-Commerce Rules (48 h / 1 month) and DPDP (90 days max), so it meets all three.
-- **Deletion requests made without the app** are done within 7 days of confirming identity.
+- **Refunds:** started through PhonePe (Admin → the order → refund) within 2 working days; banks usually take 5–7 working days. COD refunds go by UPI, bank transfer or cash at the shop.
+- **Grievances and privacy requests:** answered within 48 hours (with a complaint number), resolved within 1 month: the Consumer Protection (E-Commerce) Rules 2020 r.4 timeline, inside DPDP's 90-day maximum (SECURITY §4.8).
+- **Deletion requests made without the app** are answered within 48 hours and done within 7 days (SECURITY §4.6).
 - **No marketing messages**, a tax invoice with every order, and no repair payments in the app.
 - **Retention:** orders, repair bookings and payment records are kept 72 months from the GST annual-return due date for that financial year (CGST Act s.36), then deleted. **No code deletes them yet.** Do a yearly purge, or build a `pg_cron` job before the first records reach that age (around 2033).
 
 ## 3. Host the site
 
-- Publish `site/` at a public HTTPS URL. Each page must load without login, outside India too (Play rejects geofenced URLs and PDFs).
-- URLs for the forms below: `<site>/privacy.html`, `<site>/delete-account.html`, `<site>/terms.html`, `<site>/refunds.html`, `<site>/shipping.html`, `<site>/contact.html`, `<site>/index.html` (About), `<site>/index.html#pricing` (Pricing).
-- **App gap (not fixed here):** Play requires a privacy policy link or text *inside the app*. Today the sign-in screen only says "By continuing you agree to the Terms and Privacy Policy" with no links, and the Account screen has none. Add links to `privacy.html` and `terms.html` on both screens before submitting.
+- Deploy from `firebase/`: `firebase deploy --only hosting --project shyam-mobiles`. Each page must load without login, outside India too (Play rejects geofenced URLs and PDFs). Changed `style.css` or `open.js`? They are cached for a year, so bump `?v=` where every page links them.
+- URLs for the forms below: `https://shyam-mobiles.web.app/privacy`, `/delete-account`, `/terms`, `/refunds`, `/shipping`, `/contact`, `/` (About), `/#pricing` (Pricing). The old `.html` addresses redirect to these.
+- Inside the app: Account → About & policies and the sign-in screen's Terms and Privacy Policy links open these pages in the app (`/policy/<page>`), so Play's in-app privacy-policy requirement is met once `POLICIES_URL` is set in the build.
 
 ## 4. Google Play Console
 

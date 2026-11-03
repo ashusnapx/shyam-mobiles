@@ -97,7 +97,7 @@
         "rule": "overused-font",
         "value": "plus jakarta sans",
         "files": [
-          "site/open.html"
+          "firebase/hosting/open.html"
         ],
         "createdAt": "2026-10-30T12:52:01.610454Z",
         "reason": "sanctioned exception: Plus Jakarta Sans is the app's body face (user approved the mockup typography 2026-10-29); the share-link page matches the app and the other policy pages"

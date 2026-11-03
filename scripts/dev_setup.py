@@ -60,7 +60,7 @@ def main() -> None:
         'RAZORPAY_KEY_ID': '',
         'GOOGLE_WEB_CLIENT_ID': '',
         'GOOGLE_IOS_CLIENT_ID': '',
-        'POLICIES_URL': '',  # set once site/ is published
+        'POLICIES_URL': '',  # https://shyam-mobiles.web.app once firebase/hosting/ is deployed
         # .example is reserved (RFC 2606): share links look real in testing but can never open a stranger's site
         'LINK_HOST': 'shyammobiles.example',
         'DEV_LOGIN': 'true',

@@ -261,7 +261,7 @@ Share links: `https://<LINK_HOST>/open?p=<slug>|o=<offer id>&ref=<code>` (produc
 share sheets; the signed-in sharer's referral code is added when referrals are on). Android claims them as App Links
 (and `shyammobiles://open?…`); the router sends `/open` to the product, offer or home and keeps `ref` on the phone
 until someone signs in, then `apply_referral_code` once if `can_enter_code` (REFERRAL_* refusals drop it quietly).
-Without the app, `site/open.html` offers the app (intent://) or Play with the link as the install referrer, which the
+Without the app, `firebase/hosting/open.html` offers the app (intent://) or Play with the link as the install referrer, which the
 app follows on its first launch.
 
 Browsing needs no sign-in. Cart, wishlist, checkout, orders, repairs and account redirect to `/sign-in?from=<path>` and come back after login.

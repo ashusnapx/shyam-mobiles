@@ -113,7 +113,7 @@ phone or SMS flood costs little; and we collect only what the shop needs, keep i
 - **Notifications:** order, payment and repair channels use `NotificationVisibility.private` with a public version reading "Shyam Mobiles: you have an update", so the lock screen never shows amounts or addresses.
 - **Logs:** `avoid_print` lint. `debugPrint` only under `kDebugMode`. Never log tokens, OTPs, phones, addresses or GSTINs. Crashlytics custom keys come from an allowlist (§4.4).
 - **Permissions:** drop `ACCESS_FINE_LOCATION` and keep `ACCESS_COARSE_LOCATION` (address prefill: the position stays on the phone and goes only to the platform geocoder). In Phase 2, re-audit the merged manifest once Razorpay's merged permissions are gone. No SMS read permission: SMS Retriever needs none.
-- **Deep links:** verified App Links only (`site/.well-known/assetlinks.json`). The router accepts only known routes (`core/links.dart`).
+- **Deep links:** verified App Links only (`firebase/hosting/.well-known/assetlinks.json`). The router accepts only known routes (`core/links.dart`).
 
 ## 4. Privacy by design (India's DPDP Act 2023 and DPDP Rules 2025)
 
@@ -165,7 +165,7 @@ TTL policies on `expireAt`/`purgeAt` for notifications, devices, rateLimits, fee
 ### 4.6 Account deletion (in-app and web)
 
 - **In the app:** `deleteAccount` (recent login, replay-protected). It keeps today's `ACTIVE_ORDERS` guard. **Orders and invoices are kept with `uid: null`** (GST law). Everything else is deleted: `users/{uid}` with its addresses, notifications, coupons and wishlist; `carts`, `devices`, `rateLimits`, `referralCodes`; the user's `referrals` (the referee side; the referrer side is anonymised); repairs; feedback; and finally the Auth user.
-- **On the web** (Play requirement): `site/delete-account.html` (it exists; update the text). The user messages or calls from the registered number. Staff verify the number and run `adminDeleteAccount({phone})` (TOTP + recent login). We acknowledge within 48 hours and finish within 7 days. This URL goes in the Play Data safety form.
+- **On the web** (Play requirement): `https://shyam-mobiles.web.app/delete-account` (`firebase/hosting/delete-account.html`, rewritten 2026-11-03). The user messages or calls from the registered number. Staff verify the number and run `adminDeleteAccount({phone})` (TOTP + recent login). We acknowledge within 48 hours and finish within 7 days. This URL goes in the Play Data safety form.
 
 ### 4.7 Data export (right to access, DPDP s.11)
 
@@ -173,7 +173,7 @@ Account → Download my data → `exportMyData` returns JSON: profile, addresses
 
 ### 4.8 Grievance officer and breach process
 
-- **Grievance officer:** the owner (or a named person), with name, phone 7987559272 and email on `site/privacy.html`, `site/contact.html` and in Account → Help. Acknowledge within 48 hours and resolve within 1 month (Consumer Protection (E-Commerce) Rules 2020, r.4; DPDP s.8(10)).
+- **Grievance officer:** the owner (or a named person), with name, phone 7987559272 and email on `firebase/hosting/privacy.html`, `firebase/hosting/contact.html` and in Account → Help. Acknowledge within 48 hours and resolve within 1 month (Consumer Protection (E-Commerce) Rules 2020, r.4; DPDP s.8(10)).
 - **Breach runbook**, kept in this file:
   1. Detect: §2.6 alerts.
   2. Contain: revoke tokens, rotate the PhonePe secrets, pause sign-ups, deploy a lock-down rule for the affected paths, set `maxInstances: 0` on the abused functions.
@@ -183,7 +183,7 @@ Account → Download my data → `exportMyData` returns JSON: profile, addresses
 
 ### 4.9 Privacy policy and Play Data safety
 
-- `site/privacy.html` (exists): replace Supabase, Razorpay and MSG91 with Google Firebase (data stored in Mumbai, asia-south1; Analytics and Crashlytics may process outside India) and PhonePe (payments). Add the §4.1 table, rights, the grievance officer, and a Hindi version.
+- `firebase/hosting/privacy.html` (rewritten 2026-11-03; the Hindi version is still to do): replaces Supabase, Razorpay and MSG91 with Google Firebase (data stored in Mumbai, asia-south1; Analytics and Crashlytics may process outside India) and PhonePe (payments). Add the §4.1 table, rights, the grievance officer, and a Hindi version.
 - **Data safety answers:**
   - **Collected:** Personal info (name, phone number, address), required, for app functionality and account management. Financial info: purchase history. App activity: app interactions, optional (analytics). App info and performance: crash logs and diagnostics. Device or other IDs: FCM token and Firebase installation id, for app functionality and fraud prevention (App Check).
   - **Not collected:** location (used on the phone only), search history, photos, contacts.
