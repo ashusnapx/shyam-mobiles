@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'generative.dart' show seedHash;
+
 /// Ink + colour (docs/palette-ideas.html, option 4 with 1–3 folded in): black buttons and text stay, and colour
 /// comes from the peacock feather in the logo. Peacock teal for information, emerald for savings and anything done,
 /// saffron for repairs, gold for deals. Plum, indigo and ocean widen the range for slides, categories and section
@@ -46,7 +48,49 @@ abstract final class BrandColors {
 
   static const sand = Color(0xFFF7F0E3);
   static const sandInk = Color(0xFF7A5B2E);
+
+  // gold can never be text (2.14 on white): amber is the deal family's text and icon colour (7.09 on white)
+  static const amber = Color(0xFF92400E);
+  static const amberMist = Color(0xFFFEF3C7);
+
+  static const violet = Color(0xFF6D28D9);
+  static const violetMist = Color(0xFFEDE9FE);
+
+  static const slate = Color(0xFF475569);
+  static const slateMist = Color(0xFFF1F5F9);
+
+  static const whatsapp = Color(0xFF25D366); // WhatsApp's own green: ink text on it (white fails)
 }
+
+/// A background and the text or icon colour that sits on it.
+typedef Tint = (Color bg, Color fg);
+
+/// Each part of the app has one colour (its nav pill, empty-state art, icon wells and section pill), so you always
+/// know where you are. Every fg passes 4.5:1 on its bg.
+abstract final class Worlds {
+  static const Tint shop = (BrandColors.peacockMist, BrandColors.peacock);
+  static const Tint search = (BrandColors.oceanMist, BrandColors.ocean);
+  static const Tint repairs = (BrandColors.cream, BrandColors.saffron);
+  static const Tint cart = (BrandColors.mint, BrandColors.emerald);
+  static const Tint account = (BrandColors.plumMist, BrandColors.plum);
+  static const Tint admin = (BrandColors.indigoMist, BrandColors.indigo);
+  static const Tint offers = (BrandColors.amberMist, BrandColors.amber);
+}
+
+/// Fixed category colours, so Phones is always indigo (generated ones once made it red-pink).
+const categoryTints = <String, Tint>{
+  'smartphones': (BrandColors.indigoMist, BrandColors.indigo),
+  'keypad-phones': (BrandColors.slateMist, BrandColors.slate),
+  'cases-covers': (BrandColors.violetMist, BrandColors.violet),
+  'screen-guards': (BrandColors.peacockMist, BrandColors.peacock),
+  'chargers-cables': (BrandColors.oceanMist, BrandColors.ocean),
+  'earbuds-headphones': (BrandColors.plumMist, BrandColors.plum),
+  'power-banks': (BrandColors.sand, BrandColors.sandInk),
+};
+
+/// A category's tint; a slug added later takes a stable one from the same table.
+Tint categoryTint(String slug) =>
+    categoryTints[slug] ?? categoryTints.values.elementAt(seedHash(slug) % categoryTints.length);
 
 /// One gradient per featured slide, in turn: peacock, marigold, emerald, plum, indigo, ocean. White text passes AA on
 /// every stop. Banners store their tone as this index (0..5, a DB check).
@@ -69,8 +113,8 @@ const heroAccents = [
   Color(0xFF7DD3FC),
 ];
 
-/// Category tile tints (background, icon), so the home grid reads at a glance. Each icon passes 3:1 on its tint
-/// (non-text contrast).
+/// Old category tile tints, kept only for the sign-in perks until that screen moves to [Worlds] (its pink pair reads
+/// as red, so nothing new should use this).
 const tileTints = [
   (BrandColors.peacockMist, BrandColors.peacock),
   (BrandColors.cream, BrandColors.saffron),
@@ -85,14 +129,15 @@ const tileTints = [
 ];
 
 /// Soft band behind a Home or product-page section and the accent pill beside its title (background, accent), so
-/// each section reads as its own place without loud colour. Every accent passes 3:1 on its band.
+/// each section reads as its own place without loud colour. Deals are amber: saffron belongs to repairs.
 const sectionTints = (
-  deals: (BrandColors.cream, BrandColors.saffron),
+  deals: (BrandColors.amberMist, BrandColors.amber),
   phones: (BrandColors.indigoMist, BrandColors.indigo),
   recent: (BrandColors.plumMist, BrandColors.plum),
   explore: (BrandColors.sand, BrandColors.sandInk),
   offers: (BrandColors.mint, BrandColors.emerald),
   fits: (BrandColors.peacockMist, BrandColors.peacock),
+  similar: (BrandColors.oceanMist, BrandColors.ocean),
 );
 
 abstract final class Space {
@@ -105,16 +150,33 @@ abstract final class Space {
 }
 
 abstract final class Radii {
+  static const xs = 6.0; // tags
   static const sm = 8.0;
+  static const chip = 10.0; // chips, icon wells
   static const md = 12.0;
+  static const button = 14.0;
   static const lg = 16.0;
+  static const hero = 20.0; // status heroes, carousel slides
   static const xl = 24.0;
 }
 
+abstract final class IconSizes {
+  static const xs = 12.0; // inside a tag
+  static const sm = 16.0; // chevrons, inline
+  static const md = 20.0; // list rows, wells
+  static const lg = 24.0; // app bar, buttons
+  static const xl = 44.0; // empty states
+}
+
 abstract final class Motion {
+  static const press = Duration(milliseconds: 90);
   static const fast = Duration(milliseconds: 150);
   static const normal = Duration(milliseconds: 250);
   static const enter = Duration(milliseconds: 420);
+  static const slide = Duration(milliseconds: 500); // the home carousel
+  static const bump = Duration(milliseconds: 550);
+  static const slow = Duration(milliseconds: 700);
+  static const stagger = Duration(milliseconds: 55); // between items rising in
 }
 
 // Ink stays primary (buttons, selection); the roles below carry the colour into every screen.

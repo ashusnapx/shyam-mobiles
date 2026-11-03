@@ -14,6 +14,7 @@ import '../format.dart';
 import '../network.dart';
 import '../supabase.dart';
 import '../theme/tokens.dart';
+import 'blocks.dart' show toneColors;
 import 'motion.dart';
 
 /// Product photo from the `product-images` bucket on a soft tinted well, with an icon when there's no photo.
@@ -92,14 +93,26 @@ class _NetworkPhoto extends ConsumerWidget {
   }
 }
 
-/// "₹1,29,999  ₹1,39,999  7% off"
+/// "₹1,29,999  ₹1,39,999  7% off". [stacked] is the product tile's: the price on one line and the MRP with "% off"
+/// on a fixed-height line under it (empty with no discount), so every tile in a row is the same height.
+/// [showSaving] (the product page) adds "You save ₹3,000 (4%)" under the price.
 class PriceTag extends StatelessWidget {
-  const PriceTag({super.key, required this.pricePaise, this.mrpPaise, this.large = false, this.prefix});
+  const PriceTag({
+    super.key,
+    required this.pricePaise,
+    this.mrpPaise,
+    this.large = false,
+    this.prefix,
+    this.stacked = false,
+    this.showSaving = false,
+  });
 
   final int pricePaise;
   final int? mrpPaise;
   final bool large;
   final String? prefix; // e.g. "From"
+  final bool stacked;
+  final bool showSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +120,45 @@ class PriceTag extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     const tabular = [FontFeature.tabularFigures()];
     final off = mrpPaise == null ? 0 : discountPercent(pricePaise, mrpPaise!);
-    return Wrap(
+    final mrp = off > 0
+        ? Text(
+            formatInr(mrpPaise!),
+            semanticsLabel: 'MRP ${formatInr(mrpPaise!)}',
+            style: t.bodySmall?.copyWith(
+              color: c.onSurfaceVariant,
+              decoration: TextDecoration.lineThrough,
+              fontFeatures: tabular,
+            ),
+          )
+        : null;
+    final offStyle = t.labelMedium?.copyWith(color: BrandColors.emerald, fontWeight: FontWeight.w700);
+    if (stacked) {
+      final price = Text(
+        [?prefix, formatInr(pricePaise)].join(' '),
+        maxLines: 1,
+        style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontFeatures: tabular),
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // a long price shrinks to fit instead of wrapping
+          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: price),
+          const SizedBox(height: 2),
+          SizedBox(
+            height: MediaQuery.textScalerOf(context).scale(13) * 1.3,
+            child: mrp == null
+                ? null
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(children: [mrp, const SizedBox(width: 6), Text('$off% off', style: offStyle)]),
+                  ),
+          ),
+        ],
+      );
+    }
+    final tag = Wrap(
       crossAxisAlignment: WrapCrossAlignment.end,
       spacing: Space.sm,
       children: [
@@ -116,55 +167,85 @@ class PriceTag extends StatelessWidget {
           CountTo(pricePaise, style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800))
         else
           Text(formatInr(pricePaise), style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontFeatures: tabular)),
-        if (off > 0) ...[
-          Text(
-            formatInr(mrpPaise!),
-            semanticsLabel: 'MRP ${formatInr(mrpPaise!)}',
-            style: t.bodySmall?.copyWith(
-              color: c.onSurfaceVariant,
-              decoration: TextDecoration.lineThrough,
-              fontFeatures: tabular,
-            ),
-          ),
-          Text('$off% off', style: t.labelMedium?.copyWith(color: c.secondary)),
-        ],
+        if (mrp != null) ...[mrp, if (!showSaving) Text('$off% off', style: offStyle)],
+      ],
+    );
+    if (!showSaving || mrp == null) return tag;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        tag,
+        const SizedBox(height: 2),
+        Text(
+          'You save ${formatInr(mrpPaise! - pricePaise)} ($off%)',
+          style: t.labelLarge?.copyWith(color: BrandColors.emerald, fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }
 }
 
+/// The icon on two soft circles in the screen's [Worlds] colour, a title in the brand face and one way forward; sits
+/// a little above centre.
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.title, this.message, this.action, this.art});
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.message,
+    this.action,
+    this.art,
+    this.tone = Worlds.shop,
+  });
 
   final IconData icon;
   final Widget? art; // an illustration in place of the icon's circle
   final String title;
   final String? message;
   final Widget? action;
+  final Tint tone;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final c = Theme.of(context).colorScheme;
-    return Center(
+    final (bg, fg) = tone;
+    return Align(
+      alignment: const Alignment(0, -0.2),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(Space.xxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             art ??
-                DecoratedBox(
-                  decoration: BoxDecoration(color: c.primaryContainer, shape: BoxShape.circle),
-                  child: Padding(
-                    padding: const EdgeInsets.all(Space.xl),
-                    child: Icon(icon, size: 36, color: c.onPrimaryContainer),
+                ExcludeSemantics(
+                  child: Container(
+                    width: 152,
+                    height: 152,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: bg.withValues(alpha: 0.45), shape: BoxShape.circle),
+                    child: Container(
+                      width: 112,
+                      height: 112,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+                      child: Icon(icon, size: IconSizes.xl, color: fg),
+                    ),
                   ),
                 ),
             const SizedBox(height: Space.xl),
-            Text(title, style: t.titleLarge, textAlign: TextAlign.center),
+            Text(
+              title,
+              style: t.displaySmall?.copyWith(fontSize: 22, height: 1.2, letterSpacing: -0.4),
+              textAlign: TextAlign.center,
+            ),
             if (message != null) ...[
               const SizedBox(height: Space.sm),
-              Text(message!, style: t.bodyMedium?.copyWith(color: c.onSurfaceVariant), textAlign: TextAlign.center),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300),
+                child: Text(message!, style: t.bodyMedium?.copyWith(color: c.onSurfaceVariant), textAlign: TextAlign.center),
+              ),
             ],
             if (action != null) ...[const SizedBox(height: Space.xl), action!],
           ],
@@ -183,6 +264,8 @@ class ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => EmptyState(
         icon: PhosphorIconsRegular.cloudX,
+        // grey, not red: no signal is not something the customer did wrong
+        tone: (Theme.of(context).colorScheme.surfaceContainerHigh, BrandColors.graphite),
         title: 'Couldn’t load this',
         message: friendlyError(error),
         action: isSessionError(error)
@@ -208,16 +291,25 @@ class ErrorView extends StatelessWidget {
 
 /// Shown on tab roots (Cart, Repairs, Account) when signed out.
 class SignInPrompt extends StatelessWidget {
-  const SignInPrompt({super.key, required this.icon, required this.title, required this.message, required this.from});
+  const SignInPrompt({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.from,
+    this.tone = Worlds.shop,
+  });
 
   final IconData icon;
   final String title;
   final String message;
   final String from;
+  final Tint tone; // the tab's [Worlds] colour
 
   @override
   Widget build(BuildContext context) => EmptyState(
         icon: icon,
+        tone: tone,
         title: title,
         message: message,
         action: FilledButton(
@@ -267,7 +359,7 @@ class _DelayedRevealState extends State<_DelayedReveal> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 250), () => setState(() => _shown = true));
+    _timer = Timer(Motion.normal, () => setState(() => _shown = true));
   }
 
   @override
@@ -335,23 +427,68 @@ class QtyStepper extends StatelessWidget {
   }
 }
 
+/// Every section title in the app: the brand face, an [accent] pill before it when it sits on a coloured band, and
+/// a 48 dp "See all ›" ([onSeeAll]) that opens the full list of what the section shows. [inset] false: the list
+/// around it already has side padding. [actionLabel] / [onAction] are the older spelling of a link.
 class SectionHeader extends StatelessWidget {
-  const SectionHeader(this.title, {super.key, this.actionLabel, this.onAction});
+  const SectionHeader(
+    this.title, {
+    super.key,
+    this.accent,
+    this.onSeeAll,
+    this.actionLabel,
+    this.onAction,
+    this.trailing,
+    this.inset = true,
+  });
 
   final String title;
-  final String? actionLabel;
+  final Color? accent;
+  final VoidCallback? onSeeAll;
+  final String? actionLabel; // default "See all"
   final VoidCallback? onAction;
+  final Widget? trailing; // in place of the link
+  final bool inset;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(Space.lg, Space.xl, Space.sm, Space.sm),
-        child: Row(
-          children: [
-            Expanded(child: Semantics(header: true, child: Text(title, style: Theme.of(context).textTheme.titleLarge))),
-            if (actionLabel != null) TextButton(onPressed: onAction, child: Text(actionLabel!)),
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final onLink = onSeeAll ?? onAction;
+    final side = inset ? Space.lg : 0.0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(side, accent == null ? Space.xl : Space.md, inset ? Space.xs : 0, Space.sm),
+      child: Row(
+        children: [
+          if (accent != null) ...[
+            DecoratedBox(
+              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+              child: const SizedBox(width: 4, height: 18),
+            ),
+            const SizedBox(width: Space.sm),
           ],
-        ),
-      );
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(title, style: t.displaySmall?.copyWith(fontSize: 19, height: 1.2, letterSpacing: -0.3)),
+            ),
+          ),
+          if (trailing != null)
+            trailing!
+          else if (onLink != null || actionLabel != null)
+            TextButton.icon(
+              onPressed: onLink,
+              iconAlignment: IconAlignment.end,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(horizontal: Space.md),
+              ),
+              icon: const Icon(PhosphorIconsBold.caretRight, size: 14),
+              label: Text(actionLabel ?? 'See all'),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Every yes/no confirmation in the app. The recommended choice is the filled button on the right. For
@@ -413,14 +550,18 @@ Future<bool> launchExternal(Uri uri, {LaunchMode mode = LaunchMode.externalAppli
   }
 }
 
-void showMessage(BuildContext context, String message, {SnackBarAction? action}) {
-  ScaffoldMessenger.of(context)
+void showMessage(BuildContext context, String message, {SnackBarAction? action}) =>
+    showMessageOn(ScaffoldMessenger.of(context), message, action: action);
+
+/// [showMessage] for a messenger read before an await, when the screen's context may be gone by then.
+void showMessageOn(ScaffoldMessengerState messenger, String message, {SnackBarAction? action}) {
+  messenger
     ..hideCurrentSnackBar()
     // an action keeps the bar up only for screen-reader users (they need time to reach it); others see it time out
     ..showSnackBar(SnackBar(
       content: Text(message),
       action: action,
-      persist: action != null && MediaQuery.accessibleNavigationOf(context),
+      persist: action != null && MediaQuery.accessibleNavigationOf(messenger.context),
     ));
 }
 
@@ -455,7 +596,7 @@ class _RippleMark extends ConsumerStatefulWidget {
 }
 
 class _RippleMarkState extends ConsumerState<_RippleMark> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 700), value: 1);
+  late final _c = AnimationController(vsync: this, duration: Motion.slow, value: 1);
   bool _started = false;
 
   @override
@@ -544,7 +685,7 @@ enum _Dot { plain, ring, core }
 extension EnterMotion on Widget {
   Widget enter(BuildContext context, {int index = 0}) {
     if (MediaQuery.disableAnimationsOf(context)) return this;
-    final delay = Duration(milliseconds: 55 * index.clamp(0, 8));
+    final delay = Motion.stagger * index.clamp(0, 8);
     return animate()
         .fadeIn(delay: delay, duration: Motion.enter, curve: Curves.easeOutCubic)
         .slideY(begin: 0.12, end: 0, delay: delay, duration: Motion.enter, curve: Curves.easeOutCubic);
@@ -563,7 +704,7 @@ class Bump extends StatefulWidget {
 }
 
 class _BumpState extends State<Bump> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 550), value: 1);
+  late final _c = AnimationController(vsync: this, duration: Motion.bump, value: 1);
   late final _scale = _c.drive(Tween(begin: 1.35, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)));
 
   @override
@@ -588,13 +729,15 @@ class WhatsAppIcon extends StatelessWidget {
 
   final double? size;
 
-  static const green = Color(0xFF25D366);
+  static const green = BrandColors.whatsapp;
 
   @override
   Widget build(BuildContext context) => Icon(PhosphorIconsFill.whatsappLogo, size: size, color: green);
 }
 
-enum TagTone { info, ok, deal, bad }
+/// What a status means, and so its colour ([toneColors]): info / in progress (peacock), ok / done or saved (emerald),
+/// deal / act soon (gold), repair (saffron), neutral / closed but nothing went wrong (grey), bad / an error (red).
+enum TagTone { info, ok, deal, repair, neutral, bad }
 
 /// Small status pill ("In stock", "Only 2 left", "Shipped"). Same look as `.tag` in docs/mockup.html.
 class Tag extends StatelessWidget {
@@ -606,21 +749,15 @@ class Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final (bg, fg) = switch (tone) {
-      TagTone.info => (BrandColors.peacockMist, BrandColors.peacockInk),
-      TagTone.ok => (c.secondaryContainer, c.onSecondaryContainer),
-      TagTone.deal => (c.tertiaryContainer, c.onTertiaryContainer),
-      TagTone.bad => (c.errorContainer, c.onErrorContainer),
-    };
+    final (bg, fg) = toneColors(tone);
     return DecoratedBox(
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.xs)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 3),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[Icon(icon, size: 12, color: fg), const SizedBox(width: Space.xs)],
+            if (icon != null) ...[Icon(icon, size: IconSizes.xs, color: fg), const SizedBox(width: Space.xs)],
             Flexible(
               child: Text(
                 text,
@@ -634,4 +771,32 @@ class Tag extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A list row's or a quick action's icon on a rounded square of its [tint] (36 dp, a 20 dp icon by default).
+class IconWell extends StatelessWidget {
+  const IconWell(this.icon, {super.key, required this.tint, this.size = 36, this.radius = Radii.chip, this.iconSize = IconSizes.md});
+
+  final IconData icon;
+  final Tint tint;
+  final double size;
+  final double radius;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(color: tint.$1, borderRadius: BorderRadius.circular(radius)),
+        child: SizedBox.square(dimension: size, child: Icon(icon, size: iconSize, color: tint.$2)),
+      );
+}
+
+/// The one spinner inside a busy button, in the button's own text colour.
+class ButtonSpinner extends StatelessWidget {
+  const ButtonSpinner({super.key});
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+        dimension: 20,
+        child: CircularProgressIndicator(strokeWidth: 2.5, color: IconTheme.of(context).color),
+      );
 }

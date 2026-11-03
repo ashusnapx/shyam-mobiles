@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import 'tokens.dart' show Tint;
+
 /// Colours made by maths instead of a fixed list: a seed (a product id, a banner id, a category slug) picks a hue and
 /// a harmony, and the colours are built in OKLCH so equal steps look equal and every result has the same calm
 /// lightness. The same seed always gives the same colours, so an item keeps its look everywhere.
@@ -79,6 +81,15 @@ GenPalette softPalette(String seed) {
     band: band,
   );
 }
+
+/// A fixed [Tint] as a soft band: sections and categories keep one colour each; only heroes, slides and art are
+/// generated.
+GenPalette tintPalette(Tint t) => GenPalette(
+      stops: [t.$1, Color.lerp(t.$1, Colors.white, .5)!, t.$1],
+      glows: List.filled(3, t.$2.withValues(alpha: .08)),
+      accent: t.$2,
+      band: t.$1,
+    );
 
 /// OKLCH → sRGB (Björn Ottosson's OKLab matrices). Out-of-gamut colours lose chroma until they fit.
 Color oklch(double l, double c, double hueDeg) {

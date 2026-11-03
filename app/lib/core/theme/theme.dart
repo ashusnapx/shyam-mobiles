@@ -24,7 +24,7 @@ ThemeData buildTheme(ColorScheme c) {
     labelSmall: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.2),
   ).apply(bodyColor: c.onSurface, displayColor: c.onSurface);
 
-  final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md + 2));
+  final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button));
   const buttonSize = Size(64, 52);
 
   return base.copyWith(
@@ -35,9 +35,22 @@ ThemeData buildTheme(ColorScheme c) {
       backgroundColor: c.surface,
       foregroundColor: c.onSurface,
       surfaceTintColor: Colors.transparent,
-      scrolledUnderElevation: 0,
+      // a hairline once content scrolls under it
+      scrolledUnderElevation: 0.5,
+      shadowColor: c.outlineVariant,
       centerTitle: false,
-      titleTextStyle: text.titleLarge,
+      // the brand face, like the section headers
+      titleTextStyle: GoogleFonts.familjenGrotesk(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        color: c.onSurface,
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: c.primary,
+      foregroundColor: c.onPrimary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(minimumSize: buttonSize, shape: buttonShape, textStyle: text.labelLarge),
@@ -92,7 +105,7 @@ ThemeData buildTheme(ColorScheme c) {
       selectedColor: c.primary,
       secondaryLabelStyle: text.labelMedium?.copyWith(color: c.onPrimary),
       checkmarkColor: c.onPrimary,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md - 2)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.chip)),
       side: BorderSide(color: c.outlineVariant),
       labelStyle: text.labelMedium,
     ),
