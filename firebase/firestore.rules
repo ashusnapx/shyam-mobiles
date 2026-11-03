@@ -17,8 +17,16 @@ service cloud.firestore {
     function isStaff() {
       return isSignedIn()
         && request.auth.token.get('role', null) in ['owner', 'staff']
-        && request.auth.token.firebase.get('sign_in_second_factor', null) == 'totp'
+        && isStaffSession()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) == request.auth.token.role;
+    }
+    function isOwner() { return isStaff() && request.auth.token.role == 'owner'; }
+    // TOTP was this session's second factor. On the emulator's demo project only, the dev logins' email/password
+    // sessions count too, since the Auth emulator can't do TOTP (firebase/README.md "Staff on the emulator"): a real
+    // project only ever sees tokens whose aud is its own id, and has password sign-in turned off.
+    function isStaffSession() {
+      return request.auth.token.firebase.get('sign_in_second_factor', null) == 'totp'
+        || (request.auth.token.get('aud', '').matches('demo-.*') && request.auth.token.firebase.get('sign_in_provider', null) == 'password');
     }
     // Recent sign-in, for sensitive staff writes (settings/business): within 5 minutes.
     function signedInRecently() {
@@ -28,32 +36,83 @@ service cloud.firestore {
     function isPersonName(v) {
       return v is string && v.matches("[\\p{L}\\p{M} .'-]{2,60}") && v.matches(".*\\p{L}.*\\p{L}.*") && !v.matches("[ ].*|.*[ ]");
     }
+    // test-vectors/input.json cleanText: one line, none of the invisible characters, trimmed, [min]..[max] code points.
+    function isCleanText(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max
+        && v.matches("[^\\x{0}-\\x{1F}\\x{7F}-\\x{9F}\\x{AD}\\x{61C}\\x{180E}\\x{200B}\\x{200E}\\x{200F}\\x{2028}\\x{2029}\\x{202A}-\\x{202E}\\x{2060}-\\x{2064}\\x{2066}-\\x{206F}\\x{FEFF}\\x{FFF9}-\\x{FFFB}]*")
+        && !v.matches("[\\s\\p{Z}].*|.*[\\s\\p{Z}]");
+    }
+    function hasLetter(v) { return v.matches(".*\\p{L}.*"); }
+    function isPhone(v) { return v is string && v.matches('[+]91[6-9][0-9]{9}'); }
 
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // ── users, devices (owner: A) ─────────────────────────────────────────────────────────────────────────────────
+    // ── users, addresses, devices, staff (owner: A) ───────────────────────────────────────────────────────────────
     function validConsent(c) {
       return c is map && c.keys().hasOnly(['noticeVersion', 'acceptedAt', 'analytics'])
         && c.noticeVersion is int && c.noticeVersion >= 1 && c.acceptedAt == request.time && c.analytics is bool;
     }
+    function validPrefs(p) {
+      return p is map && p.keys().hasOnly(['backInStock', 'offers', 'crashReports'])
+        && p.get('backInStock', true) is bool && p.get('offers', true) is bool && p.get('crashReports', true) is bool;
+    }
+    function validPhotoUrl(v) { return v is string && v.size() <= 500 && v.matches('https://.*'); }
     match /users/{uid} {
       allow get: if isMe(uid);
+      // Admin → Staff: the owner lists the shop's staff (the query must ask for role in [owner, staff]).
+      allow list: if isOwner() && request.query.limit <= 100 && resource.data.get('role', null) in ['owner', 'staff'];
       allow create: if isMe(uid)
-        && incoming().keys().hasOnly(['fullName', 'photoUrl', 'phone', 'consent', 'createdAt', 'updatedAt'])
+        && incoming().keys().hasOnly(['fullName', 'photoUrl', 'phone', 'consent', 'prefs', 'createdAt', 'updatedAt'])
         && (incoming().fullName == null || isPersonName(incoming().fullName))
-        && (!('photoUrl' in incoming()) || (incoming().photoUrl is string && incoming().photoUrl.size() <= 500 && incoming().photoUrl.matches('https://.*')))
+        && (!('photoUrl' in incoming()) || validPhotoUrl(incoming().photoUrl))
         && (!('phone' in incoming()) || incoming().phone == request.auth.token.get('phone_number', null))
         && (!('consent' in incoming()) || validConsent(incoming().consent))
+        && (!('prefs' in incoming()) || validPrefs(incoming().prefs))
         && stampedNow('createdAt') && stampedNow('updatedAt');
       allow update: if isMe(uid)
-        && changed().hasOnly(['fullName', 'photoUrl', 'defaultAddressId', 'consent', 'updatedAt'])
+        && changed().hasOnly(['fullName', 'photoUrl', 'defaultAddressId', 'consent', 'prefs', 'updatedAt'])
         && (!('fullName' in changed()) || incoming().fullName == null || isPersonName(incoming().fullName))
-        && (!('photoUrl' in changed()) || (incoming().photoUrl is string && incoming().photoUrl.size() <= 500 && incoming().photoUrl.matches('https://.*')))
+        && (!('photoUrl' in changed()) || validPhotoUrl(incoming().photoUrl))
         && (!('defaultAddressId' in changed()) || (incoming().defaultAddressId is string && incoming().defaultAddressId.matches('a[0-9]')))
         && (!('consent' in changed()) || validConsent(incoming().consent))
+        && (!('prefs' in changed()) || validPrefs(incoming().prefs))
         && stampedNow('updatedAt');
+    }
+    // Saved addresses: the ten ids a0..a9 cap the count; users/{uid}.defaultAddressId names the default.
+    // stateCode is the GST state code of [state] (place of supply), so invoices can't be split the wrong way.
+    function gstStateCode(state) {
+      return {
+        'Jammu and Kashmir': '01', 'Himachal Pradesh': '02', 'Punjab': '03', 'Chandigarh': '04', 'Uttarakhand': '05',
+        'Haryana': '06', 'Delhi': '07', 'Rajasthan': '08', 'Uttar Pradesh': '09', 'Bihar': '10', 'Sikkim': '11',
+        'Arunachal Pradesh': '12', 'Nagaland': '13', 'Manipur': '14', 'Mizoram': '15', 'Tripura': '16',
+        'Meghalaya': '17', 'Assam': '18', 'West Bengal': '19', 'Jharkhand': '20', 'Odisha': '21',
+        'Chhattisgarh': '22', 'Madhya Pradesh': '23', 'Gujarat': '24',
+        'Dadra and Nagar Haveli and Daman and Diu': '26', 'Maharashtra': '27', 'Karnataka': '29', 'Goa': '30',
+        'Lakshadweep': '31', 'Kerala': '32', 'Tamil Nadu': '33', 'Puducherry': '34',
+        'Andaman and Nicobar Islands': '35', 'Telangana': '36', 'Andhra Pradesh': '37', 'Ladakh': '38'
+      }.get(state, null);
+    }
+    function isPlaceName(v) { return isCleanText(v, 2, 60) && hasLetter(v); }
+    function validAddress(a) {
+      return a.keys().hasAll(['name', 'phone', 'line1', 'city', 'state', 'stateCode', 'pincode', 'label', 'createdAt', 'updatedAt'])
+        && a.keys().hasOnly(['name', 'phone', 'line1', 'line2', 'landmark', 'city', 'district', 'state', 'stateCode', 'pincode', 'label', 'createdAt', 'updatedAt'])
+        && isCleanText(a.name, 2, 80) && hasLetter(a.name)
+        && isPhone(a.phone)
+        && isCleanText(a.line1, 3, 120)
+        && (!('line2' in a) || isCleanText(a.line2, 0, 120))
+        && (!('landmark' in a) || isCleanText(a.landmark, 0, 80))
+        && isPlaceName(a.city) && (!('district' in a) || isPlaceName(a.district)) && isPlaceName(a.state)
+        && a.stateCode == gstStateCode(a.state)
+        && a.pincode is string && a.pincode.matches('[1-9][0-9]{5}')
+        && a.label in ['home', 'work', 'other']
+        && a.updatedAt == request.time;
+    }
+    match /users/{uid}/addresses/{id} {
+      allow read, delete: if isMe(uid);
+      allow create: if isMe(uid) && id.matches('a[0-9]') && validAddress(incoming()) && stampedNow('createdAt');
+      allow update: if isMe(uid) && validAddress(incoming()) && incoming().createdAt == resource.data.createdAt;
     }
     // FCM tokens. Whoever holds a token is that phone, so a new sign-in on it takes the doc over. No listing.
     match /devices/{token} {
@@ -68,12 +127,126 @@ service cloud.firestore {
     }
 
     // ── catalog, settings, banners, collections, wishlists (owner: B) ──────────────────────────────────────────────
-    // TODO(B): categories, brands, collections, banners: public read, staff write with field rules. products, variants,
-    // catalogIndex: read (active only for customers), no client writes. settings/store public read, staff write;
-    // settings/business staff write with signedInRecently(). wishlists/{uid}: owner, productIds ≤ 200.
+    // Shop data is public to read; staff write the simple docs here, the callables (catalog/handlers.ts) write products
+    // and variants, and the triggers write catalogIndex. Text rules follow test-vectors/input.json (cleanText, slug,
+    // bannerLink, imagePath, storePhotoPath, phone, pincode); lengths follow the old SQL checks.
+    function cleanLine(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max && v == v.trim() && !v.matches('(?s).*[\\x00-\\x1f\\x7f].*');
+    }
+    function cleanBlock(v, max) { // line breaks allowed
+      return v is string && v.size() <= max && !v.matches('(?s).*[\\x00-\\x09\\x0b-\\x1f\\x7f].*');
+    }
+    function intIn(v, min, max) { return v is int && v >= min && v <= max; }
+    function stamped() { return stampedNow('updatedAt') && (resource != null || stampedNow('createdAt')); }
+    function imageKey(v) { return v is string && v.matches('[A-Za-z0-9_-]{1,80}/[A-Za-z0-9_@-]{1,80}[.](webp|jpe?g|png)'); }
+
+    match /categories/{slug} {
+      allow read: if true;
+      allow create, update: if isStaff() && slug.matches('[a-z0-9-]{1,160}')
+        && incoming().keys().hasOnly(['name', 'kind', 'sort', 'createdAt', 'updatedAt'])
+        && cleanLine(incoming().name, 2, 60) && incoming().kind in ['phone', 'accessory'] && intIn(incoming().sort, 0, 1000)
+        && stamped();
+    }
+    match /brands/{slug} {
+      allow read: if true;
+      allow create, update: if isStaff() && slug.matches('[a-z0-9-]{1,160}')
+        && incoming().keys().hasOnly(['name', 'createdAt', 'updatedAt']) && cleanLine(incoming().name, 1, 40) && stamped();
+    }
+    // A get of a missing slug is allowed (the app shows "not found"); hidden products only to staff. Lists must ask
+    // for isActive == true (Rules are not filters).
+    match /products/{id} {
+      allow get: if resource == null || resource.data.isActive == true || isStaff();
+      allow list: if resource.data.isActive == true || isStaff();
+    }
+    match /variants/{id} {
+      allow get: if resource == null || (resource.data.isActive == true && resource.data.productActive == true) || isStaff();
+      allow list: if (resource.data.isActive == true && resource.data.productActive == true) || isStaff();
+    }
+    match /catalogIndex/public { allow read: if true; }
+    match /catalogIndex/staff { allow read: if isStaff(); }
+    match /collections/{slug} {
+      allow read: if true;
+      allow create, update: if isStaff() && slug.matches('[a-z0-9-]{1,60}')
+        && incoming().keys().hasOnly(['name', 'productIds', 'createdAt', 'updatedAt'])
+        && cleanLine(incoming().name, 2, 60) && incoming().productIds is list && incoming().productIds.size() <= 500
+        && stamped();
+      allow delete: if isStaff();
+    }
+    // Promotion banners (promotionId) belong to savePromotion; staff edit the rest.
+    function validBanner(b) {
+      return b.keys().hasOnly(['title', 'subtitle', 'ctaLabel', 'link', 'imagePath', 'tone', 'startsAt', 'endsAt', 'sort',
+          'isActive', 'createdAt', 'updatedAt'])
+        && b.keys().hasAll(['title', 'subtitle', 'ctaLabel', 'link', 'tone', 'startsAt', 'sort', 'isActive'])
+        && cleanLine(b.title, 2, 60) && cleanLine(b.subtitle, 0, 120) && cleanLine(b.ctaLabel, 1, 20)
+        && b.link is string && b.link.size() <= 200
+        && b.link.matches('/(search|product/|offers|repairs)[A-Za-z0-9/?=&%._~+-]*')
+        && b.link.matches('/(search([?][^#\\s]*)?|product/[a-z0-9-]{1,160}|offers(/[0-9a-f-]{36})?|repairs(/new)?)')
+        && (!('imagePath' in b) || b.imagePath == null || imageKey(b.imagePath))
+        && intIn(b.tone, 0, 5) && b.startsAt is timestamp && (!('endsAt' in b) || b.endsAt == null || b.endsAt is timestamp)
+        && intIn(b.sort, 0, 1000) && b.isActive is bool;
+    }
+    match /banners/{id} {
+      allow read: if resource.data.isActive == true || isStaff();
+      allow create: if isStaff() && validBanner(incoming()) && stamped();
+      allow update: if isStaff() && !('promotionId' in resource.data) && validBanner(incoming()) && stamped();
+      allow delete: if isStaff() && !('promotionId' in resource.data);
+    }
+
+    // settings/store: how the shop runs (the server enforces fees, COD and the payment switch from it).
+    function validStore(s) {
+      return s.keys().hasOnly(['deliveryFeePaise', 'freeDeliveryMinPaise', 'codEnabled', 'codMaxPaise', 'onlinePaymentEnabled',
+          'storeHours', 'mapPin', 'mapsUrl', 'storePhotos', 'repairNote', 'returnsPolicy', 'referral', 'createdAt', 'updatedAt'])
+        && intIn(s.deliveryFeePaise, 0, 1000000) && intIn(s.freeDeliveryMinPaise, 0, 100000000) && s.codEnabled is bool
+        && intIn(s.codMaxPaise, 0, 100000000) && s.onlinePaymentEnabled is bool && cleanLine(s.storeHours, 0, 60)
+        && (!('mapPin' in s) || s.mapPin == null || (s.mapPin.keys().hasOnly(['lat', 'lng'])
+          && s.mapPin.lat is number && s.mapPin.lat >= 6 && s.mapPin.lat <= 38
+          && s.mapPin.lng is number && s.mapPin.lng >= 68 && s.mapPin.lng <= 98))
+        && (!('mapsUrl' in s) || s.mapsUrl == null || (s.mapsUrl is string && s.mapsUrl.size() <= 500 && s.mapsUrl.matches('https://[^\\s]+')))
+        && s.storePhotos is list && s.storePhotos.size() <= 8
+        && cleanBlock(s.repairNote, 300) && cleanBlock(s.returnsPolicy, 2000)
+        && s.referral.keys().hasOnly(['enabled', 'friendPaise', 'rewardPaise', 'minOrderPaise', 'monthlyCap'])
+        && s.referral.enabled is bool && intIn(s.referral.friendPaise, 100, 100000000) && intIn(s.referral.rewardPaise, 100, 100000000)
+        && intIn(s.referral.minOrderPaise, 0, 100000000) && intIn(s.referral.monthlyCap, 0, 1000);
+    }
+    // shortcut: storePhotos is capped at 8 but each key is not matched (Rules can't loop); the app writes only
+    // store/<millis>.webp keys, and a bad key is just a broken photo, never a leak.
+    // settings/business: the legal identity on invoices and the policy pages. Never a PAN: keys are an exact list.
+    function validBusiness(b) {
+      return b.keys().hasOnly(['tradeName', 'brandName', 'legalName', 'gstin', 'stateCode', 'phone', 'email', 'address',
+          'businessTypes', 'invoicePrefix', 'createdAt', 'updatedAt'])
+        && cleanLine(b.tradeName, 2, 100) && cleanLine(b.brandName, 2, 100) && cleanLine(b.legalName, 2, 100)
+        && b.gstin is string && b.gstin.matches('[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]')
+        && b.stateCode == b.gstin[0:2]
+        && b.phone is string && b.phone.matches('[+]91[6-9][0-9]{9}')
+        && (!('email' in b) || b.email == null || (b.email is string && b.email.size() <= 100 && b.email.matches('[^@\\s]+@[^@\\s]+[.][^@\\s]+')))
+        && b.address.keys().hasOnly(['line1', 'city', 'district', 'state', 'pincode'])
+        && cleanLine(b.address.line1, 2, 120) && cleanLine(b.address.city, 2, 60) && cleanLine(b.address.district, 2, 60)
+        && cleanLine(b.address.state, 2, 60) && b.address.pincode is string && b.address.pincode.matches('[1-9][0-9]{5}')
+        && b.businessTypes is list && b.businessTypes.hasOnly(['retailer', 'wholesaler', 'distributor', 'services'])
+        && b.invoicePrefix is string && b.invoicePrefix.matches('[A-Z]{1,6}');
+    }
+    match /settings/store {
+      allow read: if true;
+      allow create, update: if isStaff() && validStore(incoming()) && stamped();
+    }
+    match /settings/business {
+      allow read: if true;
+      allow create, update: if isStaff() && signedInRecently() && validBusiness(incoming()) && stamped();
+    }
+
+    // The customer's hearts; waitVariant is the back-in-stock mark (docs/FIREBASE.md §6: a variant id, '*' or null).
+    // shortcut: Rules can't count a subcollection, so the old 200-item cap is gone; one doc per product bounds it.
+    function validWait(w) { return w == null || w == '*' || (w is string && w.matches('[A-Za-z0-9_-]{1,128}')); }
+    match /users/{uid}/wishlist/{productId} {
+      allow read, delete: if isMe(uid);
+      allow create: if isMe(uid) && productId.matches('[a-z0-9-]{1,160}')
+        && incoming().keys().hasOnly(['productId', 'addedAt', 'waitVariant']) && incoming().productId == productId
+        && stampedNow('addedAt') && validWait(incoming().waitVariant);
+      allow update: if isMe(uid) && changed().hasOnly(['waitVariant']) && validWait(incoming().waitVariant);
+    }
 
     // ── carts, addresses, orders, offers, referrals (owner: C) ─────────────────────────────────────────────────────
-    // TODO(C): carts/{uid} (lines ≤ 20), users/{uid}/addresses/{a0..a9}, orders read-only (owner or staff),
+    // TODO(C): carts/{uid} (lines ≤ 20), orders read-only (owner or staff),
     // publicOffers read, users/{uid}/coupons owner read, promotions staff read; promoCodes, redemptions,
     // referralCodes, referrals, counters: no client access.
 
