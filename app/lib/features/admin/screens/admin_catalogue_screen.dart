@@ -804,7 +804,7 @@ class CatalogueTile extends StatelessWidget {
                           ]),
                           style: t.bodyMedium?.copyWith(fontFeatures: tabular),
                         ),
-                        if (!r.variantActive || (!grouped && (!r.productActive || r.featured)) || stock <= lowStockMax)
+                        if (!r.variantActive || (!grouped && (!r.productActive || r.featured)) || r.madeToOrder || stock <= lowStockMax)
                           Padding(
                             padding: const EdgeInsets.only(top: Space.xs),
                             child: Wrap(
@@ -814,7 +814,9 @@ class CatalogueTile extends StatelessWidget {
                                 if (!r.variantActive) const Tag('Hidden', tone: TagTone.neutral, icon: PhosphorIconsBold.eyeSlash),
                                 if (!grouped && !r.productActive)
                                   const Tag('Product hidden', tone: TagTone.neutral, icon: PhosphorIconsBold.eyeSlash),
-                                if (stock == 0)
+                                if (r.madeToOrder)
+                                  const Tag('Arranged on order', tone: TagTone.info)
+                                else if (stock == 0)
                                   const Tag('Out of stock', tone: TagTone.deal, icon: PhosphorIconsBold.warning)
                                 else if (stock <= lowStockMax)
                                   const Tag('Low stock', tone: TagTone.deal),

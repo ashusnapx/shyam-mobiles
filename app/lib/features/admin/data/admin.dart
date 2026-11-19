@@ -187,7 +187,7 @@ class AdminProductRow {
       coverPath: images.isEmpty ? null : images.first['path'],
       activeVariants: active.length,
       stock: active.fold(0, (sum, v) => sum + (v['stock'] as int)),
-      lowStock: j['is_active'] == true && active.any((v) => (v['stock'] as int) <= 3),
+      lowStock: j['is_active'] == true && active.any((v) => v['made_to_order'] != true && (v['stock'] as int) <= 3),
     );
   }
 }

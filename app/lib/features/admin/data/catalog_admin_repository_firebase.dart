@@ -33,6 +33,7 @@ List<CatalogueRow> staffRows(IndexCards cards) => [
             brandId: c['b'] as String,
             updatedAt: DateTime.fromMillisecondsSinceEpoch(max((v['u'] as num).toInt(), (c['u'] as num).toInt())),
             coverPath: c['cv'] as String?,
+            madeToOrder: v['mo'] != null,
           ),
     ];
 
@@ -47,8 +48,8 @@ List<CatalogueRow> staffRows(IndexCards cards) => [
       (v.brandId == null || r.brandId == v.brandId) &&
       switch (v.stock) {
         StockFilter.all => true,
-        StockFilter.low => r.stock >= 1 && r.stock <= lowStockMax,
-        StockFilter.out => r.stock == 0,
+        StockFilter.low => !r.madeToOrder && r.stock >= 1 && r.stock <= lowStockMax,
+        StockFilter.out => !r.madeToOrder && r.stock == 0,
       } &&
       switch (v.visibility) {
         VisibilityFilter.all => true,
@@ -76,8 +77,8 @@ List<CatalogueRow> staffRows(IndexCards cards) => [
       units: sum((r) => r.stock),
       valueAtPricePaise: sum((r) => r.pricePaise * r.stock),
       valueAtMrpPaise: sum((r) => r.mrpPaise * r.stock),
-      low: match.where((r) => r.stock >= 1 && r.stock <= lowStockMax).length,
-      out: match.where((r) => r.stock == 0).length,
+      low: match.where((r) => !r.madeToOrder && r.stock >= 1 && r.stock <= lowStockMax).length,
+      out: match.where((r) => !r.madeToOrder && r.stock == 0).length,
       total: all.length,
     ),
   );
@@ -175,7 +176,7 @@ class FirebaseCatalogAdminRepository implements CatalogAdminRepository {
             coverPath: c['cv'] as String?,
             activeVariants: active.length,
             stock: active.fold(0, (n, v) => n + (v['st'] as num).toInt()),
-            lowStock: c['active'] == true && active.any((v) => (v['st'] as num) <= lowStockMax),
+            lowStock: c['active'] == true && active.any((v) => v['mo'] == null && (v['st'] as num) <= lowStockMax),
           );
         }(),
     ]..sort((a, b) => a.name != b.name ? a.name.compareTo(b.name) : a.id.compareTo(b.id));

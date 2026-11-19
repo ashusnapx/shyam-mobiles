@@ -34,6 +34,7 @@ class CatalogueRow {
     required this.brandId,
     required this.updatedAt,
     this.coverPath,
+    this.madeToOrder = false,
   });
 
   final String variantId;
@@ -51,6 +52,7 @@ class CatalogueRow {
   final String brandId;
   final DateTime updatedAt; // the later of the variant's and the product's
   final String? coverPath;
+  final bool madeToOrder; // arranged per order: stock 0 is normal, never counted as low or out
 
   /// Customers can see it: both the variant and its product are shown.
   bool get visible => variantActive && productActive;
@@ -71,6 +73,7 @@ class CatalogueRow {
         brandId: brandId,
         updatedAt: DateTime.now(),
         coverPath: coverPath,
+        madeToOrder: madeToOrder,
       );
 
   /// One `admin_catalogue` row.
@@ -90,6 +93,7 @@ class CatalogueRow {
         brandId: j['brand_id'],
         updatedAt: DateTime.parse(j['updated_at']),
         coverPath: j['cover_path'],
+        madeToOrder: j['made_to_order'] ?? false,
       );
 }
 

@@ -48,7 +48,7 @@ class _Fixed extends CatalogueNotifier {
 }
 
 CatalogueRow _row(String id, String product, String variant, String sku, int rupees, int stock,
-        {bool active = true, bool productActive = true, bool featured = false}) =>
+        {bool active = true, bool productActive = true, bool featured = false, bool madeToOrder = false}) =>
     CatalogueRow(
       variantId: id,
       productId: 'p-$product',
@@ -64,6 +64,7 @@ CatalogueRow _row(String id, String product, String variant, String sku, int rup
       categoryId: 'c1',
       brandId: 'b1',
       updatedAt: DateTime(2026, 10, 29),
+      madeToOrder: madeToOrder,
     );
 
 final _rows = [
@@ -100,6 +101,16 @@ void main() {
     await tester.scrollUntilVisible(find.textContaining('SPG-UH-IP16PM-CLR'), 300, scrollable: list);
     expect(find.text('Hidden'), findsOneWidget);
     expect(find.text('Out of stock'), findsWidgets);
+  });
+
+  testWidgets('made-to-order variants are tagged, never counted as out of stock', (tester) async {
+    final rows = [_row('m1', 'Back cover', 'For your phone', 'COV-1', 199, 0, madeToOrder: true), _rows[1]];
+    final s = cataloguePage(rows, allRows, offset: 0, limit: 50).summary;
+    expect((s.low, s.out), (1, 0), reason: 'only the real low-stock row counts');
+    expect(cataloguePage(rows, (query: '', categoryId: null, brandId: null, stock: StockFilter.out, visibility: VisibilityFilter.all, sort: CatalogueSort.name), offset: 0, limit: 50).rows, isEmpty);
+    await _pump(tester, rows: rows);
+    expect(find.text('Arranged on order'), findsOneWidget);
+    expect(find.text('Out of stock'), findsOneWidget, reason: 'the summary label only, no tag on the cover');
   });
 
   testWidgets('selecting rows shows checkboxes and the bulk bar', (tester) async {
