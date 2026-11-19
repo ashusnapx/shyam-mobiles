@@ -92,8 +92,10 @@ void main() {
       expect(draftFromJson('nope'), isNull);
       expect(draftsFromText('{"products":[{"model":"X"}]}'), isEmpty);
       // one box's label: no brand printed is still a product, and staff type the brand
-      final noBrand = draftsFromText('{"products":[{"model":"Smart Thermos Mug"}]}', requireBrand: false).single;
+      final noBrand = draftsFromText('{"products":[{"model":"Smart Thermos Mug"}]}', strict: false).single;
       expect((noBrand.brand, noBrand.name), ('', 'Smart Thermos Mug'));
+      final nothing = draftFromJson(<String, Object?>{}, strict: false)!;
+      expect((nothing.brand, nothing.model, nothing.name), ('', '', ''), reason: 'the form opens blank, not an error');
       expect(aiErrorMessage(TimeoutException('slow')), contains('slow right now'), reason: 'not "check the internet"');
       expect(() => draftsFromText('not json'), throwsFormatException);
       expect(() => draftsFromText('{"x":1}'), throwsFormatException);

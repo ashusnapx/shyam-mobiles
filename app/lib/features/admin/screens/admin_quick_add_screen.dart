@@ -89,7 +89,9 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
       final cats = [for (final k in ref.read(adminCategoriesProvider).value ?? const <Category>[]) k.name];
       final d = await ref.read(catalogueAiProvider).readLabel(bytes, categories: cats)
         ..labelPhoto = bytes;
-      if (mounted) _open(d, step: 1);
+      if (!mounted) return;
+      _open(d, step: 1);
+      if (d.ai.isEmpty) showMessage(context, 'The label couldn’t be read. Fill in the details after the photo.');
     } catch (e) {
       if (mounted) setState(() => _error = aiErrorMessage(e));
     } finally {

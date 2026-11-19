@@ -104,14 +104,14 @@ String _s(Object? v, int max) {
   return t.length <= max ? t : t.substring(0, max).trim();
 }
 
-/// One AI product object → a draft, with everything it filled flagged. Null when it has no model, or no brand when
-/// [requireBrand] (the answer is not usable: the caller retries with the stronger model). One box's label keeps a
-/// missing brand: plenty of boxes print none, and the form asks staff for it. [categories]: the shop's category names.
-ProductDraft? draftFromJson(Object? json, {List<String> categories = const [], String fileHint = '', bool requireBrand = true}) {
+/// One AI product object → a draft, with everything it filled flagged. [strict] (a supplier file's rows): null without
+/// a brand and a model, a row not worth importing. Not strict (one box's label): whatever was read, even nothing;
+/// staff fill in the rest on the form. [categories]: the shop's category names.
+ProductDraft? draftFromJson(Object? json, {List<String> categories = const [], String fileHint = '', bool strict = true}) {
   if (json is! Map) return null;
   final brand = brandDisplayName(_s(json['brand'], 40));
   final model = _s(json['model'], 80);
-  if (model.isEmpty || (requireBrand && brand.isEmpty)) return null;
+  if (strict && (brand.isEmpty || model.isEmpty)) return null;
   final cat = _s(json['category'], 60);
   final category = categories.firstWhere((c) => c.toLowerCase() == cat.toLowerCase(), orElse: () => '');
   final name = _s(json['name'], MaxLen.productName);
@@ -148,11 +148,11 @@ ProductDraft? draftFromJson(Object? json, {List<String> categories = const [], S
 
 /// The AI's `{"products": [...]}` text → drafts. Throws FormatException on broken JSON.
 List<ProductDraft> draftsFromText(String text,
-    {List<String> categories = const [], String fileHint = '', bool requireBrand = true}) {
+    {List<String> categories = const [], String fileHint = '', bool strict = true}) {
   final json = jsonDecode(text);
   final list = json is Map ? json['products'] : json;
   if (list is! List) throw const FormatException('No product list in the answer.');
-  return [for (final p in list) ?draftFromJson(p, categories: categories, fileHint: fileHint, requireBrand: requireBrand)];
+  return [for (final p in list) ?draftFromJson(p, categories: categories, fileHint: fileHint, strict: strict)];
 }
 
 /// Selling price prefill: MRP minus the shop's default discount, to the whole rupee. Null without an MRP. 0% → the MRP.
@@ -310,9 +310,8 @@ class GeminiCatalogueAi implements CatalogueAi {
             InlineDataPart('image/jpeg', image),
           ],
         );
-        final drafts = draftsFromText(text, categories: categories, requireBrand: false);
-        if (drafts.isEmpty) throw const FormatException('No product found.');
-        return drafts.first;
+        // what wasn't read stays blank for staff: no retry with the slower model just for missing fields
+        return draftsFromText(text, categories: categories, strict: false).firstOrNull ?? ProductDraft(id: 'label');
       });
 
   @override
