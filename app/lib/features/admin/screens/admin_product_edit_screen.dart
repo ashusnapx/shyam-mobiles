@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -9,6 +10,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
+import '../../../core/supabase.dart' show publicImageUrl;
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/blocks.dart';
@@ -444,6 +446,20 @@ class _PhotosState extends ConsumerState<_Photos> {
     });
   }
 
+  /// The saved photo, cleaned up again, in the editor; the result replaces it.
+  Future<void> _edit(ProductPhoto image) async {
+    ({Uint8List upright, Uint8List? auto})? cleaned;
+    await _run(() async {
+      final res = await http.get(Uri.parse(publicImageUrl(image.path)));
+      if (res.statusCode != 200) throw const FormatException('Couldn’t load that photo. Check the internet, then try again.');
+      cleaned = await autoProductPhoto(res.bodyBytes);
+    });
+    if (cleaned == null || !mounted) return;
+    final photo = await editProductPhoto(context, upright: cleaned!.upright, auto: cleaned!.auto);
+    if (photo == null || !mounted) return;
+    await _run(() => replaceProductImage(ref, widget.product.id, image, photo), 'Photo updated');
+  }
+
   void _move(int i, int to) {
     final list = [...widget.product.images];
     list.insert(to, list.removeAt(i));
@@ -495,6 +511,11 @@ class _PhotosState extends ConsumerState<_Photos> {
                     SizedBox(width: 64, child: ProductImage(img.path, radius: Radii.md, padding: Space.xs)),
                     const SizedBox(width: Space.md),
                     Expanded(child: Text(i == 0 ? 'Cover photo' : 'Photo ${i + 1}', style: t.bodyMedium)),
+                    IconButton(
+                      tooltip: 'Edit photo ${i + 1}',
+                      onPressed: _busy ? null : () => _edit(img),
+                      icon: const Icon(PhosphorIconsRegular.pencilSimple),
+                    ),
                     IconButton(
                       tooltip: 'Move photo ${i + 1} up',
                       onPressed: _busy || i == 0 ? null : () => _move(i, i - 1),

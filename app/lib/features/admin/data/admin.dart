@@ -280,6 +280,21 @@ Future<({int before, int after})> addProductImage(WidgetRef ref, String productI
   return (before: up.before, after: up.after);
 }
 
+/// Puts [photo] (edited in photo_editor.dart, uploaded as it is) in [old]'s place, colour and order. The old file
+/// stays, like a deleted one: past orders still show it.
+Future<void> replaceProductImage(WidgetRef ref, String productId, ProductPhoto old, Uint8List photo) async {
+  final up = await _uploadPhoto(ref, productId, photo, cut: true);
+  try {
+    await _setPhotos(ref, productId, [
+      for (final i in await _photos(ref, productId))
+        i.id == old.id ? ProductPhoto(id: '', path: up.path, sort: i.sort, color: i.color) : i,
+    ]);
+  } catch (_) {
+    await _removeFiles(ref, up.path);
+    rethrow;
+  }
+}
+
 /// Removes the photo from the product but keeps the file: past orders still show it via the order's image path.
 /// shortcut: files are never cleaned up (~200 KB each); add a sweep for unreferenced files if storage grows.
 Future<void> deleteProductImage(WidgetRef ref, String productId, ProductPhoto image) async =>
