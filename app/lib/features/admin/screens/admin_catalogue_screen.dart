@@ -470,7 +470,7 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                         title: 'No products yet',
                         message: 'Add a product and its variants to see them here.',
                         action: FilledButton(
-                          onPressed: () => _open('/admin/products/new'),
+                          onPressed: _addSheet,
                           child: const Text('Add product'),
                         ),
                       );
@@ -523,35 +523,9 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   }
 
   /// Opens the product editor; the editor may have changed it, so the list reloads after.
-  /// The one entry point for new products: by hand, with AI, or a supplier file.
+  /// New products: by hand, with AI, or a supplier file (chooseAddProduct).
   Future<void> _addSheet() async {
-    final route = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            FilledButton.tonalIcon(
-              onPressed: () => Navigator.pop(ctx, '/admin/products/new'),
-              icon: const Icon(PhosphorIconsRegular.pencilSimple),
-              label: const Padding(padding: EdgeInsets.symmetric(vertical: Space.md), child: Text('Add manually')),
-            ),
-            const SizedBox(height: Space.sm),
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(ctx, '/admin/catalogue/quick'),
-              icon: const Icon(PhosphorIconsRegular.sparkle),
-              label: const Padding(padding: EdgeInsets.symmetric(vertical: Space.md), child: Text('Add with AI')),
-            ),
-            TextButton.icon(
-              onPressed: () => Navigator.pop(ctx, '/admin/catalogue/import'),
-              icon: const Icon(PhosphorIconsRegular.fileArrowUp),
-              label: const Text('Import a supplier catalogue'),
-            ),
-          ]),
-        ),
-      ),
-    );
+    final route = await chooseAddProduct(context);
     if (route != null && mounted) await _open(route);
   }
 

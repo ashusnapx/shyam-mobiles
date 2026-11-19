@@ -266,7 +266,11 @@ class _QuickActions extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     Widget tile(IconData icon, String label, String route, Tint tint) => InkWell(
           borderRadius: BorderRadius.circular(Radii.lg),
-          onTap: () => context.push(route),
+          onTap: () async {
+            // Add product asks how first: by hand, with AI, or a supplier file
+            final to = route == '/admin/products/new' ? await chooseAddProduct(context) : route;
+            if (to != null && context.mounted) await context.push(to);
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.xs),
             child: Column(
