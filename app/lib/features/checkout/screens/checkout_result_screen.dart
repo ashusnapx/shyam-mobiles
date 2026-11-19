@@ -15,6 +15,7 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/widgets/motion.dart' show ConfettiBurst;
 import '../../account/data/profile.dart';
 import '../../cart/data/cart.dart';
 import '../../orders/data/orders.dart';
@@ -59,6 +60,7 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
 
   Timer? _timer;
   bool _celebrated = false;
+  bool _confetti = false; // this visit saw the order go through: one burst
 
   bool get _polling => _timer?.isActive ?? false;
 
@@ -127,9 +129,12 @@ class _CheckoutResultScreenState extends ConsumerState<CheckoutResultScreen> {
       final view = resultView(order, polling: _polling);
       if (view == ResultView.success && !_celebrated) {
         _celebrated = true;
+        _confetti = true;
         WidgetsBinding.instance.addPostFrameCallback((_) => HapticFeedback.mediumImpact());
       }
-      body = _view(view, order, stage);
+      body = view == ResultView.success && _confetti
+          ? Stack(children: [_view(view, order, stage), const Positioned.fill(child: ConfettiBurst())])
+          : _view(view, order, stage);
     } else if (async.hasError) {
       body = ErrorView(error: async.error!, onRetry: () => ref.invalidate(orderProvider(widget.orderId)));
     } else {

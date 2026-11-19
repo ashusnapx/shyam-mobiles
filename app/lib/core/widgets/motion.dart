@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/physics.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -269,4 +271,72 @@ extension HeroMotion on Widget {
   Widget slowZoom(BuildContext context) => MediaQuery.disableAnimationsOf(context)
       ? this
       : animate().scaleXY(begin: 1, end: 1.04, duration: 6.seconds, curve: Curves.easeOut);
+}
+
+/// One burst of confetti in the shop's colours, fanned up from the top third and falling out of view (2.2 s), for a
+/// placed order. Taps go through it; nothing is drawn when the phone asks for less motion.
+class ConfettiBurst extends StatefulWidget {
+  const ConfettiBurst({super.key});
+
+  @override
+  State<ConfettiBurst> createState() => _ConfettiBurstState();
+}
+
+class _ConfettiBurstState extends State<ConfettiBurst> with SingleTickerProviderStateMixin {
+  late final _run = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))..forward();
+  final _bits = [for (var i = 0; i < 90; i++) _Bit(Random(i))];
+
+  @override
+  void dispose() {
+    _run.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return const SizedBox.shrink();
+    return IgnorePointer(child: RepaintBoundary(child: CustomPaint(size: Size.infinite, painter: _Confetti(_run, _bits))));
+  }
+}
+
+class _Bit {
+  _Bit(Random r)
+      : angle = -pi / 2 + (r.nextDouble() - 0.5) * pi * 0.9,
+        speed = 0.5 + r.nextDouble() * 0.7,
+        spin = (r.nextDouble() - 0.5) * 14,
+        size = 6 + r.nextDouble() * 6,
+        color = _colors[r.nextInt(_colors.length)];
+
+  static const _colors = [BrandColors.peacock, BrandColors.gold, BrandColors.plum, BrandColors.sky, BrandColors.saffron, BrandColors.emerald];
+  final double angle, speed, spin, size;
+  final Color color;
+}
+
+class _Confetti extends CustomPainter {
+  _Confetti(this.run, this.bits) : super(repaint: run);
+
+  final Animation<double> run;
+  final List<_Bit> bits;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = run.value;
+    if (t == 0 || t == 1) return;
+    final fade = t < 0.7 ? 1.0 : (1 - t) / 0.3;
+    final paint = Paint();
+    for (final b in bits) {
+      final x = size.width / 2 + cos(b.angle) * b.speed * size.width * t;
+      final y = size.height / 3 + sin(b.angle) * b.speed * size.height * 0.9 * t + size.height * 1.3 * t * t;
+      paint.color = b.color.withValues(alpha: fade);
+      canvas
+        ..save()
+        ..translate(x, y)
+        ..rotate(b.spin * t)
+        ..drawRect(Rect.fromCenter(center: Offset.zero, width: b.size, height: b.size * 0.6), paint)
+        ..restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Confetti old) => false; // repaints with [run]
 }
