@@ -336,6 +336,15 @@ class _ItemCard extends StatelessWidget {
                         '${item.variantName} · Qty ${item.qty}',
                         style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
                       ),
+                      if (item.forModel != null)
+                        Wrap(
+                          spacing: Space.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Tag('Arrange', tone: TagTone.info),
+                            Text('For: ${item.forModel}', style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                     ],
                   ),
                 ),

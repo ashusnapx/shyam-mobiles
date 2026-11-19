@@ -43,6 +43,8 @@ class ProductCard {
     required this.inStock,
     this.coverPath,
     this.isFeatured = false,
+    this.madeToOrder = false,
+    this.leadDays,
   });
 
   final String id;
@@ -55,6 +57,8 @@ class ProductCard {
   final bool inStock;
   final String? coverPath;
   final bool isFeatured;
+  final bool madeToOrder; // arranged per order for the customer's phone: never "in stock"
+  final int? leadDays; // made to order: ready in this many days
 
   factory ProductCard.fromJson(Map<String, dynamic> j) => ProductCard(
         id: j['id'],
@@ -67,6 +71,8 @@ class ProductCard {
         inStock: j['in_stock'],
         coverPath: j['cover_path'],
         isFeatured: j['is_featured'] ?? false,
+        madeToOrder: j['made_to_order'] ?? false,
+        leadDays: j['lead_days'],
       );
 
   Map<String, dynamic> toJson() => {
@@ -80,6 +86,8 @@ class ProductCard {
         'in_stock': inStock,
         'cover_path': coverPath,
         'is_featured': isFeatured,
+        'made_to_order': madeToOrder,
+        'lead_days': leadDays,
       };
 }
 
@@ -116,6 +124,8 @@ class Variant {
     this.attributes = const {},
     this.isActive = true,
     this.sort = 0,
+    this.madeToOrder = false,
+    this.leadDays = 2,
   });
 
   final String id;
@@ -128,12 +138,14 @@ class Variant {
   final int stock;
   final bool isActive;
   final int sort;
+  final bool madeToOrder; // no stock: the shop arranges it for the phone the customer names
+  final int leadDays;
 
   String? get ram => attributes['ram'];
   String? get storage => attributes['storage'];
   String? get color => attributes['color'];
   String? get colorHex => attributes['color_hex'];
-  bool get inStock => isActive && stock > 0;
+  bool get inStock => isActive && (madeToOrder || stock > 0); // made to order: buyable, shown as "Arranged"
 
   factory Variant.fromJson(Map<String, dynamic> j) => Variant(
         id: j['id'],
@@ -146,6 +158,8 @@ class Variant {
         stock: j['stock'],
         isActive: j['is_active'] ?? true,
         sort: j['sort'] ?? 0,
+        madeToOrder: j['made_to_order'] ?? false,
+        leadDays: j['lead_days'] ?? 2,
       );
 
   Map<String, dynamic> toJson() => {
@@ -158,6 +172,8 @@ class Variant {
         'stock': stock,
         'is_active': isActive,
         'sort': sort,
+        'made_to_order': madeToOrder,
+        'lead_days': leadDays,
       };
 }
 

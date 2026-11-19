@@ -4,7 +4,7 @@ import '../../../core/models/models.dart';
 import '../../catalog/data/catalog_repository_firebase.dart' show isDenied, variantFromDoc;
 import 'cart_repository.dart';
 
-/// carts/{uid} `{lines: {variantId: {qty, addedAt}}, updatedAt}` (Rules: the owner, ≤ 20 lines). The variant and its
+/// carts/{uid} `{lines: {variantId: {qty, addedAt, forModel?}}, updatedAt}` (Rules: the owner, ≤ 20 lines). The variant and its
 /// product are read for each line; one the shop hid (Rules deny it) or deleted comes back in `hidden`.
 class FirebaseCartRepository implements CartRepository {
   const FirebaseCartRepository(this._db);
@@ -47,20 +47,25 @@ class FirebaseCartRepository implements CartRepository {
         productName: p['name'] as String,
         productActive: p['isActive'] == true,
         coverPath: images.isEmpty ? null : images.first['path'] as String,
+        forModel: raw[id]['forModel'] as String?,
       ));
     }
     return (lines: lines, hidden: hidden);
   }
 
   @override
-  Future<void> put(String uid, String variantId, int qty) async {
+  Future<void> put(String uid, String variantId, int qty, {String? forModel}) async {
     final ref = _cart(uid);
     final lines = (await ref.get()).data()?['lines'] as Map?;
     if (lines?.containsKey(variantId) ?? false) {
-      await ref.update({'lines.$variantId.qty': qty, 'updatedAt': FieldValue.serverTimestamp()});
+      await ref.update({
+        'lines.$variantId.qty': qty,
+        'lines.$variantId.forModel': ?forModel,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } else {
       await ref.set({
-        'lines': {variantId: {'qty': qty, 'addedAt': Timestamp.now()}},
+        'lines': {variantId: {'qty': qty, 'addedAt': Timestamp.now(), 'forModel': ?forModel}},
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }

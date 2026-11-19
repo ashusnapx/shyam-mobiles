@@ -111,6 +111,8 @@ Map<String, Object?> variantInput(String productId, String? id, Map<String, Obje
     'stock': f['stock'],
     'isActive': f['is_active'],
     'sort': ?f['sort'],
+    'madeToOrder': ?f['made_to_order'],
+    'leadDays': ?f['lead_days'],
   };
 }
 

@@ -37,7 +37,7 @@ class _Cart extends CartNotifier {
   }
 
   @override
-  Future<void> add(Variant variant, {int qty = 1}) async => calls.add('add ${variant.id} $qty');
+  Future<void> add(Variant variant, {int qty = 1, String? forModel}) async => calls.add('add ${variant.id} $qty');
 }
 
 class _DroppedCart extends _Cart {

@@ -118,6 +118,8 @@ class _Rows extends StatelessWidget {
                           Text(o.number, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                           Tag(o.status.label, tone: orderTone(o.status)),
                           if (o.needsRefund) const Tag('Needs refund', tone: TagTone.deal, icon: PhosphorIconsBold.arrowCounterClockwise),
+                          // made-to-order lines: staff source the item for the customer's phone
+                          if (o.items.any((i) => i.forModel != null)) const Tag('Arrange', tone: TagTone.info),
                         ],
                       ),
                       const SizedBox(height: 2),

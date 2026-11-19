@@ -26,6 +26,8 @@ Variant variantFromDoc(String id, Map<String, dynamic> d) {
     stock: (d['stock'] as num).toInt(),
     isActive: d['isActive'] == true,
     sort: (d['sort'] as num?)?.toInt() ?? 0,
+    madeToOrder: d['madeToOrder'] == true,
+    leadDays: (d['leadDays'] as num?)?.toInt() ?? 2,
   );
 }
 
@@ -139,6 +141,17 @@ class FirebaseCatalogRepository implements CatalogRepository {
     final cards = await _index();
     return [for (final id in ids) if (cards[id] case final c?) cardOf(id, c)];
   }
+
+  @override
+  Future<List<ProductCard>> madeToOrder() async =>
+      [for (final e in (await _index()).entries) if (e.value['mo'] != null) cardOf(e.key, e.value)];
+
+  /// catalogIndex/models (placeOrder learns them, newest first) after the catalog's phones.
+  @override
+  Future<List<String>> phoneModels() async => [
+        for (final e in (await _index()).entries) if (e.value['k'] == 'phone') e.value['n'] as String,
+        ...((await _db.doc('catalogIndex/models').get()).data()?['names'] as List? ?? const []).cast<String>(),
+      ];
 
   @override
   Future<List<ProductCard>> fits(Set<String> names) async => fitsCards(await _index(), names, railSize);

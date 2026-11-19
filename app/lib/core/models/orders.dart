@@ -51,6 +51,7 @@ class OrderItem {
     this.variantId,
     this.imagePath,
     this.imeis = const [],
+    this.forModel,
   });
 
   final String id;
@@ -62,6 +63,7 @@ class OrderItem {
   final int unitPricePaise;
   final int qty;
   final List<String> imeis;
+  final String? forModel; // made to order: arrange it for this phone
 
   int get lineTotalPaise => unitPricePaise * qty;
 
@@ -75,6 +77,7 @@ class OrderItem {
         unitPricePaise: j['unit_price_paise'],
         qty: j['qty'],
         imeis: [...(j['imeis'] as List? ?? const [])].cast<String>(),
+        forModel: j['for_model'],
       );
 }
 

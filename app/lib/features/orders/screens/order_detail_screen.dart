@@ -136,6 +136,9 @@ class _OrderBody extends StatelessWidget {
                                   [if (item.variantName.isNotEmpty) item.variantName, 'Qty ${item.qty}'].join(' · '),
                                   style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
                                 ),
+                                if (item.forModel != null)
+                                  Text('For: ${item.forModel} · arranged for your phone',
+                                      style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
                                 if (o.status == OrderStatus.delivered && item.productId != null)
                                   RateProductButton(productId: item.productId!, productName: item.productName),
                                 for (final imei in item.imeis)

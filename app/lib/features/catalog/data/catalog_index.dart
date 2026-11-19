@@ -25,6 +25,8 @@ ProductCard cardOf(String id, Map<String, dynamic> c) => ProductCard(
       inStock: c['i'] == true,
       coverPath: c['cv'] as String?,
       isFeatured: c['f'] == true,
+      madeToOrder: c['mo'] != null,
+      leadDays: (c['mo'] as num?)?.toInt(),
     );
 
 final _wordSplit = RegExp(r'[^\p{L}\p{M}\p{N}]+', unicode: true);

@@ -99,7 +99,7 @@ class FakeCart extends CartNotifier {
   Future<List<CartLine>> build() async => const [];
 
   @override
-  Future<void> add(Variant variant, {int qty = 1}) async => added.add(variant.id);
+  Future<void> add(Variant variant, {int qty = 1, String? forModel}) async => added.add(variant.id);
 }
 
 class FakeWishlistApi implements WishlistRepository {

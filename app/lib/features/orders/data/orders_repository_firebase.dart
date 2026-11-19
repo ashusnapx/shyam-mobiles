@@ -38,7 +38,7 @@ Order orderFromDoc(String id, Map<String, dynamic> d) {
           id: i['id'] as String, variantId: i['id'] as String, productId: i['productId'] as String?,
           productName: i['productName'] as String, variantName: i['variantName'] as String, imagePath: i['imagePath'] as String?,
           unitPricePaise: (i['unitPricePaise'] as num).toInt(), qty: (i['qty'] as num).toInt(),
-          imeis: [...(i['imeis'] as List? ?? const [])].cast<String>()),
+          imeis: [...(i['imeis'] as List? ?? const [])].cast<String>(), forModel: i['forModel'] as String?),
     ],
     events: [
       for (final e in (d['events'] as List? ?? const []).cast<Map>())

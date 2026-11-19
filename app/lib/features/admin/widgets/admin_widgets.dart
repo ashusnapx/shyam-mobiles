@@ -56,8 +56,11 @@ class CancelButton extends StatelessWidget {
 String itemsSummary(Order o) => o.items.isEmpty
     ? 'No items'
     : o.items.length == 1
-        ? o.items.first.productName
-        : '${o.items.first.productName} +${o.items.length - 1} more';
+        ? lineName(o.items.first)
+        : '${lineName(o.items.first)} +${o.items.length - 1} more';
+
+/// "Back cover for Galaxy A15" on a made-to-order line, else the product name.
+String lineName(OrderItem i) => i.forModel == null ? i.productName : '${i.productName} for ${i.forModel}';
 
 /// "COD" or the payment status ("Paid", "Pending", ...); a cancelled order still pending was never paid. The order's
 /// own page keeps the raw status.

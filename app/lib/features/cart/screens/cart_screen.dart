@@ -22,12 +22,16 @@ import '../../checkout/screens/widgets.dart';
 import '../../exchange/widgets/exchange_widgets.dart' show ExchangeCartCard;
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
+import '../../catalog/screens/product_screen.dart' show leadLine;
 import '../data/cart.dart';
 
 /// Tag under a cart line. `blocking` matches `!CartLine.purchasable`: checkout waits until it's fixed.
 ({String text, bool blocking})? lineWarning(CartLine l) {
   final stock = l.variant.stock;
   if (!l.productActive || !l.variant.isActive) return (text: 'No longer available', blocking: true);
+  if (l.variant.madeToOrder) {
+    return l.forModel == null ? (text: 'Tap to add your phone model', blocking: true) : null; // never "in stock"
+  }
   if (stock <= 0) return (text: 'Out of stock', blocking: true);
   if (stock < l.qty) return (text: 'Only $stock left', blocking: true); // the minus button fixes it
   if (stock <= 3) return (text: 'Only $stock left', blocking: false);
@@ -384,9 +388,10 @@ class _LineTile extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final t = Theme.of(context).textTheme;
     final warning = lineWarning(line);
-    final unavailable = !line.productActive || !line.variant.isActive || line.variant.stock <= 0;
+    final unavailable = !line.productActive || !line.variant.isActive || (!line.variant.madeToOrder && line.variant.stock <= 0);
     return InkWell(
-      onTap: () => context.push('/product/${line.productSlug}'),
+      onTap: () => context.push('/product/${line.productSlug}'
+          '${line.forModel == null ? '' : '?for=${Uri.encodeQueryComponent(line.forModel!)}'}'),
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.outlineVariant))),
         child: Padding(
@@ -403,6 +408,10 @@ class _LineTile extends StatelessWidget {
                     Text(line.productName, style: t.titleSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
                     if (line.variant.name.isNotEmpty)
                       Text(line.variant.name, style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                    if (line.forModel != null) ...[
+                      Text('For: ${line.forModel}', style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(leadLine(line.variant.leadDays), style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                    ],
                     if (warning != null)
                       Padding(
                         padding: const EdgeInsets.only(top: Space.xs),

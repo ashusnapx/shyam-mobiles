@@ -9,7 +9,7 @@ import 'rails.dart' show closestByPrice, railSize;
 
 /// Columns of `product_cards` that [ProductCard] reads (skips the `search` tsvector).
 const cardColumns =
-    'id, slug, name, is_featured, category_slug, brand_name, min_price_paise, mrp_paise, in_stock, cover_path';
+    'id, slug, name, is_featured, category_slug, brand_name, min_price_paise, mrp_paise, in_stock, cover_path, made_to_order, lead_days';
 
 /// One page of `product_cards` for [p], starting at row [offset]. Always ends on `id` so paging is stable.
 PostgrestTransformBuilder<PostgrestList> searchQuery(
@@ -102,6 +102,13 @@ class SupabaseCatalogRepository implements CatalogRepository {
   @override
   Future<List<ProductCard>> cards(List<String> ids) async =>
       _cards(await _db.from('product_cards').select(cardColumns).inFilter('id', ids));
+
+  @override
+  Future<List<ProductCard>> madeToOrder() async =>
+      _cards(await _db.from('product_cards').select(cardColumns).eq('made_to_order', true));
+
+  @override
+  Future<List<String>> phoneModels() async => [...(await _db.rpc<List<dynamic>>('phone_models')).cast<String>()];
 
   @override
   Future<List<ProductCard>> fits(Set<String> names) async {

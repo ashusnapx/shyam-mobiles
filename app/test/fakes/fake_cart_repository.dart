@@ -15,11 +15,11 @@ class FakeCartRepository with Fake implements CartRepository {
   }
 
   @override
-  Future<void> put(String uid, String variantId, int qty) async {
-    record('put $variantId $qty');
+  Future<void> put(String uid, String variantId, int qty, {String? forModel}) async {
+    record('put $variantId $qty${forModel == null ? '' : ' $forModel'}');
     final list = lines.putIfAbsent(uid, () => []);
     final i = list.indexWhere((l) => l.variant.id == variantId);
-    if (i >= 0) list[i] = list[i].copyWith(qty: qty);
+    if (i >= 0) list[i] = list[i].copyWith(qty: qty, forModel: forModel);
     // a new line needs its variant: tests seed lines they add to
   }
 

@@ -19,6 +19,7 @@ import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/catalog.dart';
+import '../data/phone_models.dart';
 import '../widgets/product_tile.dart';
 
 const _priceCaps = [150000, 500000, 1500000, 3000000, 5000000];
@@ -315,6 +316,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final notifier = ref.read(searchProvider(params).notifier);
     // data saver: no prefetching; the next page loads once the spinner row is in view, nothing is built off screen
     final saver = ref.watch(dataSaverProvider) == DataMode.saver;
+    final model = isModelQuery(_q) ? modelOf(_q) : null; // "Accessories for <model>" after the real results
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n.metrics.axis == Axis.vertical && n.metrics.extentAfter < (saver ? 100 : 600)) notifier.loadMore();
@@ -359,7 +361,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 child: Text(_count(r.total, category), style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
               ),
             ),
-            if (r.items.isEmpty)
+            if (r.items.isEmpty && model == null)
               SliverFillRemaining(
                 key: const ValueKey('empty'),
                 hasScrollBody: false,
@@ -387,8 +389,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                 ),
               )
-            else
+            else if (r.items.isNotEmpty)
               SliverProductGrid(r.items, key: const ValueKey('grid')),
+            if (model != null && r.items.length >= r.total)
+              SliverToBoxAdapter(key: const ValueKey('made-to-order'), child: ModelAccessories(model)),
             if (r.moreFailed)
               SliverToBoxAdapter(
                 key: const ValueKey('more-failed'),
@@ -430,4 +434,53 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ],
     ),
   );
+}
+
+/// "Accessories for Galaxy A15": the made-to-order types, arranged for any phone the customer names (even one the
+/// shop has never listed). Honest copy: "Arranged for your phone", never "in stock".
+class ModelAccessories extends ConsumerWidget {
+  const ModelAccessories(this.model, {super.key});
+
+  final String model;
+
+  static IconData _icon(String name) => switch (name.toLowerCase()) {
+        final n when n.contains('glass') => PhosphorIconsRegular.deviceMobile,
+        final n when n.contains('lens') || n.contains('camera') => PhosphorIconsRegular.camera,
+        final n when n.contains('flip') => PhosphorIconsRegular.bookOpen,
+        _ => PhosphorIconsRegular.deviceMobileCamera,
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final types = ref.watch(madeToOrderProvider).value ?? const <ProductCard>[];
+    if (types.isEmpty) return const SizedBox.shrink();
+    final t = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader('Accessories for $model', inset: false),
+          Text('We arrange these for your exact phone. Not from stock.', style: t.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+          const SizedBox(height: Space.sm),
+          for (final card in types)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: card.coverPath == null
+                  ? CircleAvatar(
+                      backgroundColor: BrandColors.peacockMist,
+                      child: Icon(_icon(card.name), color: BrandColors.peacockInk),
+                    )
+                  : SizedBox.square(dimension: 48, child: ProductImage(card.coverPath, radius: Radii.md, padding: 0)),
+              title: Text(card.name),
+              subtitle: Text('from ${formatInr(card.minPricePaise)} · ready in ${card.leadDays ?? 2} '
+                  '${card.leadDays == 1 ? 'day' : 'days'}'),
+              trailing: const Icon(PhosphorIconsRegular.caretRight),
+              onTap: () => context.push('/product/${card.slug}?for=${Uri.encodeQueryComponent(model)}'),
+            ),
+        ],
+      ),
+    );
+  }
 }

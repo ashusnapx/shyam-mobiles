@@ -50,7 +50,7 @@ Future<int> reorder(SupabaseClient db, CartNotifier cart, Order o) async {
   for (final i in o.items) {
     final v = variants[i.variantId];
     if (v == null || !v.inStock) continue;
-    await cart.add(v, qty: i.qty);
+    await cart.add(v, qty: i.qty, forModel: i.forModel); // made to order: the same phone again
     added++;
   }
   return added;

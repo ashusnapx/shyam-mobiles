@@ -4,7 +4,7 @@ import '../../../core/models/models.dart';
 import 'cart_repository.dart';
 
 const _select =
-    'qty, variant_id, variant:variants(*, product:products(id, slug, name, is_active, images:product_images(path, sort)))';
+    'qty, variant_id, for_model, variant:variants(*, product:products(id, slug, name, is_active, images:product_images(path, sort)))';
 
 /// Today's cart_items queries (RLS: the caller's own rows). Deleted in Phase 2.
 class SupabaseCartRepository implements CartRepository {
@@ -23,8 +23,9 @@ class SupabaseCartRepository implements CartRepository {
   }
 
   @override
-  Future<void> put(String uid, String variantId, int qty) =>
-      _db.from('cart_items').upsert({'user_id': uid, 'variant_id': variantId, 'qty': qty});
+  Future<void> put(String uid, String variantId, int qty, {String? forModel}) => _db
+      .from('cart_items')
+      .upsert({'user_id': uid, 'variant_id': variantId, 'qty': qty, 'for_model': ?forModel}); // absent: kept
 
   @override
   Future<void> remove(String uid, List<String> variantIds) =>

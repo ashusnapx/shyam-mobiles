@@ -36,6 +36,13 @@ abstract interface class CatalogRepository {
   /// The newest products (Home's "More to explore").
   Future<List<ProductCard>> latest();
 
+  /// The made-to-order types (back cover, tempered glass...): arranged for any phone the customer names.
+  Future<List<ProductCard>> madeToOrder();
+
+  /// "Your phone model" suggestions, learned with no owner work: catalog phone names, then models customers
+  /// ordered for (the server dedupes; newest first).
+  Future<List<String>> phoneModels();
+
   /// Purchasable variants by id (reorder puts a past order back in the cart).
   Future<List<Variant>> variants(List<String> ids);
 }

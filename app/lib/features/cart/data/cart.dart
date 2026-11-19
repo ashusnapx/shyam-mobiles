@@ -24,7 +24,7 @@ String removedNotice(List<String?> names) {
 }
 
 /// Most of one variant a customer can hold in the cart (DB check allows 1..5).
-int maxQtyFor(Variant v) => math.min(v.stock, 5);
+int maxQtyFor(Variant v) => v.madeToOrder ? 5 : math.min(v.stock, 5);
 
 /// Σ price × qty, like `place_order` (which refuses the order while any line isn't purchasable).
 int cartSubtotalPaise(List<CartLine> lines) => lines.fold(0, (sum, l) => sum + l.lineTotalPaise);
@@ -39,7 +39,7 @@ int cartSavingPaise(List<CartLine> lines, int discountPaise) =>
 String cartWhatsAppText(List<CartLine> lines, int totalPaise, {String? name}) => [
       name == null ? 'Hi, I want to order:' : 'Hi, I’m $name. I want to order:',
       for (final l in lines)
-        '${l.qty} × ${l.productName}${l.variant.name.isEmpty ? '' : ' (${l.variant.name})'} ${formatInr(l.lineTotalPaise)}',
+        '${l.qty} × ${l.productName}${l.variant.name.isEmpty ? '' : ' (${l.variant.name})'}${l.forModel == null ? '' : ' for ${l.forModel}'} ${formatInr(l.lineTotalPaise)}',
       'Total ${formatInr(totalPaise)}',
     ].join('\n');
 
@@ -78,15 +78,18 @@ class CartNotifier extends AsyncNotifier<List<CartLine>> {
   }
 
   /// Adds [qty] more of [variant], capped by stock and the per-item limit. Requires a signed-in user.
-  Future<void> add(Variant variant, {int qty = 1}) async {
+  /// [forModel]: made to order, the customer's phone; one line per item, so a new model replaces the old one.
+  Future<void> add(Variant variant, {int qty = 1, String? forModel}) async {
     final uid = ref.read(currentUserIdProvider);
     if (uid == null) throw const AuthException('Sign in to add to cart');
     // Wait for the server cart: computing from an unloaded state would upsert qty over the real one.
     final lines = await future;
-    final current = lines.where((l) => l.variant.id == variant.id).firstOrNull?.qty ?? 0;
+    final line = lines.where((l) => l.variant.id == variant.id).firstOrNull;
+    final current = line?.qty ?? 0;
     final next = math.min(current + qty, maxQtyFor(variant));
-    if (next <= current) return;
-    await _repo.put(uid, variant.id, next);
+    final newModel = forModel != null && forModel != line?.forModel;
+    if (next <= current && !newModel) return;
+    await _repo.put(uid, variant.id, math.max(next, current), forModel: forModel);
     ref.invalidateSelf();
     try {
       await future;

@@ -13,7 +13,8 @@ abstract interface class CartRepository {
   Future<({List<CartLine> lines, List<String> hidden})> load(String uid);
 
   /// Sets the line's quantity, adding the line if it isn't there (CART_LIMIT past 20 lines).
-  Future<void> put(String uid, String variantId, int qty);
+  /// [forModel] (made to order): sets the line's phone model; null leaves it as it is.
+  Future<void> put(String uid, String variantId, int qty, {String? forModel});
 
   Future<void> remove(String uid, List<String> variantIds);
 }

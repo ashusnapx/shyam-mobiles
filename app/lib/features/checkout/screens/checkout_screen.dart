@@ -362,7 +362,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        [l.productName, if (l.variant.name.isNotEmpty) l.variant.name].join(' · '),
+                                        [
+                                          l.productName,
+                                          if (l.variant.name.isNotEmpty) l.variant.name,
+                                          if (l.forModel != null) 'For: ${l.forModel}',
+                                        ].join(' · '),
                                         style: t.bodySmall,
                                       ),
                                     ),

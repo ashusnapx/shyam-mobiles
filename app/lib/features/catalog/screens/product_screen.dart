@@ -6,16 +6,17 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/errors.dart';
 import '../../notifications/data/back_in_stock.dart';
 import '../../../core/format.dart';
 import '../../../core/links.dart';
 import '../../../core/models/models.dart';
+import '../../../core/stories.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
+import '../../../core/widgets/mascot.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
 import '../../cart/widgets/cart_button.dart';
@@ -28,6 +29,7 @@ import '../../reviews/data/reviews.dart' show togetherProvider;
 import '../../reviews/widgets/review_widgets.dart';
 import '../data/best_offer.dart';
 import '../data/catalog.dart';
+import '../data/phone_models.dart';
 import '../data/rails.dart';
 import '../data/variant_options.dart';
 import '../widgets/gallery.dart';
@@ -64,28 +66,16 @@ Color? _hexColor(String? hex) => hex != null && RegExp(r'^#[0-9a-fA-F]{6}$').has
     ? Color(0xFF000000 | int.parse(hex.substring(1), radix: 16))
     : null;
 
-final _fakeProduct = Product(
-  id: '',
-  slug: '',
-  name: 'Brand Phone name 5G',
-  brand: const Brand(id: '', slug: '', name: 'Brand'),
-  category: const Category(id: '', slug: '', name: 'Phones', kind: CategoryKind.phone),
-  specs: [for (final l in ['Display', 'Processor', 'Camera', 'Battery']) Spec(l, 'Loading the details')],
-  variants: const [
-    Variant(id: 'a', productId: '', sku: '', name: '', pricePaise: 2499900, mrpPaise: 2799900, stock: 9,
-        attributes: {'ram': '8 GB', 'storage': '128 GB', 'color': 'Black'}),
-    Variant(id: 'b', productId: '', sku: '', name: '', pricePaise: 2699900, mrpPaise: 2999900, stock: 9,
-        attributes: {'ram': '8 GB', 'storage': '256 GB', 'color': 'White'}),
-  ],
-);
-
 class ProductScreen extends ConsumerStatefulWidget {
-  const ProductScreen({super.key, required this.slug, this.variantId});
+  const ProductScreen({super.key, required this.slug, this.variantId, this.forModel});
 
   final String slug;
 
   /// `?variant=`: the variant a link (a back-in-stock alert) is about, picked on open.
   final String? variantId;
+
+  /// `?for=`: made to order, the phone model search found ("Galaxy A15"), prefilled and editable.
+  final String? forModel;
 
   @override
   ConsumerState<ProductScreen> createState() => _ProductScreenState();
@@ -99,6 +89,9 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
   bool _readRoute = false;
   bool _allSpecs = false; // "Show all N specs" tapped
   ({bool buy, String variantId})? _resume; // add/buy to finish after the sign-in round trip
+  late final _model = TextEditingController(text: widget.forModel == null ? '' : tidyModel(widget.forModel!) ?? '');
+  final _modelFocus = FocusNode();
+  String? _modelError; // made to order: "Your phone model" is required
 
   @override
   void initState() {
@@ -107,6 +100,13 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     ref.listenManual(productProvider(widget.slug), (_, next) {
       if (next.value case final p?) ref.read(recentlyViewedProvider.notifier).add(p.id);
     }, fireImmediately: true);
+  }
+
+  @override
+  void dispose() {
+    _model.dispose();
+    _modelFocus.dispose();
+    super.dispose();
   }
 
   @override
@@ -136,8 +136,15 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
 
   Future<void> _add(Variant v, {required bool buy}) async {
     final router = GoRouter.of(context);
+    final model = v.madeToOrder ? tidyModel(_model.text) : null;
+    if (v.madeToOrder && model == null) {
+      setState(() => _modelError = 'Type your phone model, like Galaxy A15');
+      _modelFocus.requestFocus();
+      return;
+    }
     if (ref.read(currentUserIdProvider) == null) {
-      final back = '/product/${widget.slug}?${buy ? 'buy' : 'add'}=${v.id}';
+      final back = '/product/${widget.slug}?${buy ? 'buy' : 'add'}=${v.id}'
+          '${model == null ? '' : '&for=${Uri.encodeQueryComponent(model)}'}';
       unawaited(router.push('/sign-in?from=${Uri.encodeComponent(back)}'));
       return;
     }
@@ -149,8 +156,10 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
     try {
       // load the cart first: add() computes the new qty from what's already there
       final lines = await ref.read(cartProvider.future);
-      final inCart = lines.where((l) => l.variant.id == v.id).firstOrNull?.qty ?? 0;
-      if (inCart >= maxQtyFor(v)) {
+      final line = lines.where((l) => l.variant.id == v.id).firstOrNull;
+      final inCart = line?.qty ?? 0;
+      final newModel = line != null && model != null && line.forModel != model; // one line per item: it moves over
+      if (inCart >= maxQtyFor(v) && !newModel) {
         if (buy) {
           unawaited(router.push('/checkout'));
         } else if (mounted) {
@@ -158,12 +167,12 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
         }
         return;
       }
-      await ref.read(cartProvider.notifier).add(v);
+      await ref.read(cartProvider.notifier).add(v, forModel: model);
       unawaited(HapticFeedback.mediumImpact());
       if (buy) {
         unawaited(router.push('/checkout'));
       } else if (mounted) {
-        showMessage(context, 'Added to cart', action: SnackBarAction(label: 'View cart', onPressed: () => router.push('/bag')));
+        showMessage(context, newModel ? 'Now for $model in your cart' : 'Added to cart', action: SnackBarAction(label: 'View cart', onPressed: () => router.push('/bag')));
       }
     } catch (e) {
       if (mounted) showMessage(context, friendlyError(e));
@@ -222,6 +231,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               what: '${product.name}${variant == null ? '' : ' · ${formatInr(variant.pricePaise)}'} at Shyam Mobiles',
               product: product.slug,
               style: IconButton.styleFrom(backgroundColor: c.surface),
+              story: variant == null ? null : _story(product, variant),
             ),
             HeartButton(product.id,
                 waitFor: product.activeVariants.every((v) => !v.inStock)
@@ -261,7 +271,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
             error: error,
             onRetry: () => ref.invalidate(productProvider(widget.slug)),
           ),
-        _ => Skeletonizer(child: _details(_fakeProduct, _fakeProduct.variants, _fakeProduct.variants.first)),
+        _ => const MascotLoader(), // after 400 ms: Mor and a fact (other screens keep skeletons)
       },
       bottomNavigationBar: variant == null || product == null
           ? null
@@ -380,7 +390,9 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                       ),
                     ),
                   ),
-                  if (!v.inStock)
+                  if (v.madeToOrder)
+                    const Tag('Arranged for your phone', tone: TagTone.info)
+                  else if (!v.inStock)
                     const Tag('Out of stock', tone: TagTone.neutral)
                   else if (v.stock <= 3)
                     Tag('Only ${v.stock} left', tone: TagTone.deal)
@@ -394,6 +406,23 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               EmiLine(pricePaise: v.pricePaise), // "EMI from ₹X/month"; nothing when EMI doesn't apply
               const SizedBox(height: 2),
               Text('Inclusive of all taxes', style: muted),
+              if (v.madeToOrder) ...[
+                label('Your phone model'),
+                _ModelField(
+                  controller: _model,
+                  focusNode: _modelFocus,
+                  error: _modelError,
+                  onChanged: () => _modelError == null ? null : setState(() => _modelError = null),
+                ),
+                const SizedBox(height: Space.sm),
+                Row(
+                  spacing: Space.xs,
+                  children: [
+                    Icon(PhosphorIconsRegular.clock, size: IconSizes.sm, color: c.onSurfaceVariant),
+                    Expanded(child: Text(leadLine(v.leadDays), style: muted)),
+                  ],
+                ),
+              ],
               if (p.id.isNotEmpty) BoughtThisWeek(p.id),
               // the pick sets the price above and the offer below
               if (memories.isNotEmpty) ...[
@@ -495,7 +524,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               if (p.id.isNotEmpty) ReviewsSection(productId: p.id, productName: p.name),
               if (settings != null) ...[
                 const SizedBox(height: Space.lg),
-                _StoreRows(settings: settings, item: item),
+                _StoreRows(settings: settings, item: item, story: _story(p, v)),
               ],
             ],
           ),
@@ -868,13 +897,23 @@ class _WhyBuy extends StatelessWidget {
   }
 }
 
+/// The product in [v]'s colour and price as an Instagram / Facebook story.
+Story _story(Product p, Variant v) => (
+      id: p.id,
+      name: p.name,
+      price: formatInr(v.pricePaise),
+      photo: photosFor(p.images, colorOf(v)).firstOrNull?.path,
+      link: shareLink(product: p.slug)?.toString() ?? 'Shyam Mobiles app on Google Play',
+    );
+
 /// "Ask on WhatsApp" (prefilled with the product and variant) and a wholesale enquiry: the shop sells wholesale too,
 /// and dealers ask for bulk prices over WhatsApp.
 class _StoreRows extends StatelessWidget {
-  const _StoreRows({required this.settings, required this.item});
+  const _StoreRows({required this.settings, required this.item, required this.story});
 
   final StoreSettings settings;
   final String item; // "Samsung Galaxy S25 (12 GB · 256 GB · Navy)"
+  final Story story; // Share to Instagram / Facebook Story, when the phone has either
 
   Future<void> _askBulk(BuildContext context) async {
     final qty = await showModalBottomSheet<int>(
@@ -907,6 +946,7 @@ class _StoreRows extends StatelessWidget {
             trailing: chevron,
             onTap: () => _askBulk(context),
           ),
+          StoryTiles(story, divided: true),
         ],
       ),
     );
@@ -954,6 +994,58 @@ class _BulkSheetState extends State<_BulkSheet> {
             label: const Text('Send on WhatsApp'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Arranged for your phone · ships in 2 days": made-to-order copy, never "in stock".
+String leadLine(int days) => 'Arranged for your phone · ships in $days ${days == 1 ? 'day' : 'days'}';
+
+/// "Your phone model": free text (any phone, even one launched today), with suggestions from the catalog's phones
+/// and the models customers ordered for.
+class _ModelField extends ConsumerWidget {
+  const _ModelField({required this.controller, required this.focusNode, required this.error, required this.onChanged});
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String? error;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final models = ref.watch(phoneModelsProvider).value ?? const <String>[];
+    return RawAutocomplete<String>(
+      textEditingController: controller,
+      focusNode: focusNode,
+      optionsBuilder: (v) {
+        final key = modelKey(v.text.trim());
+        if (key.isEmpty) return const [];
+        return models.where((m) => modelKey(m).contains(key) && modelKey(m) != key).take(6);
+      },
+      fieldViewBuilder: (context, controller, focusNode, onSubmit) => TextField(
+        controller: controller,
+        focusNode: focusNode,
+        maxLength: 60,
+        textCapitalization: TextCapitalization.words,
+        onChanged: (_) => onChanged(),
+        onSubmitted: (_) => onSubmit(),
+        decoration: InputDecoration(hintText: 'e.g. Galaxy A15 5G', errorText: error, counterText: ''),
+      ),
+      optionsViewBuilder: (context, onSelected, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280, maxWidth: 420),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              children: [for (final m in options) ListTile(title: Text(m), onTap: () => onSelected(m))],
+            ),
+          ),
+        ),
       ),
     );
   }

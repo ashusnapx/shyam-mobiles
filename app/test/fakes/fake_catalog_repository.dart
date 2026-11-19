@@ -37,6 +37,7 @@ class FakeCatalogRepository with Fake implements CatalogRepository {
   @override
   Future<Product?> product(String slug) async {
     record('product $slug');
+    if (productDelay > Duration.zero) await Future<void>.delayed(productDelay);
     return productsBySlug[slug];
   }
 
@@ -57,6 +58,21 @@ class FakeCatalogRepository with Fake implements CatalogRepository {
   Future<List<ProductCard>> cards(List<String> ids) async {
     record('cards');
     return cardList.where((c) => ids.contains(c.id)).toList();
+  }
+
+  var models = <String>[]; // phoneModels()
+  var productDelay = Duration.zero; // a slow product page load
+
+  @override
+  Future<List<ProductCard>> madeToOrder() async {
+    record('madeToOrder');
+    return cardList.where((c) => c.madeToOrder).toList();
+  }
+
+  @override
+  Future<List<String>> phoneModels() async {
+    record('phoneModels');
+    return models;
   }
 
   @override

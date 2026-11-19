@@ -648,12 +648,14 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
   late final _mrp = TextEditingController(text: _v == null ? '' : rupeesText(_v.mrpPaise));
   late final _stock = TextEditingController(text: '${_v?.stock ?? 0}');
   late bool _active = _v?.isActive ?? true;
+  late bool _madeToOrder = _v?.madeToOrder ?? false; // arranged per order for the customer's phone, no stock
+  late final _leadDays = TextEditingController(text: '${_v?.leadDays ?? 2}');
   String? _error;
   bool _busy = false;
 
   @override
   void dispose() {
-    for (final c in [_ram, _storage, _color, _hex, _name, _sku, _price, _mrp, _stock]) {
+    for (final c in [_ram, _storage, _color, _hex, _name, _sku, _price, _mrp, _stock, _leadDays]) {
       c.dispose();
     }
     super.dispose();
@@ -675,6 +677,8 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
       'mrp_paise': parseRupees(_mrp.text),
       'stock': int.parse(_stock.text),
       'is_active': _active,
+      'made_to_order': _madeToOrder,
+      'lead_days': int.parse(_leadDays.text),
       if (_v == null) 'sort': widget.sort,
     };
     setState(() {
@@ -792,8 +796,27 @@ class _VariantSheetState extends ConsumerState<_VariantSheet> {
             ),
           ),
         ]),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Made to order'),
+          subtitle: const Text('Arranged for the phone the customer names; no stock'),
+          value: _madeToOrder,
+          onChanged: (v) => setState(() => _madeToOrder = v),
+        ),
+        if (_madeToOrder)
+          TextFormField(
+            controller: _leadDays,
+            decoration: const InputDecoration(labelText: 'Ready in (days)'),
+            keyboardType: TextInputType.number,
+            inputFormatters: const [DigitsFormatter(2)],
+            textInputAction: TextInputAction.done,
+            validator: (v) {
+              final d = int.tryParse(v ?? '') ?? 0;
+              return d >= 1 && d <= 30 ? null : 'Enter 1 to 30 days.';
+            },
+          ),
         const SizedBox(height: Space.md),
-        TextFormField(
+        if (!_madeToOrder) TextFormField(
           controller: _stock,
           decoration: const InputDecoration(labelText: 'Stock'),
           keyboardType: TextInputType.number,
