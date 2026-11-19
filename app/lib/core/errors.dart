@@ -12,6 +12,7 @@ const _codes = {
   'CART_EMPTY': 'Your cart is empty.',
   'ADDRESS_NOT_FOUND': 'Pick a delivery address.',
   'OUT_OF_STOCK': 'Some items just went out of stock. Check your cart and try again.',
+  'MODEL_REQUIRED': 'Tell us your phone model for the items we arrange for you, then try again.',
   'COD_UNAVAILABLE': 'Cash on delivery isn’t available for this order. Pay online instead.',
   'INVALID_TRANSITION': 'This can’t be changed any more.',
   'NOT_FOUND': 'We couldn’t find that. It may have been removed.',
@@ -61,8 +62,8 @@ const _codes = {
   'LINK_IN_PROGRESS': 'That link is still being made. Try again in a moment.',
   'LINK_NOT_OPEN': 'This link is already paid, cancelled or expired. Refresh to see it.',
   'FEEDBACK_LIMIT': 'That’s all the feedback we can take from you today. Thank you! Try again tomorrow, or call the shop.',
-};
   'REVIEW_NOT_ALLOWED': 'Only customers whose order of this product was delivered can review it.',
+};
 
 // admin_save_promotion's INVALID_PROMOTION names the broken rule in `details`.
 const _promotionRules = {
