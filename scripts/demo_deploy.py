@@ -141,6 +141,9 @@ class Deploy:
 
     def secrets(self):
         step('Edge Function secrets (Razorpay TEST keys, FCM, push secret)')
+        if not RAZORPAY_ENV.exists():  # the scratchpad copy is temporary; production keeps the secrets set earlier
+            print('  skipped: no Razorpay test env file here, production keeps its current secrets')
+            return
         rz = parse_env(RAZORPAY_ENV)
         assert rz['RAZORPAY_KEY_ID'].startswith('rzp_test_'), 'only test keys for the demo'
         sa = json.dumps(json.loads(SA_FILE.read_text()), separators=(',', ':'))
