@@ -113,6 +113,7 @@ class PromoBanner {
     this.subtitle = '',
     this.ctaLabel = 'Shop now',
     this.imagePath,
+    this.socialImagePath,
     this.tone = 0,
     this.sort = 0,
     this.endsAt,
@@ -126,6 +127,7 @@ class PromoBanner {
   final String ctaLabel;
   final String link;
   final String? imagePath;
+  final String? socialImagePath; // JPEG copy of the photo for Instagram / Facebook posts, which take no WebP
   final int tone;
   final int sort;
   final DateTime startsAt;
@@ -144,6 +146,7 @@ class PromoBanner {
         ctaLabel: j['cta_label'] ?? 'Shop now',
         link: j['link'],
         imagePath: j['image_path'],
+        socialImagePath: j['social_image_path'],
         tone: j['tone'] ?? 0,
         sort: j['sort'] ?? 0,
         startsAt: DateTime.parse(j['starts_at']),

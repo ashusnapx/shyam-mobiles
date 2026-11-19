@@ -328,7 +328,22 @@ Future<void> saveBusinessProfile(WidgetRef ref, BusinessProfile profile) async {
 // Banners ---------------------------------------------------------------------
 
 /// Uploads a banner photo and its thumb to `banners/`; returns the key for the banner's image path.
-Future<String> uploadBannerImage(WidgetRef ref, Uint8List original) async => (await _uploadPhoto(ref, 'banners', original)).path;
+/// The banner photo (WebP and thumb) and its JPEG copy for Instagram / Facebook posts beside it: `banners/<millis>.jpg`.
+Future<({String path, String social})> uploadBannerImage(WidgetRef ref, Uint8List original) async {
+  final path = (await _uploadPhoto(ref, 'banners', original)).path;
+  final social = socialPathFor(path);
+  try {
+    await ref.read(photoStoreProvider).put(social, await socialJpeg(original), 'image/jpeg');
+  } catch (_) {
+    await _removeFiles(ref, path);
+    rethrow;
+  }
+  return (path: path, social: social);
+}
+
+/// `banners/<millis>.webp` → `banners/<millis>.jpg`
+String socialPathFor(String path) => path.replaceFirst(RegExp(r'\.webp$'), '.jpg');
 
 /// No order points at banner photos, so a replaced or removed one is deleted with its thumb.
-Future<void> deleteBannerImage(WidgetRef ref, String path) => _removeFiles(ref, path);
+Future<void> deleteBannerImage(WidgetRef ref, String path) =>
+    ref.read(photoStoreProvider).remove([path, ?thumbPathFor(path), socialPathFor(path)]);

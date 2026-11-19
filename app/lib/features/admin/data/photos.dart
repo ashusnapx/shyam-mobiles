@@ -105,7 +105,20 @@ Future<(int, int)?> imageSizeOf(Uint8List bytes) async {
   }
 }
 
-Future<Uint8List> _webp(Uint8List bytes, (int, int) size, int maxSide, int quality) {
+/// A JPEG copy for Instagram / Facebook posts, which take no WebP: at most 1080 px wide, quality 85, upright, no EXIF.
+Future<Uint8List> socialJpeg(Uint8List original) async {
+  final size = await imageSizeOf(original);
+  if (size == null) throw const FormatException('That file isn’t a photo. Pick a JPEG, PNG or WebP image.');
+  return _webp(original, size, socialMaxSide(size.$1, size.$2), 85, format: CompressFormat.jpeg);
+}
+
+const socialWidth = 1080;
+
+/// [photoPlan] caps the longest side; for a tall photo the cap is set so its width lands on [socialWidth].
+int socialMaxSide(int width, int height) => width >= height ? socialWidth : socialWidth * height ~/ width;
+
+Future<Uint8List> _webp(Uint8List bytes, (int, int) size, int maxSide, int quality,
+    {CompressFormat format = CompressFormat.webp}) {
   final plan = photoPlan(size.$1, size.$2, maxSide);
   return FlutterImageCompress.compressWithList(
     bytes,
@@ -113,7 +126,7 @@ Future<Uint8List> _webp(Uint8List bytes, (int, int) size, int maxSide, int quali
     minHeight: plan.minSide,
     inSampleSize: plan.inSampleSize,
     quality: quality,
-    format: CompressFormat.webp,
+    format: format,
     autoCorrectionAngle: true, // turn it upright from the EXIF orientation, then the tag can go
     // Never copy EXIF: phone photos carry GPS, which would publish where the shop (or a staff member's home) is.
     keepExif: false,

@@ -212,6 +212,7 @@ class _EditorState extends ConsumerState<_Editor> {
   late String? _link = _b?.link;
   late final int _tone = _b?.tone ?? 0;
   late String? _image = _b?.imagePath;
+  late String? _social = _b?.socialImagePath; // its JPEG copy for Instagram / Facebook posts
   late DateTime _starts = _b?.startsAt.toLocal() ?? DateTime.now();
   late DateTime? _ends = _b?.endsAt?.toLocal();
   late bool _active = _b?.isActive ?? true;
@@ -250,8 +251,13 @@ class _EditorState extends ConsumerState<_Editor> {
     if (file == null) return;
     await _run(() async {
       // shortcut: a photo uploaded and then not saved stays in storage (~200 KB); sweep unreferenced banners/ if it grows
-      final path = await uploadBannerImage(ref, await readPhoto(file));
-      if (mounted) setState(() => _image = path);
+      final up = await uploadBannerImage(ref, await readPhoto(file));
+      if (mounted) {
+        setState(() {
+          _image = up.path;
+          _social = up.social;
+        });
+      }
     });
   }
 
@@ -261,6 +267,8 @@ class _EditorState extends ConsumerState<_Editor> {
       final before = _b?.imagePath;
       await ref.read(adminOffersApiProvider).saveBanner(_b?.id, {
         'image_path': _image,
+        // only once there is one, or to clear an old one: banners saved before the copy existed keep no key
+        if (_social != null || _b?.socialImagePath != null) 'social_image_path': _social,
         'tone': _tone,
         if (_b == null) 'sort': widget.nextSort,
         if (!_fromOffer) ...{
@@ -405,7 +413,7 @@ class _EditorState extends ConsumerState<_Editor> {
                   ),
                   if (_image != null)
                     TextButton.icon(
-                      onPressed: _busy ? null : () => setState(() => _image = null),
+                      onPressed: _busy ? null : () => setState(() => _image = _social = null),
                       icon: const Icon(PhosphorIconsRegular.trash),
                       label: const Text('Remove photo'),
                     ),

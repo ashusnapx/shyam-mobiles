@@ -14,6 +14,9 @@ abstract interface class PhotoStore {
   /// Uploads `<folder>/<millis>.webp` and its `@thumb.webp`; returns the full photo's key.
   Future<String> upload(String folder, PreparedPhoto photo);
 
+  /// One file at [key] (a banner's JPEG copy for social posts).
+  Future<void> put(String key, Uint8List bytes, String contentType);
+
   /// Best effort: an orphaned file is harmless.
   Future<void> remove(List<String> paths);
 }
@@ -53,6 +56,10 @@ class SupabasePhotoStore implements PhotoStore {
       remove);
 
   @override
+  Future<void> put(String key, Uint8List bytes, String contentType) =>
+      _bucket.uploadBinary(key, bytes, fileOptions: FileOptions(contentType: contentType, cacheControl: '31536000'));
+
+  @override
   Future<void> remove(List<String> paths) async {
     try {
       await _bucket.remove(paths);
@@ -74,6 +81,10 @@ class FirebasePhotoStore implements PhotoStore {
       photo,
       (key, bytes) => _ref(key).putData(bytes, SettableMetadata(contentType: 'image/webp', cacheControl: _yearCache)),
       remove);
+
+  @override
+  Future<void> put(String key, Uint8List bytes, String contentType) =>
+      _ref(key).putData(bytes, SettableMetadata(contentType: contentType, cacheControl: _yearCache));
 
   @override
   Future<void> remove(List<String> paths) async {

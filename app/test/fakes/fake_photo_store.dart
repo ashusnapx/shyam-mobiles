@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:shyam_mobiles/features/admin/data/photo_store.dart';
 import 'package:shyam_mobiles/features/admin/data/photos.dart' show PreparedPhoto;
 
@@ -14,6 +16,12 @@ class FakePhotoStore with Fake implements PhotoStore {
     files[path] = photo.full.length;
     files[path.replaceFirst('.webp', '@thumb.webp')] = photo.thumb.length;
     return path;
+  }
+
+  @override
+  Future<void> put(String key, Uint8List bytes, String contentType) async {
+    record('put $key');
+    files[key] = bytes.length;
   }
 
   @override

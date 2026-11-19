@@ -86,4 +86,12 @@ void main() {
     final size = await tester.runAsync(() async => imageSizeOf(await _png(1080, 2400)));
     expect(size, (1080, 2400));
   });
+
+  test('the social JPEG is 1080 px wide at most, whatever the photo\'s shape', () {
+    for (final (w, h) in [(4000, 3000), (3000, 4000), (1920, 1080), (1080, 2400), (800, 600), (4000, 4000)]) {
+      final out = photoPlan(w, h, socialMaxSide(w, h));
+      expect(out.width, lessThanOrEqualTo(socialWidth), reason: '$w x $h');
+      expect(out.width, greaterThanOrEqualTo(w < socialWidth ? w : socialWidth - 2), reason: '$w x $h: no needless shrink');
+    }
+  });
 }
