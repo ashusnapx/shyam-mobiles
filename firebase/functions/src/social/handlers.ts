@@ -11,7 +11,7 @@ import { metaClient } from "./meta.js";
 // The shop's Instagram feed and offer auto-posting (docs/SOCIAL.md). The secrets are bound only to these two functions.
 const INSTAGRAM_TOKEN = defineSecret("INSTAGRAM_TOKEN"); // the first long-lived token; refreshed ones go to private/instagramToken
 const FB_PAGE_TOKEN = defineSecret("FB_PAGE_TOKEN");
-const FB_PAGE_ID = defineString("FB_PAGE_ID");
+const FB_PAGE_ID = defineString("FB_PAGE_ID", { default: "me" }); // "me" with a Page token is that Page; the id pins it
 const secrets = [INSTAGRAM_TOKEN, FB_PAGE_TOKEN];
 
 const deps = (): Deps => ({

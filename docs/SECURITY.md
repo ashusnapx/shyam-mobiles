@@ -52,7 +52,7 @@ phone or SMS flood costs little; and we collect only what the shop needs, keep i
 
 ### 2.4 Secrets, keys and IAM
 
-- **Secret Manager** for every secret: the six PhonePe values (`defineSecret`, bound only to the payment functions). Nothing else is secret: `google-services.json` and the Firebase API key are public by design.
+- **Secret Manager** for every secret: the six PhonePe values (`defineSecret`, bound only to the payment functions) and the two Meta tokens `INSTAGRAM_TOKEN` and `FB_PAGE_TOKEN` (bound only to `socialHourly` and `autoPostBanner`). The one exception is the weekly-refreshed Instagram token, kept in Firestore `private/instagramToken`. No client can read that doc, staff included (docs/SOCIAL.md explains why). Nothing else is secret: `google-services.json` and the Firebase API key are public by design.
 - **No downloaded service-account keys.** After cut-over, delete the FCM key that Supabase's `send-push` uses (Cloud console → IAM → Service accounts → `firebase-adminsdk-…` → Keys → delete). One-off admin jobs (the Supabase import, the TOTP config, a restore) run in **Cloud Shell**, which has gcloud and Node and uses the owner's own login, with no key on disk. The project has no Google Cloud organization, so key creation cannot be blocked by org policy; an alert fires instead (§2.6).
 - **API key restrictions** (Cloud console → Credentials → "Android key (auto created by Firebase)"):
   - Application: Android apps, `package` + SHA-1 of the debug, upload and Play-signing keys.
