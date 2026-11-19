@@ -344,9 +344,10 @@ class _SearchField extends StatelessWidget {
 /// One carousel slide: an offer banner or a featured product; [build] gets whether to load its photo.
 typedef _Slide = ({String key, Widget Function(bool photo) build});
 
-/// Offers and featured products in one carousel that moves on every few seconds. Small dots jump to a slide, a
+/// Offers and featured products in one carousel that moves on every 5 s. Small dots jump to a slide, a
 /// screen reader swipes up / down to step it (nothing is swipe-only); touching it pauses it. Stays still with
-/// reduce-motion or TalkBack on, in data-saver mode, and while another tab is showing.
+/// reduce-motion or TalkBack on, in data-saver mode, and while another tab is showing. The slides' own motion (Ken
+/// Burns, sweep, pop: [HeroMotion]) repaints one layer and stops while the carousel is scrolled off screen.
 class _HeroCarousel extends StatefulWidget {
   const _HeroCarousel(this.slides, {required this.saver});
 
@@ -362,6 +363,9 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   int _index = 0;
   int _direction = 1;
   Timer? _timer;
+  ScrollPosition? _position;
+  bool _onScreen = true;
+  bool _queued = false;
 
   int get _count => widget.slides.length;
 
@@ -379,8 +383,32 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final p = Scrollable.maybeOf(context)?.position;
+    if (p == _position) return;
+    _position?.removeListener(_track);
+    _position = p?..addListener(_track);
+  }
+
+  /// On screen or not, measured after the frame the scroll lays out (as RevealOnScroll does).
+  void _track() {
+    if (_queued) return;
+    _queued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _queued = false;
+      final box = mounted ? context.findRenderObject() as RenderBox? : null;
+      if (box == null || !box.hasSize) return;
+      final top = box.localToGlobal(Offset.zero).dy;
+      final on = top + box.size.height > 0 && top < MediaQuery.sizeOf(context).height;
+      if (on != _onScreen) setState(() => _onScreen = on);
+    });
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
+    _position?.removeListener(_track);
     super.dispose();
   }
 
@@ -390,7 +418,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
     _timer = Timer.periodic(_interval, (_) {
       if (!mounted) return;
       final still = MediaQuery.disableAnimationsOf(context) || MediaQuery.accessibleNavigationOf(context);
-      if (!still && TickerMode.valuesOf(context).enabled) _step(1);
+      if (!still && _onScreen && TickerMode.valuesOf(context).enabled) _step(1);
     });
   }
 
@@ -407,9 +435,12 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   Widget _slide(int i, {bool photo = true}) =>
       Padding(padding: const EdgeInsets.symmetric(horizontal: Space.gutter), child: widget.slides[i].build(photo));
 
+  /// The moving part: one repaint layer, its tickers frozen while scrolled off screen.
+  Widget _motion(Widget child) => TickerMode(enabled: _onScreen, child: RepaintBoundary(child: child));
+
   @override
   Widget build(BuildContext context) {
-    if (_count == 1) return Padding(padding: const EdgeInsets.only(top: Space.xs), child: _slide(0));
+    if (_count == 1) return Padding(padding: const EdgeInsets.only(top: Space.xs), child: _motion(_slide(0)));
     final c = Theme.of(context).colorScheme;
     final key = widget.slides[_index].key;
     final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.slide;
@@ -417,31 +448,33 @@ class _HeroCarouselState extends State<_HeroCarousel> {
       padding: const EdgeInsets.only(top: Space.xs),
       child: Column(
         children: [
-          GestureDetector(
-            onHorizontalDragStart: (_) => _timer?.cancel(),
+          // a finger on it holds the slide; lifting it starts the 5 s again
+          Listener(
+            onPointerDown: (_) => _timer?.cancel(),
+            onPointerUp: (_) => _restart(),
+            onPointerCancel: (_) => _restart(),
+            child: GestureDetector(
             onHorizontalDragEnd: (d) {
               final v = d.primaryVelocity ?? 0;
-              if (v.abs() > 150) {
-                _step(v < 0 ? 1 : -1);
-              } else {
-                _restart();
-              }
+              if (v.abs() > 150) _step(v < 0 ? 1 : -1);
             },
-            onHorizontalDragCancel: _restart,
             // Every slide is laid out invisibly so the carousel takes the tallest one's height and each slide fills
             // it: all slides are the same size and nothing below jumps when it moves on.
             child: Stack(
               children: [
                 for (var i = 0; i < _count; i++)
-                  Visibility(
-                    visible: false,
-                    maintainSize: true,
-                    maintainAnimation: true,
-                    maintainState: true,
-                    child: _slide(i, photo: !widget.saver),
+                  TickerMode(
+                    enabled: false, // invisible: their motion would only burn frames
+                    child: Visibility(
+                      visible: false,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: _slide(i, photo: !widget.saver),
+                    ),
                   ),
                 Positioned.fill(
-                  child: AnimatedSwitcher(
+                  child: _motion(AnimatedSwitcher(
                     duration: duration,
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
@@ -458,10 +491,11 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                       );
                     },
                     child: KeyedSubtree(key: ValueKey(key), child: _slide(_index)),
-                  ),
+                  )),
                 ),
               ],
             ),
+          ),
           ),
           // the dots jump straight to a slide; a screen reader swipes up / down to step through them
           Semantics(
@@ -560,7 +594,7 @@ class _ProductSlide extends StatelessWidget {
                                   Text(
                                     ['From ${formatInr(card.minPricePaise)}', if (off > 0) '$off% off'].join(' · '),
                                     style: t.labelLarge?.copyWith(color: white),
-                                  ),
+                                  ).popIn(context),
                                   const SizedBox(height: Space.md),
                                   // a pill like the banners' button; the whole card is the tap target
                                   DecoratedBox(
@@ -581,7 +615,7 @@ class _ProductSlide extends StatelessWidget {
                                 ],
                               ),
                             ),
-                          ),
+                          ).sweep(context),
                         ),
                         const SizedBox(width: Space.md),
                         SizedBox(
@@ -589,7 +623,11 @@ class _ProductSlide extends StatelessWidget {
                           // drifts a little slower than the page; the card clips it
                           child: Parallax(
                             rate: 0.12,
-                            child: ProductImage(photo ? card.coverPath : null, radius: Radii.lg, padding: Space.xs, color: white),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(Radii.lg),
+                              child: ProductImage(photo ? card.coverPath : null, radius: Radii.lg, padding: Space.xs, color: white)
+                                  .kenBurns(context),
+                            ),
                           ),
                         ),
                       ],

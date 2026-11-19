@@ -336,7 +336,10 @@ class _EditorState extends ConsumerState<_Editor> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ExcludeSemantics(child: preview),
+              // holds still while staff type; Home plays the motion
+              ExcludeSemantics(
+                child: MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: preview),
+              ),
               if (_fromOffer) ...[
                 const SizedBox(height: Space.sm),
                 const NoteBox(

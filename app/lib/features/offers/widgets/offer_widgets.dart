@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
@@ -47,6 +48,55 @@ String? timeLeft(DateTime? endsAt, {DateTime? now}) {
   if (left.inDays < 1) return 'Ends in ${left.inHours} h';
   if (left.inDays < 7) return 'Ends in ${left.inDays} day${left.inDays == 1 ? '' : 's'}';
   return 'Till ${formatDate(endsAt)}';
+}
+
+/// The live countdown on an offer banner: "Ends in 2d 4h", "Ends in 3h 12m", "Ends in 9m". Null once it has ended.
+String? countdown(DateTime endsAt, {DateTime? now}) {
+  final left = endsAt.difference(now ?? DateTime.now());
+  if (left <= Duration.zero) return null;
+  final d = left.inDays, h = left.inHours % 24, m = left.inMinutes % 60;
+  if (d > 0) return 'Ends in ${d}d ${h}h';
+  if (h > 0) return 'Ends in ${h}h ${m}m';
+  return 'Ends in ${math.max(1, m)}m';
+}
+
+/// [countdown] with a timer icon, redrawn as each minute ticks over; nothing once the offer has ended.
+class Countdown extends StatefulWidget {
+  const Countdown(this.endsAt, {super.key, this.style});
+
+  final DateTime endsAt;
+  final TextStyle? style;
+
+  @override
+  State<Countdown> createState() => _CountdownState();
+}
+
+class _CountdownState extends State<Countdown> {
+  Timer? _tick;
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final left = widget.endsAt.difference(DateTime.now());
+    final text = countdown(widget.endsAt);
+    _tick?.cancel();
+    if (text == null) return const SizedBox.shrink();
+    // wakes just after the shown minute changes, not every second
+    _tick = Timer(Duration(milliseconds: left.inMilliseconds % 60000 + 50), () => mounted ? setState(() {}) : null);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: Space.xs,
+      children: [
+        Icon(PhosphorIconsBold.timer, size: IconSizes.sm, color: widget.style?.color),
+        Flexible(child: Text(text, style: widget.style)),
+      ],
+    );
+  }
 }
 
 Future<void> copyCode(BuildContext context, String code) async {
@@ -471,6 +521,10 @@ class PromoBannerCard extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: t.titleLarge?.copyWith(color: white),
                                   ),
+                                  if (banner.endsAt != null) ...[
+                                    const SizedBox(height: Space.xs),
+                                    Countdown(banner.endsAt!, style: t.labelLarge?.copyWith(color: white)).popIn(context),
+                                  ],
                                   if (banner.subtitle.isNotEmpty) ...[
                                     const SizedBox(height: Space.xs),
                                     // labelLarge at least: the smallest white text glass on a deep colour allows
@@ -502,13 +556,16 @@ class PromoBannerCard extends StatelessWidget {
                                 ],
                               ),
                             ),
-                          ),
+                          ).sweep(context),
                         ),
                         if (banner.imagePath != null) ...[
                           const SizedBox(width: Space.md),
                           SizedBox(
                             width: 96,
-                            child: ProductImage(banner.imagePath, radius: Radii.lg, padding: 0, fit: BoxFit.cover),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(Radii.lg),
+                              child: ProductImage(banner.imagePath, radius: Radii.lg, padding: 0, fit: BoxFit.cover).kenBurns(context),
+                            ),
                           ),
                         ],
                       ],

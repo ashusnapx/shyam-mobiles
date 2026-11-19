@@ -77,6 +77,14 @@ Future<void> _scrollToEnd(WidgetTester tester) async {
 
 ProviderContainer _container(WidgetTester tester) => ProviderScope.containerOf(tester.element(find.byType(Scaffold).first));
 
+
+/// pumpAndSettle never settles while the home hero's slide moves (Ken Burns, sweep): a second of frames instead.
+Future<void> settle(WidgetTester tester) async {
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 void main() {
   testWidgets('coupon sheet: a refused code explains itself, a good one applies and the cart shows the saving', (tester) async {
     final api = FakeOffersApi(offers: [diwali, _bigSpend, festiveSale], quote: _quote);
@@ -183,7 +191,7 @@ void main() {
         PromoBanner(id: 'b6', title: 'Used-up code banner', link: '/offers', startsAt: DateTime(2026), promotionId: 'gone'),
       ], offers: [diwali])),
     ]);
-    await tester.pumpAndSettle();
+    await settle(tester);
     // every slide is also laid out invisibly (one height for all), so a slide's text can show up twice
     expect(find.text('Diwali dhamaka on every phone in the shop').hitTestable(), findsOneWidget, reason: 'banners first');
     expect(find.text('Repairs in an hour'), findsWidgets);
@@ -192,7 +200,7 @@ void main() {
     expect(find.text('Diwali code banner'), findsWidgets, reason: 'its offer is still open to this customer');
     expect(find.text('Used-up code banner'), findsNothing, reason: 'available_offers no longer lists its offer');
     await tester.tap(find.text('Diwali dhamaka on every phone in the shop').hitTestable());
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Page /offers'), findsOneWidget);
   });
 

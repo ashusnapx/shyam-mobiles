@@ -171,6 +171,14 @@ Future<void> scrollThrough(WidgetTester tester) async {
   }
 }
 
+
+/// pumpAndSettle never settles while the home hero's slide moves (Ken Burns, sweep): a second of frames instead.
+Future<void> settle(WidgetTester tester) async {
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 void main() {
   setUpAll(loadRoboto);
 
@@ -237,17 +245,17 @@ void main() {
   testWidgets('featured hero slides to the next product on its own and swipes back', (tester) async {
     final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
-    await tester.pumpAndSettle(); // the sections' entrance
+    await settle(tester); // the sections' entrance
     expect(find.text('Samsung Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Slide 1 of 3'), findsOneWidget);
 
     await tester.pump(Motion.hero + const Duration(milliseconds: 100));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Xiaomi Redmi Note 14 Pro 5G').hitTestable(), findsOneWidget);
     expect(find.text('Samsung Galaxy S25').hitTestable(), findsNothing);
 
     await tester.fling(find.text('Xiaomi Redmi Note 14 Pro 5G').hitTestable(), const Offset(400, 0), 1200);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Samsung Galaxy S25').hitTestable(), findsOneWidget);
     expect(find.bySemanticsLabel('Slide 1 of 3'), findsOneWidget);
     await tester.pumpWidget(const SizedBox()); // dispose, so the carousel's timer is cancelled
@@ -257,7 +265,7 @@ void main() {
     final handle = tester.ensureSemantics();
     final three = (categories: <Category>[], featured: cards.take(3).toList(), accessories: <ProductCard>[]);
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => three)]);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byTooltip('Next slide'), findsNothing, reason: 'small dots only, no arrow buttons');
     void act(SemanticsAction a) {
       final node = tester.getSemantics(find.bySemanticsLabel(RegExp(r'^Slide \d of 3$')));
@@ -265,11 +273,11 @@ void main() {
     }
 
     act(SemanticsAction.increase);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.bySemanticsLabel('Slide 2 of 3'), findsOneWidget);
     act(SemanticsAction.decrease);
     act(SemanticsAction.decrease);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.bySemanticsLabel('Slide 3 of 3'), findsOneWidget, reason: 'wraps around');
     await tester.pumpWidget(const SizedBox());
     handle.dispose();
@@ -279,12 +287,12 @@ void main() {
     // A long name wraps to two lines; the carousel must still be the same height on every slide.
     final mixed = [cards[0], card('long', 'Samsung Galaxy S25 Ultra Titanium Edition 1 TB', 'Samsung', 129999), cards[1]];
     await pump(tester, '/', overrides: [homeProvider.overrideWith((ref) async => (categories: <Category>[], featured: mixed, accessories: <ProductCard>[]))]);
-    await tester.pumpAndSettle(); // the sections' entrance
+    await settle(tester); // the sections' entrance
     final carousel = find.bySemanticsLabel('Slide 1 of 3');
     final categoriesTop = tester.getTopLeft(find.text('All')).dy;
     for (var i = 0; i < 3; i++) {
       await tester.pump(Motion.hero + const Duration(milliseconds: 100));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(tester.getTopLeft(find.text('All')).dy, categoriesTop, reason: 'slide ${i + 1} moved the content below');
       expect(find.bySemanticsLabel('Slide ${(i + 1) % 3 + 1} of 3'), findsOneWidget);
     }

@@ -196,7 +196,7 @@ abstract final class Motion {
   static const fast = Duration(milliseconds: 150);
   static const normal = Duration(milliseconds: 250);
   static const enter = Duration(milliseconds: 420);
-  static const hero = Duration(milliseconds: 5500); // how long a carousel slide stays
+  static const hero = Duration(milliseconds: 5000); // how long a carousel slide stays
   static const slide = Duration(milliseconds: 500); // the home carousel
   static const bump = Duration(milliseconds: 550);
   static const slow = Duration(milliseconds: 700);
