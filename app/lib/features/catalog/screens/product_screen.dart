@@ -19,15 +19,15 @@ import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
 import '../../cart/widgets/cart_button.dart';
-import '../../feedback/widgets/feedback_widgets.dart';
 import '../../exchange/widgets/exchange_widgets.dart' show ExchangeCard;
+import '../../feedback/widgets/feedback_widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../../payments/widgets/emi_line.dart';
-import '../data/best_offer.dart';
-import '../data/catalog.dart';
 import '../../reviews/data/reviews.dart' show togetherProvider;
 import '../../reviews/widgets/review_widgets.dart';
+import '../data/best_offer.dart';
+import '../data/catalog.dart';
 import '../data/rails.dart';
 import '../data/variant_options.dart';
 import '../widgets/gallery.dart';
@@ -394,10 +394,10 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               EmiLine(pricePaise: v.pricePaise), // "EMI from ₹X/month"; nothing when EMI doesn't apply
               const SizedBox(height: 2),
               Text('Inclusive of all taxes', style: muted),
+              if (p.id.isNotEmpty) BoughtThisWeek(p.id),
               // the pick sets the price above and the offer below
               if (memories.isNotEmpty) ...[
                 label('Memory & storage'),
-              if (p.id.isNotEmpty) BoughtThisWeek(p.id),
                 Wrap(
                   spacing: Space.sm,
                   runSpacing: Space.sm,
@@ -435,12 +435,12 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                 ),
               ],
               if (p.id.isNotEmpty) _BestOffer(productId: p.id, pricePaise: v.pricePaise),
-              if (settings != null) ...[
-                const SizedBox(height: Space.md),
               if (p.id.isNotEmpty && phone) ...[
                 const SizedBox(height: Space.md),
                 ExchangeCard(forProductId: p.id, forPhone: p.name),
               ],
+              if (settings != null) ...[
+                const SizedBox(height: Space.md),
                 _DeliveryCard(settings),
                 const SectionHeader('Why buy from us', inset: false),
                 _WhyBuy(settings: settings, product: p),
@@ -492,6 +492,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
                     label: Text('Show all ${p.specs.length} specs'),
                   ),
               ],
+              if (p.id.isNotEmpty) ReviewsSection(productId: p.id, productName: p.name),
               if (settings != null) ...[
                 const SizedBox(height: Space.lg),
                 _StoreRows(settings: settings, item: item),
@@ -499,7 +500,8 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
             ],
           ),
         ),
-              if (p.id.isNotEmpty) ReviewsSection(productId: p.id, productName: p.name),
+        // real co-purchases only; phone pages get the bundle card instead (docs/GROWTH.md §2b)
+        if (p.id.isNotEmpty && !phone) ProductRail(title: 'Frequently bought together', value: ref.watch(togetherProvider(p.id))),
         if (p.id.isNotEmpty)
           // neutral: the one tinted panel on this page is "Fits this phone"
           ProductRail(title: 'Similar products', band: sectionTints.explore, value: ref.watch(similarProvider(p.slug))),
@@ -507,8 +509,6 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
           padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, Space.xl),
           child: p.id.isEmpty ? const SizedBox.shrink() : ReportListingLink(productId: p.id),
         ),
-        // real co-purchases only; phone pages get the bundle card instead (docs/GROWTH.md §2b)
-        if (p.id.isNotEmpty && !phone) ProductRail(title: 'Frequently bought together', value: ref.watch(togetherProvider(p.id))),
       ],
     );
   }
