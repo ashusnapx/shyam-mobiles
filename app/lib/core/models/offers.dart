@@ -32,6 +32,7 @@ class Offer {
     this.wholeOrder = true,
     this.onlineOnly = false,
     this.firstOrderOnly = false,
+    this.autoApply = false,
   });
 
   final String id;
@@ -47,6 +48,7 @@ class Offer {
   final bool wholeOrder; // applies_to = order; false: only some products
   final bool onlineOnly;
   final bool firstOrderOnly;
+  final bool autoApply; // a code the app fills in at cart and checkout while it runs (Campaign calendar)
 
   bool get automatic => code == null;
 
@@ -64,6 +66,7 @@ class Offer {
         wholeOrder: j['applies_to'] != 'items',
         onlineOnly: j['online_only'] ?? false,
         firstOrderOnly: j['first_order_only'] ?? false,
+        autoApply: j['auto_apply'] ?? false,
       );
 }
 
@@ -238,6 +241,7 @@ class Promotion {
     this.isPublic = true,
     this.isActive = true,
     this.showBanner = false,
+    this.autoApply = false,
     this.userId,
     this.targets = const {},
     this.uses = 0,
@@ -265,6 +269,7 @@ class Promotion {
   final bool isPublic;
   final bool isActive;
   final bool showBanner;
+  final bool autoApply; // only with a code (DB: promotions_auto_apply_check)
   final String? userId; // a personal (referral) coupon
   final Set<(TargetType, String)> targets;
   final int uses;
@@ -295,6 +300,7 @@ class Promotion {
         isPublic: j['is_public'] ?? true,
         isActive: j['is_active'] ?? true,
         showBanner: j['show_banner'] ?? false,
+        autoApply: j['auto_apply'] ?? false,
         userId: j['user_id'],
         targets: {
           for (final t in (j['targets'] as List? ?? const []))
@@ -328,6 +334,7 @@ class Promotion {
         'is_public': isPublic,
         'is_active': isActive,
         'show_banner': showBanner,
+        'auto_apply': autoApply,
         'pack_types': packTypes,
         'pack_whole': packWhole,
         'targets': [

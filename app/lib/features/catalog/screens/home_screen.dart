@@ -18,6 +18,7 @@ import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../offers/data/offers.dart';
 import '../../notifications/widgets/notification_widgets.dart';
+import '../../offers/widgets/occasion_chip.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/catalog.dart';
 import '../data/rails.dart';
@@ -124,6 +125,7 @@ class HomeScreen extends ConsumerWidget {
           key: const ValueKey('hero'),
           child: PullScale(child: _HeroCarousel(slides, saver: saver)).enter(context),
         ),
+      const SliverToBoxAdapter(key: ValueKey('occasion'), child: OccasionChip()), // Campaign calendar's auto-apply offer
       if (settings != null)
         SliverToBoxAdapter(key: const ValueKey('trust'), child: _TrustStrip(settings).enter(context, index: 1)),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryRow(d.categories).enter(context, index: 2)),

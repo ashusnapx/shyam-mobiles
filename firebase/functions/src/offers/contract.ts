@@ -30,6 +30,7 @@ const promotionFields = z.strictObject({
     uid: v.docId.nullable(),
     isActive: z.boolean(),
     showBanner: z.boolean(),
+    autoApply: z.boolean(),
 });
 
 /**

@@ -378,7 +378,8 @@ select throws_ok($$select public.apply_referral_code((select public.my_referral(
 select throws_ok($$select public.apply_referral_code('ZZZZZZZZ')$$, 'P0001', 'REFERRAL_INVALID', 'unknown code refused');
 select is((select public.apply_referral_code(' ' || lower(current_setting('tests.alice_code')) || ' ')::jsonb - 'id' - 'code' - 'starts_at' - 'ends_at'),
   '{"title": "Welcome gift from a friend", "description": "", "kind": "flat", "value": 20000, "max_discount_paise": null,
-    "min_subtotal_paise": 199900, "applies_to": "order", "automatic": false, "online_only": false, "first_order_only": true}'::jsonb,
+    "min_subtotal_paise": 199900, "applies_to": "order", "automatic": false, "online_only": false, "first_order_only": true,
+    "auto_apply": false}'::jsonb,
   'carol applies alice''s code and gets her welcome coupon');
 select throws_ok(format('select public.apply_referral_code(%L)', current_setting('tests.alice_code')), 'P0001', 'REFERRAL_USED', 'a second code refused');
 select is((public.my_referral() ->> 'can_enter_code')::boolean, false, '... and the app stops offering it');

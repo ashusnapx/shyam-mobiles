@@ -208,7 +208,7 @@ settings/business      { tradeName: 'Shyam Online Shop', brandName: 'Shyam Mobil
 promotions/{id}        { title, description, code: string|null, kind: 'percent'|'flat'|'free_delivery', value, maxDiscountPaise?,
                          minSubtotalPaise, appliesTo: 'order'|'items', targets: [{type:'product'|'category'|'brand'|'collection', id}],
                          startsAt, endsAt?, usageLimit?, perUserLimit? (savePromotion defaults it to 1, as the SQL did; null = no limit), firstOrderOnly, onlineOnly, isPublic, uid?, isActive,
-                         showBanner, usesActive: int S, discountTotalPaise: int S } S (savePromotion)
+                         showBanner, autoApply (code only: the app fills it in while it runs), usesActive: int S, discountTotalPaise: int S } S (savePromotion)
 promoCodes/{CODE}      { promotionId } S        publicOffers/{id} { public fields, usedUp: bool } S
 redemptions/{orderId}  { promotionId, uid|null, discountPaise, active (false only on cancel/expiry, never on refund) } S      rateLimits/{uid} { couponFails: Timestamp[], expireAt } S
 referralCodes/{CODE}   { uid } S      referrals/{refereeUid} { referrerUid, status: 'pending'|'rewarded'|'void', rewardedAt? } S

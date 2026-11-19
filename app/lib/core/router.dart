@@ -14,6 +14,7 @@ import '../features/account/screens/policy_screen.dart';
 import '../features/account/screens/privacy_screen.dart';
 import '../features/account/screens/profile_screen.dart';
 import '../features/admin/screens/admin_banners_screen.dart';
+import '../features/admin/screens/admin_calendar_screen.dart';
 import '../features/admin/screens/admin_catalogue_screen.dart';
 import '../features/admin/screens/admin_dashboard_screen.dart';
 import '../features/admin/screens/admin_feedback_screen.dart';
@@ -52,6 +53,7 @@ import '../features/repairs/screens/repairs_screen.dart';
 import '../features/wishlist/screens/wishlist_screen.dart';
 import 'deep_links.dart';
 import 'links.dart';
+import 'models/models.dart' show Promotion;
 import 'theme/tokens.dart';
 import 'widgets/widgets.dart';
 
@@ -162,7 +164,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                     query: s.uri.queryParameters['q'],
                   )),
               sub('offers', (_) => const AdminOffersScreen(), routes: [
-                sub('new', (s) => AdminOfferEditScreen(copyOf: s.uri.queryParameters['copy'])),
+                sub('new', (s) => AdminOfferEditScreen(copyOf: s.uri.queryParameters['copy'], draft: s.extra as Promotion?)),
                 sub('pack', (s) => AdminPackScreen(promotionId: s.uri.queryParameters['id'], copyOf: s.uri.queryParameters['copy'])),
                 sub(':id', (s) => AdminOfferEditScreen(promotionId: s.pathParameters['id'])),
               ]),
@@ -175,6 +177,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 sub(':id', (s) => AdminBannerEditScreen(bannerId: s.pathParameters['id'])),
               ]),
               sub('settings', (_) => const AdminSettingsScreen()),
+              sub('calendar', (_) => const AdminCalendarScreen()),
               sub('reviews', (_) => const AdminReviewsScreen()),
               sub('exchanges', (_) => const AdminExchangesScreen()),
               sub('payment-links', (_) => const AdminPaymentLinksScreen()),

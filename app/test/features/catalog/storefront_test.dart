@@ -76,7 +76,7 @@ void main() {
       for (final s in tester.widget<CustomScrollView>(find.byType(CustomScrollView)).slivers)
         if (s.key case ValueKey<String>(:final value)) value,
     ];
-    expect(order.take(9), ['top', 'hero', 'trust', 'categories', 'recent', 'phones', 'repair', 'budget', 'deals']);
+    expect(order.take(10), ['top', 'hero', 'occasion', 'trust', 'categories', 'recent', 'phones', 'repair', 'budget', 'deals']);
     expect(order, containsAllInOrder(['deals', 'brands', 'more', 'store']));
     expect(find.text('Genuine products'), findsOneWidget);
     expect(find.text('Cash on delivery'), findsOneWidget);

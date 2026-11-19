@@ -13,7 +13,7 @@ export function newPromotion(now: Date): Omit<Promotion, "title" | "kind"> {
   return {
     description: "", code: null, value: 0, maxDiscountPaise: null, minSubtotalPaise: 0, appliesTo: "order", targets: [], packTypes: [], packWhole: false,
     startsAt: now, endsAt: null, usageLimit: null, perUserLimit: 1, firstOrderOnly: false, onlineOnly: false, isPublic: true,
-    uid: null, isActive: true, showBanner: false, usesActive: 0, discountTotalPaise: 0, createdAt: now, updatedAt: now,
+    uid: null, isActive: true, showBanner: false, autoApply: false, usesActive: 0, discountTotalPaise: 0, createdAt: now, updatedAt: now,
   };
 }
 
@@ -27,6 +27,7 @@ export function brokenRule(p: Promotion): string | null {
   if (p.endsAt !== null && p.endsAt <= p.startsAt) return "promotions_window_check";
   if (p.uid != null && p.code === null) return "promotions_personal_check";
   if (p.showBanner && !(p.isPublic && p.uid == null)) return "promotions_banner_check";
+  if (p.autoApply === true && p.code === null) return "promotions_auto_apply_check";
   if (p.appliesTo === "items" && p.targets.length === 0) return "items needs a target";
   return null;
 }
@@ -72,6 +73,6 @@ export function offerJson(id: string, p: Promotion) {
     id, title: p.title, description: p.description, code: p.code, kind: p.kind, value: p.value,
     maxDiscountPaise: p.maxDiscountPaise ?? null, minSubtotalPaise: p.minSubtotalPaise, appliesTo: p.appliesTo,
     startsAt: p.startsAt.toISOString(), endsAt: p.endsAt?.toISOString() ?? null, automatic: p.code === null,
-    onlineOnly: p.onlineOnly, firstOrderOnly: p.firstOrderOnly,
+    onlineOnly: p.onlineOnly, firstOrderOnly: p.firstOrderOnly, autoApply: p.autoApply === true,
   };
 }

@@ -70,6 +70,7 @@ const _promotionRules = {
   'promotions_value_check': 'Check the amount: 1 to 90 percent, or at least ₹1 off.',
   'promotions_window_check': 'The end has to be after the start.',
   'promotions_banner_check': 'Only listed shop offers can have a banner, not hidden or personal codes.',
+  'promotions_auto_apply_check': 'Only an offer with a code can apply itself. Add a code or turn auto-apply off.',
   'items needs a target': 'Pick at least one product, category, brand or group.',
   'unknown target': 'Something you picked was deleted. Pick the products again.',
 };

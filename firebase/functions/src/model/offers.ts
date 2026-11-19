@@ -30,6 +30,7 @@ export interface PromotionDoc {
   uid?: string | null; // a personal coupon's owner
   isActive: boolean;
   showBanner: boolean;
+  autoApply?: boolean; // a coded offer the app fills in at cart and checkout while it runs (Campaign calendar)
   usesActive: number; // S: redemptions of orders not cancelled
   discountTotalPaise: number; // S
   createdAt: Timestamp;

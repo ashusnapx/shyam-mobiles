@@ -245,16 +245,17 @@ class _Row extends StatelessWidget {
 
 /// `/admin/offers/new` (optionally `?copy=<id>` to start from another offer) and `/admin/offers/:id`.
 class AdminOfferEditScreen extends ConsumerWidget {
-  const AdminOfferEditScreen({super.key, this.promotionId, this.copyOf});
+  const AdminOfferEditScreen({super.key, this.promotionId, this.copyOf, this.draft});
 
   final String? promotionId; // null = new offer
   final String? copyOf;
+  final Promotion? draft; // a new offer prefilled (Campaign calendar's "Create offer"), no id
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final source = promotionId ?? copyOf;
     final AsyncValue<Promotion?> promotion = source == null
-        ? const AsyncData(null)
+        ? AsyncData(draft)
         : ref.watch(adminPromotionsProvider).whenData((list) => list.where((p) => p.id == source).firstOrNull);
     final products = ref.watch(adminProductsProvider);
     final categories = ref.watch(adminCategoriesProvider);
@@ -327,7 +328,7 @@ class _Editor extends ConsumerStatefulWidget {
 class _EditorState extends ConsumerState<_Editor> {
   final _form = GlobalKey<FormState>();
   late final Promotion? _p = widget.source;
-  late final bool _new = _p == null || widget.copy;
+  late final bool _new = _p == null || widget.copy || _p.id == null; // a draft has no id
   late OfferKind _kind = _p?.kind ?? OfferKind.percent;
   late final _value = TextEditingController(
     text: switch (_p) {
@@ -346,13 +347,14 @@ class _EditorState extends ConsumerState<_Editor> {
   late bool _wholeOrder = _p?.wholeOrder ?? true;
   late Set<(TargetType, String)> _targets = {...?_p?.targets.where(widget.targets.containsKey)};
   late final _min = TextEditingController(text: (_p?.minSubtotalPaise ?? 0) == 0 ? '' : rupeesText(_p!.minSubtotalPaise));
-  late DateTime _starts = _new ? _minute(DateTime.now()) : _p!.startsAt.toLocal();
+  late DateTime _starts = _p == null || widget.copy ? _minute(DateTime.now()) : _p.startsAt.toLocal();
   late DateTime? _ends = _p?.endsAt == null || (widget.copy && !_p!.endsAt!.isAfter(DateTime.now())) ? null : _p!.endsAt!.toLocal();
   late final _usageLimit = TextEditingController(text: widget.copy ? '' : '${_p?.usageLimit ?? ''}');
   late final _perUser = TextEditingController(text: _p == null ? '1' : '${_p.perUserLimit ?? ''}');
   late bool _firstOrder = _p?.firstOrderOnly ?? false;
   late bool _onlineOnly = _p?.onlineOnly ?? false;
   late bool _showBanner = _p?.showBanner ?? false;
+  late bool _autoApply = _p?.autoApply ?? false;
   bool _busy = false;
 
   static DateTime _minute(DateTime d) => DateTime(d.year, d.month, d.day, d.hour, d.minute);
@@ -400,6 +402,7 @@ class _EditorState extends ConsumerState<_Editor> {
         isPublic: _public,
         isActive: _new || _p!.isActive,
         showBanner: _canBanner && _showBanner,
+        autoApply: _withCode && _public && _autoApply,
         userId: _new ? null : _p!.userId,
       );
 
@@ -565,6 +568,14 @@ class _EditorState extends ConsumerState<_Editor> {
                 value: _public,
                 onChanged: (v) => setState(() => _public = v),
               ),
+              if (_withCode && _public)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Apply it for customers'),
+                  subtitle: const Text('While it runs, the cart fills in this code when none is typed. The better offer still wins.'),
+                  value: _autoApply,
+                  onChanged: (v) => setState(() => _autoApply = v),
+                ),
               const ListSection('What it covers'),
               PickerField<bool>(
                 label: 'Covers',

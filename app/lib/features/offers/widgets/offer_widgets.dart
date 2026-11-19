@@ -15,6 +15,7 @@ import '../../../core/theme/generative.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
+import '../data/auto_apply.dart';
 import '../data/offers.dart';
 
 /// "10% off", "₹500 off", "Free delivery". The offer as staff set it, not a computed saving.
@@ -269,7 +270,15 @@ class CouponRow extends ConsumerWidget {
     final c = Theme.of(context).colorScheme;
     final code = ref.watch(couponCodeProvider);
     final q = quote;
-    final error = code == null ? null : q?.couponError;
+    // Campaign calendar: a running auto-apply code fills itself in; a refused one goes back out quietly
+    final auto = ref.watch(autoCouponProvider);
+    final filled = auto != null && auto.code == code;
+    final offers = ref.watch(availableOffersProvider).value;
+    if (enabled && code == null && offers != null) {
+      ref.read(autoCouponProvider.notifier).fill(offers, DateTime.now(), subtotalPaise: q?.subtotalPaise);
+    }
+    if (filled && q?.couponError != null) ref.read(autoCouponProvider.notifier).refused(code!);
+    final error = code == null || filled ? null : q?.couponError;
     final promo = q?.promotion;
     final (icon, color, title, subtitle) = error != null
         ? (
@@ -282,8 +291,8 @@ class CouponRow extends ConsumerWidget {
             ? (
                 PhosphorIconsFill.sealPercent,
                 c.secondary,
-                '${q!.discountLabel} applied',
-                q.discountPaise > 0 ? 'You save ${formatInr(q.discountPaise)}' : 'Free delivery on this order',
+                filled ? '$code applied · ${occasionOf(auto.title)} ${offerHeadline(auto)}' : '${q!.discountLabel} applied',
+                q!.discountPaise > 0 ? 'You save ${formatInr(q.discountPaise)}' : 'Free delivery on this order',
               )
             : (PhosphorIconsRegular.ticket, null, 'Apply a coupon', 'Or pick one of today’s offers');
     return Card(

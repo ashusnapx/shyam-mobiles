@@ -23,6 +23,7 @@ import '../data/admin.dart';
 import '../data/catalogue.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
+import 'admin_calendar_screen.dart' show NextEventCard;
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -69,6 +70,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                     ),
                   ),
                   const _Today(),
+                  const NextEventCard(), // Campaign calendar: a big day ≤ 7 days away with no offer
                   // what to do next sits above the numbers that only need a glance
                   SectionHeader(
                     'Needs action',

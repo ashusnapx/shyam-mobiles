@@ -175,6 +175,15 @@ class _FormState extends ConsumerState<_Form> {
                 trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
                 onTap: () => context.push('/admin/offers/pack'),
               ),
+              const ListSection('Marketing'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(PhosphorIconsRegular.calendarStar),
+                title: const Text('Campaign calendar'),
+                subtitle: const Text('Festivals and shop days, with the offers on each'),
+                trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
+                onTap: () => context.push('/admin/calendar'),
+              ),
               const ListSection('Delivery'),
               TextFormField(
                 controller: _fee,

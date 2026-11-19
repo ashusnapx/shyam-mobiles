@@ -21,7 +21,7 @@ Impact and effort are 1 (low) to 5 (high), and the score is impact ÷ effort. �
 | 3 | "N bought this week" + frequently bought together | Social proof; AOV via bundling | Amazon "bought in past month", "Frequently bought together" | 4 | 3 | 1.3 | 🛠 b |
 | 4 | Post-purchase "Protect your new phone" | Commitment and consistency; peak moment | Amazon "Complete your setup", Croma protection | 3 | 2 | 1.5 | 🛠 e |
 | 5 | Exchange your old phone | Mental accounting (reduces the pain of paying) | Flipkart and Amazon exchange, Cashify | 4 | 3 | 1.3 | 🛠 c |
-| 6 | Festival calendar (Dhanteras, Diwali, Raksha Bandhan, Eid, wedding season, results day) | Timing, scarcity that is real (a dated sale) | Flipkart Big Billion Days, Amazon Great Indian Festival | 4 | 1 | 4.0 | **Owner**: dates and offers; the app already has promotions and banners |
+| 6 | Campaign calendar: festivals, shop days, seasons; one-tap dated offer; auto-applied code | Timing, scarcity that is real (a dated sale), defaults | Flipkart Big Billion Days, Amazon Great Indian Festival | 4 | 1 | 4.0 | 🛠 Admin → Settings; **Owner**: which days get offers, season dates |
 | 7 | Bundles ("Phone + case + guard, ₹X less") | Bundling, price-bundle anchoring | Amazon combos, Meesho sets | 4 | 3 | 1.3 | **Owner**: which bundles and the discount; touches pricing.ts, so a separate task |
 | 8 | Wholesale quantity tiers ("10+ pcs: ₹X each") | Anchoring, volume discount | Udaan, IndiaMART | 4 | 3 | 1.3 | **Owner**: tier prices; pricing.ts change, separate task |
 | 9 | Good–better–best variant order (cheapest, most chosen, top) with a real "Most chosen" tag | Decoy and compromise effect | Apple, Flipkart variant pickers | 3 | 2 | 1.5 | After (b): "most chosen" needs the sales counter |

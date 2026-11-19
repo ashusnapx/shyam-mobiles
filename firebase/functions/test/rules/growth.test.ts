@@ -82,6 +82,16 @@ describe("exchanges", () => {
   });
 });
 
+describe("auto-apply offers", () => {
+  test("customers read the flag on public offers; nobody writes promotions or mirrors from the app", async () => {
+    await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), "publicOffers/men5"), { code: "MEN5", autoApply: true }));
+    await assertSucceeds(getDoc(doc(anon().firestore(), "publicOffers/men5")));
+    await assertFails(updateDoc(doc(staff().firestore(), "publicOffers/men5"), { autoApply: false }));
+    await assertFails(setDoc(doc(staff().firestore(), "promotions/p1"), { code: "MEN5", autoApply: true }));
+    await assertFails(getDoc(doc(alice().firestore(), "promotions/p1")));
+  });
+});
+
 describe("storage customer photos", () => {
   const webp = new Uint8Array([82, 73, 70, 70]);
   const put = (ctx: ReturnType<typeof alice>, path: string, body = webp, contentType = "image/webp") =>
