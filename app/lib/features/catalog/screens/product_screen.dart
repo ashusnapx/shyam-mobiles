@@ -356,6 +356,7 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
         ProductGallery(
           paths: [for (final i in photosFor(p.images, colorOf(v))) i.path],
           onZoom: (zoomed) => setState(() => _zoomed = zoomed),
+          madeToOrderName: p.variants.isNotEmpty && p.variants.every((x) => x.madeToOrder) ? p.name : null,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(Space.gutter, Space.md, Space.gutter, 0),

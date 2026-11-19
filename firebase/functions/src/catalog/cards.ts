@@ -3,7 +3,8 @@ import type { CatalogCard, ProductDoc, StaffCatalogCard, StaffVariantRow, Varian
 // One product's entries in catalogIndex/public and catalogIndex/staff (docs/FIREBASE.md D3), computed from its source
 // docs only, so recomputing is idempotent. Mirrors the product_cards view: a public card needs an active product with
 // at least one active variant; the price is the cheapest active variant's, with that variant's MRP; in stock when the
-// active variants hold any stock or one is made to order; the cover is the first photo.
+// active variants hold any stock or one is made to order; the cover is the first photo. A product whose every active
+// variant is made to order has no public card (the app reads those from variants); the staff card stays.
 
 export type WithId<T> = T & { id: string };
 
@@ -53,7 +54,8 @@ export function cardsFor(
   const rows: StaffVariantRow[] = all.map((v) => ({ id: v.id, sku: v.sku, n: v.name, p: v.pricePaise, m: v.mrpPaise, st: v.stock, a: v.isActive,
     u: ms(v.updatedAt), ...(v.madeToOrder === true ? { mo: lead(v) } : {}) }));
   return {
-    public: isActive && cheapest !== null ? card : null,
+    // "For any phone" products (every active variant made to order) are staff-only: no photo, not for shop lists.
+    public: isActive && cheapest !== null && made.length < active.length ? card : null,
     staff: { ...card, active: isActive, u: ms(updatedAt), variants: rows },
   };
 }

@@ -14,6 +14,7 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
+import '../../../core/widgets/made_to_order_art.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/data/profile.dart';
 import '../../admin/widgets/admin_widgets.dart' show CancelButton, orderTone;
@@ -125,7 +126,7 @@ class _OrderBody extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(width: 64, child: ProductImage(item.imagePath, radius: Radii.md, padding: 6)),
+                          SizedBox(width: 64, child: ProductArt(item.imagePath, name: item.productName, madeToOrder: item.forModel != null, radius: Radii.md, padding: 6)),
                           const SizedBox(width: Space.md),
                           Expanded(
                             child: Column(

@@ -8,6 +8,7 @@ import '../../../core/format.dart';
 import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/made_to_order_art.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../admin/widgets/admin_widgets.dart' show orderTone;
 import '../../checkout/screens/widgets.dart';
@@ -129,7 +130,7 @@ class _OrderTile extends StatelessWidget {
             children: [
               SizedBox(
                 width: 56,
-                child: ProductImage(order.items.firstOrNull?.imagePath, radius: Radii.md, padding: 6),
+                child: ProductArt(order.items.firstOrNull?.imagePath, name: order.items.firstOrNull?.productName ?? '', madeToOrder: order.items.firstOrNull?.forModel != null, radius: Radii.md, padding: 6),
               ),
               const SizedBox(width: Space.md),
               Expanded(

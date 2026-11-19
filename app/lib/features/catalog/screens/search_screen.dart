@@ -17,6 +17,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/picker.dart';
+import '../../../core/widgets/made_to_order_art.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/catalog.dart';
 import '../data/phone_models.dart';
@@ -443,12 +444,6 @@ class ModelAccessories extends ConsumerWidget {
 
   final String model;
 
-  static IconData _icon(String name) => switch (name.toLowerCase()) {
-        final n when n.contains('glass') => PhosphorIconsRegular.deviceMobile,
-        final n when n.contains('lens') || n.contains('camera') => PhosphorIconsRegular.camera,
-        final n when n.contains('flip') => PhosphorIconsRegular.bookOpen,
-        _ => PhosphorIconsRegular.deviceMobileCamera,
-      };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -468,10 +463,7 @@ class ModelAccessories extends ConsumerWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: card.coverPath == null
-                  ? CircleAvatar(
-                      backgroundColor: BrandColors.peacockMist,
-                      child: Icon(_icon(card.name), color: BrandColors.peacockInk),
-                    )
+                  ? SizedBox.square(dimension: 48, child: MadeToOrderArt(card.name))
                   : SizedBox.square(dimension: 48, child: ProductImage(card.coverPath, radius: Radii.md, padding: 0)),
               title: Text(card.name),
               subtitle: Text('from ${formatInr(card.minPricePaise)} · ready in ${card.leadDays ?? 2} '

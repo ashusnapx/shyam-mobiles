@@ -10,6 +10,7 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
+import '../../../core/widgets/made_to_order_art.dart';
 import '../../../core/widgets/widgets.dart';
 
 /// The photos for [color]: that colour's own first, then the untagged ones (box, back, any colour). A colour with
@@ -32,23 +33,25 @@ List<ProductPhoto> photosFor(List<ProductPhoto> photos, String color) {
 /// zoom in place (a zoomed photo pans under one finger: [onZoom] tells the page to stop scrolling), tap for full
 /// screen, and a thumbnail strip between Previous / Next. A new set of photos (another colour) fades in from the first.
 class ProductGallery extends StatelessWidget {
-  const ProductGallery({super.key, required this.paths, this.onZoom});
+  const ProductGallery({super.key, required this.paths, this.onZoom, this.madeToOrderName});
 
   final List<String> paths;
   final ValueChanged<bool>? onZoom;
+  final String? madeToOrderName; // a photo-less made-to-order product: its icon art instead of a blank
 
   @override
   Widget build(BuildContext context) => AnimatedSwitcher(
     duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.fast,
-    child: _Gallery(key: ValueKey(paths.join('\n')), paths: paths, onZoom: onZoom),
+    child: _Gallery(key: ValueKey(paths.join('\n')), paths: paths, onZoom: onZoom, madeToOrderName: madeToOrderName),
   );
 }
 
 class _Gallery extends StatefulWidget {
-  const _Gallery({super.key, required this.paths, this.onZoom});
+  const _Gallery({super.key, required this.paths, this.onZoom, this.madeToOrderName});
 
   final List<String> paths;
   final ValueChanged<bool>? onZoom;
+  final String? madeToOrderName;
 
   @override
   State<_Gallery> createState() => _GalleryState();
@@ -148,7 +151,9 @@ class _GalleryState extends State<_Gallery> {
           AspectRatio(
             aspectRatio: 1,
             child: n == 0
-                ? ProductImage(null, radius: 0, color: c.surface)
+                ? (widget.madeToOrderName != null
+                    ? MadeToOrderArt(widget.madeToOrderName!, radius: 0)
+                    : ProductImage(null, radius: 0, color: c.surface))
                 : Stack(
                     children: [
                       Positioned.fill(child: _photos(context)),

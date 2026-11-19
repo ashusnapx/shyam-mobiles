@@ -1,7 +1,7 @@
 -- Made-to-order accessories: no stock check or decrement, a phone model per line, no restock, models learned.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 insert into auth.users (id, email) values ('c7000000-0000-0000-0000-000000000001', 'mto@test.dev');
 insert into public.addresses (user_id, name, phone, line1, city, state, pincode)
@@ -13,14 +13,19 @@ insert into public.brands (id, slug, name) values ('c70000b0-0000-0000-0000-0000
 insert into public.products (id, slug, name, brand_id, category_id) values
   ('c70000a0-0000-0000-0000-000000000001', 'mto-phone', 'Mtobrand Zeta 7', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000001'),
   ('c70000a0-0000-0000-0000-000000000002', 'mto-cover', 'Mto back cover', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000002'),
+  ('c70000a0-0000-0000-0000-000000000004', 'mto-mixed', 'Mto mixed cover', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000002'),
   ('c70000a0-0000-0000-0000-000000000003', 'mto-odd', 'Odd <b>phone</b>', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000001');
 insert into public.variants (id, product_id, sku, name, price_paise, mrp_paise, stock, made_to_order, lead_days) values
   ('c70000d0-0000-0000-0000-000000000001', 'c70000a0-0000-0000-0000-000000000001', 'MTO-T-PHONE', 'Black', 900000, 900000, 5, false, 2),
-  ('c70000d0-0000-0000-0000-000000000002', 'c70000a0-0000-0000-0000-000000000002', 'MTO-T-COVER', 'For your phone', 19900, 19900, 0, true, 3);
+  ('c70000d0-0000-0000-0000-000000000002', 'c70000a0-0000-0000-0000-000000000002', 'MTO-T-COVER', 'For your phone', 19900, 19900, 0, true, 3),
+  ('c70000d0-0000-0000-0000-000000000005', 'c70000a0-0000-0000-0000-000000000004', 'MIX-T-1', 'Stocked', 29900, 29900, 4, false, 2),
+  ('c70000d0-0000-0000-0000-000000000006', 'c70000a0-0000-0000-0000-000000000004', 'MIX-T-2', 'Any phone', 19900, 19900, 0, true, 3);
 update public.promotions set is_active = false; -- prices only, no offers in the way
 
+select is((select count(*)::int from public.product_cards where id = 'c70000a0-0000-0000-0000-000000000002'), 0,
+  'an all-made-to-order product is not a shop card');
 select is((select in_stock::text || ' ' || made_to_order::text || ' ' || lead_days::text from public.product_cards
-  where id = 'c70000a0-0000-0000-0000-000000000002'), 'true true 3', 'a made-to-order card is available, never stocked');
+  where id = 'c70000a0-0000-0000-0000-000000000004'), 'true true 3', 'a mixed product stays listed');
 select is((select made_to_order::text || ' ' || coalesce(lead_days::text, '-') from public.product_cards
   where id = 'c70000a0-0000-0000-0000-000000000001'), 'false -', 'a stocked card is not made to order');
 

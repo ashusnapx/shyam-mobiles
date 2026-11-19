@@ -13,6 +13,7 @@ import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
+import '../../../core/widgets/made_to_order_art.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/data/addresses.dart';
 import '../../account/data/profile.dart';
@@ -487,7 +488,7 @@ class _ItemRow extends StatelessWidget {
         children: [
           SizedBox.square(
             dimension: 56,
-            child: ProductImage(line.coverPath, radius: Radii.sm, padding: Space.xs),
+            child: ProductArt(line.coverPath, name: line.productName, madeToOrder: line.variant.madeToOrder, radius: Radii.sm, padding: Space.xs),
           ),
           const SizedBox(width: Space.md),
           Expanded(

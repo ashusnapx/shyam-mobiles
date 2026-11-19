@@ -12,6 +12,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/motion.dart';
+import '../../../core/widgets/made_to_order_art.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../account/data/profile.dart';
 import '../../account/widgets/delivery_address.dart';
@@ -405,7 +406,7 @@ class _LineTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(width: 84, child: ProductImage(line.coverPath, radius: Radii.button, padding: Space.sm)),
+              SizedBox(width: 84, child: ProductArt(line.coverPath, name: line.productName, madeToOrder: line.variant.madeToOrder, radius: Radii.button, padding: Space.sm)),
               const SizedBox(width: Space.md),
               Expanded(
                 child: Column(

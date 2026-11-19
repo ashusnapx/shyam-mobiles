@@ -104,8 +104,38 @@ class SupabaseCatalogRepository implements CatalogRepository {
       _cards(await _db.from('product_cards').select(cardColumns).inFilter('id', ids));
 
   @override
-  Future<List<ProductCard>> madeToOrder() async =>
-      _cards(await _db.from('product_cards').select(cardColumns).eq('made_to_order', true));
+  Future<List<ProductCard>> madeToOrder() async {
+    // product_cards hides the "for any phone" products, so read their variants (RLS shows only active ones).
+    final rows = await _db
+        .from('variants')
+        .select('price_paise, mrp_paise, lead_days, product:products!inner(id, slug, name, brand:brands(name), category:categories(slug), images:product_images(path, sort))')
+        .eq('made_to_order', true)
+        .eq('is_active', true)
+        .eq('product.is_active', true);
+    final byProduct = <String, Map<String, dynamic>>{};
+    for (final r in rows) {
+      final p = r['product'] as Map<String, dynamic>;
+      final id = p['id'] as String;
+      final prev = byProduct[id];
+      if (prev == null || (r['price_paise'] as int) < (prev['min_price_paise'] as int)) {
+        final photos = [...(p['images'] as List)]..sort((a, b) => (a['sort'] as int).compareTo(b['sort'] as int));
+        byProduct[id] = {
+          'id': id,
+          'slug': p['slug'],
+          'name': p['name'],
+          'brand_name': (p['brand'] as Map)['name'],
+          'category_slug': (p['category'] as Map)['slug'],
+          'min_price_paise': r['price_paise'],
+          'mrp_paise': r['mrp_paise'],
+          'in_stock': true,
+          'cover_path': photos.isEmpty ? null : photos.first['path'],
+          'made_to_order': true,
+          'lead_days': r['lead_days'],
+        };
+      }
+    }
+    return [for (final j in byProduct.values) ProductCard.fromJson(j)];
+  }
 
   @override
   Future<List<String>> phoneModels() async => [...(await _db.rpc<List<dynamic>>('phone_models')).cast<String>()];

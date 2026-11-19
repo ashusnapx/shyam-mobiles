@@ -124,8 +124,40 @@ class FirebaseCatalogRepository implements CatalogRepository {
   }
 
   @override
-  Future<List<ProductCard>> madeToOrder() async =>
-      [for (final e in (await _index()).entries) if (e.value['mo'] != null) cardOf(e.key, e.value)];
+  Future<List<ProductCard>> madeToOrder() async {
+    // Not in the public index (shop lists skip them): shown variants, then their products for the name and cover.
+    final vs = await _db
+        .collection('variants')
+        .where('madeToOrder', isEqualTo: true)
+        .where('isActive', isEqualTo: true)
+        .where('productActive', isEqualTo: true)
+        .get();
+    final byProduct = <String, List<Map<String, dynamic>>>{};
+    for (final v in vs.docs) {
+      byProduct.putIfAbsent(v.data()['productId'] as String, () => []).add(v.data());
+    }
+    final out = <ProductCard>[];
+    for (final MapEntry(:key, :value) in byProduct.entries) {
+      final p = (await _db.doc('products/$key').get()).data();
+      if (p == null) continue;
+      final cheapest = value.reduce((a, b) => (a['pricePaise'] as num) <= (b['pricePaise'] as num) ? a : b);
+      final photos = [...((p['images'] as List?) ?? const [])]..sort((a, b) => ((a['sort'] as num?) ?? 0).compareTo((b['sort'] as num?) ?? 0));
+      out.add(ProductCard(
+        id: key,
+        slug: key,
+        name: p['name'] as String,
+        brandName: p['brandName'] as String? ?? '',
+        categorySlug: p['categoryId'] as String? ?? '',
+        minPricePaise: (cheapest['pricePaise'] as num).toInt(),
+        mrpPaise: (cheapest['mrpPaise'] as num).toInt(),
+        inStock: true,
+        coverPath: photos.isEmpty ? null : (photos.first as Map)['path'] as String?,
+        madeToOrder: true,
+        leadDays: value.map((v) => (v['leadDays'] as num?)?.toInt() ?? 2).reduce((a, b) => a < b ? a : b),
+      ));
+    }
+    return out;
+  }
 
   /// catalogIndex/models (placeOrder learns them, newest first) after the catalog's phones.
   @override
