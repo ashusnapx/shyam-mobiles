@@ -146,8 +146,9 @@ Future<Uint8List?> cutoutOf(Uint8List photo) async {
   if (!Platform.isAndroid) return null;
   final segmenter = SubjectSegmenter(
     options: SubjectSegmenterOptions(
-      enableForegroundBitmap: true,
-      enableForegroundConfidenceMask: false,
+      // the confidence, not ML Kit's own cut-out: that one keeps a pixel or drops it, so its edges come out jagged
+      enableForegroundBitmap: false,
+      enableForegroundConfidenceMask: true,
       enableMultipleSubjects: SubjectResultOptions(enableConfidenceMask: false, enableSubjectBitmap: false),
     ),
   );
@@ -156,15 +157,68 @@ Future<Uint8List?> cutoutOf(Uint8List photo) async {
     if (size == null) return null;
     final plan = photoPlan(size.$1, size.$2, cutSide);
     final frame = await (await ui.instantiateImageCodec(photo, targetWidth: plan.width, targetHeight: plan.height)).getNextFrame();
-    final rgba = swapRedBlue((await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List());
-    final input = InputImage.fromBitmap(bitmap: rgba, width: frame.image.width, height: frame.image.height);
-    frame.image.dispose();
-    final png = (await segmenter.processImage(input)).foregroundBitmap;
-    return png == null ? null : await _trimmed(png);
+    final image = frame.image;
+    final w = image.width, h = image.height;
+    try {
+      final rgba = swapRedBlue((await image.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List());
+      final mask = (await segmenter.processImage(InputImage.fromBitmap(bitmap: rgba, width: w, height: h)))
+          .foregroundConfidenceMask;
+      if (mask == null || mask.length != w * h) return null;
+      return await _trimmed(await _masked(image, softEdge(mask, w, h), w, h));
+    } finally {
+      image.dispose();
+    }
   } catch (_) {
     return null;
   } finally {
     unawaited(segmenter.close());
+  }
+}
+
+/// ML Kit's per-pixel confidence (0…1) as a clean alpha: a short smooth ramp just inside the 50% line, so none of
+/// the background's colour fringes the edge, then a 3 × 3 blur so the edge is smooth rather than stepped.
+Uint8List softEdge(List<double> confidence, int width, int height) {
+  final ramp = Uint8List(width * height);
+  for (var i = 0; i < ramp.length; i++) {
+    final t = ((confidence[i] - 0.5) / 0.3).clamp(0.0, 1.0);
+    ramp[i] = (t * t * (3 - 2 * t) * 255).round();
+  }
+  final rows = Uint16List(ramp.length); // each pixel plus its left and right neighbours
+  for (var y = 0; y < height; y++) {
+    final row = y * width;
+    for (var x = 0; x < width; x++) {
+      rows[row + x] = ramp[row + max(x - 1, 0)] + ramp[row + x] + ramp[row + min(x + 1, width - 1)];
+    }
+  }
+  final out = Uint8List(ramp.length);
+  for (var y = 0; y < height; y++) {
+    final up = max(y - 1, 0) * width, here = y * width, down = min(y + 1, height - 1) * width;
+    for (var x = 0; x < width; x++) {
+      out[here + x] = ((rows[up + x] + rows[here + x] + rows[down + x]) / 9).round();
+    }
+  }
+  return out;
+}
+
+/// [photo] with [alpha] as its transparency, as PNG: the mask is drawn over it with dstIn, which keeps only its alpha.
+Future<Uint8List> _masked(ui.Image photo, Uint8List alpha, int width, int height) async {
+  final pixels = Uint8List(alpha.length * 4);
+  for (var i = 0; i < alpha.length; i++) {
+    pixels.fillRange(i * 4, i * 4 + 4, alpha[i]); // premultiplied white: the same alpha either way it's read
+  }
+  final done = Completer<ui.Image>();
+  ui.decodeImageFromPixels(pixels, width, height, ui.PixelFormat.rgba8888, done.complete);
+  final mask = await done.future;
+  final recorder = ui.PictureRecorder();
+  ui.Canvas(recorder)
+    ..drawImage(photo, ui.Offset.zero, ui.Paint())
+    ..drawImage(mask, ui.Offset.zero, ui.Paint()..blendMode = ui.BlendMode.dstIn);
+  final out = await recorder.endRecording().toImage(width, height);
+  mask.dispose();
+  try {
+    return (await out.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
+  } finally {
+    out.dispose();
   }
 }
 

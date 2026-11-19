@@ -151,4 +151,17 @@ void main() {
   test('red and blue are swapped before ML Kit, so its own swap gives the true colours back', () {
     expect(swapRedBlue(Uint8List.fromList([10, 20, 30, 255, 1, 2, 3, 4])), [30, 20, 10, 255, 3, 2, 1, 4]);
   });
+
+  test('the edge is a smooth ramp inside the 50% line, never a hard step', () {
+    // one row: confidence climbs 0 → 1 across 21 pixels; 3 rows so the blur has neighbours
+    final row = [for (var x = 0; x <= 20; x++) x / 20];
+    final a = softEdge([...row, ...row, ...row], 21, 3).sublist(21, 42);
+    expect(a.first, 0);
+    expect(a.last, 255);
+    expect(a[10], lessThan(20), reason: 'at 50% confidence the pixel is still (nearly) background');
+    for (var x = 1; x < 21; x++) {
+      expect(a[x], greaterThanOrEqualTo(a[x - 1]), reason: 'rises steadily');
+    }
+    expect([for (final v in a) if (v > 0 && v < 255) v], hasLength(greaterThan(2)), reason: 'soft, not stepped');
+  });
 }
