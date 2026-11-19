@@ -160,13 +160,13 @@ void main() {
     _container(tester).read(couponCodeProvider.notifier).set('DIWALI500');
     await tester.pumpAndSettle();
     // Your order (with the code under the totals) comes before Pay with
-    await scrollTo(tester, find.text('Discount · DIWALI500'));
+    await scrollTo(tester, find.text('Offer · DIWALI500'));
     expect(find.text('−₹500'), findsOneWidget);
     await scrollTo(tester, find.text('DIWALI500 applied'));
     await scrollTo(tester, find.text('Cash on delivery'));
     await tester.tap(find.text('Cash on delivery'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Place order · ₹12,499'));
+    await tester.tap(find.text('Place order'));
     await tester.pumpAndSettle();
     expect(pay.placed, ['a1 cod DIWALI500']);
     expect(find.text('Page /checkout/result/order-1'), findsOneWidget);

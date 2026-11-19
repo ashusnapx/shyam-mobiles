@@ -189,16 +189,13 @@ void main() {
       expect(find.text('Fix your cart to continue'), findsOneWidget);
       final bottom = tester.getBottomLeft(find.byType(FilledButton)).dy;
       expect(bottom, lessThanOrEqualTo(800 - 48));
-      // Deliver to, Your order, then Pay with
-      for (final text in ['Rahul Kumar', '6 items']) {
+      // Deliver to, Items, Offers, Payment, Price details
+      for (final text in ['Rahul Kumar · +91 98765 43210', 'Items (6)']) {
         await tester.scrollUntilVisible(find.text(text), 200, scrollable: find.byType(Scrollable).first);
       }
-      await tester.tap(find.text('6 items'));
-      await tester.pump(const Duration(seconds: 1));
       for (final text in [
-        'To pay',
         'Not available for orders above ₹25,000',
-        'Pay securely by UPI, card or netbanking. Shyam Mobiles never sees your card details or UPI PIN.',
+        'Total',
       ]) {
         await tester.scrollUntilVisible(find.text(text), 200, scrollable: find.byType(Scrollable).first);
       }

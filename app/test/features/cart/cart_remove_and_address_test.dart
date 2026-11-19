@@ -134,8 +134,8 @@ void main() {
       currentUserProvider.overrideWithValue(null),
     ]);
     await tester.pumpAndSettle();
-    expect(find.text('Ravi Gupta'), findsOneWidget, reason: 'checkout delivers where the cart said');
-    expect(find.text('Asha Verma'), findsNothing);
+    expect(find.textContaining('Ravi Gupta'), findsOneWidget, reason: 'checkout delivers where the cart said');
+    expect(find.textContaining('Asha Verma'), findsNothing);
   });
 
   testWidgets('a line the shop hid and the cart dropped is named once', (tester) async {

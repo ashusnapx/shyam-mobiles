@@ -42,7 +42,7 @@ void main() {
 
     test('labels by payment method', () {
       expect(button(), (label: 'Pay ₹77,397', enabled: true));
-      expect(button(method: PaymentMethod.cod), (label: 'Place order · ₹77,397', enabled: true));
+      expect(button(method: PaymentMethod.cod), (label: 'Place order', enabled: true));
     });
 
     test('disabled with a reason', () {
