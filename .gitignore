@@ -29,3 +29,5 @@ firebase/.emulator-data/
 # Firebase config files are per-machine, never committed
 app/android/app/google-services.json
 app/ios/Runner/GoogleService-Info.plist
+app/third_party/phonepe_payment_sdk/android/.gradle/
+app/third_party/phonepe_payment_sdk/android/build/
