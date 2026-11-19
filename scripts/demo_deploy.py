@@ -237,6 +237,8 @@ class Deploy:
             'RAZORPAY_KEY_ID': rz['RAZORPAY_KEY_ID'],
             'POLICIES_URL': 'https://shyam-mobiles.web.app',
             'LINK_HOST': 'shyammobiles.example',
+            'INSTAGRAM_URL': 'https://instagram.com/ashusnapx',
+            'FACEBOOK_URL': 'https://facebook.com/ashusnapx',
             'DEV_LOGIN': 'true',
             'DEMO_BUILD': 'true',
             'DEV_CUSTOMER_EMAIL': DEMO['customer'][0],
