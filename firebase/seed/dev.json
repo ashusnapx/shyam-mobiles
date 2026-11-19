@@ -2489,6 +2489,200 @@
     "services"
    ],
    "invoicePrefix": "SOS"
+  },
+  "brands/generic": {
+   "name": "Generic"
+  },
+  "products/back-cover-any-phone": {
+   "name": "Back cover",
+   "brandId": "generic",
+   "brandName": "Generic",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "A slim back cover for your exact phone model. We arrange it for you and it ships in about 2 days.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "The phone model you name"
+    },
+    {
+     "label": "Material",
+     "value": "Hard plastic or TPU, as available for your model"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "variants/mto-back-cover": {
+   "productId": "back-cover-any-phone",
+   "productName": "Back cover",
+   "productActive": true,
+   "sku": "MTO-BACK-COVER",
+   "name": "For your phone",
+   "attributes": {},
+   "pricePaise": 19900,
+   "mrpPaise": 19900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0,
+   "madeToOrder": true,
+   "leadDays": 2
+  },
+  "products/tempered-glass-any-phone": {
+   "name": "Tempered glass",
+   "brandId": "generic",
+   "brandName": "Generic",
+   "categoryId": "screen-guards",
+   "categoryKind": "accessory",
+   "description": "Edge-to-edge tempered glass cut for your exact phone model. We arrange it for you and it ships in about 2 days.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "The phone model you name"
+    },
+    {
+     "label": "Hardness",
+     "value": "9H"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "variants/mto-tempered-glass": {
+   "productId": "tempered-glass-any-phone",
+   "productName": "Tempered glass",
+   "productActive": true,
+   "sku": "MTO-TEMPERED-GLASS",
+   "name": "For your phone",
+   "attributes": {},
+   "pricePaise": 14900,
+   "mrpPaise": 14900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0,
+   "madeToOrder": true,
+   "leadDays": 2
+  },
+  "products/camera-lens-guard-any-phone": {
+   "name": "Camera lens guard",
+   "brandId": "generic",
+   "brandName": "Generic",
+   "categoryId": "screen-guards",
+   "categoryKind": "accessory",
+   "description": "A clear guard for your phone’s rear cameras, made for your exact model. Ships in about 2 days.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "The phone model you name"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "variants/mto-lens-guard": {
+   "productId": "camera-lens-guard-any-phone",
+   "productName": "Camera lens guard",
+   "productActive": true,
+   "sku": "MTO-LENS-GUARD",
+   "name": "For your phone",
+   "attributes": {},
+   "pricePaise": 14900,
+   "mrpPaise": 14900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0,
+   "madeToOrder": true,
+   "leadDays": 2
+  },
+  "products/silicone-case-any-phone": {
+   "name": "Silicone case",
+   "brandId": "generic",
+   "brandName": "Generic",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "Soft silicone case with a grippy finish, for your exact phone model. Ships in about 2 days.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "The phone model you name"
+    },
+    {
+     "label": "Material",
+     "value": "Silicone"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "variants/mto-silicone-case": {
+   "productId": "silicone-case-any-phone",
+   "productName": "Silicone case",
+   "productActive": true,
+   "sku": "MTO-SILICONE-CASE",
+   "name": "For your phone",
+   "attributes": {},
+   "pricePaise": 24900,
+   "mrpPaise": 24900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0,
+   "madeToOrder": true,
+   "leadDays": 2
+  },
+  "products/flip-cover-any-phone": {
+   "name": "Flip cover",
+   "brandId": "generic",
+   "brandName": "Generic",
+   "categoryId": "cases-covers",
+   "categoryKind": "accessory",
+   "description": "A flip cover with card slots that protects the screen too, for your exact phone model. Ships in about 2 days.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "The phone model you name"
+    },
+    {
+     "label": "Material",
+     "value": "Faux leather"
+    }
+   ],
+   "gstRateBp": 1800,
+   "isActive": true,
+   "isFeatured": false,
+   "images": []
+  },
+  "variants/mto-flip-cover": {
+   "productId": "flip-cover-any-phone",
+   "productName": "Flip cover",
+   "productActive": true,
+   "sku": "MTO-FLIP-COVER",
+   "name": "For your phone",
+   "attributes": {},
+   "pricePaise": 39900,
+   "mrpPaise": 39900,
+   "stock": 0,
+   "isActive": true,
+   "sort": 0,
+   "lastStockChange": "staff",
+   "restockSeq": 0,
+   "madeToOrder": true,
+   "leadDays": 2
   }
  }
 }
