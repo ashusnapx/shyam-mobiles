@@ -172,6 +172,15 @@ describe("auto-post", () => {
   });
 });
 
+describe("auto-post photo", () => {
+  test("posts the JPEG copy in socialImagePath; a WebP photo without one is skipped", async () => {
+    const s = setup({ ...ON, "banners/b1": banner({ imagePath: "banners/x.webp", socialImagePath: "banners/x.jpg" }), "banners/b2": banner({ imagePath: "banners/y.webp" }) });
+    expect(await postLiveBanners(s.d)).toEqual(["done", "not jpeg"]);
+    expect(s.meta.calls[0]).toBe("facebookPhoto PAGE1 PAGETOKEN https://img.test/banners/x.jpg");
+    expect(s.meta.calls).toHaveLength(2);
+  });
+});
+
 describe("Meta client", () => {
   test("calls the documented endpoints; tokens never appear in errors", async () => {
     const f = fakeFetch((c) => {

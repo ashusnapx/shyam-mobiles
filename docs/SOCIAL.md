@@ -29,10 +29,10 @@ The backend's `social` domain (`firebase/functions/src/social/`) does two things
 ## Photos must be JPEG
 
 Instagram accepts only JPEG ("JPEG is the only image format supported", content publishing docs). Facebook's list
-doesn't include WebP either. The admin app uploads banner photos as **WebP**, so for now those banners are skipped
-(`social auto-post … outcome: "not jpeg"` in the logs). A banner whose photo is a `.jpg` posts normally. To post WebP
-banners, the backend needs an image converter (the `sharp` package) to make a JPEG copy. That dependency hasn't been
-added yet.
+doesn't include WebP either. The admin app uploads banner photos as **WebP**, so it also uploads a JPEG copy and
+stores its Storage key (under `product-images/`) on the banner as `socialImagePath`. Auto-post uses that copy when
+it's there, otherwise `imagePath` if that is a `.jpg`. A banner with neither is skipped (`social auto-post …
+outcome: "not jpeg"` in the logs).
 
 ## Where the tokens live
 

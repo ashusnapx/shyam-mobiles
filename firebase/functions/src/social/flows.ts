@@ -74,7 +74,7 @@ export async function syncInstagram(d: Deps): Promise<number> {
   return posts.length;
 }
 
-type Banner = { title?: unknown; subtitle?: unknown; imagePath?: unknown; isActive?: unknown; startsAt?: unknown; endsAt?: unknown };
+type Banner = { title?: unknown; subtitle?: unknown; imagePath?: unknown; socialImagePath?: unknown; isActive?: unknown; startsAt?: unknown; endsAt?: unknown };
 
 export const captionOf = (b: Banner): string =>
   [b.title, b.subtitle, "Shop on the Shyam Mobiles app"].map((s) => (typeof s === "string" ? s.trim() : "")).filter(Boolean).join(" · ");
@@ -95,9 +95,9 @@ export async function autoPost(d: Deps, id: string): Promise<Outcome> {
   if (settings.data()?.autoPost !== true) return "off";
   const banner = snap.data() as Banner | undefined;
   if (!banner || typeof banner.imagePath !== "string" || !live(banner, now.getTime())) return "not live";
-  // Instagram takes JPEG only, and Facebook doesn't list WebP. shortcut: the app uploads WebP, so those banners wait
-  // for a JPEG copy (docs/SOCIAL.md "Photos"); convert server-side once an image library is approved.
-  if (!/\.jpe?g$/i.test(banner.imagePath)) return "not jpeg";
+  // Instagram takes JPEG only and Facebook doesn't list WebP: the app stores a JPEG copy of the WebP photo as socialImagePath.
+  const photo = typeof banner.socialImagePath === "string" ? banner.socialImagePath : banner.imagePath;
+  if (!/\.jpe?g$/i.test(photo)) return "not jpeg";
 
   const ref = d.db.doc(`socialPosts/${id}`);
   const rec = await d.db.runTransaction(async (tx) => {
@@ -111,7 +111,7 @@ export async function autoPost(d: Deps, id: string): Promise<Outcome> {
   if (!rec) return "skip";
 
   try {
-    const url = await d.imageUrl(banner.imagePath);
+    const url = await d.imageUrl(photo);
     const caption = captionOf(banner);
     if (!rec.facebookPostId) {
       rec.facebookPostId = await d.meta.facebookPhoto(d.pageId, d.pageToken, url, caption);
