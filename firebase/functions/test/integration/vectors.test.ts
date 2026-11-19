@@ -133,11 +133,19 @@ async function check(c: VectorCase, file: VectorFile): Promise<void> {
   }
 }
 
-beforeAll(() => {
+// Every case wipes and rewrites the whole DB; with triggers on, that queues thousands of catalog/notify runs that the
+// emulator works through serially, starving the next file's triggers. These cases call handlers in-process: no triggers.
+const hub = `http://${process.env.FIREBASE_EMULATOR_HUB ?? "127.0.0.1:4400"}/functions`;
+const triggers = (on: boolean) => fetch(`${hub}/${on ? "enable" : "disable"}BackgroundTriggers`, { method: "PUT" });
+
+beforeAll(async () => {
+  await triggers(false);
   vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-03T12:00:00+05:30") });
 });
-afterAll(() => {
+afterAll(async () => {
   vi.useRealTimers();
+  await clear(); // the last case's docs (a "test-phone" product, photos) would leak into the next file
+  await triggers(true);
 });
 
 describe.each(["pricing", "offers", "referrals", "orders-state", "settlement"])("%s.json", (name) => {

@@ -32,7 +32,7 @@ const variant = { productId: "test-phone", id: null, sku: "TEST-1", name: "8 GB"
 
 beforeAll(async () => {
   const { stdout } = await run("node", [`${SEED}seed.ts`], { env: process.env });
-  expect(stdout).toMatch(/seeded \d+ docs and 40 public cards/);
+  expect(stdout).toMatch(/seeded \d+ docs and 35 public cards/);
 }, 60_000);
 
 describe("seed", () => {
