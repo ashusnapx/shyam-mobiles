@@ -333,8 +333,9 @@ class GeminiCatalogueAi implements CatalogueAi {
 final catalogueAiProvider = Provider<CatalogueAi>((ref) => GeminiCatalogueAi());
 
 /// Takes a photo (camera) and returns its bytes; null when cancelled. A provider so tests need no camera.
-final photoPickerProvider = Provider<Future<Uint8List?> Function()>((ref) => () async {
-      final f = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2000, imageQuality: 85);
+final photoPickerProvider = Provider<Future<Uint8List?> Function({bool gallery})>((ref) => ({bool gallery = false}) async {
+      final f = await ImagePicker()
+          .pickImage(source: gallery ? ImageSource.gallery : ImageSource.camera, maxWidth: 2000, imageQuality: 85);
       return f?.readAsBytes();
     });
 

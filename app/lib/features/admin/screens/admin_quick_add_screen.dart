@@ -13,7 +13,7 @@ import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/admin.dart';
 import '../data/ai_catalogue.dart';
-import '../data/photos.dart' show formatBytes;
+import '../data/photos.dart' show cutoutOf, formatBytes;
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
 
@@ -31,6 +31,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
   final _c = {for (final k in ['name', 'brand', 'model', 'ram', 'storage', 'color', 'mrp', 'price', 'stock', 'about']) k: TextEditingController()};
   int _step = 0; // 0 label photo, 1 product photo, 2 confirm
   ProductDraft? _d;
+  Uint8List? _cut; // preview of the cut-out the upload makes again; null: none made yet
   String? _category;
   bool _busy = false, _show = false;
   String? _error;
@@ -57,6 +58,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
 
   void _open(ProductDraft d, {required int step}) => setState(() {
         _d = d;
+        _cut = null;
         _step = step;
         _error = null;
         _category = d.categoryName.isEmpty ? null : d.categoryName;
@@ -74,8 +76,8 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
         _c['about']!.text = d.bullets.join('\n');
       });
 
-  Future<void> _scanLabel() async {
-    final bytes = await ref.read(photoPickerProvider)();
+  Future<void> _scanLabel({bool gallery = false}) async {
+    final bytes = await ref.read(photoPickerProvider)(gallery: gallery);
     if (bytes == null || !mounted) return;
     setState(() {
       _busy = true;
@@ -92,12 +94,20 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
     }
   }
 
-  Future<void> _photo() async {
-    final Uint8List? bytes = await ref.read(photoPickerProvider)();
+  Future<void> _photo({bool gallery = false}) async {
+    final Uint8List? bytes = await ref.read(photoPickerProvider)(gallery: gallery);
     if (bytes == null || !mounted) return;
     _d!.photo = bytes;
     await DraftStore.quick.save([_d!]);
-    setState(() => _step = 2);
+    setState(() => _busy = true);
+    final cut = await cutoutOf(bytes); // free, on this phone (ML Kit); shown so staff see the shop's look before saving
+    if (mounted) {
+      setState(() {
+        _cut = cut;
+        _busy = false;
+        _step = 2;
+      });
+    }
   }
 
   /// Copies the form into the draft.
@@ -181,14 +191,14 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
             0 => _capture(
                 icon: PhosphorIconsRegular.barcode,
                 title: 'Step 1 of 3 · Back label',
-                message: 'Photograph the back of the box: model, RAM/storage, colour and MRP are read for you.',
+                message: 'Photograph the back of the box, or pick a photo of it: model, RAM/storage, colour and MRP are read for you.',
                 button: 'Photograph label',
                 onTap: _scanLabel,
               ),
             1 => _capture(
                 icon: PhosphorIconsRegular.camera,
                 title: 'Step 2 of 3 · The product',
-                message: 'Photograph the phone or the front of the box. The background is cut away on this phone.',
+                message: 'Photograph the phone or the front of the box, or pick a photo. The background is removed free, on this phone.',
                 button: 'Photograph product',
                 onTap: _photo,
                 skip: () => setState(() => _step = 2),
@@ -205,7 +215,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
     required String title,
     required String message,
     required String button,
-    required VoidCallback onTap,
+    required void Function({bool gallery}) onTap,
     VoidCallback? skip,
   }) =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -218,9 +228,14 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
         const SizedBox(height: Space.xl),
         if (_error != null) ...[NoteBox(_error!, icon: PhosphorIconsBold.warning), const SizedBox(height: Space.md)],
         FilledButton.icon(
-          onPressed: _busy ? null : onTap,
+          onPressed: _busy ? null : () => onTap(),
           icon: _busy ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(PhosphorIconsRegular.camera),
-          label: Text(_busy ? 'Reading…' : _error != null ? 'Retry' : button),
+          label: Text(_busy ? (_step == 0 ? 'Reading…' : 'Removing background…') : _error != null ? 'Retry' : button),
+        ),
+        TextButton.icon(
+          onPressed: _busy ? null : () => onTap(gallery: true),
+          icon: const Icon(PhosphorIconsRegular.images),
+          label: const Text('Choose from gallery'),
         ),
         if (skip != null) TextButton(onPressed: skip, child: const Text('Skip the photo')),
         if (_error != null && _step == 0)
@@ -298,7 +313,25 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
         _field('stock', 'Stock', type: TextInputType.number, validator: (v) => int.tryParse(v ?? '') == null ? 'Enter a whole number.' : null),
         _field('about', 'Description bullets', flag: 'description', multi: true),
         if (d.specs.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: Space.sm), child: Text('${d.specs.length} specs from the label${_flag('specs') == null ? '' : ' · $aiFlag'}')),
-        if (d.photo != null) Padding(padding: const EdgeInsets.only(bottom: Space.sm), child: Text('Product photo ready · ${formatBytes(d.photo!.length)}')),
+        if (d.photo != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.sm),
+            child: Row(children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(Radii.md),
+                child: ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: Image.memory(_cut ?? d.photo!, width: 96, height: 96, fit: BoxFit.contain),
+                ),
+              ),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Text(_cut != null
+                    ? 'Background removed · ${formatBytes(d.photo!.length)}'
+                    : 'Product photo ready · ${formatBytes(d.photo!.length)}'),
+              ),
+            ]),
+          ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Show in shop'),

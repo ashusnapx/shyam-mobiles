@@ -165,7 +165,7 @@ void main() {
 
     List<Override> overrides(CatalogueAi ai, {List<PickedFile> files = const []}) => [
           catalogueAiProvider.overrideWithValue(ai),
-          photoPickerProvider.overrideWithValue(() async => Uint8List.fromList([1, 2, 3])),
+          photoPickerProvider.overrideWithValue(({bool gallery = false}) async => Uint8List.fromList([1, 2, 3])),
           filePickerProvider.overrideWithValue(() async => files),
           catalogAdminRepositoryProvider.overrideWithValue(repo),
           photoStoreProvider.overrideWithValue(store),
