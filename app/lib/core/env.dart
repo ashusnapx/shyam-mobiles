@@ -14,6 +14,9 @@ abstract final class Env {
   /// Host of shared links (`https://<host>/open?…`, served by firebase/hosting/open.html): shyam-mobiles.web.app.
   /// The Android build claims it as an App Link (build.gradle.kts reads the same key). Empty: shares carry no link.
   static const linkHost = String.fromEnvironment('LINK_HOST');
+  /// The Meta (Facebook) app id that Instagram and Facebook want on a shared story (lib/core/stories.dart). Empty:
+  /// no Share to Story buttons.
+  static const metaAppId = String.fromEnvironment('META_APP_ID');
   /// The Firebase Android app (console > Project settings > Your apps), for phone notifications (lib/core/push.dart).
   /// Any of them empty: the app never touches Firebase and shows notifications only inside the app.
   static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');

@@ -7,6 +7,7 @@ import '../features/offers/data/offers.dart';
 import 'env.dart';
 import 'format.dart';
 import 'models/models.dart';
+import 'stories.dart';
 import 'supabase.dart';
 import 'widgets/widgets.dart';
 
@@ -50,14 +51,16 @@ String friendCodeMessage(Offer welcome) => 'Your friend’s code is in: ${format
     'order of ${formatInr(welcome.minSubtotalPaise)} or more';
 
 /// App-bar Share: the system share sheet with [what], a link to [product] or [offer] (or the app), and the sharer's
-/// referral code when they're signed in and Refer & earn is on.
+/// referral code when they're signed in and Refer & earn is on. With a [story] and a story app on the phone, a
+/// sheet first offers the link or Share to Instagram / Facebook Story.
 class ShareButton extends ConsumerStatefulWidget {
-  const ShareButton({super.key, required this.what, this.product, this.offer, this.style});
+  const ShareButton({super.key, required this.what, this.product, this.offer, this.style, this.story});
 
   final String what;
   final String? product; // slug
   final String? offer; // id
   final ButtonStyle? style;
+  final Story? story;
 
   @override
   ConsumerState<ShareButton> createState() => _ShareButtonState();
@@ -70,6 +73,28 @@ class _ShareButtonState extends ConsumerState<ShareButton> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
+      if (widget.story case final story? when (await ref.read(storyAppsProvider.future)).isNotEmpty) {
+        if (!mounted) return;
+        final pick = await showModalBottomSheet<Object>(
+          context: context,
+          useSafeArea: true,
+          builder: (sheet) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const SizedBox.square(dimension: 36, child: Icon(PhosphorIconsRegular.shareNetwork)),
+                  title: const Text('Share a link'),
+                  onTap: () => Navigator.pop(sheet, 'link'),
+                ),
+                StoryTiles(story, onPick: (app) => Navigator.pop(sheet, app)),
+              ],
+            ),
+          ),
+        );
+        if (pick is StoryApp && mounted) await shareStory(context, pick, story);
+        if (pick != 'link') return;
+      }
       Referral? referral;
       if (ref.read(currentUserIdProvider) != null) {
         try {

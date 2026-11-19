@@ -86,6 +86,14 @@
         <meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false" />
         <!-- Crash reports start off: only the BACKEND=firebase build turns them on (core/firebase.dart). -->
         <meta-data android:name="firebase_crashlytics_collection_enabled" android:value="false" />
+        <!-- Share to Instagram / Facebook Story: hands the story card (cache/stories/) to the app, read-only -->
+        <provider
+            android:name=".StoryFileProvider"
+            android:authorities="${applicationId}.stories"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/story_paths"/>
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -107,6 +115,9 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="upi" android:host="pay"/>
         </intent>
+        <!-- Share to Story buttons show only when the app is there (MainActivity resolveActivity) -->
+        <package android:name="com.instagram.android"/>
+        <package android:name="com.facebook.katana"/>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

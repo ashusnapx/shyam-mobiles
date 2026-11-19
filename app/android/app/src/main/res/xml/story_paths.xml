@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MainActivity writes the story card to cache/stories/story.png; only that folder is shared. -->
+<paths>
+    <cache-path name="stories" path="stories/"/>
+</paths>
