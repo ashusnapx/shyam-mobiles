@@ -2,7 +2,9 @@
 // shows why it is off, the sticky bar carries the server total. 360 dp at 1.4x text (see pumpScreen): no overflow.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
+import 'package:shyam_mobiles/core/theme/tokens.dart';
 import 'package:shyam_mobiles/features/account/data/addresses.dart';
 import 'package:shyam_mobiles/features/cart/data/cart.dart';
 import 'package:shyam_mobiles/features/checkout/screens/checkout_screen.dart';
@@ -123,6 +125,10 @@ void main() {
     await tester.tap(find.text('Cash on delivery'));
     await tester.pumpAndSettle();
     expect(find.text('Place order'), findsOneWidget);
+    final button = tester.getRect(find.ancestor(of: find.text('Place order'), matching: find.byType(FilledButton)));
+    final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+    expect(screen.width - button.right, lessThanOrEqualTo(Space.lg + 1), reason: 'flush right, not mid-bar');
+    expect(button.width, greaterThan(screen.width / 2 - Space.lg - Space.md), reason: 'half the bar');
   });
 
   testWidgets('View details scrolls to the bill', (tester) async {

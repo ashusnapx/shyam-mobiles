@@ -725,7 +725,8 @@ class _PayBar extends StatelessWidget {
     return StickyBar(
       child: Row(
         children: [
-          Flexible(
+          // two equal halves: a Flexible here keeps its unused share as a gap, leaving the button mid-bar
+          Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
