@@ -94,6 +94,38 @@ class _NetworkPhoto extends ConsumerWidget {
   }
 }
 
+/// Photos without a cut-out (older uploads, or segmentation failed): straight to the photo from the next build on.
+final _noCut = <String>{};
+
+/// The product alone, no background ([cutoutUrl]), for heroes and banners; without a cut-out (or in data-saver
+/// mode) the photo inside a soft [tile].
+class ProductCutout extends ConsumerWidget {
+  const ProductCutout(this.path, {super.key, this.tile = Colors.white});
+
+  final String? path;
+  final Color tile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = path;
+    final photo = Center(child: ProductImage(p, radius: Radii.lg, padding: Space.xs, color: tile));
+    if (p == null || _noCut.contains(p) || ref.watch(dataSaverProvider) == DataMode.saver) return photo;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return LayoutBuilder(
+      builder: (context, box) => CachedNetworkImage(
+        imageUrl: cutoutUrl(p),
+        fit: BoxFit.contain,
+        fadeInDuration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal,
+        memCacheHeight: box.maxHeight.isFinite ? (box.maxHeight * dpr).round() : null,
+        errorWidget: (_, _, _) {
+          _noCut.add(p);
+          return photo;
+        },
+      ),
+    );
+  }
+}
+
 /// "₹1,29,999  ₹1,39,999  7% off". [stacked] is the product tile's: the price on one line and the MRP with "% off"
 /// on a fixed-height line under it (empty with no discount), so every tile in a row is the same height.
 /// [showSaving] (the product page) adds "You save ₹3,000 (4%)" under the price.

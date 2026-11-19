@@ -6,12 +6,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/backend.dart';
 import '../../../core/firebase.dart' show storageProvider;
-import '../../../core/supabase.dart' show supabaseProvider, thumbPathFor;
+import '../../../core/supabase.dart' show cutPathFor, supabaseProvider, thumbPathFor;
 import 'photos.dart' show PreparedPhoto;
 
 /// Photo files in Storage (product-images/…, same keys as today; docs/FIREBASE.md §1). Staff only. Owner: B.
 abstract interface class PhotoStore {
-  /// Uploads `<folder>/<millis>.webp` and its `@thumb.webp`; returns the full photo's key.
+  /// Uploads `<folder>/<millis>.webp`, its `@thumb.webp` and, when there is one, its `@cut.webp`; returns the full
+  /// photo's key.
   Future<String> upload(String folder, PreparedPhoto photo);
 
   /// One file at [key] (a banner's JPEG copy for social posts).
@@ -38,6 +39,11 @@ Future<String> _uploadPair(String folder, PreparedPhoto photo, Future<void> Func
   } catch (_) {
     await remove([path]);
     rethrow;
+  }
+  if (photo.cut case final cut?) {
+    try {
+      await put(cutPathFor(path), cut);
+    } catch (_) {} // the app shows the photo when there's no cut-out
   }
   return path;
 }

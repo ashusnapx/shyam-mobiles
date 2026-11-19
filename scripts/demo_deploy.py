@@ -208,24 +208,45 @@ class Deploy:
         rows = [line.split('\t') for line in local.stdout.splitlines() if line]
         prod = {p['slug']: p['id'] for p in http('GET', f'{self.url}/rest/v1/products?select=id,slug', key)}
         have = {r['path'] for r in http('GET', f'{self.url}/rest/v1/product_images?select=path', key)}
-        copied = 0
+        def copy(p_local, p_new, optional=False):
+            try:
+                with urllib.request.urlopen(f'{LOCAL_API}/storage/v1/object/public/product-images/{p_local}', timeout=30) as r:
+                    data = r.read()
+            except urllib.error.HTTPError:
+                if optional:
+                    return False
+                raise
+            http('POST', f'{self.url}/storage/v1/object/product-images/{p_new}', key, data,
+                 {'Content-Type': 'image/webp', 'cache-control': 'max-age=31536000', 'x-upsert': 'true'})
+            return True
+
+        def in_prod(p):
+            req = urllib.request.Request(f'{self.url}/storage/v1/object/public/product-images/{p}', method='HEAD')
+            try:
+                with urllib.request.urlopen(req, timeout=15):
+                    return True
+            except urllib.error.HTTPError:
+                return False
+
+        copied = cuts = 0
         for slug, path, sort, color in rows:
             pid = prod.get(slug)
             if not pid:
                 continue
             name = path.split('/', 1)[1]
             new = f'{pid}/{name}'
+            # the cut-out (scripts/cutouts.py), for photos already there too; without one the app shows the photo
+            cut, cut_new = path.replace('.webp', '@cut.webp'), new.replace('.webp', '@cut.webp')
+            if not in_prod(cut_new) and copy(cut, cut_new, optional=True):
+                cuts += 1
             if new in have:
                 continue
             for p_local, p_new in [(path, new), (path.replace('.webp', '@thumb.webp'), new.replace('.webp', '@thumb.webp'))]:
-                with urllib.request.urlopen(f'{LOCAL_API}/storage/v1/object/public/product-images/{p_local}', timeout=30) as r:
-                    data = r.read()
-                http('POST', f'{self.url}/storage/v1/object/product-images/{p_new}', key, data,
-                     {'Content-Type': 'image/webp', 'cache-control': 'max-age=31536000', 'x-upsert': 'true'})
+                copy(p_local, p_new)
             http('POST', f'{self.url}/rest/v1/product_images', key,
                  {'product_id': pid, 'path': new, 'sort': int(sort), 'color': color or None})
             copied += 1
-        print(f'  {copied} photos copied')
+        print(f'  {copied} photos copied, {cuts} cut-outs')
 
     def build(self):
         step('demo APK (release, arm64, demo logins on)')
@@ -276,7 +297,7 @@ class Deploy:
                 http('DELETE', f'{self.url}/auth/v1/admin/users/{u["id"]}', key)
                 print('  deleted', u['email'])
         rows = http('GET', f'{self.url}/rest/v1/product_images?select=path&path=like.*%2Fseed-*', key)
-        paths = [p for r in rows for p in (r['path'], r['path'].replace('.webp', '@thumb.webp'))]
+        paths = [p for r in rows for p in (r['path'], r['path'].replace('.webp', '@thumb.webp'), r['path'].replace('.webp', '@cut.webp'))]
         if paths:
             http('DELETE', f'{self.url}/storage/v1/object/product-images', key, {'prefixes': paths})
             http('DELETE', f'{self.url}/rest/v1/product_images?path=like.*%2Fseed-*', key)

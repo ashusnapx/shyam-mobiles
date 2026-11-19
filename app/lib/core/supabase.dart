@@ -100,5 +100,14 @@ String publicImageUrl(String path) => backend == Backend.firebase
 String? thumbPathFor(String path) =>
     path.endsWith('.webp') ? '${path.substring(0, path.length - '.webp'.length)}@thumb.webp' : null;
 
+/// "p1/1730000000000.webp" → "p1/1730000000000@cut.webp": the product alone on a transparent background, made on
+/// upload (ML Kit) or by scripts/cutouts.py. It may not exist: [ProductCutout] then shows the photo.
+String cutPathFor(String path) {
+  final dot = path.lastIndexOf('.');
+  return '${dot < 0 ? path : path.substring(0, dot)}@cut.webp';
+}
+
+String cutoutUrl(String path) => publicImageUrl(cutPathFor(path));
+
 final supabaseProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
 

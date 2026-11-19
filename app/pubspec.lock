@@ -821,6 +821,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.3.3+1"
+  google_mlkit_commons:
+    dependency: transitive
+    description:
+      name: google_mlkit_commons
+      sha256: "58b969da65027b6242afb38b944f5a0d3f6b90305b29d70b0cca3048a50b4263"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
+  google_mlkit_subject_segmentation:
+    dependency: "direct main"
+    description:
+      name: google_mlkit_subject_segmentation
+      sha256: ddf3ae5c7170d4e8a95acf81a26ee7ffa417a7f8183e3469ef84733ca4ba12e3
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2"
   google_sign_in:
     dependency: "direct main"
     description:

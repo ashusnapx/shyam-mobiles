@@ -94,4 +94,13 @@ void main() {
       expect(out.width, greaterThanOrEqualTo(w < socialWidth ? w : socialWidth - 2), reason: '$w x $h: no needless shrink');
     }
   });
+
+  test('alphaBounds: the box around the visible pixels, none when all transparent', () {
+    final rgba = Uint8List(4 * 5 * 4); // 5 x 4, all transparent
+    expect(alphaBounds(rgba, 5, 4), isNull);
+    rgba[(1 * 5 + 2) * 4 + 3] = 255; // (2, 1)
+    rgba[(2 * 5 + 3) * 4 + 3] = 200; // (3, 2)
+    rgba[(3 * 5 + 0) * 4 + 3] = 5; // (0, 3): faint, ignored
+    expect(alphaBounds(rgba, 5, 4), const ui.Rect.fromLTRB(2, 1, 4, 3));
+  });
 }

@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:google_mlkit_subject_segmentation/google_mlkit_subject_segmentation.dart';
 
 /// Any camera photo is taken as it is and compressed here; only something no camera makes (a video picked by mistake)
 /// is turned away, so a ₹10k phone never tries to load it.
@@ -71,11 +74,12 @@ Future<Uint8List> fitBudget(Future<Uint8List> Function(int side, int quality) en
   return out;
 }
 
-/// A photo ready to upload: WebP full + thumb, upright, with no metadata.
-typedef PreparedPhoto = ({Uint8List full, Uint8List thumb, int originalBytes});
+/// A photo ready to upload: WebP full + thumb, upright, with no metadata; [cut] the product alone when asked for.
+typedef PreparedPhoto = ({Uint8List full, Uint8List thumb, int originalBytes, Uint8List? cut});
 
-/// Refuses non-images, then makes the full photo (always under [photoBudgetBytes]) and its thumb.
-Future<PreparedPhoto> preparePhoto(Uint8List original) async {
+/// Refuses non-images, then makes the full photo (always under [photoBudgetBytes]) and its thumb; with [cut], also
+/// its cut-out ([cutoutOf]), or none when that fails.
+Future<PreparedPhoto> preparePhoto(Uint8List original, {bool cut = false}) async {
   checkPhotoSize(original.length);
   final size = await imageSizeOf(original);
   if (size == null) throw const FormatException('That file isn’t a photo. Pick a JPEG, PNG or WebP image.');
@@ -88,7 +92,72 @@ Future<PreparedPhoto> preparePhoto(Uint8List original) async {
     throw const FormatException('Couldn’t read that photo. It may be damaged. Try another one.');
   }
   if (full.isEmpty || thumb.isEmpty) throw const FormatException('Couldn’t read that photo. Try another one.');
-  return (full: full, thumb: thumb, originalBytes: original.length);
+  return (full: full, thumb: thumb, originalBytes: original.length, cut: cut ? await cutoutOf(full) : null);
+}
+
+const cutSide = 1200;
+
+/// The product alone on a transparent background: ML Kit subject segmentation on the phone (Play services fetches
+/// its model on first use), trimmed to its edges, at most [cutSide] px, WebP with alpha. Null when it can't be made
+/// (not Android, model still downloading, nothing found): the photo goes up without one and the app shows the photo.
+Future<Uint8List?> cutoutOf(Uint8List photo) async {
+  if (!Platform.isAndroid) return null;
+  final segmenter = SubjectSegmenter(
+    options: SubjectSegmenterOptions(
+      enableForegroundBitmap: true,
+      enableForegroundConfidenceMask: false,
+      enableMultipleSubjects: SubjectResultOptions(enableConfidenceMask: false, enableSubjectBitmap: false),
+    ),
+  );
+  try {
+    final size = await imageSizeOf(photo);
+    if (size == null) return null;
+    final plan = photoPlan(size.$1, size.$2, cutSide);
+    final frame = await (await ui.instantiateImageCodec(photo, targetWidth: plan.width, targetHeight: plan.height)).getNextFrame();
+    final rgba = (await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+    final input = InputImage.fromBitmap(bitmap: rgba, width: frame.image.width, height: frame.image.height);
+    frame.image.dispose();
+    final png = (await segmenter.processImage(input)).foregroundBitmap;
+    return png == null ? null : await _trimmed(png);
+  } catch (_) {
+    return null;
+  } finally {
+    unawaited(segmenter.close());
+  }
+}
+
+/// [png] cropped to its visible pixels and encoded as WebP with alpha; null when it is all transparent.
+Future<Uint8List?> _trimmed(Uint8List png) async {
+  final image = (await (await ui.instantiateImageCodec(png)).getNextFrame()).image;
+  try {
+    final rgba = (await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba))!.buffer.asUint8List();
+    final box = alphaBounds(rgba, image.width, image.height);
+    if (box == null) return null;
+    final recorder = ui.PictureRecorder();
+    ui.Canvas(recorder).drawImageRect(image, box, ui.Offset.zero & box.size, ui.Paint());
+    final cropped = await recorder.endRecording().toImage(box.width.round(), box.height.round());
+    final bytes = (await cropped.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
+    cropped.dispose();
+    return await _webp(bytes, (box.width.round(), box.height.round()), cutSide, 85);
+  } finally {
+    image.dispose();
+  }
+}
+
+/// The box around the pixels whose alpha is above [threshold] (straight RGBA, row by row); null when there are none.
+ui.Rect? alphaBounds(Uint8List rgba, int width, int height, {int threshold = 8}) {
+  var left = width, top = height, right = -1, bottom = -1;
+  for (var y = 0; y < height; y++) {
+    final row = y * width * 4;
+    for (var x = 0; x < width; x++) {
+      if (rgba[row + x * 4 + 3] <= threshold) continue;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      bottom = y;
+    }
+  }
+  return right < 0 ? null : ui.Rect.fromLTRB(left.toDouble(), top.toDouble(), right + 1.0, bottom + 1.0);
 }
 
 /// Pixel size from the file header, without decoding it. Null when it isn't an image the phone can read.
