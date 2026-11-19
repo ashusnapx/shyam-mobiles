@@ -287,5 +287,17 @@ service cloud.firestore {
       allow read, delete: if isMe(uid);
       allow update: if isMe(uid) && changed().hasOnly(['readAt']) && incoming().readAt == request.time;
     }
+
+    // ── social (docs/SOCIAL.md) ───────────────────────────────────────────────────────────────────────────────────────
+    // Functions write all of it. social/instagram is the app's Instagram strip; socialPosts/{bannerId} shows staff what
+    // auto-post did; settings/social is the staff auto-post switch. private/* (the refreshed Instagram token) has no rule
+    // on purpose: deny-all above keeps it from every client, staff included.
+    match /social/{id} { allow read: if true; }
+    match /socialPosts/{id} { allow read: if isStaff(); }
+    match /settings/social {
+      allow read: if isStaff();
+      allow create, update: if isStaff() && incoming().keys().hasOnly(['autoPost', 'createdAt', 'updatedAt'])
+        && incoming().autoPost is bool && stamped();
+    }
   }
 }
