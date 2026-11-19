@@ -147,4 +147,8 @@ void main() {
     expect(l2, closeTo(0, 4));
     expect(levelsOf(grey(120, 130)), (1.0, 0.0), reason: 'one flat colour');
   });
+
+  test('red and blue are swapped before ML Kit, so its own swap gives the true colours back', () {
+    expect(swapRedBlue(Uint8List.fromList([10, 20, 30, 255, 1, 2, 3, 4])), [30, 20, 10, 255, 3, 2, 1, 4]);
+  });
 }

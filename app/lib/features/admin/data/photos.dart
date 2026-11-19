@@ -148,7 +148,7 @@ Future<Uint8List?> cutoutOf(Uint8List photo) async {
     if (size == null) return null;
     final plan = photoPlan(size.$1, size.$2, cutSide);
     final frame = await (await ui.instantiateImageCodec(photo, targetWidth: plan.width, targetHeight: plan.height)).getNextFrame();
-    final rgba = (await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+    final rgba = swapRedBlue((await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List());
     final input = InputImage.fromBitmap(bitmap: rgba, width: frame.image.width, height: frame.image.height);
     frame.image.dispose();
     final png = (await segmenter.processImage(input)).foregroundBitmap;
@@ -158,6 +158,18 @@ Future<Uint8List?> cutoutOf(Uint8List photo) async {
   } finally {
     unawaited(segmenter.close());
   }
+}
+
+/// RGBA ⇄ BGRA, in place. google_mlkit_commons 1.0.3 packs fromBitmap's bytes as ARGB ints, which Android's
+/// copyPixelsFromBuffer reads as RGBA, so red and blue arrive swapped (a blue box came out orange): swapping them
+/// first cancels it out.
+Uint8List swapRedBlue(Uint8List rgba) {
+  for (var i = 0; i + 2 < rgba.length; i += 4) {
+    final r = rgba[i];
+    rgba[i] = rgba[i + 2];
+    rgba[i + 2] = r;
+  }
+  return rgba;
 }
 
 /// [png] straightened ([tiltOf]), cropped to its visible pixels, its light evened out ([levelsOf]) and encoded as
