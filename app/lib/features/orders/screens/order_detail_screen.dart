@@ -18,6 +18,8 @@ import '../../../core/widgets/widgets.dart';
 import '../../account/data/profile.dart';
 import '../../admin/widgets/admin_widgets.dart' show CancelButton, orderTone;
 import '../../cart/data/cart.dart';
+import '../../catalog/data/rails.dart' show fitsProvider;
+import '../../catalog/widgets/product_rail.dart';
 import '../../checkout/data/payment.dart';
 import '../../checkout/screens/widgets.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
@@ -178,6 +180,7 @@ class _OrderBody extends StatelessWidget {
             ],
           ),
         ),
+        if (o.status == OrderStatus.delivered) _Protect(productIds: [for (final i in o.items) ?i.productId]),
         const SectionHeader('Need help with this order?', gutter: Space.gutter),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
@@ -236,6 +239,25 @@ class _OrderBody extends StatelessWidget {
         if (o.canCancel || o.status == OrderStatus.cancelled) _Actions(order: o, primary: false),
       ],
     );
+  }
+}
+
+/// "Protect your new phone": in-stock cases, guards and chargers that fit the phone this delivered order brought
+/// (docs/GROWTH.md §2e). Only suggested: nothing goes in the cart without a tap. Hidden without a phone or a fit.
+class _Protect extends ConsumerWidget {
+  const _Protect({required this.productIds});
+
+  final List<String> productIds;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    for (final id in productIds) {
+      final fits = ref.watch(fitsProvider(id)).whenData((cards) => [for (final c in cards) if (c.inStock) c]);
+      if (fits.value?.isNotEmpty ?? false) {
+        return ProductRail(title: 'Protect your new phone', band: sectionTints.fits, value: fits);
+      }
+    }
+    return const SizedBox.shrink();
   }
 }
 
