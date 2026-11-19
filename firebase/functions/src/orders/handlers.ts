@@ -13,7 +13,7 @@ import { istMonth } from "../shared/time.js";
 import { v } from "../shared/validation.js";
 import type { Promotion } from "../offers/promotion.js";
 import * as c from "./contract.js";
-import { assertOrderTotals, placeRefusal, price, pricedRefusal, type Priced } from "./pricing.js";
+import { assertOrderTotals, learnModels, placeRefusal, price, pricedRefusal, type Priced } from "./pricing.js";
 import {
   addHit, cartLines, changeUses, couponsBlocked, date, doc, hasOrder, moveStock, promoByCode, purgeAt, readUndo, sales,
   settings, targetedCollections, usesBy, writeReferralCoupon,
@@ -32,16 +32,19 @@ async function checkout(tx: Transaction, uid: string, couponCode: string | null,
   const rateRef = doc(`rateLimits/${uid}`);
   const fails = (await tx.get(rateRef)).get("couponFails") as Timestamp[] | undefined;
   const cartRef = doc(`carts/${uid}`);
-  const entries = Object.entries(((await tx.get(cartRef)).get("lines") ?? {}) as Record<string, { qty?: unknown }>)
-    .map(([id, l]) => [id, l.qty] as [string, unknown]).sort(([a], [b]) => (a < b ? -1 : 1));
+  const entries = Object.entries(((await tx.get(cartRef)).get("lines") ?? {}) as Record<string, { qty?: unknown; forModel?: unknown }>)
+    .map(([id, l]) => [id, l.qty, l.forModel] as [string, unknown, unknown]).sort(([a], [b]) => (a < b ? -1 : 1));
   if (entries.some(([, q]) => !v.cartQty.safeParse(q).success)) fail("BAD_REQUEST", ["qty"]); // Rules can't check map values
-  const lines = entries as [string, number][];
+  const lines = entries as [string, number, unknown][];
   const shop = await settings(tx);
   const code = couponCode || null;
   const blocked = code !== null && couponsBlocked(fails, now);
   const codePromo = code !== null && !blocked ? await promoByCode(tx, code, uid) : null;
   const running = await sales(tx);
   const cart = await cartLines(tx, lines, targetedCollections([codePromo, ...running]));
+  // A hidden made-to-order line is OUT_OF_STOCK at placeOrder, not MODEL_REQUIRED
+  const noModel = cart.priced.filter((l) => l.available && l.madeToOrder && l.forModel === null).map((l) => l.variantId);
+  if (noModel.length) fail("MODEL_REQUIRED", noModel);
   const uses = new Map<string, number>();
   for (const p of [codePromo, ...running]) if (p?.perUserLimit != null) uses.set(p.id, await usesBy(tx, p.id, uid, p.perUserLimit));
   const ordered = await hasOrder(tx, uid);
@@ -79,6 +82,9 @@ async function place(tx: Transaction, uid: string, input: { addressId: string; p
     .filter((d) => d.get("paymentMethod") === "online" && (date(d.get("reservedUntil"))?.getTime() ?? 0) > k.now.getTime()).length;
   const counterRef = doc("counters/orders");
   const next = ((await tx.get(counterRef)).get("next") as number | undefined) ?? 100001;
+  const models = k.cart.priced.flatMap((l) => (l.forModel === null ? [] : [l.forModel]));
+  const modelsRef = doc("catalogIndex/models");
+  const knownModels = models.length ? (((await tx.get(modelsRef)).get("names") as string[] | undefined) ?? []) : null;
   await takeRateLimit(tx, uid, "placeOrder", k.now.getTime());
 
   const refused = placeRefusal({ lineCount: k.lines.length, addressFound: address !== undefined, method, pendingOnline, lines: k.cart.priced, missing: k.cart.missing })
@@ -93,7 +99,7 @@ async function place(tx: Transaction, uid: string, input: { addressId: string; p
     return defined({
       id: l.variantId, productId: l.productId, productName: product.name, variantName: l.variant.name, imagePath: cover,
       unitPricePaise: l.unitPricePaise, qty: l.qty, gstRateBp: (product.gstRateBp as number | undefined) ?? 1800, hsnCode: product.hsnCode,
-      discountPaise: priced.lineDiscounts[l.variantId] ?? 0, imeis: [],
+      discountPaise: priced.lineDiscounts[l.variantId] ?? 0, imeis: [], forModel: l.forModel ?? undefined,
     }) as unknown as OrderItem;
   });
   const a = address ?? fail("ADDRESS_NOT_FOUND");
@@ -112,7 +118,8 @@ async function place(tx: Transaction, uid: string, input: { addressId: string; p
   assertOrderTotals(order);
   const ref = db().collection("orders").doc();
   tx.create(ref, order);
-  for (const l of k.cart.priced) moveStock(tx, l.variantId, l.variant, -l.qty, "order", now);
+  for (const l of k.cart.priced) if (!l.madeToOrder) moveStock(tx, l.variantId, l.variant, -l.qty, "order", now);
+  if (knownModels) tx.set(modelsRef, { names: learnModels(knownModels, models), updatedAt: now });
   if (promo) {
     tx.create(doc(`redemptions/${ref.id}`), { promotionId: promo.id, uid, discountPaise: priced.discountPaise, active: true, createdAt: now, purgeAt: purgeAt(now) });
     changeUses(tx, promo.id, promo as unknown as Promotion, 1, priced.discountPaise, now);

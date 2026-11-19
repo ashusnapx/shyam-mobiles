@@ -2395,6 +2395,249 @@
           "subtotalPaise": 1000
         }
       }
+    },
+    {
+      "id": "place-made-to-order-skips-stock-and-learns-the-model",
+      "source": "docs: made-to-order accessories",
+      "about": "Mixed cart: v8 is made to order (stock 0, never checked or moved), its model tidied (trimmed, spaces collapsed) onto the item and into catalogIndex/models; forModel on the stocked v5 line is dropped and v5 stock moves as usual.",
+      "as": "alice",
+      "given": {
+        "variants/v8": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-EMPTY",
+          "name": "Empty",
+          "pricePaise": 20000,
+          "mrpPaise": 20000,
+          "stock": 0,
+          "madeToOrder": true,
+          "leadDays": 2
+        },
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h",
+              "forModel": "Ignored Phone"
+            },
+            "v8": {
+              "qty": 2,
+              "addedAt": "@now-1h",
+              "forModel": "  Redmi   Note 13 Pro+ "
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "status": "confirmed",
+          "subtotalPaise": 90000,
+          "deliveryFeePaise": 4900,
+          "totalPaise": 94900,
+          "items": [
+            {
+              "id": "v5",
+              "qty": 1,
+              "forModel": null
+            },
+            {
+              "id": "v8",
+              "qty": 2,
+              "forModel": "Redmi Note 13 Pro+"
+            }
+          ]
+        },
+        "variants/v5": {
+          "stock": 4
+        },
+        "variants/v8": {
+          "stock": 0
+        },
+        "carts/alice": {
+          "lines": {}
+        },
+        "catalogIndex/models": {
+          "names": [
+            "Redmi Note 13 Pro+"
+          ]
+        }
+      }
+    },
+    {
+      "id": "place-made-to-order-learns-models-newest-first-once-per-name",
+      "source": "docs: made-to-order accessories",
+      "about": "A model already known (case and spaces ignored) moves to the front with the newest spelling.",
+      "as": "alice",
+      "given": {
+        "variants/v8": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-EMPTY",
+          "name": "Empty",
+          "pricePaise": 20000,
+          "mrpPaise": 20000,
+          "stock": 0,
+          "madeToOrder": true,
+          "leadDays": 2
+        },
+        "catalogIndex/models": {
+          "names": [
+            "Galaxy A15",
+            "redmi note13"
+          ]
+        },
+        "carts/alice": {
+          "lines": {
+            "v8": {
+              "qty": 1,
+              "addedAt": "@now-1h",
+              "forModel": "Redmi Note 13"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "items": [
+            {
+              "id": "v8",
+              "forModel": "Redmi Note 13"
+            }
+          ]
+        },
+        "catalogIndex/models": {
+          "names": [
+            "Redmi Note 13",
+            "Galaxy A15"
+          ]
+        }
+      }
+    },
+    {
+      "id": "place-made-to-order-without-a-model-is-refused",
+      "source": "docs: made-to-order accessories",
+      "about": "errorDetail: the made-to-order lines missing a model. Nothing changes.",
+      "as": "alice",
+      "given": {
+        "variants/v8": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-EMPTY",
+          "name": "Empty",
+          "pricePaise": 20000,
+          "mrpPaise": 20000,
+          "stock": 0,
+          "madeToOrder": true,
+          "leadDays": 2
+        },
+        "carts/alice": {
+          "lines": {
+            "v5": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "v8": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "error": "MODEL_REQUIRED",
+      "errorDetail": [
+        "v8"
+      ],
+      "then": {
+        "variants/v5": {
+          "stock": 5
+        },
+        "orders/*": null,
+        "catalogIndex/models": null
+      }
+    },
+    {
+      "id": "quote-made-to-order-with-a-bad-model-is-refused",
+      "source": "docs: made-to-order accessories",
+      "about": "A model must start with a letter or digit, 2..60 characters of letters, digits, spaces and + ( ) . / ' -.",
+      "as": "alice",
+      "given": {
+        "variants/v8": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-EMPTY",
+          "name": "Empty",
+          "pricePaise": 20000,
+          "mrpPaise": 20000,
+          "stock": 0,
+          "madeToOrder": true,
+          "leadDays": 2
+        },
+        "carts/alice": {
+          "lines": {
+            "v8": {
+              "qty": 1,
+              "addedAt": "@now-1h",
+              "forModel": "#1 phone"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "error": "MODEL_REQUIRED",
+      "errorDetail": [
+        "v8"
+      ]
+    },
+    {
+      "id": "quote-made-to-order-prices-like-any-line",
+      "source": "docs: made-to-order accessories",
+      "as": "alice",
+      "given": {
+        "variants/v8": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-EMPTY",
+          "name": "Empty",
+          "pricePaise": 20000,
+          "mrpPaise": 20000,
+          "stock": 0,
+          "madeToOrder": true,
+          "leadDays": 2
+        },
+        "carts/alice": {
+          "lines": {
+            "v8": {
+              "qty": 1,
+              "addedAt": "@now-1h",
+              "forModel": "iPhone 15"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 20000,
+        "deliveryFeePaise": 4900,
+        "discountPaise": 0,
+        "totalPaise": 24900
+      }
     }
   ],
   "notExpressed": [

@@ -12,7 +12,7 @@ type By = "customer" | "staff" | "system";
 type OrderEvent = { status: string; note?: string | null; by: By; byUid?: string | null };
 type Order = {
   number: string; uid: string | null; status: string; paymentMethod: string; paymentStatus: string; totalPaise: number;
-  items: { id: string; productName: string; unitPricePaise: number; imagePath?: string | null }[];
+  items: { id: string; productName: string; unitPricePaise: number; imagePath?: string | null; forModel?: string | null }[];
   address?: { city?: string | null } | null; events: OrderEvent[]; reservedUntil?: Stamp | null;
   courier?: string | null; trackingNumber?: string | null;
 };
@@ -57,11 +57,14 @@ function repairWhen(b: Pick<Repair, "preferredDate" | "slot">): string {
 
 const byPrice = (o: Pick<Order, "items">) =>
   [...o.items].sort((a, b) => b.unitPricePaise - a.unitPricePaise || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+/** A line's name: made-to-order lines say which phone ("Clear case for Redmi Note 13"). */
+const lineName = (i: Order["items"][number]) => (i.forModel ? `${i.productName} for ${i.forModel}` : i.productName);
 /** The order's priciest line with a photo (notification_image). */
 export const orderImage = (o: Pick<Order, "items">): string | undefined => byPrice(o).find((i) => i.imagePath)?.imagePath ?? undefined;
 /** "₹1,29,999 · Cash on delivery · Samsung Galaxy S25 + 1 more · Waidhan", for staff. */
 function orderSummary(o: Order): string {
-  const first = byPrice(o)[0]?.productName;
+  const top = byPrice(o)[0];
+  const first = top && lineName(top);
   const lines = first === undefined ? null : `${first}${o.items.length > 1 ? ` + ${String(o.items.length - 1)} more` : ""}`;
   return [money(o.totalPaise), o.paymentMethod === "cod" ? "Cash on delivery" : "Paid online", lines, o.address?.city]
     .filter((x) => x).join(" · ");
@@ -183,7 +186,7 @@ export function refundNotices(orderId: string, refundId: string, before: { statu
     add("staff", "staff_refund_failed", `Refund failed for ${o.number}`,
       `${amount}: ${r.failure ?? "PhonePe couldn’t complete it."} Try again, or refund it another way and tap Mark refunded.`);
   } else if (r.status === "processed" && o.paymentStatus !== "refunded") {
-    const names = byPrice(o).filter((i) => r.itemIds?.includes(i.id)).map((i) => i.productName).join(", ");
+    const names = byPrice(o).filter((i) => r.itemIds?.includes(i.id)).map(lineName).join(", ");
     add(o.uid, "order_refunded", `Refund of ${amount} for ${o.number}`,
       `Refund of ${amount}${r.fullRefund || !names ? "" : ` for ${names}`} issued to your original payment method. Banks usually take 5–7 working days to show it.`);
   }

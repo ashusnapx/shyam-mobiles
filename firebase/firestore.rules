@@ -163,6 +163,7 @@ service cloud.firestore {
       allow list: if (resource.data.isActive == true && resource.data.productActive == true) || isStaff();
     }
     match /catalogIndex/public { allow read: if true; }
+    match /catalogIndex/models { allow read: if true; } // phone models customers ordered made-to-order (placeOrder)
     match /catalogIndex/staff { allow read: if isStaff(); }
     match /collections/{slug} {
       allow read: if true;

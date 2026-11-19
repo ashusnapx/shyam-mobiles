@@ -7,7 +7,7 @@ import type { StoreSettingsDoc } from "../model/settings.js";
 import { mirrorOf, mirrorPath, referralCoupon, type Promotion } from "../offers/promotion.js";
 import { db } from "../shared/db.js";
 import { LIMITS, nextHits } from "../shared/rateLimit.js";
-import type { Line, Promo } from "./pricing.js";
+import { tidyModel, type Line, type Promo } from "./pricing.js";
 
 // Owner: engineer C. Firestore reads and writes for orders, offers and referrals, each taking the caller's transaction
 // (reads first, then writes: Firestore's rule). The decisions are in pricing.ts, state.ts and offers/promotion.ts.
@@ -63,8 +63,9 @@ export async function promoByCode(tx: Transaction, code: string, uid: string): P
 export type Variant = VariantDoc & { restockSeq?: number };
 const on = (flag: unknown) => flag !== false; // a flag the doc leaves out counts as on
 
-/** The cart lines priced from the variant, product and (for collection targets) collection docs. */
-export async function cartLines(tx: Transaction, lines: [string, number][], collectionIds: string[]) {
+/** The cart lines priced from the variant, product and (for collection targets) collection docs. A made-to-order line's
+ * forModel is its tidied model, null when missing or bad. */
+export async function cartLines(tx: Transaction, lines: [string, number, unknown?][], collectionIds: string[]) {
   if (lines.length === 0) return { priced: [], variants: new Map<string, Variant>(), products: new Map<string, ProductDoc>(), missing: [] };
   const vs = await tx.getAll(...lines.map(([id]) => doc(`variants/${id}`)));
   const variants = new Map(vs.filter((s) => s.exists).map((s) => [s.id, s.data() as Variant]));
@@ -73,15 +74,17 @@ export async function cartLines(tx: Transaction, lines: [string, number][], coll
   const products = new Map(ps.filter((s) => s.exists).map((s) => [s.id, s.data() as ProductDoc]));
   const cs = collectionIds.length ? await tx.getAll(...collectionIds.map((id) => doc(`collections/${id}`))) : [];
   const groups = cs.map((s) => [s.id, (s.get("productIds") as string[] | undefined) ?? []] as const);
-  const priced = lines.flatMap(([variantId, qty]) => {
+  const priced = lines.flatMap(([variantId, qty, model]) => {
     const v = variants.get(variantId);
     if (!v) return [];
     const p = products.get(v.productId);
-    const line: Line & { stock: number; available: boolean; variant: Variant; product: ProductDoc | null } = {
+    const madeToOrder = v.madeToOrder === true;
+    const line: Line & { stock: number; available: boolean; madeToOrder: boolean; forModel: string | null; variant: Variant; product: ProductDoc | null } = {
       variantId, productId: v.productId, categoryId: p?.categoryId ?? "", brandId: p?.brandId ?? "",
       collectionIds: groups.filter(([, ids]) => ids.includes(v.productId)).map(([id]) => id),
       unitPricePaise: v.pricePaise, qty, stock: v.stock, variant: v, product: p ?? null,
       available: p !== undefined && on(v.isActive) && on(v.productActive) && on(p.isActive),
+      madeToOrder, forModel: madeToOrder ? tidyModel(model) : null,
     };
     return [line];
   });
@@ -105,7 +108,8 @@ export function changeUses(tx: Transaction, id: string, p: Promotion, uses: numb
   if (mirror && mirrorOf(p).usedUp !== mirrorOf(after).usedUp) tx.set(doc(mirror), mirrorOf(after));
 }
 
-/** What a cancel or expiry undoes: stock back, the coupon use given back. Read in [tx] first, then write. */
+/** What a cancel or expiry undoes: stock back (not made-to-order lines: they never took any), the coupon use given
+ * back. Read in [tx] first, then write. */
 export async function readUndo(tx: Transaction, orderId: string, o: Pick<OrderDoc, "items">) {
   const vs = await tx.getAll(...o.items.map((i) => doc(`variants/${i.id}`)));
   const red = await tx.get(doc(`redemptions/${orderId}`));
@@ -117,7 +121,7 @@ export async function readUndo(tx: Transaction, orderId: string, o: Pick<OrderDo
     write(sign: 1 | -1, now: Date) {
       o.items.forEach((item, k) => {
         const s = vs[k];
-        if (s?.exists) moveStock(tx, s.id, s.data() as Variant, -sign * item.qty, "order", now);
+        if (s?.exists && !item.forModel) moveStock(tx, s.id, s.data() as Variant, -sign * item.qty, "order", now);
       });
       if (r && r.active === (sign === -1)) {
         tx.update(red.ref, { active: sign === 1 });

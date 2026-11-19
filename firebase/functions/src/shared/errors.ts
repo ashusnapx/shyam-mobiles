@@ -12,6 +12,7 @@ export const REASONS = {
   ADDRESS_NOT_FOUND: "not-found",
   ADDRESS_LIMIT: "failed-precondition",
   OUT_OF_STOCK: "failed-precondition",
+  MODEL_REQUIRED: "failed-precondition", // a made-to-order line without a valid phone model (detail: variant ids)
   COD_UNAVAILABLE: "failed-precondition",
   PENDING_LIMIT: "resource-exhausted",
   ORDER_TOO_LARGE: "invalid-argument",

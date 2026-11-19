@@ -48,6 +48,26 @@ describe("cardsFor: one product's index entries", () => {
     expect(staff?.variants.map((r) => r.id)).toEqual(["a", "b", "h"]);
     expect(staff).toMatchObject({ active: true, u: t.toMillis() });
   });
+  test("made to order: in stock with no count, mo = the shortest lead time of the active ones (absent = 2)", () => {
+    const { public: card, staff } = cardsFor("s25", product(), [
+      variant("a", { stock: 0, madeToOrder: true, leadDays: 5 }),
+      variant("b", { stock: 0, madeToOrder: true }),
+      variant("c", { stock: 0, madeToOrder: true, leadDays: 1, isActive: false }),
+      variant("d", { stock: 0 }),
+    ], []);
+    expect(card).toMatchObject({ i: true, mo: 2 });
+    expect(staff?.variants.map((r) => r.mo)).toEqual([5, 2, 1, undefined]);
+    expect(cardsFor("s25", product(), [variant("d", { stock: 0 })], []).public).not.toHaveProperty("mo");
+  });
+  test("partial docs (no made-to-order fields, no names or flags) never give an undefined value", () => {
+    const hasUndefined = (x: unknown): boolean => x === undefined || (typeof x === "object" && x !== null && Object.values(x).some(hasUndefined));
+    const bare = { id: "a", productId: "x" } as WithId<VariantDoc>;
+    const r = cardsFor("x", { isActive: true } as ProductDoc, [bare, variant("b", { madeToOrder: undefined, leadDays: undefined })], []);
+    expect(hasUndefined(r)).toBe(false);
+    expect(r.public).not.toHaveProperty("mo");
+    expect(r.staff?.variants.find((x) => x.id === "b")).not.toHaveProperty("mo");
+    expect(hasUndefined(cardsFor("x", {} as ProductDoc, [bare], []))).toBe(false);
+  });
   test("hidden or variant-less products are staff-only; deleted ones leave both", () => {
     expect(cardsFor("s25", product({ isActive: false }), [variant("a")], []).public).toBeNull();
     expect(cardsFor("s25", product(), [variant("a", { isActive: false })], []).public).toBeNull();

@@ -52,8 +52,9 @@ describe("products, variants, catalogIndex", () => {
     await assertFails(getDoc(doc(db, "variants/v2")));
     await assertSucceeds(getDocs(query(collection(db, "variants"), where("productId", "==", "shown"), where("isActive", "==", true), where("productActive", "==", true))));
     await assertSucceeds(getDoc(doc(db, "catalogIndex/public")));
+    await assertSucceeds(getDoc(doc(db, "catalogIndex/models")));
     await assertFails(getDoc(doc(db, "catalogIndex/staff")));
-    for (const path of ["products/x", "variants/x", "catalogIndex/public"]) {
+    for (const path of ["products/x", "variants/x", "catalogIndex/public", "catalogIndex/models"]) {
       await assertFails(setDoc(doc(staff().firestore(), path), { isActive: true }));
     }
   });

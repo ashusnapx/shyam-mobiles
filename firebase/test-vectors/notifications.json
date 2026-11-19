@@ -3656,6 +3656,78 @@
       "expect": {
         "notices": []
       }
+    },
+    {
+      "id": "cod-order-placed-names-the-made-to-order-model",
+      "source": "docs: made-to-order accessories",
+      "as": "system",
+      "call": "orderNotices",
+      "input": {
+        "id": "o1",
+        "before": null,
+        "after": {
+          "number": "SM100001",
+          "uid": "asha",
+          "status": "confirmed",
+          "paymentMethod": "cod",
+          "paymentStatus": "pending",
+          "totalPaise": 12999900,
+          "address": {
+            "city": "Waidhan"
+          },
+          "reservedUntil": null,
+          "courier": null,
+          "trackingNumber": null,
+          "items": [
+            {
+              "id": "v2",
+              "productName": "Cover",
+              "unitPricePaise": 49900,
+              "imagePath": "products/cover.webp"
+            },
+            {
+              "id": "v1",
+              "productName": "Samsung Galaxy S25",
+              "unitPricePaise": 12950000,
+              "imagePath": "products/s25.webp",
+              "forModel": "Redmi Note 13"
+            }
+          ],
+          "events": [
+            {
+              "status": "confirmed",
+              "by": "customer",
+              "at": "@now",
+              "byUid": "asha"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "notices": [
+          {
+            "recipient": "asha",
+            "kind": "order_confirmed",
+            "title": "SM100001 is confirmed",
+            "body": "₹1,29,999, cash on delivery. We’ll tell you when it’s packed.",
+            "link": "/orders/o1",
+            "key": "0",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          },
+          {
+            "recipient": "staff",
+            "kind": "staff_new_order",
+            "title": "New order SM100001",
+            "body": "₹1,29,999 · Cash on delivery · Samsung Galaxy S25 for Redmi Note 13 + 1 more · Waidhan",
+            "link": "/admin/orders/o1",
+            "key": "0",
+            "except": "asha",
+            "imagePath": "products/s25.webp",
+            "orderId": "o1"
+          }
+        ]
+      }
     }
   ],
   "notExpressed": [

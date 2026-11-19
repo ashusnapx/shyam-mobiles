@@ -1648,6 +1648,82 @@
           "stock": 9
         }
       }
+    },
+    {
+      "id": "cancel-restocks-only-the-stocked-lines",
+      "source": "docs: made-to-order accessories",
+      "about": "A made-to-order line (forModel) never took stock, so a cancel gives none back.",
+      "as": "alice",
+      "given": {
+        "orders/o1": {
+          "number": "SM100001",
+          "uid": "alice",
+          "status": "pending_payment",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "subtotalPaise": 1550000,
+          "deliveryFeePaise": 0,
+          "discountPaise": 0,
+          "totalPaise": 1550000,
+          "items": [
+            {
+              "id": "v1",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "4 GB",
+              "unitPricePaise": 50000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            },
+            {
+              "id": "v2",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "12 GB",
+              "unitPricePaise": 1500000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": [],
+              "forModel": "Redmi Note 13"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            }
+          ],
+          "reservedUntil": "@now+15m"
+        }
+      },
+      "call": "cancelOrder",
+      "input": {
+        "orderId": "o1"
+      },
+      "expect": {},
+      "then": {
+        "orders/o1": {
+          "status": "cancelled",
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "cancelled",
+              "note": "Cancelled by you.",
+              "by": "customer"
+            }
+          ]
+        },
+        "variants/v1": {
+          "stock": 3
+        },
+        "variants/v2": {
+          "stock": 9
+        }
+      }
     }
   ],
   "notExpressed": [

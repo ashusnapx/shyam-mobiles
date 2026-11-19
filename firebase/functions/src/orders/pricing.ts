@@ -172,6 +172,22 @@ export function price(a: { lines: readonly Line[]; fees: Fees; code: CodeLookup;
 export interface PlaceLine extends Line {
   stock: number;
   available: boolean; // variant and product active
+  madeToOrder?: boolean; // no stock kept: never OUT_OF_STOCK for its count
+}
+
+/** A made-to-order line's phone model, tidied (trimmed, spaces collapsed), or null when it isn't one (MODEL_REQUIRED). */
+export function tidyModel(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim().replace(/\s+/g, " ");
+  return s.length >= 2 && s.length <= 60 && /^[A-Za-z0-9][A-Za-z0-9 +()./'-]*$/.test(s) ? s : null;
+}
+
+/** catalogIndex/models after an order named [added]: newest first, one per lowercase-without-spaces key, at most 300. */
+export function learnModels(names: readonly string[], added: readonly string[]): string[] {
+  const key = (n: string) => n.toLowerCase().replace(/ /g, "");
+  const out: string[] = [];
+  for (const n of [...added, ...names]) if (!out.some((o) => key(o) === key(n))) out.push(n);
+  return out.slice(0, 300);
 }
 
 /** placeOrder's refusals in the SQL's order, before pricing (CART_EMPTY … OUT_OF_STOCK). */
@@ -181,7 +197,7 @@ export function placeRefusal(a: { lineCount: number; addressFound: boolean; meth
   if (a.lineCount > 10) return { reason: "CART_LIMIT", detail: "at most 10 lines per order" };
   if (!a.addressFound) return { reason: "ADDRESS_NOT_FOUND" };
   if (a.method === "online" && a.pendingOnline >= 2) return { reason: "PENDING_LIMIT" };
-  const out = [...a.missing, ...a.lines.filter((l) => !l.available || l.stock < l.qty).map((l) => l.variantId)].sort();
+  const out = [...a.missing, ...a.lines.filter((l) => !l.available || (!l.madeToOrder && l.stock < l.qty)).map((l) => l.variantId)].sort();
   return out.length ? { reason: "OUT_OF_STOCK", detail: out } : null;
 }
 

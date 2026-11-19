@@ -61,6 +61,9 @@ export interface VariantDoc {
   lastStockChange: "order" | "staff" | "refund";
   /** +1 whenever stock goes 0 → > 0 (back-in-stock alerts key on it). Only catalog/stock.ts applyStockChange sets it. */
   restockSeq: number;
+  /** Arranged per order for the customer's phone: no stock kept, each cart line names a model (forModel). Absent = false. */
+  madeToOrder?: boolean;
+  leadDays?: number; // 1..30, absent = 2: days to arrange a made-to-order line
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -90,6 +93,7 @@ export interface CatalogCard {
   col: string[]; // collection ids
   t: number; // createdAt millis
   ft?: string[]; // the "Fits" spec values (accessories: "Fits this phone"); absent when none
+  mo?: number; // min leadDays of the active made-to-order variants; absent when none
 }
 
 /** One variant in catalogIndex/staff, short keys (Firestore allows no arrays inside arrays, so not a tuple). */
@@ -102,6 +106,7 @@ export interface StaffVariantRow {
   st: number; // stock
   a: boolean; // isActive
   u: number; // updatedAt millis
+  mo?: number; // leadDays, made-to-order variants only
 }
 
 /** catalogIndex/public (S, trigger): active products only. */

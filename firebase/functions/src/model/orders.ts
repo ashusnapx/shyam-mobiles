@@ -11,7 +11,7 @@ export type Actor = "customer" | "staff" | "system";
 
 /** carts/{uid} (C): ≤ 20 lines (Rules), qty 1..5 (checked by quoteOrder/placeOrder). */
 export interface CartDoc {
-  lines: Record<string, { qty: number; addedAt: Timestamp }>; // key: variantId
+  lines: Record<string, { qty: number; addedAt: Timestamp; forModel?: string }>; // key: variantId; forModel: made-to-order lines
   updatedAt: Timestamp;
 }
 
@@ -28,6 +28,7 @@ export interface OrderItem {
   discountPaise: number; // this line's share of the order discount
   imeis: string[];
   refundId?: string | null; // the refund in flight or processed for this line; null again when it failed
+  forModel?: string; // made-to-order lines only: the customer's phone model. Its stock is never moved.
 }
 
 export interface OrderEvent {

@@ -82,6 +82,8 @@ export async function saveVariantAs(input: In<"saveVariant">, actorUid: string):
       mrpPaise: input.mrpPaise,
       isActive: input.isActive,
       ...(input.sort === undefined ? {} : { sort: input.sort }),
+      ...(input.madeToOrder === undefined ? {} : { madeToOrder: input.madeToOrder }),
+      ...(input.leadDays === undefined ? {} : { leadDays: input.leadDays }),
     };
     if (current === null) {
       const doc: Omit<VariantDoc, "createdAt" | "updatedAt"> & Record<string, unknown> = {

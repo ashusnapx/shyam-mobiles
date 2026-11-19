@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { OrderStatus } from "../../src/model/orders.js";
-import { offerOpenFor, price, splitDiscount, type Line, type Promo } from "../../src/orders/pricing.js";
+import { learnModels, offerOpenFor, placeRefusal, price, splitDiscount, tidyModel, type Line, type Promo } from "../../src/orders/pricing.js";
 import { customerCancelNote, staffStep } from "../../src/orders/state.js";
 import { loadVectors, resolveTimes, startingDocs } from "../vectors.js";
 
@@ -80,4 +80,27 @@ test("the split sums to the discount and never passes a line", () => {
   expect(splitDiscount(2, [l("a", 1), l("b", 1), l("c", 1)])).toEqual({ a: 1, b: 1, c: 0 });
   const big = splitDiscount(2_147_483_547, [l("x", 2_147_483_647), l("y", 100)]);
   expect(big.x! + big.y!).toBe(2_147_483_547);
+});
+
+test("tidyModel: trimmed, spaces collapsed, 2..60 of letters, digits, spaces and + ( ) . / ' -", () => {
+  expect(tidyModel("  Redmi \t Note  13 Pro+ ")).toBe("Redmi Note 13 Pro+");
+  expect(tidyModel("Galaxy A15 (5G) 8/128 O'Neil-x")).toBe("Galaxy A15 (5G) 8/128 O'Neil-x");
+  expect(tidyModel("A".repeat(60))).toBe("A".repeat(60));
+  for (const bad of [undefined, null, 15, "", " ", "A", "A".repeat(61), "#1 phone", "-Redmi", "Redmi\u200b", "रेडमी", "Note 13; drop"]) expect(tidyModel(bad)).toBeNull();
+});
+
+test("learnModels: newest first, one per lowercase-without-spaces key, at most 300", () => {
+  expect(learnModels(["Galaxy A15", "redmi note13"], ["Redmi Note 13", "galaxy a 15"])).toEqual(["Redmi Note 13", "galaxy a 15"]);
+  const many = Array.from({ length: 300 }, (_, i) => `Phone ${String(i)}`);
+  const out = learnModels(many, ["New One"]);
+  expect(out).toHaveLength(300);
+  expect(out[0]).toBe("New One");
+  expect(out).not.toContain("Phone 299");
+});
+
+test("placeRefusal: a made-to-order line is never out of stock for its count, only when hidden", () => {
+  const line = (id: string, over: object) => ({ variantId: id, productId: "p", categoryId: "c", brandId: "b", collectionIds: [], unitPricePaise: 100, qty: 2, stock: 0, available: true, ...over });
+  const refuse = (lines: ReturnType<typeof line>[]) => placeRefusal({ lineCount: lines.length, addressFound: true, method: "cod", pendingOnline: 0, lines, missing: [] });
+  expect(refuse([line("m", { madeToOrder: true })])).toBeNull();
+  expect(refuse([line("m", { madeToOrder: true, available: false }), line("s", {})])).toEqual({ reason: "OUT_OF_STOCK", detail: ["m", "s"] });
 });

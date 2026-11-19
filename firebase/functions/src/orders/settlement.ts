@@ -53,7 +53,7 @@ export async function settleOnlinePayment(
   let outcome: Outcome = "paid";
   if (o.status === "cancelled") {
     const undo = o.cancelledBy === "expiry" ? await readUndo(tx, orderId, o) : null;
-    const inStock = undo?.variants.every((s, k) => s.exists && (s.data() as Variant).stock >= (o.items[k]?.qty ?? Infinity)) ?? false;
+    const inStock = undo?.variants.every((s, k) => !!o.items[k]?.forModel || (s.exists && (s.data() as Variant).stock >= (o.items[k]?.qty ?? Infinity))) ?? false;
     if (!undo || !inStock) {
       tx.update(attemptRef, done);
       tx.update(ref, { paymentStatus: "paid", payment, events: FieldValue.arrayUnion({ status: "cancelled", note: LATE_NOTE, ...at(now) }), updatedAt: now });
@@ -104,9 +104,11 @@ export async function settleRefund(
   const lines = o.items.filter((i) => i.refundId === refundId);
   const processed = await tx.get(db().collection(`orders/${orderId}/refunds`).where("status", "==", "processed"));
   const back = processed.docs.reduce((s, d) => s + (d.get("amountPaise") as number), 0) + f.amountPaise;
-  const vs = f.restock && lines.length ? await tx.getAll(...lines.map((i) => doc(`variants/${i.id}`))) : [];
-  for (const [k, s] of vs.entries()) if (s.exists) moveStock(tx, s.id, s.data() as Variant, lines[k]?.qty ?? 0, "refund", now);
-  const names = [...lines].sort((a, b) => b.unitPricePaise - a.unitPricePaise || (a.id < b.id ? -1 : 1)).map((i) => i.productName).join(", ");
+  const stocked = f.restock ? lines.filter((i) => !i.forModel) : []; // made-to-order lines never took stock
+  const vs = stocked.length ? await tx.getAll(...stocked.map((i) => doc(`variants/${i.id}`))) : [];
+  for (const [k, s] of vs.entries()) if (s.exists) moveStock(tx, s.id, s.data() as Variant, stocked[k]?.qty ?? 0, "refund", now);
+  const names = [...lines].sort((a, b) => b.unitPricePaise - a.unitPricePaise || (a.id < b.id ? -1 : 1))
+    .map((i) => (i.forModel ? `${i.productName} for ${i.forModel}` : i.productName)).join(", ");
   const note = `Refund of ${inr(f.amountPaise as Paise)}${f.fullRefund ? "" : ` for ${names}`} issued to your original payment method. Banks usually take 5–7 working days to show it.`.slice(0, 500);
   const all = back >= o.totalPaise;
   const status = all && o.status === "delivered" ? "refunded" : o.status;

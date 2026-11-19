@@ -43,6 +43,8 @@ export const saveVariant = contract(
     stock: v.stock,
     isActive: z.boolean(),
     sort: z.number().int().min(0).max(1000).optional(), // absent: kept (0 on create)
+    madeToOrder: z.boolean().optional(), // absent: kept (false on create)
+    leadDays: z.number().int().min(1).max(30).optional(), // absent: kept (2 when never set)
   }).refine((x) => x.mrpPaise >= x.pricePaise, { message: "mrp", path: ["mrpPaise"] }),
   id,
 );

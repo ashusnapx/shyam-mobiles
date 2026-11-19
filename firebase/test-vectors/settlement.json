@@ -2768,6 +2768,227 @@
         "state": "completed"
       },
       "error": "NOT_FOUND"
+    },
+    {
+      "id": "late-payment-revives-a-made-to-order-order-without-stock",
+      "source": "docs: made-to-order accessories",
+      "about": "Made-to-order lines need no stock to revive, and take none.",
+      "as": "system",
+      "given": {
+        "orders/o4": {
+          "number": "SM100004",
+          "uid": "alice",
+          "status": "cancelled",
+          "paymentMethod": "online",
+          "paymentStatus": "pending",
+          "subtotalPaise": 50000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 0,
+          "totalPaise": 54900,
+          "items": [
+            {
+              "id": "v1",
+              "productId": "test-phone",
+              "productName": "Test Phone",
+              "variantName": "8 GB",
+              "unitPricePaise": 50000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": [],
+              "forModel": "Redmi Note 13"
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "cancelled",
+              "note": "Payment not received in time",
+              "by": "system",
+              "at": "@now-30m"
+            }
+          ],
+          "reservedUntil": "@now-30m",
+          "cancelledBy": "expiry"
+        },
+        "variants/v1": {
+          "productId": "test-phone",
+          "productName": "Test Phone",
+          "sku": "T-PAY",
+          "name": "8 GB",
+          "pricePaise": 50000,
+          "mrpPaise": 50000,
+          "stock": 0
+        }
+      },
+      "call": "settleOnlinePayment",
+      "input": {
+        "orderId": "o4",
+        "merchantOrderId": "SM100004-aaaaaaaa",
+        "transactionId": "TX4",
+        "amountPaise": 54900,
+        "state": "completed"
+      },
+      "expect": {
+        "outcome": "revived"
+      },
+      "then": {
+        "orders/o4": {
+          "status": "confirmed",
+          "paymentStatus": "paid"
+        },
+        "variants/v1": {
+          "stock": 0
+        }
+      }
+    },
+    {
+      "id": "processed-refund-never-restocks-a-made-to-order-line",
+      "source": "docs: made-to-order accessories",
+      "about": "Restock asked, but the refunded line was made to order (forModel): its stock stays. The note names the model.",
+      "as": "system",
+      "given": {
+        "orders/o8": {
+          "number": "SM100008",
+          "uid": "alice",
+          "status": "delivered",
+          "paymentMethod": "online",
+          "paymentStatus": "paid",
+          "subtotalPaise": 100000,
+          "deliveryFeePaise": 4900,
+          "discountPaise": 5000,
+          "totalPaise": 99900,
+          "items": [
+            {
+              "id": "v2",
+              "productId": "rf-phone",
+              "productName": "Phone A",
+              "variantName": "A",
+              "unitPricePaise": 30000,
+              "qty": 2,
+              "discountPaise": 5000,
+              "imeis": [],
+              "refundId": "rf1",
+              "forModel": "Redmi Note 13"
+            },
+            {
+              "id": "v3",
+              "productId": "rf-phone",
+              "productName": "Phone B",
+              "variantName": "B",
+              "unitPricePaise": 40000,
+              "qty": 1,
+              "discountPaise": 0,
+              "imeis": []
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment",
+              "by": "customer",
+              "at": "@now-1h"
+            },
+            {
+              "status": "confirmed",
+              "note": "Payment received",
+              "by": "system",
+              "at": "@now-50m"
+            },
+            {
+              "status": "packed",
+              "by": "staff",
+              "at": "@now-40m"
+            },
+            {
+              "status": "shipped",
+              "by": "staff",
+              "at": "@now-30m"
+            },
+            {
+              "status": "delivered",
+              "by": "staff",
+              "at": "@now-20m"
+            }
+          ],
+          "payment": {
+            "gateway": "phonepe",
+            "merchantOrderId": "SM100008-aaaaaaaa",
+            "transactionId": "TX8",
+            "paidAt": "@now-50m"
+          },
+          "pendingRefundId": "rf1"
+        },
+        "orders/o8/refunds/rf1": {
+          "amountPaise": 55000,
+          "fullRefund": false,
+          "restock": true,
+          "status": "pending",
+          "createdBy": "staff",
+          "gatewayRefundId": "GW-RF1"
+        }
+      },
+      "call": "settleRefund",
+      "input": {
+        "orderId": "o8",
+        "refundId": "rf1",
+        "state": "completed",
+        "gatewayRefundId": "GW-RF1"
+      },
+      "expect": {
+        "status": "processed"
+      },
+      "then": {
+        "orders/o8": {
+          "status": "delivered",
+          "paymentStatus": "paid",
+          "pendingRefundId": null,
+          "items": [
+            {
+              "id": "v2",
+              "refundId": "rf1"
+            },
+            {
+              "id": "v3",
+              "refundId": null
+            }
+          ],
+          "events": [
+            {
+              "status": "pending_payment"
+            },
+            {
+              "status": "confirmed"
+            },
+            {
+              "status": "packed"
+            },
+            {
+              "status": "shipped"
+            },
+            {
+              "status": "delivered"
+            },
+            {
+              "status": "delivered",
+              "note": "Refund of ₹550 for Phone A for Redmi Note 13 issued to your original payment method. Banks usually take 5–7 working days to show it.",
+              "by": "system"
+            }
+          ]
+        },
+        "orders/o8/refunds/rf1": {
+          "status": "processed",
+          "gatewayRefundId": "GW-RF1"
+        },
+        "variants/v2": {
+          "stock": 5
+        },
+        "variants/v3": {
+          "stock": 5
+        }
+      }
     }
   ],
   "notExpressed": [
