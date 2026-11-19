@@ -6,7 +6,7 @@ import { cleanMultiline, cleanText, v } from "../shared/validation.js";
 // server prices the cart from documents. Vectors: test-vectors/{pricing,offers,orders-state,settlement}.json.
 const ok = z.object({});
 const orderStatus = z.enum(["pending_payment", "confirmed", "packed", "shipped", "delivered", "cancelled", "refunded"]);
-const promotionRef = z.object({ id: z.string(), title: z.string(), code: z.string().nullable(), kind: z.enum(["percent", "flat", "free_delivery"]) });
+const promotionRef = z.object({ id: z.string(), title: z.string(), code: z.string().nullable(), kind: z.enum(["percent", "flat", "free_delivery", "pack"]) });
 
 /** Prices the caller's cart as it is on the server. A refused code comes back as couponError, not a throw. */
 export const quoteOrder = contract(

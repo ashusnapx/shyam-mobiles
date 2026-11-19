@@ -83,6 +83,8 @@ export async function cartLines(tx: Transaction, lines: [string, number, unknown
       variantId, productId: v.productId, categoryId: p?.categoryId ?? "", brandId: p?.brandId ?? "",
       collectionIds: groups.filter(([, ids]) => ids.includes(v.productId)).map(([id]) => id),
       unitPricePaise: v.pricePaise, qty, stock: v.stock, variant: v, product: p ?? null,
+      productName: p?.name ?? "", brandName: p?.brandName ?? "", categoryKind: p?.categoryKind ?? "",
+      fits: (p?.specs ?? []).filter((x) => x.label === "Fits").map((x) => x.value),
       available: p !== undefined && on(v.isActive) && on(v.productActive) && on(p.isActive),
       madeToOrder, forModel: madeToOrder ? tidyModel(model) : null,
     };

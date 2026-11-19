@@ -36,10 +36,14 @@ export const savePromotion = callable(c.savePromotion, async (input, req) => {
       updatedAt: now,
     } as Promotion;
     if (p.appliesTo === "order") p.targets = [];
+    if (p.packTypes) p.packTypes = [...new Set(p.packTypes)].sort(); // admin_save_pack stores them distinct, sorted
     const rule = brokenRule(p);
     if (rule) fail("INVALID_PROMOTION", rule);
     const found = p.targets.length ? await tx.getAll(...p.targets.map((t) => doc(`${TARGETS[t.type]}/${t.id}`))) : [];
     if (found.some((s) => !s.exists)) fail("INVALID_PROMOTION", "unknown target");
+    if (p.kind === "pack" && (p.targets.some((t) => t.type !== "category") || found.some((s) => s.get("kind") !== "phone"))) {
+      fail("INVALID_PROMOTION", "phone categories only");
+    }
     const newCode = p.code !== null && p.code !== before?.code ? p.code : null;
     if (newCode && (await tx.get(doc(`promoCodes/${newCode}`))).exists) fail("CODE_TAKEN");
 

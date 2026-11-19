@@ -726,6 +726,170 @@
     },
     "promoCodes/FLAT100": {
       "promotionId": "p18"
+    },
+    "categories/pack-phones": {
+      "name": "Pack phones",
+      "kind": "phone"
+    },
+    "categories/screen-guards": {
+      "name": "Screen guards",
+      "kind": "accessory"
+    },
+    "categories/cases-covers": {
+      "name": "Cases & covers",
+      "kind": "accessory"
+    },
+    "products/pk-phone": {
+      "name": "Samsung Galaxy A15",
+      "brandId": "test-b1",
+      "brandName": "Samsung",
+      "categoryId": "pack-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/pk-phone2": {
+      "name": "Redmi Note 13",
+      "brandId": "test-b1",
+      "brandName": "Redmi",
+      "categoryId": "pack-phones",
+      "categoryKind": "phone",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/pk-glass": {
+      "name": "Tempered Glass",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "screen-guards",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": [],
+      "specs": [
+        {
+          "label": "Fits",
+          "value": "Galaxy A15"
+        }
+      ]
+    },
+    "products/pk-case": {
+      "name": "Clear Case",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "cases-covers",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": [],
+      "specs": [
+        {
+          "label": "Fits",
+          "value": "Samsung Galaxy A15"
+        }
+      ]
+    },
+    "products/pk-case-redmi": {
+      "name": "Clear Case",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "cases-covers",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": [],
+      "specs": [
+        {
+          "label": "Fits",
+          "value": "Redmi Note 13"
+        }
+      ]
+    },
+    "products/pk-cover": {
+      "name": "Printed Back Cover",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "cases-covers",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "products/pk-charger": {
+      "name": "Fast Charger 25W",
+      "brandId": "test-b1",
+      "brandName": "B1",
+      "categoryId": "test-acc",
+      "categoryKind": "accessory",
+      "gstRateBp": 1800,
+      "isActive": true,
+      "images": []
+    },
+    "variants/vp1": {
+      "productId": "pk-phone",
+      "productName": "Samsung Galaxy A15",
+      "sku": "PK-PHONE",
+      "name": "Std",
+      "pricePaise": 1500000,
+      "mrpPaise": 1500000,
+      "stock": 10
+    },
+    "variants/vp2": {
+      "productId": "pk-phone2",
+      "productName": "Redmi Note 13",
+      "sku": "PK-PHONE2",
+      "name": "Std",
+      "pricePaise": 1200000,
+      "mrpPaise": 1200000,
+      "stock": 10
+    },
+    "variants/vg": {
+      "productId": "pk-glass",
+      "productName": "Tempered Glass",
+      "sku": "PK-GLASS",
+      "name": "Std",
+      "pricePaise": 30000,
+      "mrpPaise": 30000,
+      "stock": 10
+    },
+    "variants/vc": {
+      "productId": "pk-case",
+      "productName": "Clear Case",
+      "sku": "PK-CASE",
+      "name": "Std",
+      "pricePaise": 50000,
+      "mrpPaise": 50000,
+      "stock": 10
+    },
+    "variants/vcr": {
+      "productId": "pk-case-redmi",
+      "productName": "Clear Case",
+      "sku": "PK-CASE-R",
+      "name": "Std",
+      "pricePaise": 40000,
+      "mrpPaise": 40000,
+      "stock": 10
+    },
+    "variants/vm": {
+      "productId": "pk-cover",
+      "productName": "Printed Back Cover",
+      "sku": "PK-COVER",
+      "name": "Std",
+      "pricePaise": 60000,
+      "mrpPaise": 60000,
+      "stock": 0,
+      "madeToOrder": true
+    },
+    "variants/vch": {
+      "productId": "pk-charger",
+      "productName": "Fast Charger 25W",
+      "sku": "PK-CHARGER",
+      "name": "Std",
+      "pricePaise": 100000,
+      "mrpPaise": 100000,
+      "stock": 10
     }
   },
   "cases": [
@@ -4488,6 +4652,872 @@
         "value": 100000
       },
       "error": "FORBIDDEN"
+    },
+    {
+      "id": "pack-discounts-the-accessories-that-fit-by-spec",
+      "source": "docs: phone pack offer",
+      "about": "Glass fits by the short name (brand stripped), the case by the full name: 10% of 30000 + 50000.",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "glass",
+            "case"
+          ],
+          "packWhole": false,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vc": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1580000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 8000,
+        "totalPaise": 1572000,
+        "promotion": {
+          "id": "pk1",
+          "title": "Phone pack",
+          "code": null,
+          "kind": "pack"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "pack-made-to-order-cover-fits-by-its-model",
+      "source": "docs: phone pack offer",
+      "about": "A made-to-order cover fits when its model matches the phone ignoring case and spaces: 10% of 30000 + 60000.",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "glass",
+            "case"
+          ],
+          "packWhole": false,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vm": {
+              "qty": 1,
+              "addedAt": "@now-1h",
+              "forModel": "galaxy  a15"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1590000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 9000,
+        "totalPaise": 1581000,
+        "promotion": {
+          "id": "pk1",
+          "title": "Phone pack",
+          "code": null,
+          "kind": "pack"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "pack-missing-a-type-gives-no-discount",
+      "source": "docs: phone pack offer",
+      "about": "The case fits another phone, so the pack has no case: the sale doesn't apply.",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "glass",
+            "case"
+          ],
+          "packWhole": false,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vcr": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1570000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 0,
+        "totalPaise": 1570000,
+        "promotion": null,
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "pack-whole-discounts-the-phone-too",
+      "source": "docs: phone pack offer",
+      "about": "packWhole: 10% of the phone + glass + case.",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "glass",
+            "case"
+          ],
+          "packWhole": true,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vc": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1580000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 158000,
+        "totalPaise": 1422000,
+        "promotion": {
+          "id": "pk1",
+          "title": "Phone pack",
+          "code": null,
+          "kind": "pack"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "pack-percent-stops-at-the-cap",
+      "source": "docs: phone pack offer",
+      "about": "10% would be 158000; maxDiscountPaise caps it.",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": 50000,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "glass",
+            "case"
+          ],
+          "packWhole": true,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vc": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1580000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 50000,
+        "totalPaise": 1530000,
+        "promotion": {
+          "id": "pk1",
+          "title": "Phone pack",
+          "code": null,
+          "kind": "pack"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "pack-loses-to-a-bigger-sale",
+      "source": "docs: phone pack offer",
+      "about": "One offer per order: 5% off everything (79000) beats the pack (8000).",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "glass",
+            "case"
+          ],
+          "packWhole": false,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vc": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        },
+        "promotions/pk2": {
+          "title": "Five off",
+          "description": "",
+          "code": null,
+          "kind": "percent",
+          "value": 5,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "order",
+          "targets": [],
+          "packTypes": [],
+          "packWhole": false,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 1580000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 79000,
+        "totalPaise": 1501000,
+        "promotion": {
+          "id": "pk2",
+          "title": "Five off",
+          "code": null,
+          "kind": "percent"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "pack-takes-the-priciest-phone-that-qualifies",
+      "source": "docs: phone pack offer",
+      "about": "The A15 has no case that fits; the Note 13 has (chargers fit every phone): 10% of 1200000 + 100000 + 40000.",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "charger",
+            "case"
+          ],
+          "packWhole": true,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vp2": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vch": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vcr": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "quoteOrder",
+      "input": {},
+      "expect": {
+        "subtotalPaise": 2840000,
+        "deliveryFeePaise": 0,
+        "discountPaise": 134000,
+        "totalPaise": 2706000,
+        "promotion": {
+          "id": "pk1",
+          "title": "Phone pack",
+          "code": null,
+          "kind": "pack"
+        },
+        "couponError": null,
+        "couponErrorDetail": null
+      }
+    },
+    {
+      "id": "place-pack-splits-over-the-pack-lines",
+      "source": "docs: phone pack offer",
+      "about": "The charger is not a pack type: 8000 splits over the case (5000) and the glass (3000) only.",
+      "as": "alice",
+      "given": {
+        "promotions/pk1": {
+          "title": "Phone pack",
+          "description": "",
+          "code": null,
+          "kind": "pack",
+          "value": 10,
+          "maxDiscountPaise": null,
+          "minSubtotalPaise": 0,
+          "appliesTo": "items",
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ],
+          "packTypes": [
+            "glass",
+            "case"
+          ],
+          "packWhole": false,
+          "startsAt": "@now-1h",
+          "endsAt": null,
+          "usageLimit": null,
+          "perUserLimit": null,
+          "firstOrderOnly": false,
+          "onlineOnly": false,
+          "isPublic": true,
+          "uid": null,
+          "isActive": true,
+          "showBanner": false,
+          "usesActive": 0,
+          "discountTotalPaise": 0
+        },
+        "carts/alice": {
+          "lines": {
+            "vp1": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vg": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vc": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            },
+            "vch": {
+              "qty": 1,
+              "addedAt": "@now-1h"
+            }
+          }
+        }
+      },
+      "call": "placeOrder",
+      "input": {
+        "addressId": "a0",
+        "paymentMethod": "cod"
+      },
+      "then": {
+        "orders/$orderId": {
+          "subtotalPaise": 1680000,
+          "discountPaise": 8000,
+          "totalPaise": 1672000,
+          "promotion": {
+            "id": "pk1",
+            "title": "Phone pack",
+            "code": null,
+            "kind": "pack"
+          },
+          "items": [
+            {
+              "id": "vc",
+              "discountPaise": 5000
+            },
+            {
+              "id": "vch",
+              "discountPaise": 0
+            },
+            {
+              "id": "vg",
+              "discountPaise": 3000
+            },
+            {
+              "id": "vp1",
+              "discountPaise": 0
+            }
+          ]
+        },
+        "redemptions/$orderId": {
+          "promotionId": "pk1",
+          "discountPaise": 8000,
+          "active": true
+        }
+      }
+    },
+    {
+      "id": "save-pack-mirrors-its-types-and-targets",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Phone pack",
+        "kind": "pack",
+        "value": 10,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "category",
+            "id": "pack-phones"
+          }
+        ],
+        "packTypes": [
+          "glass",
+          "case"
+        ],
+        "packWhole": true
+      },
+      "about": "The public mirror carries packTypes (distinct, sorted, as admin_save_pack stores them), packWhole and targets for the app.",
+      "expect": {},
+      "then": {
+        "publicOffers/$id": {
+          "kind": "pack",
+          "code": null,
+          "value": 10,
+          "packTypes": [
+            "case",
+            "glass"
+          ],
+          "packWhole": true,
+          "targets": [
+            {
+              "type": "category",
+              "id": "pack-phones"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "save-pack-is-automatic-only",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Phone pack",
+        "kind": "pack",
+        "value": 10,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "category",
+            "id": "pack-phones"
+          }
+        ],
+        "packTypes": [
+          "glass",
+          "case"
+        ],
+        "packWhole": true,
+        "code": "PACK10"
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "promotions_pack_check"
+    },
+    {
+      "id": "save-pack-targets-are-categories",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Phone pack",
+        "kind": "pack",
+        "value": 10,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "product",
+            "id": "pk-phone"
+          }
+        ],
+        "packTypes": [
+          "glass"
+        ],
+        "packWhole": false
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "phone categories only"
+    },
+    {
+      "id": "save-pack-percent-is-1-to-50",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Phone pack",
+        "kind": "pack",
+        "value": 60,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "category",
+            "id": "pack-phones"
+          }
+        ],
+        "packTypes": [
+          "glass",
+          "case"
+        ],
+        "packWhole": true
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "promotions_value_check"
+    },
+    {
+      "id": "save-pack-targets-phone-categories",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Phone pack",
+        "kind": "pack",
+        "value": 10,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "category",
+            "id": "test-acc"
+          }
+        ],
+        "packTypes": [
+          "glass",
+          "case"
+        ],
+        "packWhole": true
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "phone categories only"
+    },
+    {
+      "id": "save-pack-types-are-stored-distinct-and-sorted",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Phone pack",
+        "kind": "pack",
+        "value": 10,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "category",
+            "id": "pack-phones"
+          }
+        ],
+        "packTypes": [
+          "glass",
+          "case",
+          "glass"
+        ],
+        "packWhole": true
+      },
+      "expect": {},
+      "then": {
+        "promotions/$id": {
+          "packTypes": [
+            "case",
+            "glass"
+          ]
+        }
+      }
+    },
+    {
+      "id": "save-pack-needs-a-type",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Phone pack",
+        "kind": "pack",
+        "value": 10,
+        "appliesTo": "items",
+        "targets": [
+          {
+            "type": "category",
+            "id": "pack-phones"
+          }
+        ],
+        "packTypes": [],
+        "packWhole": true
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "promotions_pack_check"
+    },
+    {
+      "id": "save-other-kinds-have-no-pack-types",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Ten off",
+        "kind": "percent",
+        "value": 10,
+        "packTypes": [
+          "glass"
+        ]
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "promotions_pack_check"
+    },
+    {
+      "id": "save-other-kinds-are-never-whole-packs",
+      "source": "docs: phone pack offer",
+      "as": "staff",
+      "call": "savePromotion",
+      "input": {
+        "title": "Ten off",
+        "kind": "percent",
+        "value": 10,
+        "packWhole": true
+      },
+      "error": "INVALID_PROMOTION",
+      "errorDetail": "promotions_pack_check"
     }
   ],
   "notExpressed": [

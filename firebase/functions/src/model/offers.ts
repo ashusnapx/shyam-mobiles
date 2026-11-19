@@ -4,7 +4,7 @@ import type { Retention } from "./retention.js";
 // Owner: engineer C. docs/FIREBASE.md §3. Customers never read `promotions` (hidden and personal codes must not be
 // listable): they read publicOffers and their own users/{uid}/coupons mirrors.
 
-export type PromotionKind = "percent" | "flat" | "free_delivery";
+export type PromotionKind = "percent" | "flat" | "free_delivery" | "pack";
 export type TargetType = "product" | "category" | "brand" | "collection";
 
 /** promotions/{id} (S, savePromotion) */
@@ -13,11 +13,13 @@ export interface PromotionDoc {
   description: string;
   code: string | null; // null: an automatic sale
   kind: PromotionKind;
-  value: number; // percent 1..90, flat paise, 0 for free delivery
+  value: number; // percent 1..90, pack percent 1..50, flat paise, 0 for free delivery
   maxDiscountPaise?: number | null;
   minSubtotalPaise: number;
   appliesTo: "order" | "items";
   targets: { type: TargetType; id: string }[];
+  packTypes?: string[]; // pack: accessory types bought with a phone of the target categories ("glass", "case", "lens", "charger", "earphones"); [] otherwise
+  packWhole?: boolean; // pack: false = only the accessories are discounted, true = the phone too
   startsAt: Timestamp;
   endsAt?: Timestamp | null;
   usageLimit?: number | null;

@@ -10,7 +10,7 @@ export const offerOut = z.object({
   title: z.string(),
   description: z.string(),
   code: z.string().nullable(),
-  kind: z.enum(["percent", "flat", "free_delivery"]),
+  kind: z.enum(["percent", "flat", "free_delivery", "pack"]),
   value: z.number().int(),
   maxDiscountPaise: z.number().int().nullable(),
   minSubtotalPaise: z.number().int(),

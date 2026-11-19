@@ -50,7 +50,7 @@ export interface OrderDoc {
   deliveryFeePaise: number;
   discountPaise: number;
   totalPaise: number;
-  promotion?: { id: string; title: string; code: string | null; kind: "percent" | "flat" | "free_delivery" };
+  promotion?: { id: string; title: string; code: string | null; kind: "percent" | "flat" | "free_delivery" | "pack" };
   couponCode?: string;
   address: Omit<AddressDoc, "createdAt" | "updatedAt" | "label">;
   buyer?: { gstin: string; legalName: string }; // Phase 2

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { contract } from "../shared/callable.js";
+import { PACK_TYPES } from "../orders/pricing.js";
 import { cleanMultiline, cleanText, v } from "../shared/validation.js";
 
 // Owner: engineer C. Staff promotions (docs/FIREBASE.md §1, §3). Customers read publicOffers and
@@ -11,12 +12,14 @@ const promotionFields = z.strictObject({
     title: cleanText(60, { min: 2, mustHave: "letterOrDigit" }),
     description: cleanMultiline(300),
     code: v.typedCode.pipe(v.couponCode).nullable(),
-    kind: z.enum(["percent", "flat", "free_delivery"]),
+    kind: z.enum(["percent", "flat", "free_delivery", "pack"]),
     value: z.number().int().min(0),
     maxDiscountPaise: z.number().int().min(1).nullable(),
     minSubtotalPaise: z.number().int().min(0),
     appliesTo: z.enum(["order", "items"]),
     targets: z.array(z.strictObject({ type: z.enum(["product", "category", "brand", "collection"]), id: v.slug })).max(500),
+    packTypes: z.array(z.enum(PACK_TYPES)).max(5),
+    packWhole: z.boolean(),
     startsAt: iso,
     endsAt: iso.nullable(),
     usageLimit: z.number().int().min(1).nullable(),

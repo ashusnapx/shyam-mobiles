@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { OrderStatus } from "../../src/model/orders.js";
-import { learnModels, offerOpenFor, placeRefusal, price, splitDiscount, tidyModel, type Line, type Promo } from "../../src/orders/pricing.js";
+import { accessoryType, learnModels, offerOpenFor, placeRefusal, price, shortName, splitDiscount, tidyModel, type Line, type Promo } from "../../src/orders/pricing.js";
 import { customerCancelNote, staffStep } from "../../src/orders/state.js";
 import { loadVectors, resolveTimes, startingDocs } from "../vectors.js";
 
@@ -19,13 +19,16 @@ describe.each(["pricing", "offers", "referrals"])("quoteOrder vectors in %s.json
     const docs = startingDocs(file, c) as Record<string, D>;
     const uid = c.as;
     const at = (p: string) => Object.entries(docs).filter(([k]) => k.startsWith(`${p}/`) && k.split("/").length === p.split("/").length + 1);
-    const cart = Object.entries((docs[`carts/${uid}`]?.lines ?? {}) as Record<string, { qty: number }>).sort(([a], [b]) => (a < b ? -1 : 1));
-    const lines: Line[] = cart.flatMap(([id, { qty }]) => {
+    const cart = Object.entries((docs[`carts/${uid}`]?.lines ?? {}) as Record<string, { qty: number; forModel?: string }>).sort(([a], [b]) => (a < b ? -1 : 1));
+    const lines: Line[] = cart.flatMap(([id, { qty, forModel }]) => {
       const v = docs[`variants/${id}`];
       if (!v) return [];
       const p = docs[`products/${v.productId as string}`] ?? {};
       const groups = at("collections").filter(([, g]) => (g.productIds as string[]).includes(v.productId as string)).map(([k]) => k.split("/")[1]!);
-      return [{ variantId: id, productId: v.productId as string, categoryId: p.categoryId as string, brandId: p.brandId as string, collectionIds: groups, unitPricePaise: v.pricePaise as number, qty }];
+      const fits = ((p.specs ?? []) as { label: string; value: string }[]).filter((x) => x.label === "Fits").map((x) => x.value);
+      return [{ variantId: id, productId: v.productId as string, categoryId: p.categoryId as string, brandId: p.brandId as string, collectionIds: groups,
+        unitPricePaise: v.pricePaise as number, qty, productName: p.name as string, brandName: p.brandName as string, categoryKind: p.categoryKind as string,
+        fits, forModel: v.madeToOrder === true ? tidyModel(forModel) : null }];
     });
     const input = c.input as { couponCode?: string; paymentMethod?: "online" | "cod" | null };
     const code = input.couponCode?.replace(/\s+/g, "").toUpperCase() || null;
@@ -103,4 +106,16 @@ test("placeRefusal: a made-to-order line is never out of stock for its count, on
   const refuse = (lines: ReturnType<typeof line>[]) => placeRefusal({ lineCount: lines.length, addressFound: true, method: "cod", pendingOnline: 0, lines, missing: [] });
   expect(refuse([line("m", { madeToOrder: true })])).toBeNull();
   expect(refuse([line("m", { madeToOrder: true, available: false }), line("s", {})])).toEqual({ reason: "OUT_OF_STOCK", detail: ["m", "s"] });
+});
+
+test("accessoryType: first match wins, by name or category slug", () => {
+  const t = (productName: string, categoryId = "x") => accessoryType({ productName, categoryId });
+  expect([t("Camera Lens Glass Protector"), t("Tempered Glass"), t("Privacy Screen Guard"), t("Anything", "screen-guards")]).toEqual(["lens", "glass", "glass", "glass"]);
+  expect([t("Back Cover"), t("Flip Case"), t("x", "cases-covers"), t("Car Charger Case")]).toEqual(["case", "case", "case", "case"]);
+  expect([t("65W Adapter"), t("Boat Buds"), t("AirPods Pro"), t("x", "earbuds-headphones"), t("Galaxy S25"), t("")]).toEqual(["charger", "earphones", "earphones", "earphones", null, null]);
+});
+
+test("shortName: strips a leading brand word only", () => {
+  expect([shortName("Samsung Galaxy A15", "Samsung"), shortName("samsung galaxy", "SAMSUNG"), shortName("Samsung", "Samsung"), shortName("Redmi Note 13", "Xiaomi")])
+    .toEqual(["Galaxy A15", "galaxy", "Samsung", "Redmi Note 13"]);
 });

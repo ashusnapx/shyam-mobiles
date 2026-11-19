@@ -11,7 +11,7 @@ export type Promotion = Omit<PromotionDoc, "startsAt" | "endsAt" | "createdAt" |
 /** What admin_save_promotion's insert defaulted. */
 export function newPromotion(now: Date): Omit<Promotion, "title" | "kind"> {
   return {
-    description: "", code: null, value: 0, maxDiscountPaise: null, minSubtotalPaise: 0, appliesTo: "order", targets: [],
+    description: "", code: null, value: 0, maxDiscountPaise: null, minSubtotalPaise: 0, appliesTo: "order", targets: [], packTypes: [], packWhole: false,
     startsAt: now, endsAt: null, usageLimit: null, perUserLimit: 1, firstOrderOnly: false, onlineOnly: false, isPublic: true,
     uid: null, isActive: true, showBanner: false, usesActive: 0, discountTotalPaise: 0, createdAt: now, updatedAt: now,
   };
@@ -19,8 +19,11 @@ export function newPromotion(now: Date): Omit<Promotion, "title" | "kind"> {
 
 /** The first broken rule (the SQL constraint name, as errors.dart knows it), or null. Targets are checked by the caller. */
 export function brokenRule(p: Promotion): string | null {
-  if (!(p.kind === "percent" ? p.value >= 1 && p.value <= 90 : p.kind === "flat" ? p.value >= 100 : p.value === 0)) return "promotions_value_check";
-  if (p.maxDiscountPaise != null && p.kind !== "percent") return "promotions_cap_check";
+  const types = p.packTypes ?? [];
+  // A pack is automatic, on items, with an accessory type; other kinds carry no pack fields. Its targets: the caller.
+  if (p.kind === "pack" ? !(p.code === null && p.appliesTo === "items" && types.length > 0) : types.length > 0 || p.packWhole === true) return "promotions_pack_check";
+  if (!(p.kind === "percent" ? p.value >= 1 && p.value <= 90 : p.kind === "pack" ? p.value >= 1 && p.value <= 50 : p.kind === "flat" ? p.value >= 100 : p.value === 0)) return "promotions_value_check";
+  if (p.maxDiscountPaise != null && p.kind !== "percent" && p.kind !== "pack") return "promotions_cap_check";
   if (p.endsAt !== null && p.endsAt <= p.startsAt) return "promotions_window_check";
   if (p.uid != null && p.code === null) return "promotions_personal_check";
   if (p.showBanner && !(p.isPublic && p.uid == null)) return "promotions_banner_check";

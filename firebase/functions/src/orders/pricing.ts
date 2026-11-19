@@ -14,6 +14,12 @@ export interface Line {
   collectionIds: readonly string[];
   unitPricePaise: number;
   qty: number;
+  // What a pack offer reads (absent: not a phone, no accessory type, fits nothing)
+  productName?: string;
+  brandName?: string;
+  categoryKind?: string;
+  fits?: readonly string[]; // the product's "Fits" spec values
+  forModel?: string | null; // made-to-order lines: the customer's phone model
 }
 
 export interface Promo {
@@ -26,6 +32,8 @@ export interface Promo {
   minSubtotalPaise: number;
   appliesTo: "order" | "items";
   targets: readonly { type: TargetType; id: string }[];
+  packTypes?: readonly string[]; // pack: the accessory types the phone needs alongside
+  packWhole?: boolean; // pack: the phone is discounted too
   startsAt: Date;
   endsAt?: Date | null;
   usageLimit?: number | null;
@@ -81,6 +89,49 @@ export function covers(p: Pick<Promo, "appliesTo" | "targets">, l: Line): boolea
           : l.collectionIds.includes(t.id));
 }
 
+export const PACK_TYPES = ["glass", "case", "lens", "charger", "earphones"] as const;
+type PackType = (typeof PACK_TYPES)[number];
+
+/** A line's accessory type from its product name and category slug, first match wins (the SQL's accessory_type). */
+export function accessoryType(l: Pick<Line, "productName" | "categoryId">): PackType | null {
+  const n = (l.productName ?? "").toLowerCase();
+  const has = (...words: string[]) => words.some((w) => n.includes(w));
+  if (has("lens")) return "lens";
+  if (l.categoryId === "screen-guards" || has("glass", "screen guard", "screen protector")) return "glass";
+  if (l.categoryId === "cases-covers" || has("case", "cover")) return "case";
+  if (has("charger", "adapter")) return "charger";
+  if (l.categoryId === "earbuds-headphones" || has("earphone", "earbud", "buds", "headphone", "airpods")) return "earphones";
+  return null;
+}
+
+/** The name without a leading "<brand> " (app product_tile.dart shortName). */
+export const shortName = (name: string, brand: string) =>
+  name.length > brand.length + 1 && name.toLowerCase().startsWith(`${brand.toLowerCase()} `) ? name.slice(brand.length + 1) : name;
+
+const modelKey = (s: string) => s.toLowerCase().replace(/ /g, "");
+
+/** Does accessory [a] fit phone [p]: chargers and earphones fit all; else a "Fits" value names it, or the made-to-order model does. */
+function fits(a: Line, type: PackType, p: Line): boolean {
+  if (type === "charger" || type === "earphones") return true;
+  const names = [p.productName ?? "", shortName(p.productName ?? "", p.brandName ?? "")];
+  return (a.fits ?? []).some((f) => names.includes(f)) || (!!a.forModel && names.some((n) => modelKey(n) === modelKey(a.forModel ?? "")));
+}
+
+/** The lines [p] discounts: the ones its targets cover; for a pack, the first phone (priciest, then lowest id) in its
+ * categories with a fitting line of every pack type, its fitting accessories of those types and, if packWhole, itself. */
+export function eligibleLines(p: Pick<Promo, "kind" | "appliesTo" | "targets" | "packTypes" | "packWhole">, lines: readonly Line[]): Line[] {
+  if (p.kind !== "pack") return lines.filter((l) => covers(p, l));
+  const types = p.packTypes ?? [];
+  const typed = lines.map((l) => ({ l, type: accessoryType(l) }));
+  const phones = lines.filter((l) => l.categoryKind === "phone" && p.targets.some((t) => t.type === "category" && t.id === l.categoryId))
+    .sort((a, b) => b.unitPricePaise - a.unitPricePaise || (a.variantId < b.variantId ? -1 : a.variantId > b.variantId ? 1 : 0));
+  for (const phone of phones) {
+    const extras = typed.filter(({ l, type }) => l !== phone && type !== null && types.includes(type) && fits(l, type, phone));
+    if (types.length > 0 && types.every((t) => extras.some((e) => e.type === t))) return [...(p.packWhole ? [phone] : []), ...extras.map((e) => e.l)];
+  }
+  return [];
+}
+
 export function evaluate(p: Promo, lines: readonly Line[], subtotal: number, baseFee: number, fees: Fees, who: Shopper): Evaluated {
   const now = who.now.getTime();
   if (p.startsAt.getTime() > now) return { error: "COUPON_NOT_STARTED" };
@@ -89,11 +140,11 @@ export function evaluate(p: Promo, lines: readonly Line[], subtotal: number, bas
   if (p.perUserLimit != null && who.usesByUser(p.id) >= p.perUserLimit) return { error: "COUPON_LIMIT_REACHED" };
   if (p.firstOrderOnly && who.hasOrder) return { error: "COUPON_FIRST_ORDER" };
   if (p.onlineOnly && who.method === "cod") return { error: "COUPON_ONLINE_ONLY" };
-  const covered = lines.filter((l) => covers(p, l));
+  const covered = eligibleLines(p, lines);
   if (covered.length === 0) return { error: "COUPON_NOT_APPLICABLE" };
   const eligible = covered.reduce((s, l) => s + lineTotal(l), 0);
   if (eligible < p.minSubtotalPaise) return { error: "COUPON_MIN_ORDER", detail: p.minSubtotalPaise };
-  let discount = p.kind === "percent" ? Math.min(Math.floor((eligible * p.value) / 100), p.maxDiscountPaise ?? eligible)
+  let discount = p.kind === "percent" || p.kind === "pack" ? Math.min(Math.floor((eligible * p.value) / 100), p.maxDiscountPaise ?? eligible)
     : p.kind === "flat" ? Math.min(p.value, eligible) : 0;
   discount = Math.max(0, Math.min(discount, subtotal - 100)); // the ₹1 floor
   const fee = p.kind === "free_delivery" || subtotal - discount >= fees.freeDeliveryMinPaise ? 0 : fees.deliveryFeePaise;
@@ -164,7 +215,7 @@ export function price(a: { lines: readonly Line[]; fees: Fees; code: CodeLookup;
     promotion: promo,
     couponError: error,
     couponErrorDetail: detail,
-    lineDiscounts: promo && discount > 0 ? splitDiscount(discount, lines.filter((l) => covers(promo, l))) : {},
+    lineDiscounts: promo && discount > 0 ? splitDiscount(discount, eligibleLines(promo, lines)) : {},
   };
 }
 
