@@ -18,6 +18,7 @@ import 'package:flutter/services.dart';
 import '../../catalog/data/settings_repository.dart';
 import '../../catalog/widgets/store_links.dart';
 import '../data/admin.dart';
+import '../data/ai_catalogue.dart' show loadDiscount, saveDiscount;
 import '../data/photos.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
@@ -291,6 +292,8 @@ class _FormState extends ConsumerState<_Form> {
                 textInputAction: TextInputAction.next,
                 validator: (v) => int.tryParse(v ?? '') == null ? 'Enter a number, 0 or more.' : null,
               ),
+              const ListSection('Catalogue builder'),
+              const _DiscountField(),
               const ListSection('Store'),
               // Firebase: the phone and address are the business details below, the one copy invoices use too
               if (backend == Backend.supabase) ...[
@@ -742,4 +745,42 @@ class _BusinessFormState extends ConsumerState<_BusinessForm> {
       ],
     ),
   );
+}
+
+/// Quick add's selling price starts at MRP minus this %. Kept on this phone.
+class _DiscountField extends StatefulWidget {
+  const _DiscountField();
+
+  @override
+  State<_DiscountField> createState() => _DiscountFieldState();
+}
+
+class _DiscountFieldState extends State<_DiscountField> {
+  final _c = TextEditingController(text: '0');
+
+  @override
+  void initState() {
+    super.initState();
+    loadDiscount().then((v) {
+      if (mounted) _c.text = '$v';
+    }).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: _c,
+        decoration: const InputDecoration(
+          labelText: 'Default discount off MRP (%)',
+          helperText: 'Quick add starts the selling price at MRP minus this. 0 = the MRP. You can always change it.',
+          helperMaxLines: 2,
+        ),
+        keyboardType: TextInputType.number,
+        onChanged: (v) => saveDiscount(int.tryParse(v) ?? 0).catchError((_) {}),
+      );
 }

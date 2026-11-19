@@ -491,3 +491,12 @@ Security and privacy risks, and their controls, are in [`docs/SECURITY.md`](SECU
 **Numbers** (synthetic 5,000 products x 4 variants, 20,000 variants; from the unit test): public index 1.58 MB total, staff index 4.61 MB total (both would not fit one doc). All 5,000 products in one category: biggest public chunk 203 KB, biggest staff chunk 593 KB (limit 700 KB warn, 1 MiB hard). Spread over 12 categories: biggest chunk 53 KB, 96 public and 96 staff chunks. One product edit rewrites 1 public chunk and 1 staff chunk plus 2 manifests. First install downloads about 1.6 MB of public chunks, later opens only the changed ones.
 
 **Limits.** 8 buckets per category hold about 5 MB of staff entries per category; the trigger logs a warning at 700 KB per chunk, then raise `BUCKETS` and run `rebuildIndex()`. Past about 20,000 variants per category, or if on-phone search gets slow (about 5,000 entries merge and scan in milliseconds), move to Typesense or Firestore Enterprise text search.
+
+## AI catalogue builder (Gemini through Firebase AI Logic)
+
+Admin → Products & stock → Quick add / Import catalogue. Code: `app/lib/features/admin/data/ai_catalogue.dart`. Models live in one place, `aiModelFast` (Flash-Lite, tried first) and `aiModelStrong` (Flash, only when Flash-Lite's answer fails validation). Gemini Developer API backend: free tier, no billing.
+
+Owner console steps:
+1. Firebase console → Build → AI Logic → Get started → choose the Gemini Developer API (APIs `firebasevertexai` and `generativelanguage` are already on).
+2. App Check is required by AI Logic (since 2 Nov 2026): release builds use Play Integrity (register the Play app and SHA-256 under App Check → Apps). Debug and profile builds use the debug provider: run the app once, copy the "App Check debug token" from `adb logcat | grep -i appcheck`, add it under App Check → Apps → Manage debug tokens. Then enforce App Check for AI Logic.
+3. Only box labels, price lists and product photos go to Gemini; never customer data.

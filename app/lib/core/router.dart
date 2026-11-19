@@ -18,6 +18,8 @@ import '../features/admin/screens/admin_calendar_screen.dart';
 import '../features/admin/screens/admin_catalogue_screen.dart';
 import '../features/admin/screens/admin_dashboard_screen.dart';
 import '../features/admin/screens/admin_feedback_screen.dart';
+import '../features/admin/screens/admin_import_screen.dart';
+import '../features/admin/screens/admin_quick_add_screen.dart';
 import '../features/admin/screens/admin_groups_screen.dart';
 import '../features/admin/screens/admin_offers_screen.dart';
 import '../features/admin/screens/admin_pack_screen.dart';
@@ -162,7 +164,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                     stock: s.uri.queryParameters['stock'],
                     visibility: s.uri.queryParameters['visibility'],
                     query: s.uri.queryParameters['q'],
-                  )),
+                  ), routes: [
+                sub('quick', (_) => const AdminQuickAddScreen()),
+                sub('import', (_) => const AdminImportScreen()),
+              ]),
               sub('offers', (_) => const AdminOffersScreen(), routes: [
                 sub('new', (s) => AdminOfferEditScreen(copyOf: s.uri.queryParameters['copy'], draft: s.extra as Promotion?)),
                 sub('pack', (s) => AdminPackScreen(promotionId: s.uri.queryParameters['id'], copyOf: s.uri.queryParameters['copy'])),

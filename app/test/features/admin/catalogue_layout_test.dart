@@ -88,7 +88,7 @@ void main() {
   testWidgets('summary and rows fit at 360 dp with large text', (tester) async {
     await _pump(tester);
     expect(find.text('Products & stock'), findsOneWidget);
-    expect(find.text('Add product'), findsOneWidget, reason: 'the one product list adds products too');
+    expect(find.text('Quick add'), findsOneWidget, reason: 'the one product list adds products too');
     expect(find.text('1 variant · 99999 in stock'), findsOneWidget, reason: 'sorted by name, rows sit under their product');
     expect(find.byType(CatalogueSummaryCard), findsOneWidget);
     expect(find.text('3'), findsWidgets); // SKUs

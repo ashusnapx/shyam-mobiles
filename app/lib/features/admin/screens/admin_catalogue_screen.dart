@@ -350,12 +350,23 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                   icon: const Icon(PhosphorIconsRegular.selectionAll),
                   onPressed: () => setState(() => _selected.addAll([for (final r in all) r.variantId])),
                 )
-              else
+              else ...[
+                IconButton(
+                  tooltip: 'Import catalogue',
+                  icon: const Icon(PhosphorIconsRegular.fileArrowUp),
+                  onPressed: () => context.push('/admin/catalogue/import'),
+                ),
+                IconButton(
+                  tooltip: 'Add product by hand',
+                  icon: const Icon(PhosphorIconsRegular.plus),
+                  onPressed: () => _open('/admin/products/new'),
+                ),
                 IconButton(
                   tooltip: 'Select rows',
                   icon: const Icon(PhosphorIconsRegular.checkSquare),
                   onPressed: () => setState(() => _selecting = true),
                 ),
+              ],
             ],
           ),
           bottomNavigationBar: _selecting
@@ -364,9 +375,9 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
           floatingActionButton: _selecting
               ? null
               : FloatingActionButton.extended(
-                  onPressed: () => _open('/admin/products/new'),
-                  icon: const Icon(PhosphorIconsRegular.plus),
-                  label: const Text('Add product'),
+                  onPressed: () => context.push('/admin/catalogue/quick'),
+                  icon: const Icon(PhosphorIconsRegular.lightning),
+                  label: const Text('Quick add'),
                 ),
           body: Column(
             children: [
