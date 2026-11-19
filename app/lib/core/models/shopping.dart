@@ -158,7 +158,11 @@ class StoreSettings {
     this.referralMonthlyCap = 10,
     this.instagramHandle,
     this.facebookHandle,
+    this.autoBanners = defaultAutoBanners,
   });
+
+  /// Home's automatic banners on until the owner turns them off (catalog/data/hero.dart AutoBanner names).
+  static const defaultAutoBanners = ['deal', 'newest', 'exchange'];
 
   final int deliveryFeePaise;
   final int freeDeliveryMinPaise;
@@ -180,6 +184,7 @@ class StoreSettings {
   final int referralMonthlyCap; // rewards per referrer per IST month
   final String? instagramHandle; // bare usernames (SocialSite); null hides that Follow button
   final String? facebookHandle;
+  final List<String> autoBanners; // AutoBanner names that are on; saved by saveAutoBanners, not the settings form
 
   /// Mirrors `place_order`; the server total is the one that's charged.
   int deliveryFeeFor(int subtotalPaise) => subtotalPaise >= freeDeliveryMinPaise ? 0 : deliveryFeePaise;
@@ -223,6 +228,7 @@ class StoreSettings {
         referralMonthlyCap: j['referral_monthly_cap'] ?? 10,
         instagramHandle: j['instagram_handle'],
         facebookHandle: j['facebook_handle'],
+        autoBanners: (j['auto_banners'] as List?)?.cast<String>() ?? defaultAutoBanners,
       );
 
   Map<String, dynamic> toJson() => {
@@ -246,6 +252,7 @@ class StoreSettings {
         'referral_monthly_cap': referralMonthlyCap,
         'instagram_handle': instagramHandle,
         'facebook_handle': facebookHandle,
+        'auto_banners': autoBanners,
       };
 }
 

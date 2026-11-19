@@ -55,6 +55,9 @@ abstract interface class SettingsRepository {
   /// Staff: the ordered list of store photo keys (uploads go through PhotoStore first).
   Future<void> saveStorePhotos(List<String> paths);
 
+  /// Staff: which of Home's automatic banners are on (AutoBanner names, catalog/data/hero.dart).
+  Future<void> saveAutoBanners(List<String> on);
+
   /// Null on the Supabase build: its store phone and address live in store_settings instead.
   Future<BusinessProfile?> businessProfile();
 

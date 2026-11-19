@@ -36,6 +36,11 @@ class FakeSettingsRepository with Fake implements SettingsRepository {
   }
 
   @override
+  Future<void> saveAutoBanners(List<String> on) async {
+    record('saveAutoBanners ${on.join(',')}');
+  }
+
+  @override
   Future<void> saveStorePhotos(List<String> paths) async {
     record('saveStorePhotos ${paths.length}');
     storePhotos = [...paths];

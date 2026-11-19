@@ -9,6 +9,8 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../catalog/data/hero.dart' show AutoBanner;
+import '../../catalog/data/settings_repository.dart' show storeSettingsProvider;
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/admin.dart';
@@ -72,11 +74,19 @@ class _AdminBannersScreenState extends ConsumerState<AdminBannersScreen> {
           onRetry: () => ref.invalidate(adminBannersProvider),
           loading: const PageSkeleton(),
           data: (list) => list.isEmpty
-              ? const EmptyState(
-                  icon: PhosphorIconsRegular.flagBanner,
-                  tone: Worlds.admin,
-                  title: 'No banners yet',
-                  message: 'Banners show under the featured phones on home. Offers can make one for you too.',
+              ? ListView(
+                  children: const [
+                    SizedBox(
+                      height: 320,
+                      child: EmptyState(
+                        icon: PhosphorIconsRegular.flagBanner,
+                        tone: Worlds.admin,
+                        title: 'No banners yet',
+                        message: 'Banners show under the featured phones on home. Offers can make one for you too.',
+                      ),
+                    ),
+                    _AutoBanners(),
+                  ],
                 )
               : RefreshIndicator(
                   onRefresh: () => ref.refresh(adminBannersProvider.future),
@@ -128,6 +138,7 @@ class _AdminBannersScreenState extends ConsumerState<AdminBannersScreen> {
                             ),
                           ),
                         ),
+                      const _AutoBanners(),
                     ],
                   ),
                 ),
@@ -443,6 +454,36 @@ class _EditorState extends ConsumerState<_Editor> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Home's automatic banners, after the owner's own (catalog/data/hero.dart): each on or off.
+class _AutoBanners extends ConsumerWidget {
+  const _AutoBanners();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(storeSettingsProvider).value?.autoBanners;
+    if (on == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ListSection('Automatic banners'),
+        for (final k in AutoBanner.values)
+          SwitchListTile(
+            title: Text(k.label),
+            subtitle: Text(k.hint),
+            value: on.contains(k.name),
+            onChanged: (v) async {
+              try {
+                await saveAutoBanners(ref, [for (final a in AutoBanner.values) if (a == k ? v : on.contains(a.name)) a.name]);
+              } catch (e) {
+                if (context.mounted) showMessage(context, adminError(e));
+              }
+            },
+          ),
+      ],
     );
   }
 }

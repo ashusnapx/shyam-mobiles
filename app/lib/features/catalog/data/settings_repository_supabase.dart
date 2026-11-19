@@ -15,11 +15,15 @@ class SupabaseSettingsRepository implements SettingsRepository {
   // store_photos has its own writer below; the form's copy may be stale
   @override
   Future<void> saveStoreSettings(StoreSettings settings) =>
-      _db.from('store_settings').update(settings.toJson()..remove('store_photos')).eq('id', true).select('id').single();
+      _db.from('store_settings').update(settings.toJson()..remove('store_photos')..remove('auto_banners')).eq('id', true).select('id').single();
 
   @override
   Future<void> saveStorePhotos(List<String> paths) =>
       _db.from('store_settings').update({'store_photos': paths}).eq('id', true).select('id').single();
+
+  @override
+  Future<void> saveAutoBanners(List<String> on) =>
+      _db.from('store_settings').update({'auto_banners': on}).eq('id', true).select('id').single();
 
   @override
   Future<BusinessProfile?> businessProfile() async => null;

@@ -38,6 +38,7 @@ class FirebaseSettingsRepository implements SettingsRepository {
       referralRewardPaise: (referral['rewardPaise'] as num?)?.toInt() ?? 20000,
       referralMinOrderPaise: (referral['minOrderPaise'] as num?)?.toInt() ?? 199900,
       referralMonthlyCap: (referral['monthlyCap'] as num?)?.toInt() ?? 10,
+      autoBanners: (s['autoBanners'] as List?)?.cast<String>() ?? StoreSettings.defaultAutoBanners,
       instagramHandle: business?.instagramHandle,
       facebookHandle: business?.facebookHandle,
     );
@@ -76,6 +77,10 @@ class FirebaseSettingsRepository implements SettingsRepository {
         },
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+  @override
+  Future<void> saveAutoBanners(List<String> on) =>
+      _store.update({'autoBanners': on, 'updatedAt': FieldValue.serverTimestamp()});
 
   @override
   Future<void> saveStorePhotos(List<String> paths) =>

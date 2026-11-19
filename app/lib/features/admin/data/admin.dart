@@ -232,13 +232,16 @@ Future<String> saveProduct(WidgetRef ref, String? id, Map<String, dynamic> field
 
 /// Compresses [original] (photos.dart) and uploads `<folder>/<millis>.webp` plus `<folder>/<millis>@thumb.webp`.
 /// Returns the full photo's key, the only one the DB stores, and the sizes for the "4.2 MB → 180 KB" message.
-Future<({String path, int before, int after})> _uploadPhoto(WidgetRef ref, String folder, Uint8List original) async {
-  final photo = await preparePhoto(original);
+/// [cut]: also the cut-out for heroes and banners (product and banner photos, not the shop's).
+Future<({String path, int before, int after})> _uploadPhoto(WidgetRef ref, String folder, Uint8List original,
+    {bool cut = false}) async {
+  final photo = await preparePhoto(original, cut: cut);
   final path = await ref.read(photoStoreProvider).upload(folder, photo);
   return (path: path, before: photo.originalBytes, after: photo.full.length);
 }
 
-Future<void> _removeFiles(WidgetRef ref, String path) => ref.read(photoStoreProvider).remove([path, ?thumbPathFor(path)]);
+Future<void> _removeFiles(WidgetRef ref, String path) =>
+    ref.read(photoStoreProvider).remove([path, ?thumbPathFor(path), cutPathFor(path)]);
 
 /// The product's photos as saved now (the edit screen's copy may be a reload behind).
 Future<List<ProductPhoto>> _photos(WidgetRef ref, String productId) async =>
@@ -253,7 +256,7 @@ Future<void> _setPhotos(WidgetRef ref, String productId, List<ProductPhoto> imag
 /// [color]: the variant colour it shows (null: every colour).
 Future<({int before, int after})> addProductImage(WidgetRef ref, String productId, Uint8List original, int sort,
     {String? color}) async {
-  final up = await _uploadPhoto(ref, productId, original);
+  final up = await _uploadPhoto(ref, productId, original, cut: true);
   try {
     await _setPhotos(ref, productId, [...await _photos(ref, productId), ProductPhoto(id: '', path: up.path, sort: sort, color: color)]);
   } catch (_) {
@@ -328,9 +331,15 @@ Future<void> saveBusinessProfile(WidgetRef ref, BusinessProfile profile) async {
 // Banners ---------------------------------------------------------------------
 
 /// Uploads a banner photo and its thumb to `banners/`; returns the key for the banner's image path.
+/// Which of Home's automatic banners are on (AutoBanner names); Home rereads the store settings.
+Future<void> saveAutoBanners(WidgetRef ref, List<String> on) async {
+  await ref.read(settingsRepositoryProvider).saveAutoBanners(on);
+  ref.invalidate(storeSettingsProvider);
+}
+
 /// The banner photo (WebP and thumb) and its JPEG copy for Instagram / Facebook posts beside it: `banners/<millis>.jpg`.
 Future<({String path, String social})> uploadBannerImage(WidgetRef ref, Uint8List original) async {
-  final path = (await _uploadPhoto(ref, 'banners', original)).path;
+  final path = (await _uploadPhoto(ref, 'banners', original, cut: true)).path;
   final social = socialPathFor(path);
   try {
     await ref.read(photoStoreProvider).put(social, await socialJpeg(original), 'image/jpeg');
@@ -346,4 +355,4 @@ String socialPathFor(String path) => path.replaceFirst(RegExp(r'\.webp$'), '.jpg
 
 /// No order points at banner photos, so a replaced or removed one is deleted with its thumb.
 Future<void> deleteBannerImage(WidgetRef ref, String path) =>
-    ref.read(photoStoreProvider).remove([path, ?thumbPathFor(path), socialPathFor(path)]);
+    ref.read(photoStoreProvider).remove([path, ?thumbPathFor(path), cutPathFor(path), socialPathFor(path)]);

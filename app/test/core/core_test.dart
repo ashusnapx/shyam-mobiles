@@ -50,7 +50,7 @@ void main() {
       'store_hours': '10 am – 9 pm', 'repair_note': 'x', 'returns_policy': 'y',
       'referral_enabled': true, 'referral_friend_paise': 15000, 'referral_reward_paise': 25000,
       'referral_min_order_paise': 99900, 'referral_monthly_cap': 5,
-      'instagram_handle': 'ashusnapx', 'facebook_handle': null,
+      'instagram_handle': 'ashusnapx', 'facebook_handle': null, 'auto_banners': ['deal', 'repairs'],
     };
 
     test('JSON round trip keeps the pin, link and photo order', () {

@@ -49,6 +49,7 @@ const settings = StoreSettings(
   storeHours: '10 am – 9 pm',
   repairNote: '',
   returnsPolicy: 'Unopened items can be returned within 7 days.',
+  autoBanners: [], // the hero tests below check the carousel itself; hero_test.dart covers the automatic banners
 );
 
 Variant variant(String id, int rupees, int stock, String storage, String color) => Variant(
