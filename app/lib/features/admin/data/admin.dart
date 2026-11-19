@@ -267,9 +267,10 @@ Future<void> _setPhotos(WidgetRef ref, String productId, List<ProductPhoto> imag
 
 /// Uploads the photo and its thumb, then adds it to the product (removing the files if that fails).
 /// [color]: the variant colour it shows (null: every colour).
+/// [ready]: already cleaned up or edited (photo_editor.dart), so it goes up as it is.
 Future<({int before, int after})> addProductImage(WidgetRef ref, String productId, Uint8List original, int sort,
-    {String? color}) async {
-  final up = await _uploadPhoto(ref, productId, original, cut: true, studio: true);
+    {String? color, bool ready = false}) async {
+  final up = await _uploadPhoto(ref, productId, original, cut: true, studio: !ready);
   try {
     await _setPhotos(ref, productId, [...await _photos(ref, productId), ProductPhoto(id: '', path: up.path, sort: sort, color: color)]);
   } catch (_) {

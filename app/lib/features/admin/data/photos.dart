@@ -103,6 +103,14 @@ Future<PreparedPhoto> preparePhoto(Uint8List original, {bool cut = false, bool s
   return (full: full, thumb: thumb, originalBytes: original.length, cut: cut ? cutout : null);
 }
 
+/// The automatic clean-up of a product photo, before anyone edits it: [upright] the photo turned upright, compressed
+/// and without EXIF; [auto] its cut-out on the shop's square ([studioOf]), or null when no product was found.
+Future<({Uint8List upright, Uint8List? auto})> autoProductPhoto(Uint8List original) async {
+  final upright = (await preparePhoto(original)).full;
+  final cut = await cutoutOf(upright);
+  return (upright: upright, auto: cut == null ? null : await studioOf(cut));
+}
+
 const studioSide = 1200; // the cut-out is at most [cutSide], so no upscaling past it
 const studioBackdrop = ui.Color(0xFFFFFFFF); // the product gallery's white
 const studioFill = 0.84; // the product's longest side on the square: the same margin on every photo

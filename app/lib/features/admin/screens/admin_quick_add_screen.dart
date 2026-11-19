@@ -14,9 +14,10 @@ import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/admin.dart';
 import '../data/ai_catalogue.dart';
-import '../data/photos.dart' show cutoutOf, formatBytes, studioOf;
+import '../data/photos.dart' show autoProductPhoto, formatBytes;
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
+import '../widgets/photo_editor.dart';
 
 /// Staff only. One item in about 20 seconds: photo of the box's back label, photo of the product, confirm, save.
 /// Nothing is shown to customers unless staff switch "Show in shop" on.
@@ -32,7 +33,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
   final _c = {for (final k in ['name', 'brand', 'model', 'ram', 'storage', 'color', 'mrp', 'price', 'stock', 'about']) k: TextEditingController()};
   int _step = 0; // 0 label photo, 1 product photo, 2 confirm
   ProductDraft? _d;
-  Uint8List? _cut; // preview of the shop photo the upload makes again; null: none made yet
+  Uint8List? _cut; // the automatic clean-up of the product photo (the editor's "Reset to auto"); null: none
   String? _category;
   bool _busy = false, _show = false;
   String? _error;
@@ -103,15 +104,27 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
     await DraftStore.quick.save([_d!]);
     setState(() => _busy = true);
     // free, on this phone (ML Kit): cut out, straightened, light evened, on the shop's white square; shown before saving
-    final cut = await cutoutOf(bytes);
-    final shop = cut == null ? null : await studioOf(cut);
+    Uint8List? auto;
+    try {
+      final r = await autoProductPhoto(bytes);
+      _d!
+        ..photo = r.upright
+        ..photoFinal = r.auto;
+      auto = r.auto;
+    } catch (_) {} // not a photo the phone can read: saving says so
     if (mounted) {
       setState(() {
-        _cut = shop;
+        _cut = auto;
         _busy = false;
         _step = 2;
       });
     }
+  }
+
+  Future<void> _editPhoto() async {
+    final d = _d!;
+    final edited = await editProductPhoto(context, upright: d.photo!, auto: _cut);
+    if (edited != null && mounted) setState(() => d.photoFinal = edited);
   }
 
   /// Copies the form into the draft.
@@ -333,7 +346,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
                 borderRadius: BorderRadius.circular(Radii.md),
                 child: ColoredBox(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: Image.memory(_cut ?? d.photo!, width: 96, height: 96, fit: BoxFit.contain),
+                  child: Image.memory(d.photoFinal ?? d.photo!, width: 96, height: 96, fit: BoxFit.contain),
                 ),
               ),
               const SizedBox(width: Space.md),
@@ -341,6 +354,11 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
                 child: Text(_cut != null
                     ? 'Background removed, straightened and evened out, like every shop photo'
                     : 'Product photo ready · ${formatBytes(d.photo!.length)}'),
+              ),
+              TextButton.icon(
+                onPressed: _busy ? null : _editPhoto,
+                icon: const Icon(PhosphorIconsRegular.pencilSimple, size: IconSizes.sm),
+                label: const Text('Edit'),
               ),
             ]),
           ),

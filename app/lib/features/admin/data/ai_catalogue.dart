@@ -60,6 +60,7 @@ class ProductDraft {
   bool selected;
   String? existingProductId;
   Uint8List? photo; // kept in memory only
+  Uint8List? photoFinal; // cleaned up (and maybe edited) on this phone: uploaded as it is
   Uint8List? labelPhoto; // the box label read in Quick add; the product's second photo
 
   /// Editing a field confirms it.
@@ -447,9 +448,13 @@ Future<String> saveDraft(WidgetRef ref, ProductDraft d,
   });
   if (d.existingProductId == null) {
     // the product first (the cover), then its box label
-    for (final (i, photo) in [?d.photo, ?d.labelPhoto].indexed) {
+    final photos = [
+      if (d.photoFinal ?? d.photo case final p?) (p, d.photoFinal != null),
+      if (d.labelPhoto case final l?) (l, false),
+    ];
+    for (final (i, (photo, ready)) in photos.indexed) {
       try {
-        await addProductImage(ref, pid, photo, i);
+        await addProductImage(ref, pid, photo, i, ready: ready);
       } catch (e) {
         photoFailed?.call(e);
       }

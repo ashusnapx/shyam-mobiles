@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ import '../data/admin.dart';
 import '../data/photos.dart';
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
+import '../widgets/photo_editor.dart';
 import 'admin_feedback_screen.dart' show ListingReportsRow;
 
 const _gstRates = <num>[0, 5, 12, 18, 28];
@@ -427,12 +429,18 @@ class _PhotosState extends ConsumerState<_Photos> {
       color = picked.$1;
     }
     final file = await pickPhoto(context);
-    if (file == null) return;
+    if (file == null || !mounted) return;
     final images = widget.product.images;
+    // the clean-up is done first (cut out, straightened, white square); staff only fix what looks off
+    ({Uint8List upright, Uint8List? auto})? cleaned;
+    await _run(() async => cleaned = await autoProductPhoto(await readPhoto(file)));
+    if (cleaned == null || !mounted) return;
+    final photo = await editProductPhoto(context, upright: cleaned!.upright, auto: cleaned!.auto);
+    if (photo == null || !mounted) return;
     await _run(() async {
-      final saved = await addProductImage(
-          ref, widget.product.id, await readPhoto(file), images.isEmpty ? 0 : images.last.sort + 1, color: color);
-      if (mounted) showMessage(context, 'Photo added · ${formatBytes(saved.before)} → ${formatBytes(saved.after)}');
+      final saved = await addProductImage(ref, widget.product.id, photo, images.isEmpty ? 0 : images.last.sort + 1,
+          color: color, ready: true);
+      if (mounted) showMessage(context, 'Photo added · ${formatBytes(saved.after)}');
     });
   }
 
