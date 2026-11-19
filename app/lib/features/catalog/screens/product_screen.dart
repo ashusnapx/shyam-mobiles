@@ -20,6 +20,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../cart/data/cart.dart';
 import '../../cart/widgets/cart_button.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
+import '../../exchange/widgets/exchange_widgets.dart' show ExchangeCard;
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../../payments/widgets/emi_line.dart';
@@ -436,6 +437,10 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
               if (p.id.isNotEmpty) _BestOffer(productId: p.id, pricePaise: v.pricePaise),
               if (settings != null) ...[
                 const SizedBox(height: Space.md),
+              if (p.id.isNotEmpty && phone) ...[
+                const SizedBox(height: Space.md),
+                ExchangeCard(forProductId: p.id, forPhone: p.name),
+              ],
                 _DeliveryCard(settings),
                 const SectionHeader('Why buy from us', inset: false),
                 _WhyBuy(settings: settings, product: p),

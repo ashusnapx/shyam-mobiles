@@ -8,7 +8,10 @@ import { db } from "../shared/db.js";
 import { fail } from "../shared/errors.js";
 import { audit } from "../shared/log.js";
 import { istDate } from "../shared/time.js";
+import { deliver } from "../notifications/triggers.js";
+import { takeRateLimit } from "../shared/rateLimit.js";
 import * as c from "./contract.js";
+import { exchangeNotice } from "./exchange.js";
 import { approveQuote, cancelByCustomer, type Change, declineQuote, newBooking, OPEN, OPEN_LIMIT, type Repair, setQuote, staffUpdate } from "./state.js";
 
 // Owner: engineer D. parse → guard → transaction: load the booking, decide (state.ts), write it with its new event.
@@ -72,4 +75,36 @@ export const adminUpdateRepair = callable(c.adminUpdateRepair, async ({ repairId
 export const adminSetRepairQuote = callable(c.adminSetRepairQuote, async ({ repairId, quotePaise, note, approved }, req) => {
   const uid = await staff(req, "adminSetRepairQuote", repairId);
   return change(repairId, (r, at) => setQuote(r, uid, quotePaise, note ?? null, approved, at));
+});
+
+// Growth (docs/GROWTH.md §2c). Exchange your old phone: the customer's request (their own photos only, 5 a day), and
+// staff's estimate, which the customer is told about. No price exists until staff give one.
+const EXCHANGE_PURGE_MS = 180 * DAY_MS; // model/exchanges.ts retention
+
+export const requestExchange = callable(c.requestExchange, async (input, req) => {
+  const { uid } = requireUser(req);
+  if (input.photos.some((p) => !p.startsWith(`exchange-photos/${uid}/`))) fail("BAD_REQUEST", ["photos"]);
+  const ref = db().collection("exchanges").doc();
+  await db().runTransaction(async (tx) => {
+    await takeRateLimit(tx, uid, "requestExchange");
+    const at = Timestamp.now();
+    tx.create(ref, { uid, ...input, forProductId: input.forProductId ?? null, status: "new", estimate: null,
+      createdAt: at, updatedAt: at, purgeAt: Timestamp.fromMillis(at.toMillis() + EXCHANGE_PURGE_MS) });
+  });
+  return { exchangeId: ref.id };
+});
+
+export const estimateExchange = callable(c.estimateExchange, async ({ exchangeId, lowPaise, highPaise, note }, req) => {
+  const { uid: staffUid } = await requireStaff(req);
+  const ref = db().doc(`exchanges/${exchangeId}`);
+  const at = Timestamp.now();
+  const ex = await db().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) fail("NOT_FOUND");
+    tx.update(ref, { status: "estimated", estimate: { lowPaise, highPaise, note, at }, updatedAt: at });
+    return snap.data() as { uid: string; brand: string; model: string };
+  });
+  audit("estimateExchange", staffUid, exchangeId);
+  await deliver(exchangeId, [exchangeNotice(ex.uid, ex, lowPaise, highPaise, at.toMillis())]);
+  return {};
 });

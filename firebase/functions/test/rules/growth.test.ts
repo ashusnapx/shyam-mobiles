@@ -25,6 +25,7 @@ beforeEach(async () => {
     await setDoc(doc(db, "reviews/p1_bob"), { productId: "p1", uid: "bob", rating: 1, text: "Call 98…", hidden: true });
     await setDoc(doc(db, "productStats/p1"), { ratingCount: 1, ratingSum: 2, stars: [0, 1, 0, 0, 0] });
     await setDoc(doc(db, "reviewIndex/public"), { cards: {} });
+    await setDoc(doc(db, "exchanges/e1"), { uid: "alice", brand: "Samsung", model: "A12", status: "new", estimate: null });
   });
 });
 
@@ -64,6 +65,20 @@ describe("reviews", () => {
     await assertSucceeds(getDoc(doc(anon().firestore(), "reviewIndex/public")));
     await assertFails(setDoc(doc(staff().firestore(), "productStats/p1"), { ratingCount: 99 }));
     await assertFails(setDoc(doc(alice().firestore(), "reviewIndex/public"), { cards: {} }));
+  });
+});
+
+describe("exchanges", () => {
+  test("the customer and staff read; nobody writes from the app", async () => {
+    await assertSucceeds(getDoc(doc(alice().firestore(), "exchanges/e1")));
+    await assertSucceeds(getDocs(query(collection(alice().firestore(), "exchanges"), where("uid", "==", "alice"))));
+    await assertSucceeds(getDocs(collection(staff().firestore(), "exchanges")));
+    await assertFails(getDoc(doc(bob().firestore(), "exchanges/e1")));
+    await assertFails(getDocs(collection(alice().firestore(), "exchanges")));
+    await assertFails(getDoc(doc(smsStaff().firestore(), "exchanges/e1")));
+    await assertFails(updateDoc(doc(staff().firestore(), "exchanges/e1"), { status: "estimated" }));
+    await assertFails(updateDoc(doc(alice().firestore(), "exchanges/e1"), { estimate: { lowPaise: 1 } }));
+    await assertFails(setDoc(doc(alice().firestore(), "exchanges/e2"), { uid: "alice", brand: "x", status: "new" }));
   });
 });
 

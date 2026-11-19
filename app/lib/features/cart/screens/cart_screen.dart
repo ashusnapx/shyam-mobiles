@@ -19,6 +19,7 @@ import '../../catalog/data/catalog.dart';
 import '../../catalog/data/rails.dart';
 import '../../catalog/widgets/product_rail.dart';
 import '../../checkout/screens/widgets.dart';
+import '../../exchange/widgets/exchange_widgets.dart' show ExchangeCartCard;
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/cart.dart';
@@ -167,6 +168,7 @@ class _CartList extends ConsumerWidget {
               ),
             ),
           _CrossSell(lines: lines),
+          ExchangeCartCard(slugs: [for (final l in lines) l.productSlug]),
           Padding(
             padding: const EdgeInsets.fromLTRB(Space.gutter, Space.lg, Space.gutter, 0),
             child: CouponRow(quote: q),

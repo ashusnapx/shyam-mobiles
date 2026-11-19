@@ -299,6 +299,11 @@ service cloud.firestore {
     }
     match /productStats/{id} { allow read: if true; }
     match /reviewIndex/public { allow read: if true; }
+    // Exchange requests: requestExchange creates, estimateExchange (staff) answers; the customer reads their own (a list
+    // must filter on uid), staff read all.
+    match /exchanges/{id} {
+      allow read: if (isSignedIn() && resource.data.uid == request.auth.uid) || isStaff();
+    }
 
     // ── social (docs/SOCIAL.md) ───────────────────────────────────────────────────────────────────────────────────────
     // Functions write all of it. social/instagram is the app's Instagram strip; socialPosts/{bannerId} shows staff what

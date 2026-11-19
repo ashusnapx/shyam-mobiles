@@ -45,3 +45,25 @@ export const adminSetRepairQuote = contract(
   booking.extend({ quotePaise, note: cleanMultiline(500).nullish(), approved: z.boolean().default(false) }),
   ok,
 );
+
+// Growth (docs/GROWTH.md §2c). Exchange your old phone: the customer's description, then staff's estimate (a range).
+export const requestExchange = contract(
+  "requestExchange",
+  z.strictObject({
+    brand: cleanText(40, { min: 1, mustHave: "letterOrDigit" }),
+    model: cleanText(60, { min: 1, mustHave: "letterOrDigit" }),
+    age: z.enum(["under_1", "1_2", "2_3", "over_3"]),
+    condition: z.enum(["like_new", "good", "fair", "damaged"]),
+    photos: z.array(z.string().regex(/^exchange-photos\/[A-Za-z0-9]{1,128}\/[0-9]{1,15}\.webp$/)).max(3).default([]),
+    forProductId: v.slug.nullish(),
+  }),
+  z.object({ exchangeId: z.string() }),
+);
+
+/** Staff: an estimate range (low ≤ high, ₹0 to ₹10,00,000) and a short note; the customer is notified. */
+export const estimateExchange = contract(
+  "estimateExchange",
+  z.strictObject({ exchangeId: v.docId, lowPaise: quotePaise, highPaise: quotePaise, note: cleanMultiline(300).default("") })
+    .refine((e) => e.lowPaise <= e.highPaise, { message: "range", path: ["highPaise"] }),
+  ok,
+);

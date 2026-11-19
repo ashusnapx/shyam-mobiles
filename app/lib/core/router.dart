@@ -24,6 +24,7 @@ import '../features/admin/screens/admin_orders_screen.dart';
 import '../features/admin/screens/admin_product_edit_screen.dart';
 import '../features/admin/screens/admin_repair_screen.dart';
 import '../features/admin/screens/admin_repairs_screen.dart';
+import '../features/admin/screens/admin_exchanges_screen.dart';
 import '../features/admin/screens/admin_reviews_screen.dart';
 import '../features/admin/screens/admin_settings_screen.dart';
 import '../features/auth/data/auth_repository.dart';
@@ -37,6 +38,7 @@ import '../features/catalog/screens/product_screen.dart';
 import '../features/catalog/screens/search_screen.dart';
 import '../features/checkout/screens/checkout_result_screen.dart';
 import '../features/checkout/screens/checkout_screen.dart';
+import '../features/exchange/screens/exchanges_screen.dart';
 import '../features/offers/screens/offers_screen.dart';
 import '../features/offers/screens/refer_screen.dart';
 import '../features/orders/screens/order_detail_screen.dart';
@@ -119,6 +121,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: '/repairs', builder: (_, _) => const RepairsScreen(), routes: [
               sub('new', (s) => RepairFormScreen(issue: s.uri.queryParameters['issue'])),
+              sub('exchanges', (_) => const ExchangesScreen()), // before :id, which would take it
               sub(':id', (s) => RepairDetailScreen(bookingId: s.pathParameters['id']!)),
             ]),
           ]),
@@ -171,6 +174,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ]),
               sub('settings', (_) => const AdminSettingsScreen()),
               sub('reviews', (_) => const AdminReviewsScreen()),
+              sub('exchanges', (_) => const AdminExchangesScreen()),
               sub('payment-links', (_) => const AdminPaymentLinksScreen()),
               sub('feedback', (s) => AdminFeedbackScreen(productId: s.uri.queryParameters['product']), routes: [
                 sub(':id', (s) => AdminFeedbackDetailScreen(feedbackId: s.pathParameters['id']!)),

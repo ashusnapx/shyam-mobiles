@@ -12,7 +12,7 @@ const COLLECTIONS = [
   "categories", "brands", "products", "variants", "collections", "catalogIndex", "banners", "settings",
   "promotions", "promoCodes", "publicOffers", "redemptions", "rateLimits", "referralCodes", "referrals",
   "orders", "orders/*/payments", "orders/*/refunds", "repairs", "feedback", "counters", "social", "private", "socialPosts",
-  "reviews", "productStats", "reviewIndex", "statsEvents",
+  "reviews", "productStats", "reviewIndex", "statsEvents", "exchanges",
 ];
 
 test("every model file declares a retention for each of its collections", async () => {

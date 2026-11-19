@@ -257,6 +257,7 @@ class _QuickActions extends StatelessWidget {
       (PhosphorIconsRegular.stack, 'Groups', '/admin/groups', (BrandColors.violetMist, BrandColors.violet)),
       (PhosphorIconsRegular.flagBanner, 'Banners', '/admin/banners', Worlds.account),
       (PhosphorIconsRegular.star, 'Reviews', '/admin/reviews', (BrandColors.amberMist, BrandColors.amber)),
+      (PhosphorIconsRegular.arrowsLeftRight, 'Exchanges', '/admin/exchanges', Worlds.repairs),
       (PhosphorIconsRegular.gearSix, 'Settings', '/admin/settings', (BrandColors.slateMist, BrandColors.slate)),
     ];
     final c = Theme.of(context).colorScheme;

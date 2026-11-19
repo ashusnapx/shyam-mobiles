@@ -10,6 +10,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../exchange/data/exchange_repository.dart' show exchangeRepositoryProvider;
 import '../../feedback/data/feedback.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../notifications/data/notifications.dart';
@@ -132,6 +133,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             const SizedBox(height: Space.sm),
             row(PhosphorIconsRegular.package, 'My orders', () => context.push('/orders'), tint: Worlds.shop),
             row(PhosphorIconsRegular.heart, 'Wishlist', () => context.push('/wishlist'), tint: Worlds.account),
+            if (ref.watch(exchangeRepositoryProvider).enabled)
+              row(PhosphorIconsRegular.arrowsLeftRight, 'Exchange requests', () => context.push('/repairs/exchanges'),
+                  tint: Worlds.repairs, subtitle: 'Your old phone, the shop’s estimate'),
             row(PhosphorIconsRegular.sealPercent, 'Offers & coupons', () => context.push('/offers'), tint: Worlds.offers),
             if (ref.watch(storeSettingsProvider).value case final s? when s.referralEnabled)
               row(PhosphorIconsRegular.gift, 'Refer & earn', () => context.push('/account/refer'),

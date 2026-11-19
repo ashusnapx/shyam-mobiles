@@ -16,6 +16,7 @@ export const LIMITS = {
   sendFeedback: { max: 10, windowMs: 86_400_000, reason: "FEEDBACK_LIMIT" },
   exportMyData: { max: 1, windowMs: 86_400_000 },
   saveReview: { max: 20, windowMs: 86_400_000 },
+  requestExchange: { max: 5, windowMs: 86_400_000 },
 } as const satisfies Record<string, { max: number; windowMs: number; reason?: Reason }>;
 
 export type LimitKey = keyof typeof LIMITS;
