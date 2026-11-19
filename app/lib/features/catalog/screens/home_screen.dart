@@ -21,7 +21,9 @@ import '../../notifications/widgets/notification_widgets.dart';
 import '../../offers/widgets/offer_widgets.dart';
 import '../data/catalog.dart';
 import '../data/rails.dart';
+import '../data/social_repository.dart';
 import '../widgets/product_rail.dart';
+import '../widgets/instagram_row.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/store_photos.dart';
 
@@ -39,6 +41,7 @@ class HomeScreen extends ConsumerWidget {
     ref.invalidate(bannersProvider);
     ref.invalidate(availableOffersProvider); // which offer banners still apply
     ref.invalidate(latestProvider);
+    ref.invalidate(instagramPostsProvider);
     try {
       ref.invalidate(homeProvider);
       await ref.read(homeProvider.future);
@@ -150,6 +153,7 @@ class HomeScreen extends ConsumerWidget {
         ),
       SliverToBoxAdapter(key: const ValueKey('brands'), child: _BrandRow(phones)),
       ..._moreGrid(context, ref),
+      const SliverToBoxAdapter(key: ValueKey('instagram'), child: InstagramRow()),
       if (settings != null) SliverToBoxAdapter(key: const ValueKey('store'), child: _StoreCard(settings)),
       // the page ends a section gap below the last card, clear of the (see-through) nav bar
       SliverPadding(
