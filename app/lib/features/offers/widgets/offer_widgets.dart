@@ -296,7 +296,7 @@ class CouponRow extends ConsumerWidget {
                 q!.discountPaise > 0 ? 'You save ${formatInr(q.discountPaise)}' : 'Free delivery on this order',
               )
             : (PhosphorIconsRegular.ticket, null, 'Apply a coupon', 'Or pick one of today’s offers');
-    return Card(
+    final row = Card(
       child: ListTile(
         enabled: enabled,
         leading: Icon(icon, color: color),
@@ -319,6 +319,15 @@ class CouponRow extends ConsumerWidget {
         onTap: () => _open(context),
       ),
     );
+    if (code == null) return row; // the row itself says "Or pick one of today’s offers"
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      row,
+      TextButton.icon(
+        onPressed: enabled ? () => _open(context) : null,
+        icon: const Icon(PhosphorIconsRegular.tag, size: IconSizes.sm),
+        label: const Text('More offers'),
+      ),
+    ]);
   }
 }
 
