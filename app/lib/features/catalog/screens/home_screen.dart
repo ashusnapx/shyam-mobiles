@@ -140,6 +140,27 @@ class HomeScreen extends ConsumerWidget {
           )
         else
           (key: a.kind.name, build: (photo) => _autoPromo(context, a.kind, pool, photo)),
+      // on while Settings has the shop's Instagram username; clearing it removes the slide
+      if (settings?.instagramHandle case final ig?)
+        (
+          key: 'instagram',
+          build: (photo) => PromoBannerCard(
+                PromoBanner(
+                  id: 'auto-instagram',
+                  title: 'New stock first on Instagram',
+                  subtitle: '@$ig · offers, unboxings, new arrivals',
+                  ctaLabel: 'Follow the shop',
+                  link: '/',
+                  startsAt: DateTime(2026),
+                ),
+                kicker: 'INSTAGRAM',
+                icon: PhosphorIconsFill.instagramLogo,
+                fan: HeroFan.offer,
+                pool: pool,
+                photo: photo,
+                onTap: () => openUri(context, SocialSite.instagram.url(ig)),
+              ),
+        ),
       for (final card in d.featured)
         if (!shown.contains(card.id)) (key: 'product ${card.id}', build: (photo) => _ProductSlide(card, photo: photo)),
     ].take(_slides).toList();
