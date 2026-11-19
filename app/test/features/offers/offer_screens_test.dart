@@ -192,13 +192,21 @@ void main() {
       ], offers: [diwali])),
     ]);
     await settle(tester);
-    // every slide is also laid out invisibly (one height for all), so a slide's text can show up twice
+    // the carousel builds the shown slide and the one peeking beside it
     expect(find.text('Diwali dhamaka on every phone in the shop').hitTestable(), findsOneWidget, reason: 'banners first');
     expect(find.text('Repairs in an hour'), findsWidgets);
     expect(find.text('Bad link'), findsNothing);
     expect(find.text('Paused'), findsNothing, reason: 'staff see every row; home shows running ones only');
-    expect(find.text('Diwali code banner'), findsWidgets, reason: 'its offer is still open to this customer');
+    for (var i = 0; i < 2; i++) {
+      await tester.drag(find.byType(PageView), const Offset(-300, 0));
+      await settle(tester);
+    }
+    expect(find.text('Diwali code banner').hitTestable(), findsOneWidget, reason: 'its offer is still open to this customer');
     expect(find.text('Used-up code banner'), findsNothing, reason: 'available_offers no longer lists its offer');
+    await tester.drag(find.byType(PageView), const Offset(600, 0));
+    await settle(tester);
+    await tester.drag(find.byType(PageView), const Offset(600, 0));
+    await settle(tester);
     await tester.tap(find.text('Diwali dhamaka on every phone in the shop').hitTestable());
     await settle(tester);
     expect(find.text('Page /offers'), findsOneWidget);

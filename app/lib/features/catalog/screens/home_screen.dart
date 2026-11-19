@@ -21,8 +21,8 @@ import '../../exchange/widgets/exchange_widgets.dart' show showExchangeSheet;
 import '../../offers/data/offers.dart';
 import '../../offers/widgets/occasion_chip.dart';
 import '../../notifications/widgets/notification_widgets.dart';
+import '../../offers/widgets/hero_card.dart';
 import '../../offers/widgets/offer_widgets.dart';
-import '../../reviews/data/reviews.dart' show productStatsProvider;
 import '../data/catalog.dart';
 import '../data/hero.dart';
 import '../data/rails.dart';
@@ -119,9 +119,18 @@ class HomeScreen extends ConsumerWidget {
     final auto = autoSlides(settings?.autoBanners ?? StoreSettings.defaultAutoBanners,
         cards: [...d.featured, ...d.accessories, ...latest], newest: latest, now: DateTime.now());
     final shown = {for (final a in auto) ?a.card?.id};
+    final offers = ref.watch(availableOffersProvider).value ?? const <Offer>[];
+    final pool = [...latest, ...d.featured, ...d.accessories]; // newest first: the cut-outs fanned on slides with no photo
     final slides = <_Slide>[
       for (final b in ref.watch(homeBannersProvider))
-        (key: 'banner ${b.id}', build: (_) => PromoBannerCard(b, onTap: () => openAppLink(context, b.link))),
+        (
+          key: 'banner ${b.id}',
+          build: (photo) => PromoBannerCard(b,
+              photo: photo,
+              pool: pool,
+              offer: offers.where((o) => o.id == b.promotionId).firstOrNull,
+              onTap: () => openAppLink(context, b.link)),
+        ),
       for (final a in auto)
         if (a.card case final c?)
           (
@@ -130,7 +139,7 @@ class HomeScreen extends ConsumerWidget {
                 photo: photo, kicker: a.kind == AutoBanner.deal ? 'DEAL OF THE DAY' : 'NEW', endsAt: a.endsAt),
           )
         else
-          (key: a.kind.name, build: (_) => _autoPromo(context, a.kind)),
+          (key: a.kind.name, build: (photo) => _autoPromo(context, a.kind, pool, photo)),
       for (final card in d.featured)
         if (!shown.contains(card.id)) (key: 'product ${card.id}', build: (photo) => _ProductSlide(card, photo: photo)),
     ].take(_slides).toList();
@@ -218,9 +227,9 @@ class HomeScreen extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-          child: _ProductSlide(fakeCards(1).first, live: false),
+          child: _ProductSlide(fakeCards(1).first),
         ),
-        const SizedBox(height: 48), // the carousel's controls
+        const SizedBox(height: Space.md),
         _CategoryRow([
           for (var i = 0; i < 6; i++)
             Category(id: '$i', slug: 'skeleton-$i', name: 'Category', kind: CategoryKind.accessory),
@@ -365,38 +374,48 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// Exchange and Repairs as banners: no product, a form to open.
-Widget _autoPromo(BuildContext context, AutoBanner kind) => kind == AutoBanner.exchange
+/// Exchange and Repairs as banners: no product to buy, a form to open. Exchange fans the newest phone and an older one.
+Widget _autoPromo(BuildContext context, AutoBanner kind, List<ProductCard> pool, bool photo) => kind == AutoBanner.exchange
     ? PromoBannerCard(
         PromoBanner(
           id: 'auto-exchange',
           title: 'Exchange your old phone',
-          subtitle: 'Tell us its model and condition: the shop sends you an estimate.',
+          subtitle: 'Trade in for a better one',
           ctaLabel: 'Get an estimate',
           link: '/',
           startsAt: DateTime(2026),
         ),
+        kicker: 'EXCHANGE',
+        fan: HeroFan.exchange,
+        icon: PhosphorIconsFill.arrowsClockwise,
+        pool: pool,
+        photo: photo,
         onTap: () => showExchangeSheet(context),
       )
     : PromoBannerCard(
         PromoBanner(
           id: 'auto-repairs',
           title: 'Repairs · same day',
-          subtitle: 'Screens, batteries, charging ports and more.',
+          subtitle: 'Screens, batteries, charging ports',
           ctaLabel: 'Book a repair',
           link: '/repairs/new',
           startsAt: DateTime(2026),
         ),
+        kicker: 'REPAIRS',
+        icon: PhosphorIconsFill.wrench,
+        fan: HeroFan.none,
+        photo: photo,
         onTap: () => openAppLink(context, '/repairs/new'),
       );
 
 /// One carousel slide: an offer banner or a featured product; [build] gets whether to load its photo.
 typedef _Slide = ({String key, Widget Function(bool photo) build});
 
-/// Offers and featured products in one carousel that moves on every 5 s. Small dots jump to a slide, a
-/// screen reader swipes up / down to step it (nothing is swipe-only); touching it pauses it. Stays still with
-/// reduce-motion or TalkBack on, in data-saver mode, and while another tab is showing. The slides' own motion (Ken
-/// Burns, sweep, pop: [HeroMotion]) repaints one layer and stops while the carousel is scrolled off screen.
+/// Offers and featured products in one carousel: the next card peeks, it moves on every 5 s (a thin story-style bar in the
+/// card's corner fills over it), a finger on it holds it, and a bar jumps to a slide; a screen reader swipes up / down to
+/// step it (nothing is swipe-only). Still with reduce-motion or TalkBack on, in data-saver mode, and while another tab is
+/// showing: then small dots stand in for the bars. The one slide motion ([HeroMotion.slowZoom]) stops while it is
+/// scrolled off screen.
 class _HeroCarousel extends StatefulWidget {
   const _HeroCarousel(this.slides, {required this.saver});
 
@@ -407,37 +426,53 @@ class _HeroCarousel extends StatefulWidget {
   State<_HeroCarousel> createState() => _HeroCarouselState();
 }
 
-class _HeroCarouselState extends State<_HeroCarousel> {
-  static const _interval = Motion.hero;
+class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderStateMixin {
+  static const _fraction = 0.92; // the next card peeks
+  static const _gap = 4.0; // each side of a card
+  late final _fill = AnimationController(vsync: this, duration: Motion.hero)
+    ..addStatusListener((s) {
+      if (s == AnimationStatus.completed) _step(1);
+    });
+  final _pages = PageController(viewportFraction: _fraction);
   int _index = 0;
-  int _direction = 1;
-  Timer? _timer;
+  int? _target; // where a step in flight is heading, so two quick steps add up
   ScrollPosition? _position;
   bool _onScreen = true;
+  bool _touching = false;
   bool _queued = false;
 
   int get _count => widget.slides.length;
 
-  @override
-  void initState() {
-    super.initState();
-    _restart();
+  bool get _still => MediaQuery.disableAnimationsOf(context) || MediaQuery.accessibleNavigationOf(context);
+
+  /// Whether the bar fills and the carousel moves on by itself.
+  bool get _auto => _count > 1 && !widget.saver && !_still;
+
+  /// Runs the fill while nothing holds it: not touched, on screen, its tab showing.
+  void _sync() {
+    if (_auto && _onScreen && !_touching && TickerMode.valuesOf(context).enabled) {
+      if (!_fill.isAnimating) unawaited(_fill.forward());
+    } else {
+      _fill.stop();
+    }
   }
 
   @override
   void didUpdateWidget(_HeroCarousel old) {
     super.didUpdateWidget(old);
     if (_index >= _count) _index = 0;
-    _restart();
+    _sync();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final p = Scrollable.maybeOf(context)?.position;
-    if (p == _position) return;
-    _position?.removeListener(_track);
-    _position = p?..addListener(_track);
+    if (p != _position) {
+      _position?.removeListener(_track);
+      _position = p?..addListener(_track);
+    }
+    _sync();
   }
 
   /// On screen or not, measured after the frame the scroll lays out (as RevealOnScroll does).
@@ -450,313 +485,182 @@ class _HeroCarouselState extends State<_HeroCarousel> {
       if (box == null || !box.hasSize) return;
       final top = box.localToGlobal(Offset.zero).dy;
       final on = top + box.size.height > 0 && top < MediaQuery.sizeOf(context).height;
-      if (on != _onScreen) setState(() => _onScreen = on);
+      if (on != _onScreen) {
+        _onScreen = on;
+        _sync();
+        setState(() {});
+      }
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _position?.removeListener(_track);
+    _fill.dispose();
+    _pages.dispose();
     super.dispose();
   }
 
-  void _restart() {
-    _timer?.cancel();
-    if (_count < 2 || widget.saver) return;
-    _timer = Timer.periodic(_interval, (_) {
-      if (!mounted) return;
-      final still = MediaQuery.disableAnimationsOf(context) || MediaQuery.accessibleNavigationOf(context);
-      if (!still && _onScreen && TickerMode.valuesOf(context).enabled) _step(1);
-    });
+  void _step(int by) {
+    if (mounted) _goTo((((_target ?? _index) + by) % _count + _count) % _count);
   }
 
-  void _step(int by) => _go((_index + by + _count) % _count, by);
-
-  void _go(int i, [int? direction]) {
-    setState(() {
-      _direction = direction ?? (i >= _index ? 1 : -1);
-      _index = i;
-    });
-    _restart();
+  void _goTo(int i) {
+    if (!_pages.hasClients) return;
+    _target = i;
+    final done = MediaQuery.disableAnimationsOf(context)
+        ? Future.sync(() => _pages.jumpToPage(i))
+        : _pages.animateToPage(i, duration: Motion.slide, curve: Curves.easeOutCubic);
+    unawaited(done.whenComplete(() {
+      if (_target == i) _target = null;
+    }));
   }
 
-  Widget _slide(int i, {bool photo = true}) =>
-      Padding(padding: const EdgeInsets.symmetric(horizontal: Space.gutter), child: widget.slides[i].build(photo));
+  void _arrived(int i) {
+    setState(() => _index = i);
+    _fill.value = 0;
+    _sync();
+  }
 
-  /// The moving part: one repaint layer, its tickers frozen while scrolled off screen.
-  Widget _motion(Widget child) => TickerMode(enabled: _onScreen, child: RepaintBoundary(child: child));
+  void _touch(bool down) {
+    _touching = down;
+    _sync();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_count == 1) return Padding(padding: const EdgeInsets.only(top: Space.xs), child: _motion(_slide(0)));
-    final c = Theme.of(context).colorScheme;
-    final key = widget.slides[_index].key;
-    final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.slide;
+    if (_count == 1) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(Space.gutter, Space.xs, Space.gutter, 0),
+        child: TickerMode(enabled: _onScreen, child: RepaintBoundary(child: widget.slides[0].build(true))),
+      );
+    }
+    final dots = !_auto; // nothing fills: small static dots, the current one lit
     return Padding(
       padding: const EdgeInsets.only(top: Space.xs),
-      child: Column(
-        children: [
-          // a finger on it holds the slide; lifting it starts the 5 s again
-          Listener(
-            onPointerDown: (_) => _timer?.cancel(),
-            onPointerUp: (_) => _restart(),
-            onPointerCancel: (_) => _restart(),
-            child: GestureDetector(
-            onHorizontalDragEnd: (d) {
-              final v = d.primaryVelocity ?? 0;
-              if (v.abs() > 150) _step(v < 0 ? 1 : -1);
-            },
-            // Every slide is laid out invisibly so the carousel takes the tallest one's height and each slide fills
-            // it: all slides are the same size and nothing below jumps when it moves on.
-            child: Stack(
-              children: [
-                for (var i = 0; i < _count; i++)
-                  TickerMode(
-                    enabled: false, // invisible: their motion would only burn frames
-                    child: Visibility(
-                      visible: false,
-                      maintainSize: true,
-                      maintainAnimation: true,
-                      maintainState: true,
-                      child: _slide(i, photo: !widget.saver),
-                    ),
-                  ),
-                Positioned.fill(
-                  child: _motion(AnimatedSwitcher(
-                    duration: duration,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),
-                    transitionBuilder: (child, animation) {
-                      final incoming = child.key == ValueKey(key);
-                      final from = Offset((incoming ? 0.14 : -0.14) * _direction, 0);
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween(begin: from, end: Offset.zero).animate(animation),
-                          child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(animation), child: child),
-                        ),
-                      );
-                    },
-                    child: KeyedSubtree(key: ValueKey(key), child: _slide(_index)),
-                  )),
-                ),
-              ],
-            ),
-          ),
-          ),
-          // the dots jump straight to a slide; a screen reader swipes up / down to step through them
-          Semantics(
-            label: 'Slide ${_index + 1} of $_count',
-            onIncrease: () => _step(1),
-            onDecrease: () => _step(-1),
-            excludeSemantics: true,
-            child: Padding(
-              padding: const EdgeInsets.only(top: Space.xs),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < _count; i++)
-                    InkResponse(
-                      onTap: () => _go(i),
-                      radius: 12,
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Center(
-                          child: AnimatedContainer(
-                            duration: duration,
-                            curve: Curves.easeOutCubic,
-                            width: i == _index ? 16 : 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: i == _index ? c.primary : c.outline,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
+      child: SizedBox(
+        height: HeroCard.height,
+        child: LayoutBuilder(
+          builder: (context, box) => Stack(
+            children: [
+              // a finger on it holds the slide
+              Listener(
+                onPointerDown: (_) => _touch(true),
+                onPointerUp: (_) => _touch(false),
+                onPointerCancel: (_) => _touch(false),
+                child: TickerMode(
+                  enabled: _onScreen,
+                  child: RepaintBoundary(
+                    child: PageView.builder(
+                      controller: _pages,
+                      itemCount: _count,
+                      onPageChanged: _arrived,
+                      itemBuilder: (_, i) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: _gap),
+                        child: KeyedSubtree(
+                          key: ValueKey(widget.slides[i].key),
+                          child: widget.slides[i].build(!widget.saver || i == _index),
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A product as a sales banner on its own deep aurora ([deepPalette] of its id): on the left, on glass, [kicker] (or
-/// the time left), name, price against the MRP, the saving, real stock when [lowStock] or fewer are left and the
-/// rating from [minRatings] reviews, then Buy now and View; on the right the product cut out and big, rising a little
-/// over the card's top edge onto a soft ground shadow. The whole card opens it.
-class _ProductSlide extends ConsumerWidget {
-  const _ProductSlide(this.card, {this.photo = true, this.kicker = 'FEATURED', this.endsAt, this.live = true});
-
-  final ProductCard card;
-  final bool photo; // false for the invisible sizing copies in data-saver mode: same size, nothing downloaded
-  final String kicker;
-  final DateTime? endsAt; // a countdown replaces the kicker
-  final bool live; // false in the skeleton: no stock or rating to ask for
-
-  static const pop = 20.0; // how far the product rises over the card's top edge
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = Theme.of(context).textTheme;
-    const white = Colors.white;
-    void view() => context.push('/product/${card.slug}');
-    // only the slide on show asks for stock and rating: the carousel's sizing copies run with tickers off
-    final asks = live && TickerMode.valuesOf(context).enabled;
-    final product = asks ? ref.watch(productProvider(card.slug)).value : null;
-    final stats = asks ? ref.watch(productStatsProvider(card.id)).value : null;
-    final facts = slideFacts(card,
-        stock: card.madeToOrder || product == null ? null : stockOf(product),
-        ratingCount: stats?.ratingCount ?? 0,
-        ratingSum: stats?.ratingSum ?? 0);
-    final line = [
-      if (facts.savePaise > 0) 'Save ${formatInr(facts.savePaise)}',
-      if (facts.left case final n?) 'Only $n left',
-      if (facts.rating case final r?) '★ $r',
-    ].join(' · ');
-    final label = t.labelSmall?.copyWith(color: white, letterSpacing: 1.3, fontWeight: FontWeight.w700);
-    return Pressable(
-      child: Padding(
-        padding: const EdgeInsets.only(top: pop),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.hero), boxShadow: Shadows.raised),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(Radii.hero),
-                  // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
-                  child: AuroraBackground(
-                    palette: deepPalette(card.id), // white text passes 7:1 on every stop
-                    seed: card.id,
-                    still: true,
-                    child: Material(type: MaterialType.transparency, child: InkWell(onTap: view)),
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(Space.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 11,
-                    child: GlassSurface(
-                      kind: GlassKind.onDeep,
-                      radius: Radii.lg,
-                      child: Padding(
-                        padding: const EdgeInsets.all(Space.md),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (endsAt case final end?) Countdown(end, style: label) else Text(kicker, style: label),
-                            const SizedBox(height: Space.xs),
-                            Semantics(
-                              header: true,
-                              child: Text(card.name,
-                                  maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleMedium?.copyWith(color: white)),
-                            ),
-                            const SizedBox(height: Space.xs),
-                            Text.rich(
-                              TextSpan(children: [
-                                TextSpan(
-                                    text: formatInr(card.minPricePaise),
-                                    style: t.titleLarge?.copyWith(color: white, fontWeight: FontWeight.w800)),
-                                if (card.mrpPaise > card.minPricePaise)
-                                  TextSpan(
-                                    text: '  ${formatInr(card.mrpPaise)}',
-                                    style: t.labelMedium?.copyWith(color: white, decoration: TextDecoration.lineThrough),
-                                  ),
-                              ]),
-                              maxLines: 1,
-                            ).popIn(context),
-                            // one line, kept even when empty: every slide stays the same height
-                            Text(line, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: t.labelMedium?.copyWith(color: white, fontWeight: FontWeight.w700)),
-                            const SizedBox(height: Space.sm),
-                            Wrap(
-                              spacing: Space.xs,
-                              runSpacing: Space.xs,
-                              children: [
-                                FilledButton(
-                                  onPressed: () => _buyNow(context, ref, card),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: white,
-                                    foregroundColor: BrandColors.ink,
-                                    visualDensity: VisualDensity.compact,
-                                    padding: const EdgeInsets.symmetric(horizontal: Space.md),
-                                  ),
-                                  child: const Text('Buy now'),
-                                ),
-                                OutlinedButton(
-                                  onPressed: view,
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: white,
-                                    side: const BorderSide(color: white),
-                                    visualDensity: VisualDensity.compact,
-                                    padding: const EdgeInsets.symmetric(horizontal: Space.md),
-                                  ),
-                                  child: const Text('View'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ).sweep(context),
-                  ),
-                  const Spacer(flex: 9),
-                ],
-              ),
-            ),
-            // the product: big, over the top edge, on its shadow; taps fall through to the card
-            Positioned(
-              top: -pop,
-              bottom: Space.md,
-              left: 0,
-              right: Space.xs,
-              child: IgnorePointer(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FractionallySizedBox(
-                    widthFactor: 0.44,
-                    child: Stack(
-                      fit: StackFit.expand,
+              // inside the shown card's bottom-right corner; a screen reader swipes up / down to step through
+              Positioned(
+                right: box.maxWidth * (1 - _fraction) / 2 + _gap + Space.sm,
+                bottom: Space.md,
+                child: Semantics(
+                  label: 'Slide ${_index + 1} of $_count',
+                  onIncrease: () => _step(1),
+                  onDecrease: () => _step(-1),
+                  excludeSemantics: true,
+                  child: AnimatedBuilder(
+                    animation: _fill,
+                    builder: (context, _) => Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: FractionallySizedBox(
-                            widthFactor: 0.7,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.all(Radius.elliptical(60, 6)),
-                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 14)],
+                        for (var i = 0; i < _count; i++)
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _goTo(i),
+                            child: SizedBox(
+                              width: dots ? 24 : 28,
+                              height: 48, // the touch target; the bar itself is 3 dp
+                              child: Center(
+                                child: dots
+                                    ? DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: i == _index ? 1 : 0.4),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const SizedBox.square(dimension: 6),
+                                      )
+                                    : DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.3),
+                                          borderRadius: BorderRadius.circular(2),
+                                        ),
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 3,
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: FractionallySizedBox(
+                                              widthFactor: i < _index ? 1 : (i == _index ? _fill.value : 0),
+                                              child: const DecoratedBox(
+                                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(2))),
+                                                child: SizedBox(height: 3),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                               ),
-                              child: const SizedBox(height: 8),
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: Space.xs),
-                          child: ProductCutout(photo ? card.coverPath : null).kenBurns(context),
-                        ),
                       ],
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// A product as a sales banner: [kicker] (or the time left), its name, price against the MRP with the saving, and Buy
+/// now; the product cut out, big and tilted, on the right. The whole card opens it.
+class _ProductSlide extends ConsumerWidget {
+  const _ProductSlide(this.card, {this.photo = true, this.kicker = 'FEATURED', this.endsAt});
+
+  final ProductCard card;
+  final bool photo; // false for the invisible sizing copies in data-saver mode: same size, nothing downloaded
+  final String kicker;
+  final DateTime? endsAt; // a countdown replaces the kicker
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final save = slideFacts(card).savePaise;
+    return HeroCard(
+      tone: heroTone(seedHash(card.id)),
+      kicker: kicker,
+      endsAt: endsAt,
+      title: card.name,
+      cta: 'Buy now',
+      onCta: () => _buyNow(context, ref, card),
+      onTap: () => context.push('/product/${card.slug}'),
+      price: (
+        price: formatInr(card.minPricePaise),
+        mrp: card.mrpPaise > card.minPricePaise ? formatInr(card.mrpPaise) : null,
+        save: save > 0 ? 'Save ${formatInr(save)}' : null,
+      ),
+      visual: HeroVisual(items: [(path: card.coverPath, opacity: 1.0)], photo: photo, icon: PhosphorIconsFill.deviceMobile),
+      semanticsLabel: heroLabel(kicker.toUpperCase() == 'FEATURED' ? 'Product' : kicker[0] + kicker.substring(1).toLowerCase(), card.name, 'Buy now',
+          endsAt: endsAt, detail: formatInr(card.minPricePaise)),
     );
   }
 }

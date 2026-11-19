@@ -40,6 +40,9 @@ Offer? bestAutoApply(Iterable<Offer> offers, DateTime now, {int? subtotalPaise, 
 /// "Men’s Day sale" → "Men’s Day": the occasion an auto-apply offer is named for.
 String occasionOf(String title) => title.replaceFirst(RegExp(r'\s+sale$', caseSensitive: false), '');
 
+/// A code worth showing a customer: letters, then 1-3 digits (WEDDING5, MENSDAY5). Anything else looks random.
+bool readableCode(String? code) => code != null && RegExp(r'^[A-Za-z]{3,10}\d{1,3}$').hasMatch(code);
+
 /// The offer whose code the app filled in this session (null: none, or the customer typed their own).
 final autoCouponProvider = NotifierProvider<AutoCoupon, Offer?>(AutoCoupon.new);
 

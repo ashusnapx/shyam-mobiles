@@ -72,9 +72,27 @@ void main() {
     expect(c.read(couponCodeProvider), 'MINE10');
   });
 
-  testWidgets('home chip: the occasion, the deal and that it’s already applied', (tester) async {
+  testWidgets('home chip: one 44 dp line, the occasion, the deal, readable code, applied at checkout', (tester) async {
     await pump(tester, OccasionChip(now: now));
-    expect(find.text('Happy Men’s Day · 5% off with MEN5, already applied'), findsOneWidget);
-    expect(tester.getSize(find.byType(OccasionChip)).height, greaterThanOrEqualTo(48));
+    expect(find.text('Men’s Day · 5% off with MEN5 applied at checkout'), findsOneWidget);
+    expect(tester.getSize(find.byType(OccasionChip)).height, OccasionChip.height + 12); // 44 and the gap above it
+  });
+
+  testWidgets('home chip: a random-looking code is never shown', (tester) async {
+    await pumpScreen(tester, Scaffold(body: Column(children: [OccasionChip(now: now)])), overrides: [
+      availableOffersProvider.overrideWith((ref) async => [Offer(id: 'r', title: 'Festive sale', code: 'X7K2QZ9', kind: OfferKind.percent, value: 5, startsAt: DateTime(2026, 11, 18), endsAt: DateTime(2099), autoApply: true)]),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('X7K2QZ9'), findsNothing);
+    expect(find.text('Festive · 5% off applied at checkout'), findsOneWidget);
+  });
+
+  test('readable codes: letters then digits only', () {
+    for (final ok in ['WEDDING5', 'MENSDAY5', 'DIWALI10', 'diwali10']) {
+      expect(readableCode(ok), isTrue, reason: ok);
+    }
+    for (final bad in ['X7K2QZ9', 'A7K2', 'FLAT-200', '5OFF', 'WEDDING', 'AB5', '', null]) {
+      expect(readableCode(bad), isFalse, reason: '$bad');
+    }
   });
 }

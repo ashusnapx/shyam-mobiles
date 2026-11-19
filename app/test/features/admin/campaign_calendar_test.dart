@@ -69,21 +69,25 @@ void main() {
     }
   });
 
-  test('code suggestions customers can read', () {
-    expect(suggestCode('Men’s Day', 5), 'MEN5');
-    expect(suggestCode("New Year's Day", 5), 'NEWYEAR5');
+  test('code suggestions customers can read: first word, letters only, 8 at most, then the percent', () {
+    expect(suggestCode('Wedding season', 5), 'WEDDING5');
+    expect(suggestCode('Men’s Day', 5), 'MENSDAY5');
     expect(suggestCode('Diwali/Deepavali', 10), 'DIWALI10');
     expect(suggestCode('Teachers’ Day', 5), 'TEACHERS5');
+    expect(suggestCode("New Year's Day", 5), 'NEWYEARS5');
     expect(suggestCode('Id', 5), 'IDDAY5');
-    expect(suggestCode('International Yoga Day', 5), 'YOGA5');
+    expect(suggestCode('International Yoga Day', 5), 'YOGADAY5');
+    expect(suggestCode('Wedding season', 5, taken: {'WEDDING5'}), 'WEDDING51');
+    expect(suggestCode('Wedding season', 5, taken: {'wedding5', 'WEDDING51'}), 'WEDDING52');
     for (final e in mergeEvents(parseIcs(_fixture), [2026])) {
-      expect(RegExp(r'^[A-Z0-9]{4,20}$').hasMatch(suggestCode(e.name, 5)), isTrue, reason: e.name);
+      final code = suggestCode(e.name, 5);
+      expect(RegExp(r'^[A-Z]{3,8}\d{1,2}$').hasMatch(code), isTrue, reason: '${e.name} → $code');
     }
   });
 
   test('the prefill: 5% with the code, 00:00 to 23:59 IST, applied for customers', () {
     final p = draftFor(_named(shopDays(2026), 'Men’s Day'));
-    expect((p.id, p.title, p.code, p.kind, p.value, p.autoApply), (null, 'Men’s Day sale', 'MEN5', OfferKind.percent, 5, true));
+    expect((p.id, p.title, p.code, p.kind, p.value, p.autoApply), (null, 'Men’s Day sale', 'MENSDAY5', OfferKind.percent, 5, true));
     expect(p.startsAt, DateTime.utc(2026, 11, 18, 18, 30));
     expect(p.endsAt, DateTime.utc(2026, 11, 19, 18, 29));
   });

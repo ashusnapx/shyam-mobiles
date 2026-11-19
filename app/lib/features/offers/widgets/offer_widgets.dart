@@ -11,7 +11,6 @@ import '../../../core/errors.dart';
 import '../../../core/format.dart';
 import '../../../core/input.dart';
 import '../../../core/models/models.dart';
-import '../../../core/theme/generative.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
@@ -64,10 +63,11 @@ String? countdown(DateTime endsAt, {DateTime? now}) {
 
 /// [countdown] with a timer icon, redrawn as each minute ticks over; nothing once the offer has ended.
 class Countdown extends StatefulWidget {
-  const Countdown(this.endsAt, {super.key, this.style});
+  const Countdown(this.endsAt, {super.key, this.style, this.caps = false});
 
   final DateTime endsAt;
   final TextStyle? style;
+  final bool caps; // "ENDS IN 10D 7H"
 
   @override
   State<Countdown> createState() => _CountdownState();
@@ -86,6 +86,7 @@ class _CountdownState extends State<Countdown> {
   Widget build(BuildContext context) {
     final left = widget.endsAt.difference(DateTime.now());
     final text = countdown(widget.endsAt);
+    final caps = widget.caps;
     _tick?.cancel();
     if (text == null) return const SizedBox.shrink();
     // wakes just after the shown minute changes, not every second
@@ -95,7 +96,7 @@ class _CountdownState extends State<Countdown> {
       spacing: Space.xs,
       children: [
         Icon(PhosphorIconsBold.timer, size: IconSizes.sm, color: widget.style?.color),
-        Flexible(child: Text(text, style: widget.style)),
+        Flexible(child: Text(caps ? text.toUpperCase() : text, maxLines: 1, overflow: TextOverflow.ellipsis, style: widget.style)),
       ],
     );
   }
@@ -474,113 +475,5 @@ void openAppLink(BuildContext context, String link) {
     context.go(link);
   } else {
     context.push(link);
-  }
-}
-
-/// One home banner on its own deep, calm colours, made from its id ([deepPalette]: white text passes 4.5:1 on every
-/// stop): the words on a glass panel, its photo beside them when set, the same build as Home's product slides. The
-/// admin's tone is no longer used: the maths picks the colours.
-class PromoBannerCard extends StatelessWidget {
-  const PromoBannerCard(this.banner, {super.key, this.onTap});
-
-  final PromoBanner banner;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => Pressable(child: _card(context));
-
-  Widget _card(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final palette = deepPalette(banner.id);
-    const white = Colors.white;
-    return MergeSemantics(
-      child: DecoratedBox(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.hero), boxShadow: Shadows.raised),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(Radii.hero),
-          // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
-          child: AuroraBackground(
-            palette: palette,
-            seed: banner.id,
-            still: true,
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: onTap,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 184), // a product slide's height: the carousel doesn't jump
-                  child: Padding(
-                    padding: const EdgeInsets.all(Space.lg),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GlassSurface(
-                            kind: GlassKind.onDeep,
-                            radius: Radii.lg,
-                            child: Padding(
-                              padding: const EdgeInsets.all(Space.md),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('OFFER',
-                                      style: t.labelSmall?.copyWith(color: white, letterSpacing: 1.3, fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: Space.xs),
-                                  Text(
-                                    banner.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: t.titleLarge?.copyWith(color: white),
-                                  ),
-                                  if (banner.endsAt != null) ...[
-                                    const SizedBox(height: Space.xs),
-                                    Countdown(banner.endsAt!, style: t.labelLarge?.copyWith(color: white)).popIn(context),
-                                  ],
-                                  if (banner.subtitle.isNotEmpty) ...[
-                                    const SizedBox(height: Space.xs),
-                                    // labelLarge at least: the smallest white text glass on a deep colour allows
-                                    Text(
-                                      banner.subtitle,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: t.labelLarge?.copyWith(color: white),
-                                    ),
-                                  ],
-                                  const SizedBox(height: Space.md),
-                                  // the product slides' white pill; the whole card is the tap target
-                                  DecoratedBox(
-                                    decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(Radii.xl)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        spacing: Space.xs,
-                                        children: [
-                                          Flexible(
-                                            child: Text(banner.ctaLabel, style: t.labelMedium?.copyWith(color: BrandColors.ink)),
-                                          ),
-                                          const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.ink),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ).sweep(context),
-                        ),
-                        if (banner.imagePath != null) ...[
-                          const SizedBox(width: Space.md),
-                          SizedBox(width: 96, child: ProductCutout(banner.imagePath).kenBurns(context)),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

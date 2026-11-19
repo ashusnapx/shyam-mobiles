@@ -79,3 +79,51 @@ int? stockOf(Product p) {
   if (live.any((v) => v.madeToOrder)) return null;
   return live.fold<int>(0, (n, v) => n + max(0, v.stock));
 }
+
+/// A cut-out on a hero slide: the photo path (null: nothing to load) and how solid it is.
+typedef HeroItem = ({String? path, double opacity});
+
+enum HeroFan { offer, pack, exchange, none }
+
+/// The products fanned out on a slide that has none of its own. [pool] is newest first; only in-stock, not made-to-order products with a photo are used, each once. offer: up to three phones (any product
+/// when there are none: Offer has no target list on the phone); pack: phone, screen guard, case; exchange: the newest
+/// phone and the oldest one in [pool] at 70%.
+List<HeroItem> heroFan(HeroFan kind, Iterable<ProductCard> pool) {
+  final seen = <String>{};
+  final ok = [for (final c in pool) if (c.inStock && !c.madeToOrder && c.coverPath != null && seen.add(c.id)) c];
+  final phones = [for (final c in ok) if (c.categorySlug == 'smartphones') c];
+  HeroItem item(ProductCard c, [double opacity = 1]) => (path: c.coverPath, opacity: opacity);
+  ProductCard? of(String slug) => ok.where((c) => c.categorySlug == slug).firstOrNull;
+  return switch (kind) {
+    HeroFan.none => const [],
+    HeroFan.offer => [for (final c in (phones.isEmpty ? ok : phones).take(3)) item(c)],
+    HeroFan.pack => phones.isEmpty
+        ? const []
+        : [item(phones.first), for (final c in [of('screen-guards'), of('cases-covers')]) if (c != null) item(c)],
+    HeroFan.exchange => [
+        if (phones.isNotEmpty) item(phones.first),
+        if (phones.length > 1) item(phones.last, 0.7),
+      ],
+  };
+}
+
+/// A button label of at most two words: "Get an estimate" → "Get estimate", "Book a repair" → "Book repair".
+String heroCta(String label) {
+  const skip = {'a', 'an', 'the', 'your', 'my'};
+  final words = [for (final w in label.trim().split(RegExp(r'\s+'))) if (w.isNotEmpty && !skip.contains(w.toLowerCase())) w];
+  return words.isEmpty ? 'Shop now' : words.take(2).join(' ');
+}
+
+/// What a screen reader says for the time left: "ends in 10 days", "ends in 7 hours", "ends in 9 minutes"; null once over.
+String? spokenLeft(DateTime endsAt, {DateTime? now}) {
+  final left = endsAt.difference(now ?? DateTime.now());
+  if (left <= Duration.zero) return null;
+  String n(int v, String unit) => '$v $unit${v == 1 ? '' : 's'}';
+  if (left.inDays > 0) return 'ends in ${n(left.inDays, 'day')}';
+  if (left.inHours > 0) return 'ends in ${n(left.inHours, 'hour')}';
+  return 'ends in ${n(max(1, left.inMinutes), 'minute')}';
+}
+
+/// "Offer: Festive phone sale, ends in 10 days, Shop now": one label per slide.
+String heroLabel(String kind, String title, String cta, {DateTime? endsAt, String? detail, DateTime? now}) =>
+    [if (kind.isNotEmpty) '$kind: $title' else title, ?detail, ?(endsAt == null ? null : spokenLeft(endsAt, now: now)), cta].join(', ');

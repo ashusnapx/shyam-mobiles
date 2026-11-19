@@ -383,7 +383,7 @@ class _DaySheetState extends ConsumerState<DaySheet> {
               trailing: FilledButton.tonal(
                 onPressed: () {
                   Navigator.pop(context);
-                  context.push('/admin/offers/new', extra: draftFor(e));
+                  context.push('/admin/offers/new', extra: draftFor(e, taken: {for (final p in ref.read(adminPromotionsProvider).value ?? const <Promotion>[]) ?p.code}));
                 },
                 child: const Text('Create offer'),
               ),

@@ -131,22 +131,27 @@ List<CalendarEvent> mergeEvents(List<CalendarEvent> feed, Iterable<int> years, {
   ]..sort((a, b) => a.start != b.start ? a.start.compareTo(b.start) : (b.big ? 1 : 0) - (a.big ? 1 : 0));
 }
 
-/// "Men’s Day" → MEN5, "New Year’s Day" → NEWYEAR5, "Diwali/Deepavali" → DIWALI5: a code customers can read and type.
-String suggestCode(String name, int percent) {
-  const skip = {'day', 'the', 'of', 'and', 'international', 'national', 'world'};
-  final words = name.replaceAll('’', "'").split(RegExp(r"[^A-Za-z']+")).where((w) => w.isNotEmpty);
+/// "Wedding season" → WEDDING5, "Men’s Day" → MENSDAY5, "Diwali" → DIWALI10: the event's first word, letters only,
+/// uppercased (a word under 5 letters takes the next one, 8 letters at most), then the percent. A code in [taken]
+/// gets a digit added until it is free.
+String suggestCode(String name, int percent, {Set<String> taken = const {}}) {
+  const skip = {'the', 'of', 'and', 'international', 'national', 'world'};
+  final words = name.split(RegExp(r'[^A-Za-z’\x27]+')).map((w) => w.replaceAll(RegExp(r'[^A-Za-z]'), '')).where((w) => w.isNotEmpty);
   var base = '';
   for (final w in words) {
-    if (skip.contains(w.toLowerCase())) {
-      if (base.isEmpty) continue;
-      break;
-    }
-    base += w.split("'").first.toUpperCase();
-    if (w.contains("'") || base.length >= 4) break;
+    if (base.isEmpty && skip.contains(w.toLowerCase())) continue;
+    base += w.toUpperCase();
+    if (base.length >= 5) break;
   }
-  if (base.length > 12) base = base.substring(0, 12);
-  final code = '$base$percent';
-  return code.length >= 4 ? code : '${base}DAY$percent'; // promoCodes need 4+ characters
+  if (base.length > 8) base = base.substring(0, 8);
+  var code = '$base$percent';
+  if (code.length < 4) code = '${base}DAY$percent'; // promoCodes need 4+ characters
+  final used = {for (final t in taken) t.toUpperCase()};
+  final free = code;
+  for (var d = 1; used.contains(code) && d < 10; d++) {
+    code = '$free$d';
+  }
+  return code;
 }
 
 const istOffset = Duration(hours: 5, minutes: 30);
@@ -159,9 +164,9 @@ DateTime istToday(DateTime now) => dayOf(now.toUtc().add(istOffset));
 
 /// The editor's prefill for an event's offer: 5% off with the suggested code, from 00:00 IST on its first day to
 /// 23:59 IST on its last, applied for customers automatically. Staff change anything before saving.
-Promotion draftFor(CalendarEvent e, {int percent = 5}) => Promotion(
+Promotion draftFor(CalendarEvent e, {int percent = 5, Set<String> taken = const {}}) => Promotion(
       title: '${e.name} sale'.length > 60 ? e.name.substring(0, 55) : '${e.name} sale',
-      code: suggestCode(e.name, percent),
+      code: suggestCode(e.name, percent, taken: taken),
       kind: OfferKind.percent,
       value: percent,
       startsAt: istStart(e.start),

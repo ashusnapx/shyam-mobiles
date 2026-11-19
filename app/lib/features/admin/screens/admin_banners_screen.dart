@@ -12,7 +12,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../catalog/data/hero.dart' show AutoBanner;
 import '../../catalog/data/settings_repository.dart' show storeSettingsProvider;
 import '../../offers/data/offers.dart';
-import '../../offers/widgets/offer_widgets.dart';
+import '../../offers/widgets/hero_card.dart';
 import '../data/admin.dart';
 import '../data/offers_admin.dart';
 import '../data/photos.dart';

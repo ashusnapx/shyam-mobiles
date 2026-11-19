@@ -262,56 +262,11 @@ class CountTo extends StatelessWidget {
   }
 }
 
-/// White at this strength sweeps over the hero's glass panel: white text there stays 4.5:1 (generative_test).
-const sweepAlpha = 0.10;
-
-/// The Home hero's slide motion. Each effect starts when its slide shows (a new slide is a new widget); TickerMode
-/// freezes it off screen, behind another tab and in the carousel's invisible sizing copies; a paused app draws no
-/// frames. All of it is off when the phone asks for less motion.
+/// The Home hero's one motion: the product eases from 1.0 to 1.04 over 6 s when its slide shows (a new slide is a new
+/// widget). TickerMode freezes it off screen, behind another tab and in the carousel's sizing copies; it is off when
+/// the phone asks for less motion.
 extension HeroMotion on Widget {
-  /// Slow zoom and drift on a photo (Ken Burns). Clip the parent.
-  Widget kenBurns(BuildContext context) => MediaQuery.disableAnimationsOf(context)
+  Widget slowZoom(BuildContext context) => MediaQuery.disableAnimationsOf(context)
       ? this
-      : animate(onPlay: (c) => c.repeat(reverse: true))
-          .scaleXY(begin: 1, end: 1.12, duration: 9.seconds, curve: Curves.easeInOut)
-          .move(begin: const Offset(-3, 2), end: const Offset(3, -2), duration: 9.seconds, curve: Curves.easeInOut);
-
-  /// A soft band of light crosses this every few seconds; [radius] rounds it to the panel.
-  Widget sweep(BuildContext context, {double radius = Radii.lg}) => MediaQuery.disableAnimationsOf(context)
-      ? this
-      : animate(onPlay: (c) => c.repeat()).custom(
-          delay: 3.seconds,
-          duration: 1200.ms,
-          curve: Curves.easeInOut,
-          builder: (_, v, child) => Stack(
-            children: [
-              child,
-              if (v > 0 && v < 1)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(radius),
-                      child: FractionalTranslation(translation: Offset(v * 2.4 - 1.2, 0), child: const DecoratedBox(decoration: _sheen)),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-
-  /// Grows in from small, a beat after its slide arrives (the price, the countdown).
-  Widget popIn(BuildContext context) => MediaQuery.disableAnimationsOf(context)
-      ? this
-      : animate()
-          .fadeIn(delay: 250.ms, duration: 250.ms)
-          .scaleXY(begin: 0.7, end: 1, delay: 250.ms, duration: 450.ms, curve: Curves.easeOutBack, alignment: Alignment.centerLeft);
+      : animate().scaleXY(begin: 1, end: 1.04, duration: 6.seconds, curve: Curves.easeOut);
 }
-
-const _sheen = BoxDecoration(
-  gradient: LinearGradient(
-    begin: Alignment(-1, -0.5),
-    end: Alignment(1, 0.5),
-    stops: [0.3, 0.5, 0.7],
-    colors: [Color(0x00FFFFFF), Color.fromRGBO(255, 255, 255, sweepAlpha), Color(0x00FFFFFF)],
-  ),
-);

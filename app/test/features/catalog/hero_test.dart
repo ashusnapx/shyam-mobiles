@@ -76,4 +76,30 @@ void main() {
     await pump('p1/1.webp', DataMode.full);
     expect(find.byType(ProductImage), findsNothing, reason: 'the cut-out loads first; its errorWidget is the tile');
   });
+
+  test('the fan: offers show phones, packs phone + guard + case, exchange the newest and an older phone at 70%', () {
+    ProductCard p(String id, String slug) => ProductCard(
+        id: id, slug: id, name: id, brandName: 'B', categorySlug: slug, minPricePaise: 100, mrpPaise: 100, inStock: true, coverPath: '$id/1.webp');
+    final pool = [p('new', 'smartphones'), p('guard', 'screen-guards'), p('mid', 'smartphones'), p('case', 'cases-covers'), p('old', 'smartphones')];
+    expect([for (final i in heroFan(HeroFan.offer, pool)) i.path], ['new/1.webp', 'mid/1.webp', 'old/1.webp']);
+    expect([for (final i in heroFan(HeroFan.pack, pool)) i.path], ['new/1.webp', 'guard/1.webp', 'case/1.webp']);
+    expect([for (final i in heroFan(HeroFan.exchange, pool)) (i.path, i.opacity)], [('new/1.webp', 1.0), ('old/1.webp', 0.7)]);
+    expect(heroFan(HeroFan.none, pool), isEmpty);
+    expect(heroFan(HeroFan.pack, [p('g', 'screen-guards')]), isEmpty, reason: 'a pack needs its phone');
+    expect(heroFan(HeroFan.offer, [_card('x', 100, 100, inStock: false)]), isEmpty, reason: 'sold out or no photo: never shown');
+  });
+
+  test('labels: two-word buttons, spoken time left, one slide label', () {
+    expect(heroCta('Get an estimate'), 'Get estimate');
+    expect(heroCta('Book a repair'), 'Book repair');
+    expect(heroCta('Shop now'), 'Shop now');
+    expect(heroCta('  '), 'Shop now');
+    final t = DateTime(2026, 11, 19, 10);
+    expect(spokenLeft(t.add(const Duration(days: 10, hours: 7)), now: t), 'ends in 10 days');
+    expect(spokenLeft(t.add(const Duration(hours: 1, minutes: 5)), now: t), 'ends in 1 hour');
+    expect(spokenLeft(t.add(const Duration(minutes: 9)), now: t), 'ends in 9 minutes');
+    expect(spokenLeft(t, now: t), isNull);
+    expect(heroLabel('Offer', 'Festive phone sale', 'Shop now', endsAt: t.add(const Duration(days: 10, hours: 7)), now: t),
+        'Offer: Festive phone sale, ends in 10 days, Shop now');
+  });
 }

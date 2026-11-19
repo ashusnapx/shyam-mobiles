@@ -8,10 +8,13 @@ import '../data/auto_apply.dart';
 import '../data/offers.dart';
 import 'offer_widgets.dart' show offerHeadline;
 
-/// Home's "Happy Men’s Day · 5% off with MEN5, already applied" while an auto-apply offer runs (Campaign calendar).
-/// It fills the code too, so "already applied" is true; the cart still shows the server's verdict.
+/// Home's "Wedding season · 5% off applied at checkout" while an auto-apply offer runs (Campaign calendar): one line,
+/// with the code only when it is readable ([readableCode]). It fills the code too, so "applied" is true; the cart
+/// still shows the server's verdict.
 class OccasionChip extends ConsumerWidget {
   const OccasionChip({super.key, this.now});
+
+  static const height = 44.0;
 
   final DateTime? now; // tests pin the clock
 
@@ -23,10 +26,9 @@ class OccasionChip extends ConsumerWidget {
     if (best == null) return const SizedBox.shrink();
     ref.read(autoCouponProvider.notifier).fill(offers!, at);
     final applied = ref.watch(couponCodeProvider) == best.code;
-    final occasion = occasionOf(best.title);
-    final text = '${occasion == best.title ? best.title : 'Happy $occasion'} · ${offerHeadline(best)} with ${best.code}'
-        '${applied ? ', already applied' : ''}';
-    final (bg, fg) = Worlds.offers;
+    final text = '${occasionOf(best.title)} · ${offerHeadline(best)}${readableCode(best.code) ? ' with ${best.code}' : ''}'
+        '${applied ? ' applied' : ''} at checkout';
+    const bg = BrandColors.mint, fg = BrandColors.mintInk;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.gutter, Space.md, Space.gutter, 0),
       child: Material(
@@ -35,16 +37,21 @@ class OccasionChip extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(Radii.chip),
           onTap: () => context.push('/offers/${best.id}'),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
+          child: SizedBox(
+            height: height,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+              padding: const EdgeInsets.symmetric(horizontal: Space.md),
               child: Row(
                 children: [
-                  Icon(PhosphorIconsFill.sealPercent, size: IconSizes.md, color: fg),
+                  const Icon(PhosphorIconsFill.checkCircle, size: IconSizes.md, color: fg),
                   const SizedBox(width: Space.sm),
+                  // one line: a long name shrinks to fit rather than wrapping
                   Expanded(
-                    child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: fg, fontWeight: FontWeight.w700)),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(text, maxLines: 1, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: fg, fontWeight: FontWeight.w700)),
+                    ),
                   ),
                 ],
               ),
