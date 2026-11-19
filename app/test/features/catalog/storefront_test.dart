@@ -71,7 +71,7 @@ void main() {
           )),
       catalogRepositoryProvider.overrideWithValue(FakeRailsApi(all: cards)),
     ]);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1)); // the hero animates forever, so it never settles
     final order = [
       for (final s in tester.widget<CustomScrollView>(find.byType(CustomScrollView)).slivers)
         if (s.key case ValueKey<String>(:final value)) value,
@@ -84,21 +84,23 @@ void main() {
     expect(find.text('Repairs'), findsNothing, reason: 'Repairs is a tab and a strip, not a category');
 
     await tester.tap(find.text('Genuine products'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
     expect(find.text('Why buy from us'), findsOneWidget);
     expect(find.text('No platform, COD or packing fees'), findsOneWidget);
     await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
 
     await tester.scrollUntilVisible(find.text('Deals under ₹1,500'), 300, scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
     final dealsSeeAll = find.descendant(
       of: find.ancestor(of: find.text('Deals under ₹1,500'), matching: find.byType(Row)).first,
       matching: find.text('See all'),
     );
     tester.widget<TextButton>(find.ancestor(of: dealsSeeAll, matching: find.byWidgetPredicate((w) => w is TextButton))).onPressed!();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
     expect(router.state.uri.toString(), '/search?max=150000');
+    await tester.pumpWidget(const SizedBox()); // dispose Home so the hero's slide and countdown timers stop
+    await tester.pump(const Duration(seconds: 10));
   });
 
   testWidgets('product page: full name, You save, the best offer with its price, why buy here, and the WhatsApp bar',

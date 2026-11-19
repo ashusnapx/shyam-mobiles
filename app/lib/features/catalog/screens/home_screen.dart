@@ -16,13 +16,18 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/blocks.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../cart/data/cart.dart';
+import '../../exchange/widgets/exchange_widgets.dart' show showExchangeSheet;
 import '../../offers/data/offers.dart';
-import '../../notifications/widgets/notification_widgets.dart';
 import '../../offers/widgets/occasion_chip.dart';
+import '../../notifications/widgets/notification_widgets.dart';
 import '../../offers/widgets/offer_widgets.dart';
+import '../../reviews/data/reviews.dart' show productStatsProvider;
 import '../data/catalog.dart';
+import '../data/hero.dart';
 import '../data/rails.dart';
 import '../data/social_repository.dart';
+import '../data/variant_options.dart' show initialVariant;
 import '../widgets/product_rail.dart';
 import '../widgets/instagram_row.dart';
 import '../widgets/product_tile.dart';
@@ -109,13 +114,26 @@ class HomeScreen extends ConsumerWidget {
         ),
       ];
     }
-    final banners = ref.watch(homeBannersProvider).take(_slides).toList();
+    // the owner's banners first, then the automatic ones that are on, then featured products, six at most
+    final latest = ref.watch(latestProvider).value ?? const <ProductCard>[];
+    final auto = autoSlides(settings?.autoBanners ?? StoreSettings.defaultAutoBanners,
+        cards: [...d.featured, ...d.accessories, ...latest], newest: latest, now: DateTime.now());
+    final shown = {for (final a in auto) ?a.card?.id};
     final slides = <_Slide>[
-      for (final b in banners)
+      for (final b in ref.watch(homeBannersProvider))
         (key: 'banner ${b.id}', build: (_) => PromoBannerCard(b, onTap: () => openAppLink(context, b.link))),
-      for (final card in d.featured.take(_slides - banners.length))
-        (key: 'product ${card.id}', build: (photo) => _ProductSlide(card, photo: photo)),
-    ];
+      for (final a in auto)
+        if (a.card case final c?)
+          (
+            key: '${a.kind.name} ${c.id}',
+            build: (photo) => _ProductSlide(c,
+                photo: photo, kicker: a.kind == AutoBanner.deal ? 'DEAL OF THE DAY' : 'NEW', endsAt: a.endsAt),
+          )
+        else
+          (key: a.kind.name, build: (_) => _autoPromo(context, a.kind)),
+      for (final card in d.featured)
+        if (!shown.contains(card.id)) (key: 'product ${card.id}', build: (photo) => _ProductSlide(card, photo: photo)),
+    ].take(_slides).toList();
     final phoneSlugs = {for (final c in d.categories) if (c.kind == CategoryKind.phone) c.slug};
     final phones = [for (final c in d.featured) if (phoneSlugs.contains(c.categorySlug)) c];
     final phoneCategory = phones.firstOrNull?.categorySlug ?? 'smartphones';
@@ -200,7 +218,7 @@ class HomeScreen extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-          child: _ProductSlide(fakeCards(1).first),
+          child: _ProductSlide(fakeCards(1).first, live: false),
         ),
         const SizedBox(height: 48), // the carousel's controls
         _CategoryRow([
@@ -346,6 +364,31 @@ class _SearchField extends StatelessWidget {
     );
   }
 }
+
+/// Exchange and Repairs as banners: no product, a form to open.
+Widget _autoPromo(BuildContext context, AutoBanner kind) => kind == AutoBanner.exchange
+    ? PromoBannerCard(
+        PromoBanner(
+          id: 'auto-exchange',
+          title: 'Exchange your old phone',
+          subtitle: 'Tell us its model and condition: the shop sends you an estimate.',
+          ctaLabel: 'Get an estimate',
+          link: '/',
+          startsAt: DateTime(2026),
+        ),
+        onTap: () => showExchangeSheet(context),
+      )
+    : PromoBannerCard(
+        PromoBanner(
+          id: 'auto-repairs',
+          title: 'Repairs · same day',
+          subtitle: 'Screens, batteries, charging ports and more.',
+          ctaLabel: 'Book a repair',
+          link: '/repairs/new',
+          startsAt: DateTime(2026),
+        ),
+        onTap: () => openAppLink(context, '/repairs/new'),
+      );
 
 /// One carousel slide: an offer banner or a featured product; [build] gets whether to load its photo.
 typedef _Slide = ({String key, Widget Function(bool photo) build});
@@ -545,96 +588,165 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   }
 }
 
-/// A featured product on its own deep, calm aurora ([deepPalette] of its id): the words on a glass panel, the photo
-/// on white beside it; the whole card opens it.
-class _ProductSlide extends StatelessWidget {
-  const _ProductSlide(this.card, {this.photo = true});
+/// A product as a sales banner on its own deep aurora ([deepPalette] of its id): on the left, on glass, [kicker] (or
+/// the time left), name, price against the MRP, the saving, real stock when [lowStock] or fewer are left and the
+/// rating from [minRatings] reviews, then Buy now and View; on the right the product cut out and big, rising a little
+/// over the card's top edge onto a soft ground shadow. The whole card opens it.
+class _ProductSlide extends ConsumerWidget {
+  const _ProductSlide(this.card, {this.photo = true, this.kicker = 'FEATURED', this.endsAt, this.live = true});
 
   final ProductCard card;
   final bool photo; // false for the invisible sizing copies in data-saver mode: same size, nothing downloaded
+  final String kicker;
+  final DateTime? endsAt; // a countdown replaces the kicker
+  final bool live; // false in the skeleton: no stock or rating to ask for
+
+  static const pop = 20.0; // how far the product rises over the card's top edge
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final palette = deepPalette(card.id); // white text passes 7:1 on every stop
-    final off = discountPercent(card.minPricePaise, card.mrpPaise);
     const white = Colors.white;
+    void view() => context.push('/product/${card.slug}');
+    // only the slide on show asks for stock and rating: the carousel's sizing copies run with tickers off
+    final asks = live && TickerMode.valuesOf(context).enabled;
+    final product = asks ? ref.watch(productProvider(card.slug)).value : null;
+    final stats = asks ? ref.watch(productStatsProvider(card.id)).value : null;
+    final facts = slideFacts(card,
+        stock: card.madeToOrder || product == null ? null : stockOf(product),
+        ratingCount: stats?.ratingCount ?? 0,
+        ratingSum: stats?.ratingSum ?? 0);
+    final line = [
+      if (facts.savePaise > 0) 'Save ${formatInr(facts.savePaise)}',
+      if (facts.left case final n?) 'Only $n left',
+      if (facts.rating case final r?) '★ $r',
+    ].join(' · ');
+    final label = t.labelSmall?.copyWith(color: white, letterSpacing: 1.3, fontWeight: FontWeight.w700);
     return Pressable(
-      child: DecoratedBox(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.hero), boxShadow: Shadows.raised),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(Radii.hero),
-          // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
-          child: AuroraBackground(
-            palette: palette,
-            seed: card.id,
-            still: true,
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: () => context.push('/product/${card.slug}'),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 184),
-                  child: Padding(
-                    padding: const EdgeInsets.all(Space.lg),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GlassSurface(
-                            kind: GlassKind.onDeep,
-                            radius: Radii.lg,
-                            child: Padding(
-                              padding: const EdgeInsets.all(Space.md),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('FEATURED',
-                                      style: t.labelSmall?.copyWith(color: white, letterSpacing: 1.3, fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: Space.xs),
-                                  Semantics(
-                                    header: true,
-                                    child: Text(card.name,
-                                        maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleLarge?.copyWith(color: white)),
-                                  ),
-                                  const SizedBox(height: Space.xs),
-                                  Text(
-                                    ['From ${formatInr(card.minPricePaise)}', if (off > 0) '$off% off'].join(' · '),
-                                    style: t.labelLarge?.copyWith(color: white),
-                                  ).popIn(context),
-                                  const SizedBox(height: Space.md),
-                                  // a pill like the banners' button; the whole card is the tap target
-                                  DecoratedBox(
-                                    decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(Radii.xl)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        spacing: Space.xs,
-                                        children: [
-                                          Text(card.categorySlug == 'smartphones' ? 'View phone' : 'View',
-                                              style: t.labelMedium?.copyWith(color: BrandColors.ink)),
-                                          const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.ink),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: pop),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.hero), boxShadow: Shadows.raised),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(Radii.hero),
+                  // still: the carousel already moves, and a drifting hero would repaint the top of Home all day
+                  child: AuroraBackground(
+                    palette: deepPalette(card.id), // white text passes 7:1 on every stop
+                    seed: card.id,
+                    still: true,
+                    child: Material(type: MaterialType.transparency, child: InkWell(onTap: view)),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(Space.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 11,
+                    child: GlassSurface(
+                      kind: GlassKind.onDeep,
+                      radius: Radii.lg,
+                      child: Padding(
+                        padding: const EdgeInsets.all(Space.md),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (endsAt case final end?) Countdown(end, style: label) else Text(kicker, style: label),
+                            const SizedBox(height: Space.xs),
+                            Semantics(
+                              header: true,
+                              child: Text(card.name,
+                                  maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleMedium?.copyWith(color: white)),
                             ),
-                          ).sweep(context),
+                            const SizedBox(height: Space.xs),
+                            Text.rich(
+                              TextSpan(children: [
+                                TextSpan(
+                                    text: formatInr(card.minPricePaise),
+                                    style: t.titleLarge?.copyWith(color: white, fontWeight: FontWeight.w800)),
+                                if (card.mrpPaise > card.minPricePaise)
+                                  TextSpan(
+                                    text: '  ${formatInr(card.mrpPaise)}',
+                                    style: t.labelMedium?.copyWith(color: white, decoration: TextDecoration.lineThrough),
+                                  ),
+                              ]),
+                              maxLines: 1,
+                            ).popIn(context),
+                            // one line, kept even when empty: every slide stays the same height
+                            Text(line, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: t.labelMedium?.copyWith(color: white, fontWeight: FontWeight.w700)),
+                            const SizedBox(height: Space.sm),
+                            Wrap(
+                              spacing: Space.xs,
+                              runSpacing: Space.xs,
+                              children: [
+                                FilledButton(
+                                  onPressed: () => _buyNow(context, ref, card),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: white,
+                                    foregroundColor: BrandColors.ink,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                                  ),
+                                  child: const Text('Buy now'),
+                                ),
+                                OutlinedButton(
+                                  onPressed: view,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: white,
+                                    side: const BorderSide(color: white),
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                                  ),
+                                  child: const Text('View'),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: Space.md),
-                        SizedBox(
-                          width: 96,
-                          // drifts a little slower than the page; the card clips it
-                          child: Parallax(
-                            rate: 0.12,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(Radii.lg),
-                              child: ProductImage(photo ? card.coverPath : null, radius: Radii.lg, padding: Space.xs, color: white)
-                                  .kenBurns(context),
+                      ),
+                    ).sweep(context),
+                  ),
+                  const Spacer(flex: 9),
+                ],
+              ),
+            ),
+            // the product: big, over the top edge, on its shadow; taps fall through to the card
+            Positioned(
+              top: -pop,
+              bottom: Space.md,
+              left: 0,
+              right: Space.xs,
+              child: IgnorePointer(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.44,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: FractionallySizedBox(
+                            widthFactor: 0.7,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: const BorderRadius.all(Radius.elliptical(60, 6)),
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 14)],
+                              ),
+                              child: const SizedBox(height: 8),
                             ),
                           ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Space.xs),
+                          child: ProductCutout(photo ? card.coverPath : null).kenBurns(context),
                         ),
                       ],
                     ),
@@ -642,10 +754,39 @@ class _ProductSlide extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
+  }
+}
+
+bool _buying = false; // a second tap while the first is still adding does nothing
+
+/// Buy now from a banner: the default in-stock option into the cart, then checkout. Signed out, sign-in first and
+/// back to the product page, which finishes the buy ("?buy="). Anything to pick (sold out, made to order) opens the
+/// product instead.
+Future<void> _buyNow(BuildContext context, WidgetRef ref, ProductCard card) async {
+  if (_buying) return;
+  _buying = true;
+  try {
+    final product = await ref.read(productProvider(card.slug).future);
+    final v = initialVariant(product?.activeVariants ?? const []);
+    if (!context.mounted) return;
+    if (v == null || !v.inStock || v.madeToOrder) {
+      unawaited(context.push('/product/${card.slug}'));
+    } else if (ref.read(currentUserIdProvider) == null) {
+      unawaited(context.push('/sign-in?from=${Uri.encodeComponent('/product/${card.slug}?buy=${v.id}')}'));
+    } else {
+      if (!(await ref.read(cartProvider.future)).any((l) => l.variant.id == v.id)) {
+        await ref.read(cartProvider.notifier).add(v);
+      }
+      if (context.mounted) unawaited(context.push('/checkout'));
+    }
+  } catch (e) {
+    if (context.mounted) showMessage(context, friendlyError(e));
+  } finally {
+    _buying = false;
   }
 }
 

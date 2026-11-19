@@ -169,20 +169,19 @@ class _FormState extends ConsumerState<_Form> {
               const ListSection('Marketing'),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(PhosphorIconsRegular.package),
-                title: const Text('Phone packs'),
-                subtitle: const Text('A phone with its glass, case and more, X% off together'),
-                trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
-                onTap: () => context.push('/admin/offers/pack'),
-              ),
-              const ListSection('Marketing'),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
                 leading: const Icon(PhosphorIconsRegular.calendarStar),
                 title: const Text('Campaign calendar'),
                 subtitle: const Text('Festivals and shop days, with the offers on each'),
                 trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
                 onTap: () => context.push('/admin/calendar'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(PhosphorIconsRegular.package),
+                title: const Text('Phone packs'),
+                subtitle: const Text('A phone with its glass, case and more, X% off together'),
+                trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
+                onTap: () => context.push('/admin/offers/pack'),
               ),
               const ListSection('Delivery'),
               TextFormField(

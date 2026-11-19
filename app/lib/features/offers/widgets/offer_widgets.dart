@@ -570,13 +570,7 @@ class PromoBannerCard extends StatelessWidget {
                         ),
                         if (banner.imagePath != null) ...[
                           const SizedBox(width: Space.md),
-                          SizedBox(
-                            width: 96,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(Radii.lg),
-                              child: ProductImage(banner.imagePath, radius: Radii.lg, padding: 0, fit: BoxFit.cover).kenBurns(context),
-                            ),
-                          ),
+                          SizedBox(width: 96, child: ProductCutout(banner.imagePath).kenBurns(context)),
                         ],
                       ],
                     ),
