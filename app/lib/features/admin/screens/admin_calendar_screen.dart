@@ -315,7 +315,7 @@ class _UpcomingTile extends StatelessWidget {
         _kindLabel[event.kind]!,
       ].join(' · ')),
       trailing: planned
-          ? Tag('Offer planned', tone: TagTone.ok, icon: PhosphorIconsBold.check)
+          ? const Tag('Offer planned', tone: TagTone.ok, icon: PhosphorIconsBold.check)
           : event.big
               ? Text('No offer', style: TextStyle(color: c.onSurfaceVariant))
               : null,

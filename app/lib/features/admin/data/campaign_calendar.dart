@@ -160,7 +160,7 @@ DateTime istToday(DateTime now) => dayOf(now.toUtc().add(istOffset));
 /// The editor's prefill for an event's offer: 5% off with the suggested code, from 00:00 IST on its first day to
 /// 23:59 IST on its last, applied for customers automatically. Staff change anything before saving.
 Promotion draftFor(CalendarEvent e, {int percent = 5}) => Promotion(
-      title: '${e.name} sale'.length > 60 ? '${e.name}'.substring(0, 55) : '${e.name} sale',
+      title: '${e.name} sale'.length > 60 ? e.name.substring(0, 55) : '${e.name} sale',
       code: suggestCode(e.name, percent),
       kind: OfferKind.percent,
       value: percent,

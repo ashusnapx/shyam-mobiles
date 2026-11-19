@@ -47,7 +47,7 @@ void main() {
   testWidgets('cart: no code typed, the auto code fills in and says why', (tester) async {
     final c = await pump(tester, const CouponRow(quote: Quote(subtotalPaise: 1000000, deliveryFeePaise: 0, discountPaise: 0, totalPaise: 1000000)));
     expect(c.read(couponCodeProvider), 'MEN5');
-    await pumpScreen(tester, Scaffold(body: Column(children: [CouponRow(quote: Quote(subtotalPaise: 1000000, deliveryFeePaise: 0,
+    await pumpScreen(tester, const Scaffold(body: Column(children: [CouponRow(quote: Quote(subtotalPaise: 1000000, deliveryFeePaise: 0,
         discountPaise: 50000, totalPaise: 950000, promotion: (id: 'MEN5', title: 'Men’s Day sale', code: 'MEN5', kind: OfferKind.percent)))])),
         overrides: [availableOffersProvider.overrideWith((ref) async => [_offer('MEN5', ends: DateTime(2099))])]);
     await tester.pumpAndSettle();

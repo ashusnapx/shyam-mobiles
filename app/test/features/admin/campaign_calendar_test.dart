@@ -53,7 +53,9 @@ void main() {
       expect(days['Children’s Day'], '$y-11-14');
       expect(days['Valentine’s Day'], '$y-02-14');
       expect(days['New Year’s Day'], '$y-01-01');
-      for (final s in sundays) expect(DateTime.parse(s).weekday, DateTime.sunday);
+      for (final s in sundays) {
+        expect(DateTime.parse(s).weekday, DateTime.sunday);
+      }
     }
   });
 

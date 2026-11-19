@@ -88,7 +88,7 @@ void cacheFor(Ref ref, Duration d) {
 }
 
 /// A product, banner or shop photo's public URL (Storage Rules: product-images/** is public read on Firebase). A
-/// review photo's key carries its own folder (review-photos/<uid>/…, public read too).
+/// review photo's key carries its own folder (`review-photos/<uid>/…`, public read too).
 String publicImageUrl(String path) => backend == Backend.firebase
     ? '${useEmulators ? 'http://$emulatorHost:9199' : 'https://firebasestorage.googleapis.com'}'
         '/v0/b/${firebaseOptions.storageBucket}/o/'
