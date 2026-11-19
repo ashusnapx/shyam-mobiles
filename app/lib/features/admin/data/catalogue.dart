@@ -256,6 +256,7 @@ class CatalogueNotifier extends PagedNotifier<CatalogueRow> {
     ref.invalidate(adminProductsProvider);
     ref.invalidate(adminProductProvider);
     ref.invalidate(adminDashboardProvider); // low stock
+    shopChanged(ref.invalidate);
   }
 
   CatalogAdminRepository get _repo => ref.read(catalogAdminRepositoryProvider);

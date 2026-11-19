@@ -1,12 +1,15 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 
 import '../../../core/models/models.dart';
 import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../orders/data/orders_repository.dart';
-import '../../catalog/data/catalog.dart' show brandsProvider;
+import '../../cart/data/cart.dart' show cartProvider;
+import '../../catalog/data/catalog.dart' show brandsProvider, homeProvider, productProvider;
+import '../../catalog/data/rails.dart' show latestProvider;
 import '../../catalog/data/catalog_repository.dart';
 import '../../catalog/data/settings_repository.dart';
 import 'catalog_admin_repository.dart';
@@ -221,6 +224,15 @@ void _productChanged(WidgetRef ref, String productId) {
   ref.invalidate(adminProductsProvider);
   ref.invalidate(adminDashboardProvider);
   ref.invalidate(catalogueSummaryProvider); // the stock alerts
+  shopChanged(ref.invalidate);
+}
+
+/// The shop's cached views on this phone (product pages, Home, the cart's stock caps), stale after a staff edit: an
+/// owner raising stock then opening checkout would otherwise still be capped at the old count.
+void shopChanged(void Function(ProviderOrFamily) invalidate) {
+  for (final p in <ProviderOrFamily>[productProvider, homeProvider, latestProvider, cartProvider]) {
+    invalidate(p);
+  }
 }
 
 /// Inserts when [id] is null. Returns the product id.
