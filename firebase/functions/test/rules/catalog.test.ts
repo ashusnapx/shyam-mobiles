@@ -103,6 +103,8 @@ describe("banners", () => {
   test("customers list active banners only; promotion banners are the server's", async () => {
     await assertSucceeds(setDoc(doc(staff().firestore(), "banners/b"), banner({ imagePath: "banners/1.webp" })));
     await assertFails(setDoc(doc(staff().firestore(), "banners/c"), banner({ imagePath: "../x.png" })));
+    await assertSucceeds(setDoc(doc(staff().firestore(), "banners/b"), banner({ imagePath: "banners/1.webp", socialImagePath: "banners/1.jpg" })));
+    await assertFails(setDoc(doc(staff().firestore(), "banners/c"), banner({ socialImagePath: "banners/1.webp" })));
     await assertFails(setDoc(doc(staff().firestore(), "banners/c"), banner({ promotionId: "p1" })));
     await assertSucceeds(getDocs(query(collection(anon().firestore(), "banners"), where("isActive", "==", true))));
     await assertFails(getDocs(collection(anon().firestore(), "banners")));
@@ -135,6 +137,8 @@ describe("settings", () => {
     await assertFails(setDoc(doc(staff().firestore(), "settings/store"), { ...store, mapPin: { lat: 51.5, lng: 0 } }));
     await assertFails(setDoc(doc(staff().firestore(), "settings/store"), { ...store, storePhotos: Array(9).fill("store/1.webp") }));
     await assertFails(setDoc(doc(staff().firestore(), "settings/store"), { ...store, storePhone: "+919999999999" }));
+    await assertSucceeds(setDoc(doc(staff().firestore(), "settings/store"), { ...store, autoBanners: ["deal", "newest"] }));
+    await assertFails(setDoc(doc(staff().firestore(), "settings/store"), { ...store, autoBanners: ["popup"] }));
   });
   test("settings/business: recent sign-in, a well-formed GSTIN whose state code matches, and never a PAN", async () => {
     await assertSucceeds(setDoc(doc(staff().firestore(), "settings/business"), business));
@@ -145,6 +149,9 @@ describe("settings", () => {
     await assertFails(setDoc(doc(staff().firestore(), "settings/business"), { ...business, gstin: "23BXEPG0619P2Z" }));
     await assertFails(setDoc(doc(staff().firestore(), "settings/business"), { ...business, phone: "7987559272" }));
     await assertFails(setDoc(doc(alice().firestore(), "settings/business"), business));
+    await assertSucceeds(setDoc(doc(staff().firestore(), "settings/business"), { ...business, instagramHandle: "ashusnapx", facebookHandle: "ashusnapx" }));
+    await assertFails(setDoc(doc(staff().firestore(), "settings/business"), { ...business, instagramHandle: "https://instagram.com/x" }));
+    await assertFails(setDoc(doc(staff().firestore(), "settings/business"), { ...business, facebookHandle: "ab" }));
   });
 });
 

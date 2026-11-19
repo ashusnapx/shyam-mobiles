@@ -175,7 +175,7 @@ service cloud.firestore {
     }
     // Promotion banners (promotionId) belong to savePromotion; staff edit the rest.
     function validBanner(b) {
-      return b.keys().hasOnly(['title', 'subtitle', 'ctaLabel', 'link', 'imagePath', 'tone', 'startsAt', 'endsAt', 'sort',
+      return b.keys().hasOnly(['title', 'subtitle', 'ctaLabel', 'link', 'imagePath', 'socialImagePath', 'tone', 'startsAt', 'endsAt', 'sort',
           'isActive', 'createdAt', 'updatedAt'])
         && b.keys().hasAll(['title', 'subtitle', 'ctaLabel', 'link', 'tone', 'startsAt', 'sort', 'isActive'])
         && cleanLine(b.title, 2, 60) && cleanLine(b.subtitle, 0, 120) && cleanLine(b.ctaLabel, 1, 20)
@@ -183,6 +183,7 @@ service cloud.firestore {
         && b.link.matches('/(search|product/|offers|repairs)[A-Za-z0-9/?=&%._~+-]*')
         && b.link.matches('/(search([?][^#\\s]*)?|product/[a-z0-9-]{1,160}|offers(/[0-9a-f-]{36})?|repairs(/new)?)')
         && (!('imagePath' in b) || b.imagePath == null || imageKey(b.imagePath))
+        && (!('socialImagePath' in b) || b.socialImagePath == null || (imageKey(b.socialImagePath) && b.socialImagePath.matches('.*[.]jpe?g')))
         && intIn(b.tone, 0, 5) && b.startsAt is timestamp && (!('endsAt' in b) || b.endsAt == null || b.endsAt is timestamp)
         && intIn(b.sort, 0, 1000) && b.isActive is bool;
     }
@@ -196,7 +197,7 @@ service cloud.firestore {
     // settings/store: how the shop runs (the server enforces fees, COD and the payment switch from it).
     function validStore(s) {
       return s.keys().hasOnly(['deliveryFeePaise', 'freeDeliveryMinPaise', 'codEnabled', 'codMaxPaise', 'onlinePaymentEnabled',
-          'storeHours', 'mapPin', 'mapsUrl', 'storePhotos', 'repairNote', 'returnsPolicy', 'referral', 'createdAt', 'updatedAt'])
+          'storeHours', 'mapPin', 'mapsUrl', 'storePhotos', 'repairNote', 'returnsPolicy', 'referral', 'autoBanners', 'createdAt', 'updatedAt'])
         && intIn(s.deliveryFeePaise, 0, 1000000) && intIn(s.freeDeliveryMinPaise, 0, 100000000) && s.codEnabled is bool
         && intIn(s.codMaxPaise, 0, 100000000) && s.onlinePaymentEnabled is bool && cleanLine(s.storeHours, 0, 60)
         && (!('mapPin' in s) || s.mapPin == null || (s.mapPin.keys().hasOnly(['lat', 'lng'])
@@ -207,14 +208,15 @@ service cloud.firestore {
         && cleanBlock(s.repairNote, 300) && cleanBlock(s.returnsPolicy, 2000)
         && s.referral.keys().hasOnly(['enabled', 'friendPaise', 'rewardPaise', 'minOrderPaise', 'monthlyCap'])
         && s.referral.enabled is bool && intIn(s.referral.friendPaise, 100, 100000000) && intIn(s.referral.rewardPaise, 100, 100000000)
-        && intIn(s.referral.minOrderPaise, 0, 100000000) && intIn(s.referral.monthlyCap, 0, 1000);
+        && intIn(s.referral.minOrderPaise, 0, 100000000) && intIn(s.referral.monthlyCap, 0, 1000)
+        && (!('autoBanners' in s) || (s.autoBanners is list && s.autoBanners.hasOnly(['deal', 'newest', 'exchange', 'repairs'])));
     }
     // shortcut: storePhotos is capped at 8 but each key is not matched (Rules can't loop); the app writes only
     // store/<millis>.webp keys, and a bad key is just a broken photo, never a leak.
     // settings/business: the legal identity on invoices and the policy pages. Never a PAN: keys are an exact list.
     function validBusiness(b) {
       return b.keys().hasOnly(['tradeName', 'brandName', 'legalName', 'gstin', 'stateCode', 'phone', 'email', 'address',
-          'businessTypes', 'invoicePrefix', 'createdAt', 'updatedAt'])
+          'businessTypes', 'invoicePrefix', 'instagramHandle', 'facebookHandle', 'createdAt', 'updatedAt'])
         && cleanLine(b.tradeName, 2, 100) && cleanLine(b.brandName, 2, 100) && cleanLine(b.legalName, 2, 100)
         && b.gstin is string && b.gstin.matches('[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]')
         && b.stateCode == b.gstin[0:2]
@@ -224,7 +226,9 @@ service cloud.firestore {
         && cleanLine(b.address.line1, 2, 120) && cleanLine(b.address.city, 2, 60) && cleanLine(b.address.district, 2, 60)
         && cleanLine(b.address.state, 2, 60) && b.address.pincode is string && b.address.pincode.matches('[1-9][0-9]{5}')
         && b.businessTypes is list && b.businessTypes.hasOnly(['retailer', 'wholesaler', 'distributor', 'services'])
-        && b.invoicePrefix is string && b.invoicePrefix.matches('[A-Z]{1,6}');
+        && b.invoicePrefix is string && b.invoicePrefix.matches('[A-Z]{1,6}')
+        && (!('instagramHandle' in b) || b.instagramHandle == null || (b.instagramHandle is string && b.instagramHandle.matches('[A-Za-z0-9._]{1,30}')))
+        && (!('facebookHandle' in b) || b.facebookHandle == null || (b.facebookHandle is string && b.facebookHandle.matches('[A-Za-z0-9.]{5,50}')));
     }
     match /settings/store {
       allow read: if true;

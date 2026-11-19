@@ -138,6 +138,7 @@ export interface BannerDoc {
   ctaLabel: string;
   link: string; // an app route (bannerLink rule)
   imagePath?: string;
+  socialImagePath?: string; // JPEG copy for Instagram/Facebook auto-post (they reject WebP)
   tone: number; // 0..5
   startsAt: Timestamp;
   endsAt?: Timestamp | null;

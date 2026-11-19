@@ -17,6 +17,7 @@ export interface StoreSettingsDoc {
   repairNote: string;
   returnsPolicy: string;
   referral: { enabled: boolean; friendPaise: number; rewardPaise: number; minOrderPaise: number; monthlyCap: number };
+  autoBanners?: ("deal" | "newest" | "exchange" | "repairs")[];
   updatedAt: Timestamp;
 }
 
@@ -32,6 +33,8 @@ export interface BusinessSettingsDoc {
   address: { line1: string; city: string; district: string; state: string; pincode: string };
   businessTypes: ("retailer" | "wholesaler" | "distributor" | "services")[];
   invoicePrefix: string;
+  instagramHandle?: string | null;
+  facebookHandle?: string | null;
   updatedAt: Timestamp;
 }
 
