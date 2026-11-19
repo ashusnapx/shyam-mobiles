@@ -190,7 +190,7 @@ void main() {
       await tester.pump();
       expect(find.textContaining(aiFlag), findsWidgets); // flagged until edited
       expect(find.widgetWithText(TextFormField, '74999'), findsNWidgets(2)); // MRP, and the price = MRP at 0% discount
-      await tester.tap(find.text('Save & next'));
+      await tester.tap(find.text('Save & add next'));
       await tester.pump();
       await tester.pump();
       expect(repo.calls, containsAllInOrder(['saveProduct new', 'saveVariant p0 new']));
@@ -212,7 +212,7 @@ void main() {
       await tester.tap(find.text('Skip the photo'));
       await tester.pump();
       expect(find.textContaining('saved as a new variant'), findsOneWidget);
-      await tester.tap(find.text('Save & next'));
+      await tester.tap(find.text('Save & add next'));
       await tester.pump();
       await tester.pump();
       expect(repo.calls.where((c) => c.startsWith('saveProduct')), isEmpty);

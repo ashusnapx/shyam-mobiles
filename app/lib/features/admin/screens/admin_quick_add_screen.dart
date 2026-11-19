@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -13,7 +14,7 @@ import '../../../core/widgets/picker.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/admin.dart';
 import '../data/ai_catalogue.dart';
-import '../data/photos.dart' show cutoutOf, formatBytes;
+import '../data/photos.dart' show cutoutOf, formatBytes, studioOf;
 import '../data/rules.dart';
 import '../widgets/admin_widgets.dart';
 
@@ -31,7 +32,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
   final _c = {for (final k in ['name', 'brand', 'model', 'ram', 'storage', 'color', 'mrp', 'price', 'stock', 'about']) k: TextEditingController()};
   int _step = 0; // 0 label photo, 1 product photo, 2 confirm
   ProductDraft? _d;
-  Uint8List? _cut; // preview of the cut-out the upload makes again; null: none made yet
+  Uint8List? _cut; // preview of the shop photo the upload makes again; null: none made yet
   String? _category;
   bool _busy = false, _show = false;
   String? _error;
@@ -85,7 +86,8 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
     });
     try {
       final cats = [for (final k in ref.read(adminCategoriesProvider).value ?? const <Category>[]) k.name];
-      final d = await ref.read(catalogueAiProvider).readLabel(bytes, categories: cats);
+      final d = await ref.read(catalogueAiProvider).readLabel(bytes, categories: cats)
+        ..labelPhoto = bytes;
       if (mounted) _open(d, step: 1);
     } catch (e) {
       if (mounted) setState(() => _error = aiErrorMessage(e));
@@ -100,10 +102,12 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
     _d!.photo = bytes;
     await DraftStore.quick.save([_d!]);
     setState(() => _busy = true);
-    final cut = await cutoutOf(bytes); // free, on this phone (ML Kit); shown so staff see the shop's look before saving
+    // free, on this phone (ML Kit): cut out, straightened, light evened, on the shop's white square; shown before saving
+    final cut = await cutoutOf(bytes);
+    final shop = cut == null ? null : await studioOf(cut);
     if (mounted) {
       setState(() {
-        _cut = cut;
+        _cut = shop;
         _busy = false;
         _step = 2;
       });
@@ -136,12 +140,20 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
       _error = null;
     });
     try {
-      await saveDraft(ref, d,
-          categories: ref.read(adminCategoriesProvider).value ?? const [], brands: ref.read(adminBrandsProvider).value ?? const [], show: _show);
+      Object? photoError;
+      final id = await saveDraft(ref, d,
+          categories: ref.read(adminCategoriesProvider).value ?? const [],
+          brands: ref.read(adminBrandsProvider).value ?? const [],
+          show: _show,
+          photoFailed: (e) => photoError ??= e);
       await DraftStore.quick.clear();
       if (!mounted) return;
       _saved++;
-      showMessage(context, '${d.name} saved${_show ? '' : ' (hidden from customers)'}');
+      showMessage(
+          context,
+          photoError != null
+              ? '${d.name} saved, but a photo didn’t upload: ${adminError(photoError!)} Add it on the product page.'
+              : '${d.name} saved${_show ? '' : ' (hidden from customers)'}');
       setState(() {
         _d = null;
         _step = 0;
@@ -150,7 +162,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
       if (next) {
         await _scanLabel();
       } else if (mounted) {
-        Navigator.pop(context);
+        context.pushReplacement('/admin/products/$id'); // check it, add more photos or variants
       }
     } catch (e) {
       if (mounted) setState(() => _error = e is FormatException ? e.message : adminError(e));
@@ -179,9 +191,9 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
         bottomNavigationBar: _step == 2
             ? StickyBar(
                 child: Row(children: [
-                  Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _save(next: false), child: const Text('Save'))),
+                  Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _save(next: true), child: const Text('Save & add next'))),
                   const SizedBox(width: Space.md),
-                  Expanded(child: FilledButton(onPressed: _busy ? null : () => _save(next: true), child: const Text('Save & next'))),
+                  Expanded(child: FilledButton(onPressed: _busy ? null : () => _save(next: false), child: const Text('Save'))),
                 ]),
               )
             : null,
@@ -327,7 +339,7 @@ class _QuickAddState extends ConsumerState<AdminQuickAddScreen> {
               const SizedBox(width: Space.md),
               Expanded(
                 child: Text(_cut != null
-                    ? 'Background removed · ${formatBytes(d.photo!.length)}'
+                    ? 'Background removed, straightened and evened out, like every shop photo'
                     : 'Product photo ready · ${formatBytes(d.photo!.length)}'),
               ),
             ]),

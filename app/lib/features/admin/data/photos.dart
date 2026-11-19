@@ -78,8 +78,9 @@ Future<Uint8List> fitBudget(Future<Uint8List> Function(int side, int quality) en
 typedef PreparedPhoto = ({Uint8List full, Uint8List thumb, int originalBytes, Uint8List? cut});
 
 /// Refuses non-images, then makes the full photo (always under [photoBudgetBytes]) and its thumb; with [cut], also
-/// its cut-out ([cutoutOf]), or none when that fails.
-Future<PreparedPhoto> preparePhoto(Uint8List original, {bool cut = false}) async {
+/// its cut-out ([cutoutOf]), or none when that fails. [studio] (product photos): when the cut-out works, the full
+/// photo and thumb are [studioOf] it instead, so every product photo in the shop looks the same.
+Future<PreparedPhoto> preparePhoto(Uint8List original, {bool cut = false, bool studio = false}) async {
   checkPhotoSize(original.length);
   final size = await imageSizeOf(original);
   if (size == null) throw const FormatException('That file isn’t a photo. Pick a JPEG, PNG or WebP image.');
@@ -92,7 +93,40 @@ Future<PreparedPhoto> preparePhoto(Uint8List original, {bool cut = false}) async
     throw const FormatException('Couldn’t read that photo. It may be damaged. Try another one.');
   }
   if (full.isEmpty || thumb.isEmpty) throw const FormatException('Couldn’t read that photo. Try another one.');
-  return (full: full, thumb: thumb, originalBytes: original.length, cut: cut ? await cutoutOf(full) : null);
+  final cutout = cut || studio ? await cutoutOf(full) : null;
+  if (studio && cutout != null) {
+    final square = await studioOf(cutout);
+    final shop = await fitBudget((side, quality) => _webp(square, (studioSide, studioSide), side, quality));
+    final shopThumb = await _webp(shop, (studioSide, studioSide), thumbSide, thumbQuality);
+    return (full: shop, thumb: shopThumb, originalBytes: original.length, cut: cutout);
+  }
+  return (full: full, thumb: thumb, originalBytes: original.length, cut: cut ? cutout : null);
+}
+
+const studioSide = 1200; // the cut-out is at most [cutSide], so no upscaling past it
+const studioBackdrop = ui.Color(0xFFFFFFFF); // the product gallery's white
+const studioFill = 0.84; // the product's longest side on the square: the same margin on every photo
+
+/// [cut] (a trimmed cut-out) centred on a plain [studioSide] square at [studioFill], as PNG.
+Future<Uint8List> studioOf(Uint8List cut) async {
+  final image = (await (await ui.instantiateImageCodec(cut)).getNextFrame()).image;
+  try {
+    const side = studioSide * 1.0;
+    final scale = side * studioFill / max(image.width, image.height);
+    final dst = ui.Rect.fromCenter(
+        center: const ui.Offset(side / 2, side / 2), width: image.width * scale, height: image.height * scale);
+    final recorder = ui.PictureRecorder();
+    ui.Canvas(recorder)
+      ..drawColor(studioBackdrop, ui.BlendMode.src)
+      ..drawImageRect(image, ui.Offset.zero & ui.Size(image.width * 1.0, image.height * 1.0), dst,
+          ui.Paint()..filterQuality = ui.FilterQuality.high);
+    final square = await recorder.endRecording().toImage(studioSide, studioSide);
+    final png = (await square.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
+    square.dispose();
+    return png;
+  } finally {
+    image.dispose();
+  }
 }
 
 const cutSide = 1200;
@@ -126,15 +160,30 @@ Future<Uint8List?> cutoutOf(Uint8List photo) async {
   }
 }
 
-/// [png] cropped to its visible pixels and encoded as WebP with alpha; null when it is all transparent.
+/// [png] straightened ([tiltOf]), cropped to its visible pixels, its light evened out ([levelsOf]) and encoded as
+/// WebP with alpha; null when it is all transparent.
 Future<Uint8List?> _trimmed(Uint8List png) async {
-  final image = (await (await ui.instantiateImageCodec(png)).getNextFrame()).image;
+  var image = (await (await ui.instantiateImageCodec(png)).getNextFrame()).image;
   try {
-    final rgba = (await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba))!.buffer.asUint8List();
+    var rgba = (await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba))!.buffer.asUint8List();
+    final tilt = tiltOf(rgba, image.width, image.height);
+    if (tilt != 0) {
+      final upright = await _rotated(image, -tilt);
+      image.dispose();
+      image = upright;
+      rgba = (await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba))!.buffer.asUint8List();
+    }
     final box = alphaBounds(rgba, image.width, image.height);
     if (box == null) return null;
+    final (gain, lift) = levelsOf(rgba);
     final recorder = ui.PictureRecorder();
-    ui.Canvas(recorder).drawImageRect(image, box, ui.Offset.zero & box.size, ui.Paint());
+    ui.Canvas(recorder).drawImageRect(
+      image,
+      box,
+      ui.Offset.zero & box.size,
+      ui.Paint()
+        ..colorFilter = ui.ColorFilter.matrix([gain, 0, 0, 0, lift, 0, gain, 0, 0, lift, 0, 0, gain, 0, lift, 0, 0, 0, 1, 0]),
+    );
     final cropped = await recorder.endRecording().toImage(box.width.round(), box.height.round());
     final bytes = (await cropped.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
     cropped.dispose();
@@ -142,6 +191,73 @@ Future<Uint8List?> _trimmed(Uint8List png) async {
   } finally {
     image.dispose();
   }
+}
+
+/// [image] turned by [radians] about its centre, on a canvas big enough for its corners.
+Future<ui.Image> _rotated(ui.Image image, double radians) {
+  final w = image.width.toDouble(), h = image.height.toDouble();
+  final c = cos(radians).abs(), s = sin(radians).abs();
+  final nw = (w * c + h * s).ceil(), nh = (w * s + h * c).ceil();
+  final recorder = ui.PictureRecorder();
+  ui.Canvas(recorder)
+    ..translate(nw / 2, nh / 2)
+    ..rotate(radians)
+    ..drawImage(image, ui.Offset(-w / 2, -h / 2), ui.Paint()..filterQuality = ui.FilterQuality.high);
+  return recorder.endRecording().toImage(nw, nh);
+}
+
+/// How far (radians, y down) the product's long axis sits off the nearest straight one, from the shape of its opaque
+/// pixels (straight RGBA); 0 when it is straight already (under 0.5°), tilted on purpose (over 12°), or too square
+/// or round to have a long axis.
+double tiltOf(Uint8List rgba, int width, int height) {
+  var n = 0;
+  var sx = 0.0, sy = 0.0, sxx = 0.0, syy = 0.0, sxy = 0.0;
+  for (var y = 0; y < height; y += 2) {
+    final row = y * width * 4;
+    for (var x = 0; x < width; x += 2) {
+      if (rgba[row + x * 4 + 3] < 128) continue;
+      n++;
+      sx += x;
+      sy += y;
+      sxx += x * x;
+      syy += y * y;
+      sxy += x * y;
+    }
+  }
+  if (n < 100) return 0;
+  final mx = sx / n, my = sy / n;
+  final a = sxx / n - mx * mx, b = syy / n - my * my, c = sxy / n - mx * my;
+  if ((a - b) * (a - b) + 4 * c * c < 0.02 * (a + b) * (a + b)) return 0;
+  var off = (0.5 * atan2(2 * c, a - b)) % (pi / 2);
+  if (off > pi / 4) off -= pi / 2;
+  final degrees = off.abs() * 180 / pi;
+  return degrees < 0.5 || degrees > 12 ? 0 : off;
+}
+
+/// Gain and lift that stretch the product's brightness from its 1st to its 99th percentile toward the full range
+/// (at most 1.4×), so a photo taken in dim shop light comes out like the rest; (1, 0) when there is nothing to fix.
+(double, double) levelsOf(Uint8List rgba) {
+  final counts = List.filled(256, 0);
+  var n = 0;
+  for (var i = 0; i + 3 < rgba.length; i += 8) {
+    if (rgba[i + 3] < 128) continue;
+    counts[(rgba[i] * 77 + rgba[i + 1] * 150 + rgba[i + 2] * 29) >> 8]++;
+    n++;
+  }
+  if (n < 100) return (1, 0);
+  int at(double share) {
+    var seen = 0;
+    for (var v = 0; v < 256; v++) {
+      seen += counts[v];
+      if (seen >= n * share) return v;
+    }
+    return 255;
+  }
+
+  final lo = at(0.01), hi = at(0.99);
+  if (hi - lo < 32) return (1, 0); // one flat colour: nothing to stretch
+  final gain = min(255 / (hi - lo), 1.4);
+  return (gain, -lo * gain);
 }
 
 /// The box around the pixels whose alpha is above [threshold] (straight RGBA, row by row); null when there are none.

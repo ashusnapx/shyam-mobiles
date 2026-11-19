@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -102,5 +103,48 @@ void main() {
     rgba[(2 * 5 + 3) * 4 + 3] = 200; // (3, 2)
     rgba[(3 * 5 + 0) * 4 + 3] = 5; // (0, 3): faint, ignored
     expect(alphaBounds(rgba, 5, 4), const ui.Rect.fromLTRB(2, 1, 4, 3));
+  });
+
+  // A 120 × 40 opaque bar on a 200 × 200 canvas, turned [degrees] (y down) about the centre.
+  Uint8List bar(double degrees, {double w = 120, double h = 40}) {
+    final rgba = Uint8List(200 * 200 * 4);
+    final a = degrees * pi / 180;
+    for (var y = 0; y < 200; y++) {
+      for (var x = 0; x < 200; x++) {
+        final dx = x - 100.0, dy = y - 100.0;
+        final u = dx * cos(a) + dy * sin(a), v = -dx * sin(a) + dy * cos(a); // back into the bar's own axes
+        if (u.abs() <= w / 2 && v.abs() <= h / 2) rgba[(y * 200 + x) * 4 + 3] = 255;
+      }
+    }
+    return rgba;
+  }
+
+  test('a product photographed slightly tilted is turned straight; a straight, square or steep one is left', () {
+    for (final d in [-8.0, -3.0, 4.0, 10.0]) {
+      expect(tiltOf(bar(d), 200, 200) * 180 / pi, closeTo(d, 0.6), reason: '$d°');
+    }
+    expect(tiltOf(bar(87), 200, 200) * 180 / pi, closeTo(-3, 0.6), reason: 'standing up, 3° off vertical');
+    expect(tiltOf(bar(0), 200, 200), 0);
+    expect(tiltOf(bar(30), 200, 200), 0, reason: 'over 12°: on purpose');
+    expect(tiltOf(bar(6, w: 60, h: 60), 200, 200), 0, reason: 'a square has no long axis');
+  });
+
+  test('a dim photo is stretched to full range, capped at 1.4×; a full-range one is left alone', () {
+    Uint8List grey(int from, int to) {
+      final rgba = Uint8List(256 * 4 * 2);
+      for (var i = 0; i < 512; i++) {
+        final v = from + (to - from) * (i % 256) ~/ 255;
+        rgba.setAll(i * 4, [v, v, v, 255]);
+      }
+      return rgba;
+    }
+
+    final (g1, l1) = levelsOf(grey(40, 210));
+    expect(g1, closeTo(1.4, 0.001));
+    expect(42 * g1 + l1, closeTo(0, 6), reason: 'the darkest stays near black');
+    final (g2, l2) = levelsOf(grey(0, 255));
+    expect(g2, closeTo(1, 0.05));
+    expect(l2, closeTo(0, 4));
+    expect(levelsOf(grey(120, 130)), (1.0, 0.0), reason: 'one flat colour');
   });
 }

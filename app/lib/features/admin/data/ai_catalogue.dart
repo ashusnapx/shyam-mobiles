@@ -60,6 +60,7 @@ class ProductDraft {
   bool selected;
   String? existingProductId;
   Uint8List? photo; // kept in memory only
+  Uint8List? labelPhoto; // the box label read in Quick add; the product's second photo
 
   /// Editing a field confirms it.
   void confirm(String field) => ai.remove(field);
@@ -394,7 +395,9 @@ String skuFor(ProductDraft d) {
 /// Saves [d] through the normal admin paths (both backends): the product (hidden unless [show]) or, when
 /// [ProductDraft.existingProductId] is set, a new variant on it; then its photo. Returns the product id.
 /// Throws FormatException when the price is missing or the variant already exists.
-Future<String> saveDraft(WidgetRef ref, ProductDraft d, {required List<Category> categories, required List<Brand> brands, bool show = false}) async {
+/// [photoFailed]: told when a photo didn't upload (the product is saved; add it again from its edit screen).
+Future<String> saveDraft(WidgetRef ref, ProductDraft d,
+    {required List<Category> categories, required List<Brand> brands, bool show = false, void Function(Object)? photoFailed}) async {
   final price = d.pricePaise;
   if (price == null) throw const FormatException('Enter the selling price first.');
   final mrp = d.mrpPaise ?? price;
@@ -442,10 +445,15 @@ Future<String> saveDraft(WidgetRef ref, ProductDraft d, {required List<Category>
     'lead_days': 2,
     'sort': sort,
   });
-  if (d.photo != null && d.existingProductId == null) {
-    try {
-      await addProductImage(ref, pid, d.photo!, 0);
-    } catch (_) {} // the product is saved; add the photo from its edit screen
+  if (d.existingProductId == null) {
+    // the product first (the cover), then its box label
+    for (final (i, photo) in [?d.photo, ?d.labelPhoto].indexed) {
+      try {
+        await addProductImage(ref, pid, photo, i);
+      } catch (e) {
+        photoFailed?.call(e);
+      }
+    }
   }
   return pid;
 }

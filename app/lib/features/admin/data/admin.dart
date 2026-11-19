@@ -232,10 +232,11 @@ Future<String> saveProduct(WidgetRef ref, String? id, Map<String, dynamic> field
 
 /// Compresses [original] (photos.dart) and uploads `<folder>/<millis>.webp` plus `<folder>/<millis>@thumb.webp`.
 /// Returns the full photo's key, the only one the DB stores, and the sizes for the "4.2 MB → 180 KB" message.
-/// [cut]: also the cut-out for heroes and banners (product and banner photos, not the shop's).
+/// [cut]: also the cut-out for heroes and banners (product and banner photos, not the shop's). [studio]: product
+/// photos go up as the cut-out on the shop's plain square (photos.dart studioOf) when it can be made.
 Future<({String path, int before, int after})> _uploadPhoto(WidgetRef ref, String folder, Uint8List original,
-    {bool cut = false}) async {
-  final photo = await preparePhoto(original, cut: cut);
+    {bool cut = false, bool studio = false}) async {
+  final photo = await preparePhoto(original, cut: cut, studio: studio);
   final path = await ref.read(photoStoreProvider).upload(folder, photo);
   return (path: path, before: photo.originalBytes, after: photo.full.length);
 }
@@ -256,7 +257,7 @@ Future<void> _setPhotos(WidgetRef ref, String productId, List<ProductPhoto> imag
 /// [color]: the variant colour it shows (null: every colour).
 Future<({int before, int after})> addProductImage(WidgetRef ref, String productId, Uint8List original, int sort,
     {String? color}) async {
-  final up = await _uploadPhoto(ref, productId, original, cut: true);
+  final up = await _uploadPhoto(ref, productId, original, cut: true, studio: true);
   try {
     await _setPhotos(ref, productId, [...await _photos(ref, productId), ProductPhoto(id: '', path: up.path, sort: sort, color: color)]);
   } catch (_) {
