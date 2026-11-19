@@ -8,8 +8,10 @@ import '../../../core/paging.dart';
 import '../../../core/supabase.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../cart/data/cart.dart' show cartProvider;
-import '../../catalog/data/catalog.dart' show brandsProvider, homeProvider, productProvider;
-import '../../catalog/data/rails.dart' show latestProvider;
+import '../../catalog/data/catalog.dart' show brandsProvider, homeProvider, productProvider, searchProvider;
+import '../../catalog/data/rails.dart' show fitsProvider, latestProvider, recentCardsProvider, similarProvider;
+import '../../reviews/data/reviews.dart' show togetherProvider;
+import '../../wishlist/data/wishlist.dart' show wishlistCardsProvider;
 import '../../catalog/data/catalog_repository.dart';
 import '../../catalog/data/settings_repository.dart';
 import 'catalog_admin_repository.dart';
@@ -227,10 +229,21 @@ void _productChanged(WidgetRef ref, String productId) {
   shopChanged(ref.invalidate);
 }
 
-/// The shop's cached views on this phone (product pages, Home, the cart's stock caps), stale after a staff edit: an
-/// owner raising stock then opening checkout would otherwise still be capped at the old count.
+/// The shop's cached views on this phone (product pages, Home, search, the rails, the wishlist, the cart's stock caps),
+/// stale after a staff edit: a new cover photo or a raised stock would otherwise show only inside the product.
 void shopChanged(void Function(ProviderOrFamily) invalidate) {
-  for (final p in <ProviderOrFamily>[productProvider, homeProvider, latestProvider, cartProvider]) {
+  for (final p in <ProviderOrFamily>[
+    productProvider,
+    homeProvider,
+    latestProvider,
+    searchProvider,
+    fitsProvider,
+    similarProvider,
+    recentCardsProvider,
+    togetherProvider,
+    wishlistCardsProvider,
+    cartProvider,
+  ]) {
     invalidate(p);
   }
 }
