@@ -223,6 +223,43 @@ from (values
 join public.products pr on pr.slug = v.product
 on conflict (sku) do nothing;
 
+-- Made-to-order accessories for ANY phone model (supabase/migrations/20261119000100_made_to_order.sql): the five
+-- types, set up once; the owner edits price, lead days and on/off in Admin > Catalogue. No stock: arranged per order.
+insert into public.brands (slug, name) values ('generic', 'Generic') on conflict (slug) do nothing;
+insert into public.products (slug, name, brand_id, category_id, description, specs)
+select t.slug, t.name, b.id, c.id, t.description, t.specs::jsonb
+from (values
+  ('back-cover-any-phone', 'Back cover', 'cases-covers',
+   'A slim back cover for your exact phone model. We arrange it for you and it ships in about 2 days.',
+   '[{"label":"Fits","value":"The phone model you name"},{"label":"Material","value":"Hard plastic or TPU, as available for your model"}]'),
+  ('tempered-glass-any-phone', 'Tempered glass', 'screen-guards',
+   'Edge-to-edge tempered glass cut for your exact phone model. We arrange it for you and it ships in about 2 days.',
+   '[{"label":"Fits","value":"The phone model you name"},{"label":"Hardness","value":"9H"}]'),
+  ('camera-lens-guard-any-phone', 'Camera lens guard', 'screen-guards',
+   'A clear guard for your phone’s rear cameras, made for your exact model. Ships in about 2 days.',
+   '[{"label":"Fits","value":"The phone model you name"}]'),
+  ('silicone-case-any-phone', 'Silicone case', 'cases-covers',
+   'Soft silicone case with a grippy finish, for your exact phone model. Ships in about 2 days.',
+   '[{"label":"Fits","value":"The phone model you name"},{"label":"Material","value":"Silicone"}]'),
+  ('flip-cover-any-phone', 'Flip cover', 'cases-covers',
+   'A flip cover with card slots that protects the screen too, for your exact phone model. Ships in about 2 days.',
+   '[{"label":"Fits","value":"The phone model you name"},{"label":"Material","value":"Faux leather"}]')
+) t(slug, name, category, description, specs)
+join public.brands b on b.slug = 'generic'
+join public.categories c on c.slug = t.category
+on conflict (slug) do nothing;
+insert into public.variants (product_id, sku, name, price_paise, mrp_paise, stock, made_to_order, lead_days)
+select p.id, t.sku, 'For your phone', t.price * 100, t.price * 100, 0, true, 2
+from (values
+  ('back-cover-any-phone', 'MTO-BACK-COVER', 199),
+  ('tempered-glass-any-phone', 'MTO-TEMPERED-GLASS', 149),
+  ('camera-lens-guard-any-phone', 'MTO-LENS-GUARD', 149),
+  ('silicone-case-any-phone', 'MTO-SILICONE-CASE', 249),
+  ('flip-cover-any-phone', 'MTO-FLIP-COVER', 399)
+) t(slug, sku, price)
+join public.products p on p.slug = t.slug
+on conflict (sku) do nothing;
+
 -- The shop: श्याम मोबाइल शॉप, wholesale and retail, Near Waidhan Bus Stand, Rajeev Complex, Waidhan (Singrauli, MP).
 update public.store_settings set
   store_phone = '+917987559272',
@@ -237,6 +274,8 @@ insert into private.password_sign_in_domains (domain) values ('shyammobiles.test
 
 -- Offers (docs/SPEC.md "Offers"). Conflict-safe like the block above.
 update public.store_settings set referral_enabled = true;
+-- the Follow buttons on Home and Account (Admin > Settings edits them)
+update public.store_settings set instagram_handle = 'ashusnapx', facebook_handle = 'ashusnapx';
 
 insert into public.collections (slug, name) values ('under-1500', 'Under ₹1,500') on conflict (slug) do nothing;
 insert into public.collection_products (collection_id, product_id)

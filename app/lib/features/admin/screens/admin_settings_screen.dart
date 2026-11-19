@@ -68,6 +68,8 @@ class _FormState extends ConsumerState<_Form> {
   late final _reward = TextEditingController(text: rupeesText(_s.referralRewardPaise));
   late final _referralMin = TextEditingController(text: rupeesText(_s.referralMinOrderPaise));
   late final _referralCap = TextEditingController(text: '${_s.referralMonthlyCap}');
+  late final _instagram = TextEditingController(text: _s.instagramHandle);
+  late final _facebook = TextEditingController(text: _s.facebookHandle);
   bool _busy = false;
 
   @override
@@ -86,6 +88,8 @@ class _FormState extends ConsumerState<_Form> {
       _reward,
       _referralMin,
       _referralCap,
+      _instagram,
+      _facebook,
     ]) {
       c.dispose();
     }
@@ -120,6 +124,8 @@ class _FormState extends ConsumerState<_Form> {
           referralRewardPaise: parseRupees(_reward.text)!,
           referralMinOrderPaise: parseRupees(_referralMin.text)!,
           referralMonthlyCap: int.parse(_referralCap.text),
+          instagramHandle: _handle(SocialSite.instagram, _instagram),
+          facebookHandle: _handle(SocialSite.facebook, _facebook),
         ),
       );
       if (mounted) showMessage(context, 'Settings saved');
@@ -136,6 +142,12 @@ class _FormState extends ConsumerState<_Form> {
   String? _couponError(String? v) => rupeesError(v, minPaise: 100, maxPaise: maxFeePaise);
 
   Widget _gap() => const SizedBox(height: Space.md);
+
+  /// The bare username from whatever was typed or pasted; null (no button) when empty.
+  String? _handle(SocialSite site, TextEditingController c) {
+    final h = site.bare(c.text);
+    return h.isEmpty ? null : h;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -331,6 +343,29 @@ class _FormState extends ConsumerState<_Form> {
                 textInputAction: TextInputAction.done,
                 validator: (v) => checkText(v, max: MaxLen.storeHours),
               ),
+              // the Follow buttons on Home and Account; a pasted profile link or @name is cut to the username
+              for (final (site, c, label) in [
+                (SocialSite.instagram, _instagram, 'Instagram username'),
+                (SocialSite.facebook, _facebook, 'Facebook page username'),
+              ]) ...[
+                _gap(),
+                TextFormField(
+                  controller: c,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    prefixText: '@',
+                    helperText: 'Empty: no ${site == SocialSite.instagram ? 'Instagram' : 'Facebook'} button.',
+                  ),
+                  autocorrect: false,
+                  keyboardType: TextInputType.url,
+                  inputFormatters: textInput(200),
+                  textInputAction: TextInputAction.next,
+                  validator: (v) {
+                    final h = site.bare(v ?? '');
+                    return h.isEmpty || site.valid(h) ? null : 'Enter just the username, like ashusnapx.';
+                  },
+                ),
+              ],
               const _ShopPhotos(),
               const ListSection('Customer notes'),
               TextFormField(

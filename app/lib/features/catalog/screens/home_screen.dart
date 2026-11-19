@@ -999,6 +999,7 @@ class _StoreCard extends StatelessWidget {
                 ],
               ),
             ),
+            FollowButtons(settings),
             if (listing != null)
               ListTile(
                 contentPadding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xs),

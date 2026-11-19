@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../format.dart';
 import '../models/models.dart';
 import '../supabase.dart';
 import '../theme/tokens.dart';
@@ -168,6 +169,40 @@ class StoreContactButtons extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// "Follow the shop" with Instagram and Facebook buttons, from Admin > Settings' usernames (the apps' own colours).
+/// A button without its username is left out, and the row too when neither is set.
+class FollowButtons extends StatelessWidget {
+  const FollowButtons(this.settings, {super.key});
+
+  final StoreSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final ig = settings.instagramHandle, fb = settings.facebookHandle;
+    if (ig == null && fb == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.xs, Space.xs),
+      child: Row(
+        children: [
+          Expanded(child: Text('Follow the shop', style: Theme.of(context).textTheme.titleSmall)),
+          if (ig != null)
+            IconButton(
+              tooltip: 'Shyam Mobiles on Instagram',
+              icon: const Icon(PhosphorIconsFill.instagramLogo, color: BrandColors.instagram),
+              onPressed: () => openUri(context, SocialSite.instagram.url(ig)),
+            ),
+          if (fb != null)
+            IconButton(
+              tooltip: 'Shyam Mobiles on Facebook',
+              icon: const Icon(PhosphorIconsFill.facebookLogo, color: BrandColors.facebook),
+              onPressed: () => openUri(context, SocialSite.facebook.url(fb)),
+            ),
+        ],
+      ),
     );
   }
 }

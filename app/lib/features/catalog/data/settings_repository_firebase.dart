@@ -38,12 +38,26 @@ class FirebaseSettingsRepository implements SettingsRepository {
       referralRewardPaise: (referral['rewardPaise'] as num?)?.toInt() ?? 20000,
       referralMinOrderPaise: (referral['minOrderPaise'] as num?)?.toInt() ?? 199900,
       referralMonthlyCap: (referral['monthlyCap'] as num?)?.toInt() ?? 10,
+      instagramHandle: business?.instagramHandle,
+      facebookHandle: business?.facebookHandle,
     );
   }
 
-  /// Phone and address are not written here: they belong to [saveBusinessProfile].
+  /// Phone and address are not written here: they belong to [saveBusinessProfile]. The social handles live on
+  /// settings/business, whose Rules want a recent sign-in, so that doc is written only when they change.
   @override
-  Future<void> saveStoreSettings(StoreSettings s) => _store.update({
+  Future<void> saveStoreSettings(StoreSettings s) async {
+    await _saveStore(s);
+    final b = (await _business.get()).data() ?? const {};
+    if (b['instagramHandle'] == s.instagramHandle && b['facebookHandle'] == s.facebookHandle) return;
+    await _business.update({
+      'instagramHandle': s.instagramHandle,
+      'facebookHandle': s.facebookHandle,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _saveStore(StoreSettings s) => _store.update({
         'deliveryFeePaise': s.deliveryFeePaise,
         'freeDeliveryMinPaise': s.freeDeliveryMinPaise,
         'codEnabled': s.codEnabled,
@@ -83,6 +97,8 @@ class FirebaseSettingsRepository implements SettingsRepository {
       district: a['district'] as String,
       state: a['state'] as String,
       pincode: a['pincode'] as String,
+      instagramHandle: b['instagramHandle'] as String?,
+      facebookHandle: b['facebookHandle'] as String?,
     );
   }
 

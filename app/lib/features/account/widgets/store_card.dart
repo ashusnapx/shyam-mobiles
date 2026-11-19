@@ -71,6 +71,7 @@ class StoreCard extends ConsumerWidget {
               title: const Text('WhatsApp the shop'),
               onTap: () => openUri(context, whatsAppUri(phone, text: whatsAppText)),
             ),
+            FollowButtons(s),
             ListTile(
               leading: const Icon(PhosphorIconsRegular.shieldCheck),
               title: const Text('Returns & warranty'),

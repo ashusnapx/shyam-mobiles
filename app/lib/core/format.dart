@@ -37,6 +37,35 @@ String displayPhone(String e164) =>
 bool isAllowedExternalUri(Uri uri) =>
     uri.scheme == 'tel' || uri.scheme == 'upi' || (uri.scheme == 'https' && uri.host.isNotEmpty);
 
+/// The shop's pages, kept as bare usernames (store_settings.instagram_handle / facebook_handle, settings/business
+/// instagramHandle / facebookHandle). The patterns match the database's checks.
+enum SocialSite {
+  instagram(['instagram.com'], r'^[A-Za-z0-9._]{1,30}$'),
+  facebook(['facebook.com', 'fb.com'], r'^[A-Za-z0-9.]{5,50}$');
+
+  const SocialSite(this.hosts, this._pattern);
+
+  final List<String> hosts;
+  final String _pattern;
+
+  /// "@shop", "shop" or a pasted link ("instagram.com/shop/", "https://m.facebook.com/shop?ref=x") → "shop". A link
+  /// to another site comes back whole, so [valid] refuses it.
+  String bare(String input) {
+    final s = input.trim();
+    if (s.startsWith('@')) return s.substring(1);
+    if (!s.contains('/')) return s;
+    final uri = Uri.tryParse(s.contains('://') ? s : 'https://$s');
+    final host = uri?.host.toLowerCase() ?? '';
+    if (!hosts.any((h) => host == h || host.endsWith('.$h'))) return s;
+    return uri!.pathSegments.firstWhere((p) => p.isNotEmpty, orElse: () => s);
+  }
+
+  bool valid(String handle) => RegExp(_pattern).hasMatch(handle);
+
+  /// `https://instagram.com/<handle>`, `https://facebook.com/<handle>`: the app opens it when installed, else the browser.
+  Uri url(String handle) => Uri.https(hosts.first, '/$handle');
+}
+
 /// Google Maps directions to [address] (opens the Maps app, or the browser). Maps universal link: no API key.
 Uri directionsUri(String address) =>
     Uri.https('www.google.com', '/maps/dir/', {'api': '1', 'destination': address});

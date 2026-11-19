@@ -12,6 +12,7 @@ class CartLine {
     required this.productName,
     this.productActive = true,
     this.coverPath,
+    this.forModel,
   });
 
   final Variant variant;
@@ -21,11 +22,13 @@ class CartLine {
   final String productName;
   final bool productActive;
   final String? coverPath;
+  final String? forModel; // made to order: the customer's phone ("Galaxy A15")
 
   int get lineTotalPaise => variant.pricePaise * qty;
-  bool get purchasable => productActive && variant.isActive && variant.stock >= qty;
+  bool get purchasable =>
+      productActive && variant.isActive && (variant.madeToOrder ? forModel != null : variant.stock >= qty);
 
-  CartLine copyWith({int? qty}) => CartLine(
+  CartLine copyWith({int? qty, String? forModel}) => CartLine(
         variant: variant,
         qty: qty ?? this.qty,
         productId: productId,
@@ -33,6 +36,7 @@ class CartLine {
         productName: productName,
         productActive: productActive,
         coverPath: coverPath,
+        forModel: forModel ?? this.forModel,
       );
 
   factory CartLine.fromJson(Map<String, dynamic> j) {
@@ -47,6 +51,7 @@ class CartLine {
       productName: p['name'],
       productActive: p['is_active'] ?? true,
       coverPath: images.isEmpty ? null : images.first['path'],
+      forModel: j['for_model'],
     );
   }
 }
@@ -151,6 +156,8 @@ class StoreSettings {
     this.referralRewardPaise = 20000,
     this.referralMinOrderPaise = 199900,
     this.referralMonthlyCap = 10,
+    this.instagramHandle,
+    this.facebookHandle,
   });
 
   final int deliveryFeePaise;
@@ -171,6 +178,8 @@ class StoreSettings {
   final int referralRewardPaise;
   final int referralMinOrderPaise;
   final int referralMonthlyCap; // rewards per referrer per IST month
+  final String? instagramHandle; // bare usernames (SocialSite); null hides that Follow button
+  final String? facebookHandle;
 
   /// Mirrors `place_order`; the server total is the one that's charged.
   int deliveryFeeFor(int subtotalPaise) => subtotalPaise >= freeDeliveryMinPaise ? 0 : deliveryFeePaise;
@@ -212,6 +221,8 @@ class StoreSettings {
         referralRewardPaise: j['referral_reward_paise'] ?? 20000,
         referralMinOrderPaise: j['referral_min_order_paise'] ?? 199900,
         referralMonthlyCap: j['referral_monthly_cap'] ?? 10,
+        instagramHandle: j['instagram_handle'],
+        facebookHandle: j['facebook_handle'],
       );
 
   Map<String, dynamic> toJson() => {
@@ -233,6 +244,8 @@ class StoreSettings {
         'referral_reward_paise': referralRewardPaise,
         'referral_min_order_paise': referralMinOrderPaise,
         'referral_monthly_cap': referralMonthlyCap,
+        'instagram_handle': instagramHandle,
+        'facebook_handle': facebookHandle,
       };
 }
 
