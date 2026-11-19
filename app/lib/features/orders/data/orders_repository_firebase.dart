@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../core/callable.dart';
 import '../../../core/models/models.dart';
+import '../../catalog/data/catalog_index_store_firebase.dart';
 import '../../repairs/data/booking_days.dart' show istMidnight;
 import 'orders_repository.dart';
 import 'snake.dart';
@@ -52,7 +53,9 @@ const _open = ['confirmed', 'packed', 'shipped'];
 
 /// Callables for every change (functions/src/orders), Firestore reads under Rules for the rest.
 class FirebaseOrdersRepository implements OrdersRepository {
-  const FirebaseOrdersRepository(this._db, this._fn);
+  FirebaseOrdersRepository(this._db, this._fn) : _staffIndex = ChunkedIndex(_db, 'staff', live: false);
+
+  final ChunkedIndex _staffIndex;
 
   final FirebaseFirestore _db;
   final FirebaseFunctions _fn;
@@ -118,16 +121,16 @@ class FirebaseOrdersRepository implements OrdersRepository {
       _orders.where('status', isEqualTo: 'cancelled').where('paymentStatus', isEqualTo: 'paid').count().get(),
       openRepairs.count().get(),
       openRepairs.where('quote.status', isEqualTo: 'pending').count().get(),
-      _db.doc('catalogIndex/staff').get(),
+      _staffIndex.read(),
     ).wait;
-    final cards = (index.data()?['cards'] as Map? ?? const {}).values.cast<Map>();
+    final cards = index.values;
     return {
       'orders_today': t.count ?? 0,
       'revenue_today_paise': (t.getSum('totalPaise') ?? 0).toInt(),
       'open_orders': open.count ?? 0,
       'needs_refund': refund.count ?? 0,
       'low_stock': cards
-          .where((c) => c['active'] == true && (c['variants'] as List? ?? const []).any((v) => v[6] == true && (v[5] as num) <= 3))
+          .where((c) => c['active'] == true && (c['variants'] as List? ?? const []).any((v) => v['a'] == true && (v['st'] as num) <= 3))
           .length,
       'open_repairs': repairs.count ?? 0,
       'repairs_awaiting_approval': quotes.count ?? 0,

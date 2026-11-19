@@ -162,9 +162,12 @@ service cloud.firestore {
       allow get: if resource == null || (resource.data.isActive == true && resource.data.productActive == true) || isStaff();
       allow list: if (resource.data.isActive == true && resource.data.productActive == true) || isStaff();
     }
-    match /catalogIndex/public { allow read: if true; }
+    // Sharded index (functions/src/catalog/shard.ts): public_<category>_<n> chunks and public_manifest; the staff ones
+    // likewise. The triggers write them; the legacy public and staff docs are no longer read.
+    match /catalogIndex/{chunk} {
+      allow read: if chunk.matches('public_[a-z0-9-]+_[0-9]+|public_manifest') || isStaff() && chunk.matches('staff_[a-z0-9-]+_[0-9]+|staff_manifest');
+    }
     match /catalogIndex/models { allow read: if true; } // phone models customers ordered made-to-order (placeOrder)
-    match /catalogIndex/staff { allow read: if isStaff(); }
     match /collections/{slug} {
       allow read: if true;
       allow create, update: if isStaff() && slug.matches('[a-z0-9-]{1,60}')

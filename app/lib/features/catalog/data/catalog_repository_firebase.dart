@@ -1,10 +1,9 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/models.dart';
 import 'catalog.dart' show HomeData, SearchParams;
 import 'catalog_index.dart';
+import 'catalog_index_store_firebase.dart';
 import 'catalog_repository.dart';
 import 'rails.dart' show closestByPrice, railSize;
 
@@ -58,34 +57,16 @@ Product productFromDoc(String id, Map<String, dynamic> d, {required String categ
 /// A read the Rules refused: a hidden product or variant, which customers see as missing.
 bool isDenied(Object e) => e is FirebaseException && e.code == 'permission-denied';
 
-/// Customers' reads on Firebase: every card comes from catalogIndex/public, searched on the phone; product pages read
-/// the product, its shown variants and its category.
+/// Customers' reads on Firebase: every card comes from the sharded catalogIndex/public_* chunks (ChunkedIndex: only
+/// changed chunks are downloaded, a category page reads only its own), searched on the phone; product pages read the
+/// product, its shown variants and its category.
 class FirebaseCatalogRepository implements CatalogRepository {
-  FirebaseCatalogRepository(this._db);
+  FirebaseCatalogRepository(this._db) : _public = ChunkedIndex(_db, 'public', live: true);
 
   final FirebaseFirestore _db;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _sub;
-  Completer<void>? _first;
-  IndexCards _cards = const {};
+  final ChunkedIndex _public;
 
-  /// The index, kept current by one listener (Firestore downloads it again only when it changes; offline, the
-  /// on-device copy). A failed first load is retried on the next call.
-  Future<IndexCards> _index() async {
-    if (_first == null) {
-      final first = _first = Completer<void>();
-      _sub = _db.doc('catalogIndex/public').snapshots().listen((s) {
-        _cards = indexCards(s.data());
-        if (!first.isCompleted) first.complete();
-      }, onError: (Object e) {
-        if (first.isCompleted) return;
-        first.completeError(e);
-        _sub?.cancel();
-        _first = null;
-      });
-    }
-    await _first!.future;
-    return _cards;
-  }
+  Future<IndexCards> _index({String? category}) => _public.read(category: category);
 
   @override
   Future<List<Category>> categories() async =>
@@ -132,7 +113,7 @@ class FirebaseCatalogRepository implements CatalogRepository {
 
   @override
   Future<({List<ProductCard> items, int total})> search(SearchParams params, {required int offset, required int limit}) async {
-    final hits = searchCards(await _index(), params);
+    final hits = searchCards(await _index(category: params.category), params);
     return (items: hits.skip(offset).take(limit).toList(), total: hits.length);
   }
 
@@ -158,7 +139,7 @@ class FirebaseCatalogRepository implements CatalogRepository {
 
   @override
   Future<List<ProductCard>> similar(String categorySlug, int pricePaise, String excludeId) async {
-    final cards = await _index();
+    final cards = await _index(category: categorySlug);
     return closestByPrice([
       for (final MapEntry(:key, :value) in cards.entries)
         if (value['c'] == categorySlug && key != excludeId) cardOf(key, value)

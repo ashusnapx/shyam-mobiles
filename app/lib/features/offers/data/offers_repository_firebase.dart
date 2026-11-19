@@ -4,7 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/callable.dart';
 import '../../../core/models/models.dart';
-import '../../catalog/data/catalog_index.dart' show cardOf, indexCards;
+import '../../catalog/data/catalog_index.dart' show cardOf;
+import '../../catalog/data/catalog_index_store_firebase.dart';
 import '../../orders/data/snake.dart';
 import 'offers_repository.dart';
 import 'packs.dart';
@@ -12,7 +13,9 @@ import 'packs.dart';
 /// publicOffers + the caller's users/{uid}/coupons (docs/FIREBASE.md §3), judged like private.offer_open. The
 /// per-user rules come from the caller's own orders (docs/FIREBASE.md §5 "Per-user offer data"); quoteOrder decides.
 class FirebaseOffersRepository implements OffersRepository {
-  const FirebaseOffersRepository(this._db, this._fn, this._auth);
+  FirebaseOffersRepository(this._db, this._fn, this._auth) : _index = ChunkedIndex(_db, 'public', live: false);
+
+  final ChunkedIndex _index;
 
   final FirebaseFirestore _db;
   final FirebaseFunctions _fn;
@@ -99,7 +102,7 @@ class FirebaseOffersRepository implements OffersRepository {
     if (!offer.exists && uid != null) offer = await _db.doc('users/$uid/coupons/$promotionId').get();
     final p = offer.data();
     if (p == null) return const [];
-    final cards = indexCards((await _db.doc('catalogIndex/public').get()).data()).entries
+    final cards = (await _index.read()).entries
         .where((e) => _covers(p, e.key, e.value['c'] as String?, e.value['b'] as String?, [...(e.value['col'] as List? ?? const [])].cast<String>()))
         .map((e) => cardOf(e.key, e.value))
         .toList()

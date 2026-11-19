@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { promisify } from "node:util";
 import { getApp } from "firebase-admin/app";
+import { FieldPath } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { initializeApp as clientApp } from "firebase/app";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
@@ -16,7 +17,10 @@ import { reasonOf } from "../../src/shared/errors.js";
 const run = promisify(execFile);
 const SEED = new URL("../../../seed/", import.meta.url).pathname;
 const fs = db;
-const cards = async (which: "public" | "staff") => ((await fs().doc(`catalogIndex/${which}`).get()).get("cards") ?? {}) as Record<string, Record<string, unknown>>;
+const cards = async (which: "public" | "staff") => {
+  const snap = await fs().collection("catalogIndex").where(FieldPath.documentId(), ">=", `${which}_`).where(FieldPath.documentId(), "<", `${which}\``).get();
+  return Object.assign({}, ...snap.docs.map((d) => (d.get("cards") ?? {}) as Record<string, Record<string, unknown>>)) as Record<string, Record<string, unknown>>;
+};
 const reason = (p: Promise<unknown>) => p.then(() => null, (e: unknown) => reasonOf(e));
 async function eventually(check: () => Promise<boolean>, ms = 15_000): Promise<void> {
   for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 250))) if (await check()) return;
@@ -28,7 +32,7 @@ const variant = { productId: "test-phone", id: null, sku: "TEST-1", name: "8 GB"
 
 beforeAll(async () => {
   const { stdout } = await run("node", [`${SEED}seed.ts`], { env: process.env });
-  expect(stdout).toMatch(/seeded \d+ docs and 35 public cards/);
+  expect(stdout).toMatch(/seeded \d+ docs and 40 public cards/);
 }, 60_000);
 
 describe("seed", () => {

@@ -6,7 +6,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../core/callable.dart';
 import '../../../core/models/models.dart';
-import '../../catalog/data/catalog_index.dart' show IndexCards, indexCards;
+import '../../catalog/data/catalog_index.dart' show IndexCards;
+import '../../catalog/data/catalog_index_store_firebase.dart';
 import '../../catalog/data/catalog_repository_firebase.dart' show productFromDoc, variantFromDoc;
 import 'admin.dart' show AdminProductRow;
 import 'catalog_admin_repository.dart';
@@ -120,13 +121,15 @@ Map<String, Object?> variantInput(String productId, String? id, Map<String, Obje
 /// Staff on Firebase: reads from catalogIndex/staff and the product docs (staff Rules), writes through the catalog
 /// callables (functions/src/catalog/contract.ts), brands as plain staff docs.
 class FirebaseCatalogAdminRepository implements CatalogAdminRepository {
-  FirebaseCatalogAdminRepository(this._db, this._functions);
+  FirebaseCatalogAdminRepository(this._db, this._functions) : _index = ChunkedIndex(_db, 'staff', live: false);
+
+  final ChunkedIndex _index;
 
   final FirebaseFirestore _db;
   final FirebaseFunctions _functions;
 
   /// One read per screen visit: the index is re-read each time (staff want the latest stock), never streamed.
-  Future<IndexCards> _staff() async => indexCards((await _db.doc('catalogIndex/staff').get()).data());
+  Future<IndexCards> _staff() => _index.read();
 
   Future<Map<String, dynamic>> _call(String name, Map<String, Object?> data) => callFunction(_functions, name, data);
 

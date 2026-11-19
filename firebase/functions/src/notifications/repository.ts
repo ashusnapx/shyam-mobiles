@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase-admin/firestore";
+import { readPublicCards } from "../catalog/repository.js";
 import { DAY_MS } from "../model/retention.js";
 import { db } from "../shared/db.js";
 import { log } from "../shared/log.js";
@@ -71,7 +72,7 @@ async function protectNudges(now: Date): Promise<number> {
     .where("updatedAt", ">=", Timestamp.fromMillis(now.getTime() - 3 * DAY_MS)).limit(PAGE).get();
   const due = orders.docs.filter((o) => typeof o.get("uid") === "string" && protectDue(deliveredAtMs(o.get("events")), now.getTime()));
   if (due.length === 0) return 0;
-  const cards = ((await db().doc("catalogIndex/public").get()).get("cards") ?? {}) as Record<string, { ft?: unknown; i?: unknown }>;
+  const cards = (await readPublicCards()) as Record<string, { ft?: unknown; i?: unknown }>;
   let sent = 0;
   for (const o of due) {
     const items = (o.get("items") ?? []) as { productId?: string; imagePath?: string }[];

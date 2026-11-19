@@ -1,5 +1,5 @@
 // Loads seed/dev.json (the sample catalogue converted from supabase/seed.sql, and the shop's settings) into the
-// Firestore EMULATOR, then writes both catalog index docs with the same builder the triggers use. Emulator only: it
+// Firestore EMULATOR, then writes the sharded catalog index with the same builder the triggers use. Emulator only: it
 // refuses to run unless FIRESTORE_EMULATOR_HOST is set and the project id starts with demo-.
 //
 //   cd firebase && npm --prefix functions run build && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node seed/seed.ts
@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { cardsFor } from "../functions/lib/catalog/cards.js";
+import { categoryOf, KINDS, manifestId, planChunks } from "../functions/lib/catalog/shard.js";
 
 const require = createRequire(new URL("../functions/package.json", import.meta.url));
 const { initializeApp } = require("firebase-admin/app");
@@ -39,7 +40,7 @@ const of = (prefix: string) => all.filter(([p]) => p.startsWith(prefix)).map(([p
 const variants = of("variants/");
 const collections = of("collections/");
 const pub: Doc = {};
-const staff: Doc = {};
+const next = new Map<string, never>();
 for (const p of of("products/")) {
   const cards = cardsFor(
     p.id,
@@ -48,9 +49,18 @@ for (const p of of("products/")) {
     collections.filter((c) => (c.productIds as string[]).includes(p.id)).map((c) => c.id),
   );
   if (cards.public) pub[p.id] = cards.public;
-  if (cards.staff) staff[p.id] = cards.staff;
+  next.set(p.id, cards as never);
 }
-void writer.set(db.doc("catalogIndex/public"), { cards: pub, updatedAt: now });
-void writer.set(db.doc("catalogIndex/staff"), { cards: staff, updatedAt: now });
+// Sharded index (functions/src/catalog/shard.ts): the chunks and one manifest per kind, all at version 1.
+const plan = planChunks(new Map(), next);
+for (const kind of KINDS) {
+  const chunks: Doc = {};
+  for (const [cid, { set }] of plan) {
+    if (!cid.startsWith(`${kind}_`)) continue;
+    void writer.set(db.doc(`catalogIndex/${cid}`), { cards: set, ids: Object.keys(set), v: 1, c: categoryOf(cid), updatedAt: now });
+    chunks[cid] = { v: 1, c: categoryOf(cid), n: Object.keys(set).length };
+  }
+  void writer.set(db.doc(`catalogIndex/${manifestId(kind)}`), { chunks, updatedAt: now });
+}
 await writer.close();
 console.log(`seeded ${all.length} docs and ${Object.keys(pub).length} public cards into ${PROJECT}`);
