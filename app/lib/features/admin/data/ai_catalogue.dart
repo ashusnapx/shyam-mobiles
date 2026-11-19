@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -5,7 +6,7 @@ import 'package:excel/excel.dart';
 import 'package:firebase_ai/firebase_ai.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kReleaseMode;
+import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -103,13 +104,14 @@ String _s(Object? v, int max) {
   return t.length <= max ? t : t.substring(0, max).trim();
 }
 
-/// One AI product object → a draft, with everything it filled flagged. Null when it has neither brand nor model
-/// (the answer is not usable: the caller retries with the stronger model). [categories]: the shop's category names.
-ProductDraft? draftFromJson(Object? json, {List<String> categories = const [], String fileHint = ''}) {
+/// One AI product object → a draft, with everything it filled flagged. Null when it has no model, or no brand when
+/// [requireBrand] (the answer is not usable: the caller retries with the stronger model). One box's label keeps a
+/// missing brand: plenty of boxes print none, and the form asks staff for it. [categories]: the shop's category names.
+ProductDraft? draftFromJson(Object? json, {List<String> categories = const [], String fileHint = '', bool requireBrand = true}) {
   if (json is! Map) return null;
   final brand = brandDisplayName(_s(json['brand'], 40));
   final model = _s(json['model'], 80);
-  if (brand.isEmpty || model.isEmpty) return null;
+  if (model.isEmpty || (requireBrand && brand.isEmpty)) return null;
   final cat = _s(json['category'], 60);
   final category = categories.firstWhere((c) => c.toLowerCase() == cat.toLowerCase(), orElse: () => '');
   final name = _s(json['name'], MaxLen.productName);
@@ -124,7 +126,7 @@ ProductDraft? draftFromJson(Object? json, {List<String> categories = const [], S
     pricePaise: paiseOf(json['sellingRupees']),
     ean: _s(json['ean'], 20).replaceAll(RegExp(r'[^0-9A-Za-z]'), ''),
     categoryName: category,
-    name: name.isEmpty ? '$brand $model' : name,
+    name: name.isEmpty ? '$brand $model'.trim() : name,
     bullets: [for (final b in (json['bullets'] as List? ?? const []).take(4)) if (_s(b, 200).isNotEmpty) _s(b, 200)],
     specs: [
       for (final s in (json['specs'] as List? ?? const []).take(20))
@@ -145,11 +147,12 @@ ProductDraft? draftFromJson(Object? json, {List<String> categories = const [], S
 }
 
 /// The AI's `{"products": [...]}` text → drafts. Throws FormatException on broken JSON.
-List<ProductDraft> draftsFromText(String text, {List<String> categories = const [], String fileHint = ''}) {
+List<ProductDraft> draftsFromText(String text,
+    {List<String> categories = const [], String fileHint = '', bool requireBrand = true}) {
   final json = jsonDecode(text);
   final list = json is Map ? json['products'] : json;
   if (list is! List) throw const FormatException('No product list in the answer.');
-  return [for (final p in list) ?draftFromJson(p, categories: categories, fileHint: fileHint)];
+  return [for (final p in list) ?draftFromJson(p, categories: categories, fileHint: fileHint, requireBrand: requireBrand)];
 }
 
 /// Selling price prefill: MRP minus the shop's default discount, to the whole rupee. Null without an MRP. 0% → the MRP.
@@ -216,6 +219,7 @@ String aiErrorMessage(Object e) => switch (e) {
       ServiceApiNotEnabled() || InvalidApiKey() => 'The AI is not switched on for this shop yet. Ask the developer.',
       UnsupportedUserLocation() => 'The AI is not available in this location.',
       FormatException() => 'The AI could not read that. Try a clearer, closer photo or file, then Retry.',
+      TimeoutException() => 'The AI is slow right now. Tap Retry, or fill it in by hand.',
       _ => 'Could not reach the AI. Check the internet, then tap Retry.',
     };
 
@@ -273,9 +277,18 @@ class GeminiCatalogueAi implements CatalogueAi {
       model: model,
       generationConfig: GenerationConfig(responseMimeType: 'application/json', responseSchema: schema, temperature: 0),
     );
-    final text = (await m.generateContent([Content.multi(parts)])).text;
-    if (text == null || text.isEmpty) throw const FormatException('Empty answer.');
-    return text;
+    // a hung call spun for 3 minutes before the SDK gave up: the fast model answers in ~6 s
+    final limit = Duration(seconds: model == aiModelFast ? 25 : 40);
+    final watch = Stopwatch()..start();
+    try {
+      final text = (await m.generateContent([Content.multi(parts)]).timeout(limit)).text;
+      if (text == null || text.isEmpty) throw const FormatException('Empty answer.');
+      debugPrint('AI $model ok in ${watch.elapsedMilliseconds} ms');
+      return text;
+    } catch (e) {
+      debugPrint('AI $model failed after ${watch.elapsedMilliseconds} ms: $e'); // adb logcat: the real reason
+      rethrow;
+    }
   }
 
   /// Flash-Lite first; Flash when the answer is not a usable result. Quota and network errors are not retried.
@@ -297,7 +310,7 @@ class GeminiCatalogueAi implements CatalogueAi {
             InlineDataPart('image/jpeg', image),
           ],
         );
-        final drafts = draftsFromText(text, categories: categories);
+        final drafts = draftsFromText(text, categories: categories, requireBrand: false);
         if (drafts.isEmpty) throw const FormatException('No product found.');
         return drafts.first;
       });

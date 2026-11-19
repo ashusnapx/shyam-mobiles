@@ -1,5 +1,6 @@
 // AI catalogue builder: JSON → draft mapping on fixture answers, duplicate detection, the price prefill rule, and the
 // Quick add and Import screens with a fake AI (no Firebase, no camera, no file dialog).
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -90,6 +91,10 @@ void main() {
       expect(draftFromJson({'brand': '', 'model': 'X'}), isNull);
       expect(draftFromJson('nope'), isNull);
       expect(draftsFromText('{"products":[{"model":"X"}]}'), isEmpty);
+      // one box's label: no brand printed is still a product, and staff type the brand
+      final noBrand = draftsFromText('{"products":[{"model":"Smart Thermos Mug"}]}', requireBrand: false).single;
+      expect((noBrand.brand, noBrand.name), ('', 'Smart Thermos Mug'));
+      expect(aiErrorMessage(TimeoutException('slow')), contains('slow right now'), reason: 'not "check the internet"');
       expect(() => draftsFromText('not json'), throwsFormatException);
       expect(() => draftsFromText('{"x":1}'), throwsFormatException);
     });
