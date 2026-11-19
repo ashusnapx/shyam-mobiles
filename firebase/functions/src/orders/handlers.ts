@@ -82,9 +82,6 @@ async function place(tx: Transaction, uid: string, input: { addressId: string; p
     .filter((d) => d.get("paymentMethod") === "online" && (date(d.get("reservedUntil"))?.getTime() ?? 0) > k.now.getTime()).length;
   const counterRef = doc("counters/orders");
   const next = ((await tx.get(counterRef)).get("next") as number | undefined) ?? 100001;
-  const models = k.cart.priced.flatMap((l) => (l.forModel === null ? [] : [l.forModel]));
-  const modelsRef = doc("catalogIndex/models");
-  const knownModels = models.length ? (((await tx.get(modelsRef)).get("names") as string[] | undefined) ?? []) : null;
   await takeRateLimit(tx, uid, "placeOrder", k.now.getTime());
 
   const refused = placeRefusal({ lineCount: k.lines.length, addressFound: address !== undefined, method, pendingOnline, lines: k.cart.priced, missing: k.cart.missing })
@@ -119,7 +116,6 @@ async function place(tx: Transaction, uid: string, input: { addressId: string; p
   const ref = db().collection("orders").doc();
   tx.create(ref, order);
   for (const l of k.cart.priced) if (!l.madeToOrder) moveStock(tx, l.variantId, l.variant, -l.qty, "order", now);
-  if (knownModels) tx.set(modelsRef, { names: learnModels(knownModels, models), updatedAt: now });
   if (promo) {
     tx.create(doc(`redemptions/${ref.id}`), { promotionId: promo.id, uid, discountPaise: priced.discountPaise, active: true, createdAt: now, purgeAt: purgeAt(now) });
     changeUses(tx, promo.id, promo as unknown as Promotion, 1, priced.discountPaise, now);
@@ -203,9 +199,15 @@ export const adminUpdateOrder = callable(c.adminUpdateOrder, async (input, req) 
     if ("reason" in step) fail(step.reason, step.detail);
     const now = new Date();
     const undo = step.restock ? await readUndo(tx, input.orderId, o) : null;
-    const reward = step.status === "delivered" && o.status !== "delivered" ? await readReward(tx, o, now) : null;
+    const delivering = step.status === "delivered" && o.status !== "delivered";
+    const reward = delivering ? await readReward(tx, o, now) : null;
+    // suggestions come only from delivered orders, so a typed-in model never reaches other customers unseen
+    const models = delivering ? o.items.flatMap((i) => (i.forModel ? [i.forModel] : [])) : [];
+    const modelsRef = doc("catalogIndex/models");
+    const known = models.length ? (((await tx.get(modelsRef)).get("names") as string[] | undefined) ?? []) : null;
     undo?.write(-1, now);
     reward?.();
+    if (known) tx.set(modelsRef, { names: learnModels(known, models), updatedAt: now });
     tx.update(ref, defined({
       status: step.status, paymentStatus: step.paymentStatus, courier: step.courier, trackingNumber: step.trackingNumber,
       ...(step.restock ? { cancelledBy: "staff", reservedUntil: null } : {}),

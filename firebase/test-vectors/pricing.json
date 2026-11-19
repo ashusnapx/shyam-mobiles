@@ -2397,9 +2397,9 @@
       }
     },
     {
-      "id": "place-made-to-order-skips-stock-and-learns-the-model",
+      "id": "place-made-to-order-skips-stock-and-learns-nothing",
       "source": "docs: made-to-order accessories",
-      "about": "Mixed cart: v8 is made to order (stock 0, never checked or moved), its model tidied (trimmed, spaces collapsed) onto the item and into catalogIndex/models; forModel on the stocked v5 line is dropped and v5 stock moves as usual.",
+      "about": "Mixed cart: v8 is made to order (stock 0, never checked or moved), its model tidied (trimmed, spaces collapsed) onto the item (catalogIndex/models learns it only once the order is delivered); forModel on the stocked v5 line is dropped and v5 stock moves as usual.",
       "as": "alice",
       "given": {
         "variants/v8": {
@@ -2461,17 +2461,13 @@
         "carts/alice": {
           "lines": {}
         },
-        "catalogIndex/models": {
-          "names": [
-            "Redmi Note 13 Pro+"
-          ]
-        }
+        "catalogIndex/models": null
       }
     },
     {
-      "id": "place-made-to-order-learns-models-newest-first-once-per-name",
+      "id": "place-made-to-order-leaves-known-models-alone",
       "source": "docs: made-to-order accessories",
-      "about": "A model already known (case and spaces ignored) moves to the front with the newest spelling.",
+      "about": "Placing an order does not touch the suggestion list, whatever the customer typed.",
       "as": "alice",
       "given": {
         "variants/v8": {
@@ -2517,8 +2513,8 @@
         },
         "catalogIndex/models": {
           "names": [
-            "Redmi Note 13",
-            "Galaxy A15"
+            "Galaxy A15",
+            "redmi note13"
           ]
         }
       }

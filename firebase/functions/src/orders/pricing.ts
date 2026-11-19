@@ -233,11 +233,13 @@ export function tidyModel(raw: unknown): string | null {
   return s.length >= 2 && s.length <= 60 && /^[A-Za-z0-9][A-Za-z0-9 +()./'-]*$/.test(s) ? s : null;
 }
 
-/** catalogIndex/models after an order named [added]: newest first, one per lowercase-without-spaces key, at most 300. */
+/** catalogIndex/models after a delivered order named [added]: tidied, only letters/digits/spaces/+-. (60 chars max),
+ * newest first, one per lowercase-without-spaces key, at most 300. */
 export function learnModels(names: readonly string[], added: readonly string[]): string[] {
   const key = (n: string) => n.toLowerCase().replace(/ /g, "");
   const out: string[] = [];
-  for (const n of [...added, ...names]) if (!out.some((o) => key(o) === key(n))) out.push(n);
+  const clean = added.flatMap((a) => { const t = tidyModel(a); return t && /^[A-Za-z0-9 +.-]+$/.test(t) ? [t] : []; });
+  for (const n of [...clean, ...names]) if (!out.some((o) => key(o) === key(n))) out.push(n);
   return out.slice(0, 300);
 }
 

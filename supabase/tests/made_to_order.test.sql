@@ -1,7 +1,7 @@
 -- Made-to-order accessories: no stock check or decrement, a phone model per line, no restock, models learned.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(17);
 
 insert into auth.users (id, email) values ('c7000000-0000-0000-0000-000000000001', 'mto@test.dev');
 insert into public.addresses (user_id, name, phone, line1, city, state, pincode)
@@ -12,7 +12,8 @@ insert into public.categories (id, slug, name, kind) values
 insert into public.brands (id, slug, name) values ('c70000b0-0000-0000-0000-000000000001', 'mto-brand', 'Mtobrand');
 insert into public.products (id, slug, name, brand_id, category_id) values
   ('c70000a0-0000-0000-0000-000000000001', 'mto-phone', 'Mtobrand Zeta 7', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000001'),
-  ('c70000a0-0000-0000-0000-000000000002', 'mto-cover', 'Mto back cover', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000002');
+  ('c70000a0-0000-0000-0000-000000000002', 'mto-cover', 'Mto back cover', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000002'),
+  ('c70000a0-0000-0000-0000-000000000003', 'mto-odd', 'Odd <b>phone</b>', 'c70000b0-0000-0000-0000-000000000001', 'c70000c0-0000-0000-0000-000000000001');
 insert into public.variants (id, product_id, sku, name, price_paise, mrp_paise, stock, made_to_order, lead_days) values
   ('c70000d0-0000-0000-0000-000000000001', 'c70000a0-0000-0000-0000-000000000001', 'MTO-T-PHONE', 'Black', 900000, 900000, 5, false, 2),
   ('c70000d0-0000-0000-0000-000000000002', 'c70000a0-0000-0000-0000-000000000002', 'MTO-T-COVER', 'For your phone', 19900, 19900, 0, true, 3);
@@ -49,13 +50,18 @@ select is((select string_agg(coalesce(for_model, '-'), ',' order by unit_price_p
   where order_id = current_setting('t.order')::uuid), 'Galaxy A15 5G,-', 'the model rides on the made-to-order line only');
 select is((select string_agg(stock::text, ',' order by sku) from public.variants where sku like 'MTO-T-%'),
   '0,4', 'only the stocked line is decremented');
-select ok(public.phone_models()::jsonb ? 'Galaxy A15 5G', 'a model a customer ordered becomes a suggestion');
+select ok(not public.phone_models()::jsonb ? 'Galaxy A15 5G', 'a model typed on an undelivered order is not suggested');
 select ok(public.phone_models()::jsonb ? 'Mtobrand Zeta 7', 'catalog phone names are suggestions');
+select ok(not public.phone_models()::jsonb ? 'Odd <b>phone</b>', 'a name with markup is not suggested');
 
 set local role authenticated;
 select lives_ok($$ select public.cancel_order(current_setting('t.order')::uuid) $$, 'customer cancels');
 select is((select string_agg(stock::text, ',' order by sku) from public.variants where sku like 'MTO-T-%'),
   '0,5', 'cancel restocks the phone, never the made-to-order line');
+
+reset role;
+update public.orders set status = 'delivered' where id = current_setting('t.order')::uuid;
+select ok(public.phone_models()::jsonb ? 'Galaxy A15 5G', 'a model on a delivered order becomes a suggestion');
 
 select * from finish();
 rollback;

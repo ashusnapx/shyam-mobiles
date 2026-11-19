@@ -94,6 +94,7 @@ test("tidyModel: trimmed, spaces collapsed, 2..60 of letters, digits, spaces and
 
 test("learnModels: newest first, one per lowercase-without-spaces key, at most 300", () => {
   expect(learnModels(["Galaxy A15", "redmi note13"], ["Redmi Note 13", "galaxy a 15"])).toEqual(["Redmi Note 13", "galaxy a 15"]);
+  expect(learnModels([], ["Galaxy  A15 5G ", "Note (5G)", "<b>x</b>", "O'Neil", "Redmi 12+", "A".repeat(61)])).toEqual(["Galaxy A15 5G", "Redmi 12+"]);
   const many = Array.from({ length: 300 }, (_, i) => `Phone ${String(i)}`);
   const out = learnModels(many, ["New One"]);
   expect(out).toHaveLength(300);
