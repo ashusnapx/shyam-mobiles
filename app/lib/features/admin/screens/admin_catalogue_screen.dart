@@ -352,16 +352,6 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
                 )
               else ...[
                 IconButton(
-                  tooltip: 'Import catalogue',
-                  icon: const Icon(PhosphorIconsRegular.fileArrowUp),
-                  onPressed: () => context.push('/admin/catalogue/import'),
-                ),
-                IconButton(
-                  tooltip: 'Add product by hand',
-                  icon: const Icon(PhosphorIconsRegular.plus),
-                  onPressed: () => _open('/admin/products/new'),
-                ),
-                IconButton(
                   tooltip: 'Select rows',
                   icon: const Icon(PhosphorIconsRegular.checkSquare),
                   onPressed: () => setState(() => _selecting = true),
@@ -375,9 +365,9 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
           floatingActionButton: _selecting
               ? null
               : FloatingActionButton.extended(
-                  onPressed: () => context.push('/admin/catalogue/quick'),
-                  icon: const Icon(PhosphorIconsRegular.lightning),
-                  label: const Text('Quick add'),
+                  onPressed: _addSheet,
+                  icon: const Icon(PhosphorIconsRegular.plus),
+                  label: const Text('Add product'),
                 ),
           body: Column(
             children: [
@@ -533,6 +523,38 @@ class _AdminCatalogueScreenState extends ConsumerState<AdminCatalogueScreen> {
   }
 
   /// Opens the product editor; the editor may have changed it, so the list reloads after.
+  /// The one entry point for new products: by hand, with AI, or a supplier file.
+  Future<void> _addSheet() async {
+    final route = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            FilledButton.tonalIcon(
+              onPressed: () => Navigator.pop(ctx, '/admin/products/new'),
+              icon: const Icon(PhosphorIconsRegular.pencilSimple),
+              label: const Padding(padding: EdgeInsets.symmetric(vertical: Space.md), child: Text('Add manually')),
+            ),
+            const SizedBox(height: Space.sm),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, '/admin/catalogue/quick'),
+              icon: const Icon(PhosphorIconsRegular.sparkle),
+              label: const Padding(padding: EdgeInsets.symmetric(vertical: Space.md), child: Text('Add with AI')),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.pop(ctx, '/admin/catalogue/import'),
+              icon: const Icon(PhosphorIconsRegular.fileArrowUp),
+              label: const Text('Import a supplier catalogue'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (route != null && mounted) await _open(route);
+  }
+
   Future<void> _open(String route) async {
     await context.push(route);
     if (mounted) {
