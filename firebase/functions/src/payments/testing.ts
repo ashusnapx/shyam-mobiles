@@ -50,7 +50,7 @@ export const refused = (status: number, code: string, message: string) => Respon
 type Data = Record<string, unknown>;
 type Where = [field: string, value: unknown];
 
-/** doc / collection().where("f", "==", v).limit(n) / get / update / runTransaction (serialised; reads before writes;
+/** doc / collection().where("f", "==", v).limit(n) / get / set / update / runTransaction (serialised; reads before writes;
  * create fails on an existing doc, update on a missing one). */
 export function fakeFirestore(seed: Record<string, Data> = {}) {
   const docs = new Map<string, Data>(Object.entries(seed).map(([k, v]) => [k, structuredClone(v)]));
@@ -62,6 +62,10 @@ export function fakeFirestore(seed: Record<string, Data> = {}) {
   const ref = (path: string) => ({
     path, id: path.slice(path.lastIndexOf("/") + 1), kind: "doc" as const,
     get: () => Promise.resolve(snap(path)),
+    set: (d: Data) => new Promise<void>((resolve) => {
+      write(path, d, "set");
+      resolve();
+    }),
     update: (d: Data) => new Promise<void>((resolve) => {
       write(path, d, "update");
       resolve();
