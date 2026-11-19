@@ -40,6 +40,16 @@ class FirebaseProfileRepository implements ProfileRepository {
     return Profile(id: uid, fullName: d.data()?['fullName'] as String?, phone: d.data()?['phone'] as String?);
   }
 
+  /// users/{uid}.prefs.offers; absent means on (Rules: validPrefs).
+  @override
+  Future<bool?> offersOptIn(String uid) async => (await profile(uid)) == null ? null : (await _user(uid).get()).data()?['prefs']?['offers'] != false;
+
+  @override
+  Future<void> setOffersOptIn(String uid, {required bool on}) async {
+    await profile(uid); // exists from here on
+    await _user(uid).update({'prefs.offers': on, 'updatedAt': FieldValue.serverTimestamp()});
+  }
+
   @override
   Future<void> saveFullName(String uid, String? fullName) async {
     await profile(uid); // exists from here on

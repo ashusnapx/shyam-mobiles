@@ -47,8 +47,9 @@ integrity): staff hide only abuse, personal data or spam, and the review's autho
 **(b) Honest social proof.** "N bought this week" counts units on orders that were paid or delivered in the last 7
 IST days. A trigger keeps the counter, and a cancelled or refunded order is taken back out. It shows only when N ≥ 3,
 because "1 bought" isn't proof of anything. "Frequently bought together" comes from real co-purchase counts (a pair seen
-at least twice). With none, the phone page's existing "Fits this phone" rail is the fallback, so no second rail
-repeats it. Guardrail: false urgency covers "falsely depicting popularity". These numbers are counted, never typed in.
+at least twice), on accessory pages only: phone pages and phone carts get the "Complete your pack" bundle card
+instead (another engineer, owner's call). Guardrail: false urgency covers "falsely depicting popularity". These
+numbers are counted, never typed in.
 
 **(c) Exchange your old phone.** Principle: mental accounting (the old phone pays part of the new one). Flipkart and
 Amazon do it at checkout. We build: an "Exchange your old phone" sheet on phone pages and in the cart: brand, model,
@@ -60,13 +61,14 @@ The deduction rules are the owner's, shown before the estimate (**owner**: write
 **(d) Gentle re-engagement pushes.** Principle: the Hooked loop's external trigger, and loss aversion ("the price you
 wanted dropped"). We build: a cart left for 24 h with items in stock gets one push. A wishlist item whose price dropped
 gets one push. At most 1 marketing push per customer per 3 days, none from 9 pm to 9 am IST. Both respect the new
-"Offers & reminders" switch in Account → Notifications (on for new customers, off in one tap). Guardrail: nagging. The
+"Offers & reminders" switch in Account → Notifications (on for new customers, off in one tap). An hourly job sends them, and
+one transaction checks the switch, the cap and the push's own id, so nothing goes twice. Guardrail: nagging. The
 guideline says users must be able to switch such notifications off, hence the switch, the cap and the quiet hours.
 
 **(e) Post-purchase upsell.** Principle: commitment and consistency; the "unboxing" moment. We build: when a phone order
 is delivered, the order page shows "Protect your new phone" (cases, guards and chargers that fit, from the existing
-fits logic). One push 2 days later, which counts toward the 3-day cap. Guardrail: basket sneaking. Nothing is ever
-added to the cart for the customer.
+fits logic). One push 2 to 3 days after delivery, only when something in stock fits, and it counts toward the 3-day
+cap. Guardrail: basket sneaking. Nothing is ever added to the cart for the customer.
 
 ## 3. Guardrails: what the law forbids
 

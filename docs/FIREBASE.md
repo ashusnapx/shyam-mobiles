@@ -231,6 +231,14 @@ repairs/{id}           { number: 'RP100001', uid|null, deviceBrand, deviceModel,
 feedback/{id}          { uid|null, kind, rating?, message ≤1000, orderId?, repairId?, productId?, screen?, appVersion?,
                          status: 'new'|'seen'|'resolved' (St), adminNote? (St) } S
 counters/{orders|repairs|invoice-2026-27}  { next: int } S
+
+// growth (docs/GROWTH.md §2): reviews, counted social proof, exchanges, marketing pushes
+reviews/{productId}_{uid}  { productId, uid, name ('Ravi S.'), rating 1..5, text ≤1000, photos ≤3, orderId, hidden (St) } S (saveReview)
+productStats/{productId}   { ratingCount, ratingSum, stars [1★..5★], sold { 'YYYY-MM-DD': units, 7 IST days }, with { productId: orders } } S
+reviewIndex/public         { cards: { [productId]: { a: average×10, n: count } } } S      statsEvents/{orderId} { day, units, reversed } S
+exchanges/{id}             { uid, brand, model, age, condition, photos ≤3, forProductId, status: 'new'|'estimated',
+                             estimate: { lowPaise, highPaise, note, at }|null } S (requestExchange, estimateExchange)
+marketingCaps/{uid} { lastAt } S      priceDrops/{variantId}_{toPaise} { productId, productName, fromPaise, toPaise, at } S
 ```
 
 `cancelledBy` replaces today's "`reserved_until` null means a deliberate cancel" trick. `settings/store` loses `storePhone`/`storeAddress`: they now live in `settings/business`, the single source used by invoices, the policy pages (`firebase/hosting/`) and the app's call and WhatsApp buttons. **The proprietor's PAN is never stored, logged or derived as its own field anywhere.** The GSTIN is the only tax identifier we keep.

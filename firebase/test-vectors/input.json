@@ -471,7 +471,7 @@
     "appRoute": {
       "source": "supabase/migrations/20261030000400_notifications.sql:18 (notifications.link); docs/FIREBASE.md §3 users/{uid}/notifications link (app route)",
       "field": "users/{uid}/notifications/{id}.link (server-written)",
-      "pattern": "^/(orders/|repairs/|offers|product/|admin/orders/|admin/repairs/|admin/feedback/|admin/products/|admin/catalogue)[A-Za-z0-9/?=&%._~+-]*$ (<= 200)",
+      "pattern": "^/(orders/|repairs/|offers|product/|admin/orders/|admin/repairs/|admin/feedback/|admin/products/|admin/catalogue|cart$)[A-Za-z0-9/?=&%._~+-]*$ (<= 200)",
       "valid": [
         "/orders/o1",
         "/repairs/r1",
@@ -481,11 +481,14 @@
         "/admin/repairs/r1",
         "/admin/feedback/f1",
         "/admin/products/test-phone",
-        "/admin/catalogue"
+        "/admin/catalogue",
+        "/cart"
       ],
       "invalid": [
         "",
         "/orders",
+        "/cartx",
+        "/cart/1",
         "/admin/settings",
         "https://evil.example",
         "javascript:alert(1)",

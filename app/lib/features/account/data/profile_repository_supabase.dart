@@ -16,6 +16,12 @@ class SupabaseProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<bool?> offersOptIn(String uid) async => null; // no marketing pushes before the cut-over
+
+  @override
+  Future<void> setOffersOptIn(String uid, {required bool on}) => throw UnsupportedError('Offers & reminders need the Firebase backend');
+
+  @override
   Future<void> saveFullName(String uid, String? fullName) =>
       _db.from('profiles').update({'full_name': (fullName?.isEmpty ?? true) ? null : fullName}).eq('id', uid);
 

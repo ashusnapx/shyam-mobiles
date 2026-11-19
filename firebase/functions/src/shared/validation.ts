@@ -71,7 +71,7 @@ export const v = {
   bannerLink: z.string().max(200).regex(/^\/(search|product\/|offers|repairs)[A-Za-z0-9/?=&%._~+-]*$/)
     .regex(/^\/(search(\?[^#\s]*)?|product\/[a-z0-9-]{1,160}|offers(\/[0-9a-f-]{36})?|repairs(\/new)?)$/),
   appRoute: z.string().max(200)
-    .regex(/^\/(orders\/|repairs\/|offers|product\/|admin\/orders\/|admin\/repairs\/|admin\/feedback\/|admin\/products\/|admin\/catalogue)[A-Za-z0-9/?=&%._~+-]*$/),
+    .regex(/^\/(orders\/|repairs\/|offers|product\/|admin\/orders\/|admin\/repairs\/|admin\/feedback\/|admin\/products\/|admin\/catalogue|cart$)[A-Za-z0-9/?=&%._~+-]*$/),
   feedbackScreen: z.string().max(200).regex(/^\/[A-Za-z0-9/_?=&.%-]*$/),
   /** The stored form. Typed codes go through [typedCode] first. */
   couponCode: z.string().regex(/^[A-Z0-9]{4,20}$/),

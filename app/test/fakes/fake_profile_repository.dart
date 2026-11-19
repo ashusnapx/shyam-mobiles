@@ -15,6 +15,17 @@ class FakeProfileRepository with Fake implements ProfileRepository {
     return profiles[uid];
   }
 
+  bool? offers = true;
+
+  @override
+  Future<bool?> offersOptIn(String uid) async => offers;
+
+  @override
+  Future<void> setOffersOptIn(String uid, {required bool on}) async {
+    record('offers $on');
+    offers = on;
+  }
+
   @override
   Future<void> saveFullName(String uid, String? fullName) async {
     record('saveFullName $uid');

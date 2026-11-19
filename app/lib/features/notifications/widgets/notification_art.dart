@@ -95,6 +95,7 @@ const notificationArt = <String, ArtSpec>{
   'referral_reward': (group: ArtGroup.offers, icon: ArtIcon.gift, badge: ArtBadge.done),
   'coupon': (group: ArtGroup.offers, icon: ArtIcon.ticket, badge: ArtBadge.none),
   // growth (docs/GROWTH.md §2): the same pictures as their nearest kinds; cart_reminder and protect_phone get the bell
+  'price_drop': (group: ArtGroup.offers, icon: ArtIcon.ticket, badge: ArtBadge.none),
   'exchange_estimate': (group: ArtGroup.repairs, icon: ArtIcon.clipboard, badge: ArtBadge.action),
   'staff_new_order': (group: ArtGroup.staffOrders, icon: ArtIcon.newOrder, badge: ArtBadge.action),
   'staff_order_paid': (group: ArtGroup.staffOrders, icon: ArtIcon.rupee, badge: ArtBadge.done),

@@ -32,6 +32,12 @@ abstract interface class ProfileRepository {
   /// "Download my data" (docs/SECURITY.md §4.7): what the shop holds about the signed-in user, as JSON. Firebase
   /// allows it once a day (RATE_LIMITED).
   Future<Map<String, Object?>> exportMyData(String uid);
+
+  /// "Offers & reminders" pushes (docs/GROWTH.md §2d): on unless the customer turned them off. Null where the build
+  /// sends none (Supabase), so the switch hides.
+  Future<bool?> offersOptIn(String uid);
+
+  Future<void> setOffersOptIn(String uid, {required bool on});
 }
 
 /// The DI seam (Phase 1: Supabase or Firebase by `backend`); tests use test/fakes/fake_profile_repository.dart.

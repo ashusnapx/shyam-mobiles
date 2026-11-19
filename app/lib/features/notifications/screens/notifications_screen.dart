@@ -11,6 +11,7 @@ import '../../../core/paging.dart';
 import '../../../core/supabase.dart' show currentUserIdProvider;
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/widgets/offers_switch.dart';
 import '../data/notifications.dart';
 import '../widgets/notification_art.dart';
 
@@ -61,7 +62,9 @@ class NotificationsScreen extends ConsumerWidget {
         title: const Text('Notifications'),
         actions: [if (unread) TextButton(onPressed: markAll, child: const Text('Mark all read'))],
       ),
-      body: AsyncBody(
+      body: Column(children: [
+        const OffersSwitch(),
+        Expanded(child: AsyncBody(
         value: page,
         onRetry: () => ref.invalidate(notificationsProvider),
         loading: Skeletonizer(
@@ -118,7 +121,8 @@ class NotificationsScreen extends ConsumerWidget {
             ),
           );
         },
-      ),
+      )),
+      ]),
     );
   }
 }

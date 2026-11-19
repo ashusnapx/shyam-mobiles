@@ -1,6 +1,7 @@
 import { FieldPath, type QueryDocumentSnapshot, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import type { ProductDoc } from "../model/catalog.js";
 import type { NotificationDoc } from "../model/notifications.js";
 import { DAY_MS } from "../model/retention.js";
@@ -9,6 +10,8 @@ import { log } from "../shared/log.js";
 import { BACKGROUND } from "../shared/options.js";
 import { type Notice, pushData } from "./contract.js";
 import { backInStock, couponNotice, feedbackNotices, orderImage, orderNotices, refundNotices, repairNotices, stockNotices } from "./notices.js";
+import { priceDropped } from "./nudges.js";
+import { recordPriceDrop, sendNudges } from "./repository.js";
 
 // Owner: engineer D. Firestore triggers that turn writes into notifications (notices.ts decides), the push to phones,
 // and back-in-stock alerts (docs/FIREBASE.md D8, §6). Triggers run at least once: notification ids are deterministic
@@ -154,4 +157,18 @@ export const pushNotification = onDocumentCreated({ document: "users/{uid}/notif
   } catch (e) {
     log.error("push failed", { error: e });
   }
+});
+
+// ── Growth (docs/GROWTH.md §2d, e) ──────────────────────────────────────────────────────────────────────────────────
+
+/** The gentle marketing pushes (cart left, wishlist price drop, protect a new phone), hourly; quiet 9 pm to 9 am IST,
+ * 1 per customer per 3 days, never with "Offers & reminders" off. Not retried: the next hour picks up what's left. */
+export const nudges = onSchedule({ schedule: "every 60 minutes", timeZone: "Asia/Kolkata", ...BACKGROUND }, () => sendNudges());
+
+/** A variant got cheaper while active and in stock: kept 7 days for the hourly run's wishlist push. */
+export const notePriceDrop = onDocumentUpdated({ document: "variants/{id}", ...retried }, async (event) => {
+  const before = event.data?.before.data(), after = event.data?.after.data();
+  if (!before || !after || !priceDropped(before, after)) return;
+  await recordPriceDrop(event.params.id, { productId: String(after.productId), productName: String(after.productName) },
+    before.pricePaise as number, after.pricePaise as number);
 });
