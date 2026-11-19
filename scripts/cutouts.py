@@ -21,6 +21,8 @@ from dev_setup import status  # noqa: E402
 from seed_photos import BUCKET, Api  # noqa: E402
 
 MAX_SIDE = 1200
+MODEL = 'isnet-general-use'  # ~170 MB, clean product edges; rembg's newer default is a 1 GB model, too big for 8 GB
+_session = None
 
 
 def cut_path(path: str) -> str:
@@ -30,9 +32,11 @@ def cut_path(path: str) -> str:
 
 def cutout(data: bytes) -> bytes:
     from PIL import Image
-    from rembg import remove
+    from rembg import new_session, remove
 
-    img = remove(Image.open(io.BytesIO(data)).convert('RGBA'))
+    global _session
+    _session = _session or new_session(MODEL)
+    img = remove(Image.open(io.BytesIO(data)).convert('RGBA'), session=_session)
     box = img.getchannel('A').point(lambda a: 255 if a > 8 else 0).getbbox()  # trim the empty margins
     if box:
         img = img.crop(box)
