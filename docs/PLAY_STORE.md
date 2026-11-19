@@ -15,7 +15,7 @@ Search `firebase/hosting/` for `[[` and replace each one everywhere, then deploy
 | `[[PLAY APP SIGNING KEY SHA-256]]` | Play Console > Test and release > Setup > App signing > "App signing key certificate" SHA-256 (after the first upload) | `.well-known/assetlinks.json` |
 | `[[UPLOAD KEY SHA-256]]` | the upload key's SHA-256 (`keytool -list -v -keystore app/android/upload-keystore.jks`; `scripts/launch.py --only signing` prints it). Delete this line if you never share a sideloaded `.apk` | `.well-known/assetlinks.json` |
 
-Already filled from the founder's details and GST profile: business name Shyam Online Shop, GSTIN 23BXEPG0619P2ZG (Madhya Pradesh), shop name (श्याम मोबाइल शॉप, Shyam Mobile Shop), address (Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886), phone and WhatsApp (+91 79875 59272), brands. **Check:** the pages say "Shop address". If the GST registered address differs, add it on About and Contact. Store hours say "as shown in the app", so keep `store_settings.store_hours` correct.
+Already filled from the founder's details and GST profile: business name Shyam Online Shop, GSTIN 23BXEPG0619P2ZG (Madhya Pradesh), shop name (श्याम मोबाइल शॉप, Shyam Mobile Shop), address (Near Waidhan Bus Stand, Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886), phone and WhatsApp (+91 79875 59272), brands. **Check:** the pages say "Shop address". If the GST registered address differs, add it on About and Contact. Store hours say "as shown in the app", so keep `store_settings.store_hours` correct.
 
 ## 2. Decisions written into the pages: confirm or edit
 

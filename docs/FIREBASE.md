@@ -202,7 +202,7 @@ settings/store         { deliveryFeePaise, freeDeliveryMinPaise, codEnabled, cod
                          referral: { enabled, friendPaise, rewardPaise, minOrderPaise, monthlyCap } } St
 settings/business      { tradeName: 'Shyam Online Shop', brandName: 'Shyam Mobiles', legalName, gstin: '23BXEPG0619P2ZG',
                          stateCode: '23' (must equal gstin[0..2]), phone: '+917987559272', email?, address: { line1:
-                         'Rajeev Complex', city: 'Waidhan', district: 'Singrauli', state: 'Madhya Pradesh', pincode: '486886' },
+                         'Near Waidhan Bus Stand, Rajeev Complex', city: 'Waidhan', district: 'Singrauli', state: 'Madhya Pradesh', pincode: '486886' },
                          businessTypes: ['retailer','wholesaler','distributor','services'], invoicePrefix: 'SOS' } St
 
 promotions/{id}        { title, description, code: string|null, kind: 'percent'|'flat'|'free_delivery', value, maxDiscountPaise?,

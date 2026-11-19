@@ -22,6 +22,8 @@ class BusinessProfile {
     required this.district,
     required this.state,
     required this.pincode,
+    this.instagramHandle,
+    this.facebookHandle,
   });
 
   final String tradeName; // "Shyam Online Shop"
@@ -34,10 +36,12 @@ class BusinessProfile {
   final String district;
   final String state;
   final String pincode;
+  final String? instagramHandle; // the Follow buttons; saved with the store settings, not by saveBusinessProfile
+  final String? facebookHandle;
 
   String get stateCode => gstin.substring(0, 2);
 
-  /// One line, as customers see it: "Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886".
+  /// One line, as customers see it: "Near Waidhan Bus Stand, Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886".
   String get address => '$line1, $city, District $district, $state $pincode';
 }
 

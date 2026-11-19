@@ -223,10 +223,10 @@ from (values
 join public.products pr on pr.slug = v.product
 on conflict (sku) do nothing;
 
--- The shop: श्याम मोबाइल शॉप, wholesale and retail, Rajeev Complex, Waidhan (Singrauli, MP).
+-- The shop: श्याम मोबाइल शॉप, wholesale and retail, Near Waidhan Bus Stand, Rajeev Complex, Waidhan (Singrauli, MP).
 update public.store_settings set
   store_phone = '+917987559272',
-  store_address = 'Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886',
+  store_address = 'Near Waidhan Bus Stand, Rajeev Complex, Waidhan, District Singrauli, Madhya Pradesh 486886',
   -- the place pin of the "Shyam Mobile Center" Google Maps listing (!3d/!4d, not the @ viewport)
   store_lat = 24.0670269,
   store_lng = 82.6307508,
