@@ -12,6 +12,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../reviews/widgets/review_widgets.dart' show TileRatingBadge;
 import '../../wishlist/data/wishlist.dart';
 
 /// "Samsung Galaxy S25" → "Galaxy S25". Names start with the brand (schema convention). Only for matching "Fits"
@@ -76,6 +77,7 @@ class ProductTile extends StatelessWidget {
               if (!card.inStock)
                 const Positioned(left: Space.sm, top: Space.sm, child: Tag('Out of stock', tone: TagTone.neutral)),
               Positioned(top: 0, right: 0, child: HeartButton(card.id, waitFor: card.inStock ? null : '*')),
+              Positioned(left: Space.sm, bottom: Space.sm, child: TileRatingBadge(card.id)),
             ],
           ),
           Padding(

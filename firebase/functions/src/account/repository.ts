@@ -1,4 +1,5 @@
 import { FieldValue, type Query } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import { adminAuth, db } from "../shared/db.js";
 import { fail } from "../shared/errors.js";
 import type { OrderDoc } from "../model/orders.js";
@@ -16,9 +17,9 @@ const byUid = (collection: string, uid: string, field = "uid") => db().collectio
 /**
  * Deletes [uid]'s account (docs/SECURITY.md §4.6), or fails ACTIVE_ORDERS. Orders stay for the GST records with
  * `uid: null`, as do their redemptions; everything else personal goes: the profile with its addresses, notifications,
- * coupons and wishlist, the cart, devices, rate limits, referral code and referral, repairs, feedback, and last the
- * Auth user, so a failure part-way leaves an account that can simply try again. Storage holds nothing personal but
- * invoices, which GST law keeps for 8 years (their lifecycle rule deletes them).
+ * coupons and wishlist, the cart, devices, rate limits, referral code and referral, repairs, feedback, reviews,
+ * exchange requests and their photos, and last the Auth user, so a failure part-way leaves an account that can simply try again. Storage
+ * holds nothing else personal but invoices, which GST law keeps for 8 years (their lifecycle rule deletes them).
  */
 export async function eraseAccount(uid: string): Promise<void> {
   const fs = db();
@@ -31,23 +32,27 @@ export async function eraseAccount(uid: string): Promise<void> {
     return { orders: orders.docs, repairs: repairs.docs };
   });
 
-  const [feedback, devices, codes, referred, redemptions] = await Promise.all([
+  const [feedback, devices, codes, referred, redemptions, reviews, exchanges] = await Promise.all([
     docsOf(byUid("feedback", uid)),
     docsOf(byUid("devices", uid)),
     docsOf(byUid("referralCodes", uid)),
     docsOf(byUid("referrals", uid, "referrerUid")),
     docsOf(byUid("redemptions", uid)),
+    docsOf(byUid("reviews", uid)),
+    docsOf(byUid("exchanges", uid)),
   ]);
   const writer = fs.bulkWriter();
   const now = FieldValue.serverTimestamp();
   for (const d of orders) void writer.update(d.ref, { uid: null, updatedAt: now });
   for (const d of redemptions) void writer.update(d.ref, { uid: null });
   for (const d of referred) void writer.update(d.ref, { referrerUid: null });
-  for (const d of [...repairs, ...feedback, ...devices, ...codes]) void writer.delete(d.ref);
+  for (const d of [...repairs, ...feedback, ...devices, ...codes, ...reviews, ...exchanges]) void writer.delete(d.ref);
   void writer.delete(fs.doc(`referrals/${uid}`));
   void writer.delete(fs.doc(`rateLimits/${uid}`));
+  void writer.delete(fs.doc(`marketingCaps/${uid}`));
   await writer.close();
   await fs.recursiveDelete(fs.doc(`users/${uid}`));
+  for (const folder of ["review-photos", "exchange-photos"]) await getStorage().bucket().deleteFiles({ prefix: `${folder}/${uid}/` });
 
   await adminAuth().deleteUser(uid).catch((e: unknown) => {
     if ((e as { code?: unknown }).code !== "auth/user-not-found") throw e;
@@ -59,7 +64,7 @@ export async function exportData(uid: string): Promise<Record<string, unknown>> 
   const fs = db();
   const user = fs.doc(`users/${uid}`);
   const rows = async (q: Query) => (await docsOf(q.limit(HISTORY))).map((d) => ({ id: d.id, ...d.data() }));
-  const [profile, cart, addresses, wishlist, notifications, coupons, orders, repairs, feedback] = await Promise.all([
+  const [profile, cart, addresses, wishlist, notifications, coupons, orders, repairs, feedback, reviews, exchanges] = await Promise.all([
     user.get(),
     fs.doc(`carts/${uid}`).get(),
     rows(user.collection("addresses")),
@@ -69,11 +74,13 @@ export async function exportData(uid: string): Promise<Record<string, unknown>> 
     rows(fs.collection("orders").where("uid", "==", uid)),
     rows(fs.collection("repairs").where("uid", "==", uid)),
     rows(fs.collection("feedback").where("uid", "==", uid)),
+    rows(fs.collection("reviews").where("uid", "==", uid)),
+    rows(fs.collection("exchanges").where("uid", "==", uid)),
   ]);
   return plain({
     exportedAt: new Date(),
     profile: profile.data() ?? null,
-    addresses, cart: cart.data() ?? null, wishlist, coupons, orders, repairs, feedback, notifications,
+    addresses, cart: cart.data() ?? null, wishlist, coupons, orders, repairs, feedback, reviews, exchanges, notifications,
   }) as Record<string, unknown>;
 }
 

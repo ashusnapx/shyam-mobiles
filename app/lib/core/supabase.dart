@@ -87,10 +87,12 @@ void cacheFor(Ref ref, Duration d) {
   ref.onDispose(timer.cancel);
 }
 
-/// A product, banner or shop photo's public URL (Storage Rules: product-images/** is public read on Firebase).
+/// A product, banner or shop photo's public URL (Storage Rules: product-images/** is public read on Firebase). A
+/// review photo's key carries its own folder (review-photos/<uid>/…, public read too).
 String publicImageUrl(String path) => backend == Backend.firebase
     ? '${useEmulators ? 'http://$emulatorHost:9199' : 'https://firebasestorage.googleapis.com'}'
-        '/v0/b/${firebaseOptions.storageBucket}/o/${Uri.encodeComponent('product-images/$path')}?alt=media'
+        '/v0/b/${firebaseOptions.storageBucket}/o/'
+        '${Uri.encodeComponent(path.startsWith('review-photos/') ? path : 'product-images/$path')}?alt=media'
     : '${Env.supabaseUrl}/storage/v1/object/public/product-images/$path';
 
 /// "p1/1730000000000.webp" → "p1/1730000000000@thumb.webp", the 480 px copy uploaded beside each photo. Null for

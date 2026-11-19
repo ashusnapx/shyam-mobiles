@@ -18,3 +18,16 @@ export const sendFeedback = contract(
   }).refine((f) => (f.rating ?? null) !== null || f.message !== "", { message: "empty", path: ["message"] }),
   z.object({ id: z.string() }),
 );
+
+// Growth (docs/GROWTH.md §2a). A verified-purchase review: only after a delivered order of the product, one per
+// customer per product (saving again replaces it); photos are the caller's own uploads under review-photos/{uid}/.
+export const saveReview = contract(
+  "saveReview",
+  z.strictObject({
+    productId: v.slug,
+    rating: z.number().int().min(1).max(5),
+    text: cleanMultiline(1000).default(""),
+    photos: z.array(z.string().regex(/^review-photos\/[A-Za-z0-9]{1,128}\/[0-9]{1,15}\.webp$/)).max(3).default([]),
+  }),
+  z.object({ id: z.string() }),
+);

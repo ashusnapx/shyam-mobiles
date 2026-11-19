@@ -27,6 +27,24 @@ service firebase.storage {
       allow delete: if isStaff();
     }
 
+    // ── reviews and exchanges (growth: docs/GROWTH.md §2) ──────────────────────────────────────────────────────────
+    // A customer's own photos, one folder each: <millis>.webp and its @thumb, WebP or JPEG, at most 1 MB. Review
+    // photos are public like the review; exchange photos are for the customer and staff only.
+    function ownPhoto(uid, file) {
+      return isSignedIn() && request.auth.uid == uid && file.matches('[0-9]{1,15}(@thumb)?[.](webp|jpe?g)')
+        && request.resource.size <= 1048576 && request.resource.contentType.matches('image/(webp|jpeg)');
+    }
+    match /review-photos/{uid}/{file} {
+      allow read: if true;
+      allow create: if ownPhoto(uid, file);
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+    match /exchange-photos/{uid}/{file} {
+      allow read: if (isSignedIn() && request.auth.uid == uid) || isStaff();
+      allow create: if ownPhoto(uid, file);
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
     // ── invoices (owner: D, Phase 2) ───────────────────────────────────────────────────────────────────────────
     // TODO(D): invoices/{uid}/{orderId}.pdf readable by that uid or staff; no client writes.
   }

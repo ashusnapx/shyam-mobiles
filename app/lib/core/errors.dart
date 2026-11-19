@@ -62,6 +62,7 @@ const _codes = {
   'LINK_NOT_OPEN': 'This link is already paid, cancelled or expired. Refresh to see it.',
   'FEEDBACK_LIMIT': 'That’s all the feedback we can take from you today. Thank you! Try again tomorrow, or call the shop.',
 };
+  'REVIEW_NOT_ALLOWED': 'Only customers whose order of this product was delivered can review it.',
 
 // admin_save_promotion's INVALID_PROMOTION names the broken rule in `details`.
 const _promotionRules = {

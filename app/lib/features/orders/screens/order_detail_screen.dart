@@ -22,6 +22,7 @@ import '../../checkout/data/payment.dart';
 import '../../checkout/screens/widgets.dart';
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../payments/widgets/order_refunds.dart';
+import '../../reviews/widgets/review_widgets.dart' show RateProductButton;
 import '../data/orders.dart';
 import '../data/orders_repository.dart';
 
@@ -133,6 +134,8 @@ class _OrderBody extends StatelessWidget {
                                   [if (item.variantName.isNotEmpty) item.variantName, 'Qty ${item.qty}'].join(' · '),
                                   style: t.bodySmall?.copyWith(color: c.onSurfaceVariant),
                                 ),
+                                if (o.status == OrderStatus.delivered && item.productId != null)
+                                  RateProductButton(productId: item.productId!, productName: item.productName),
                                 for (final imei in item.imeis)
                                   Padding(
                                     padding: const EdgeInsets.only(top: Space.xs),

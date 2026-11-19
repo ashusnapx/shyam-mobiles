@@ -289,6 +289,17 @@ service cloud.firestore {
       allow update: if isMe(uid) && changed().hasOnly(['readAt']) && incoming().readAt == request.time;
     }
 
+    // ── reviews, product stats, exchanges (growth: docs/GROWTH.md §2) ──────────────────────────────────────────────────
+    // Reviews are saveReview's (a verified purchase). Anyone reads a visible one (a list must filter hidden == false),
+    // the author reads their own, staff read all and may only hide or unhide. Stats and the tile index are triggers'.
+    match /reviews/{id} {
+      allow get: if resource == null || resource.data.hidden == false || isMe(resource.data.uid) || isStaff(); // null: "no review yet"
+      allow list: if resource.data.hidden == false || isMe(resource.data.uid) || isStaff();
+      allow update: if isStaff() && changed().hasOnly(['hidden', 'updatedAt']) && incoming().hidden is bool && stampedNow('updatedAt');
+    }
+    match /productStats/{id} { allow read: if true; }
+    match /reviewIndex/public { allow read: if true; }
+
     // ── social (docs/SOCIAL.md) ───────────────────────────────────────────────────────────────────────────────────────
     // Functions write all of it. social/instagram is the app's Instagram strip; socialPosts/{bannerId} shows staff what
     // auto-post did; settings/social is the staff auto-post switch. private/* (the refreshed Instagram token) has no rule

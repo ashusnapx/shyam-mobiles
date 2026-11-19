@@ -53,6 +53,7 @@ export const REASONS = {
   QUOTE_CHANGED: "aborted",
   QUOTE_NOT_APPROVED: "failed-precondition",
   FEEDBACK_LIMIT: "resource-exhausted",
+  REVIEW_NOT_ALLOWED: "failed-precondition",
   // generic
   BAD_REQUEST: "invalid-argument",
   NOT_FOUND: "not-found",
