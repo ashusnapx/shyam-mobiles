@@ -429,6 +429,7 @@ class _HeroCarousel extends StatefulWidget {
 class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderStateMixin {
   static const _fraction = 0.92; // the next card peeks
   static const _gap = 4.0; // each side of a card
+  static const _barRow = 24.0; // the progress row under the card
   late final _fill = AnimationController(vsync: this, duration: Motion.hero)
     ..addStatusListener((s) {
       if (s == AnimationStatus.completed) _step(1);
@@ -539,12 +540,17 @@ class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderS
     return Padding(
       padding: const EdgeInsets.only(top: Space.xs),
       child: SizedBox(
-        height: HeroCard.height,
+        height: HeroCard.height + _barRow,
         child: LayoutBuilder(
           builder: (context, box) => Stack(
             children: [
               // a finger on it holds the slide
-              Listener(
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: HeroCard.height,
+                child: Listener(
                 onPointerDown: (_) => _touch(true),
                 onPointerUp: (_) => _touch(false),
                 onPointerCancel: (_) => _touch(false),
@@ -565,11 +571,13 @@ class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderS
                     ),
                   ),
                 ),
+                ),
               ),
-              // inside the shown card's bottom-right corner; a screen reader swipes up / down to step through
+              // in its own row under the shown card, left-aligned with its text: never on the image or the CTA; a
+              // screen reader swipes up / down to step through
               Positioned(
-                right: box.maxWidth * (1 - _fraction) / 2 + _gap + Space.sm,
-                bottom: Space.md,
+                left: box.maxWidth * (1 - _fraction) / 2 + _gap + Space.gutter,
+                bottom: 0,
                 child: Semantics(
                   label: 'Slide ${_index + 1} of $_count',
                   onIncrease: () => _step(1),
@@ -586,7 +594,7 @@ class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderS
                             onTap: () => _goTo(i),
                             child: SizedBox(
                               width: dots ? 24 : 28,
-                              height: 48, // the touch target; the bar itself is 3 dp
+                              height: _barRow, // the touch target; the bar itself is 3 dp
                               child: Center(
                                 child: dots
                                     ? DecoratedBox(

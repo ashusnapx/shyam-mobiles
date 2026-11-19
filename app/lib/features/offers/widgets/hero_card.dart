@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/format.dart';
 import '../../../core/models/models.dart';
+import '../../../core/network.dart' show DataMode, dataSaverProvider;
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
@@ -126,19 +128,19 @@ class HeroCard extends StatelessWidget {
                       child: InkWell(onTap: onTap),
                     ),
                   ),
-                  Positioned.fill(child: IgnorePointer(child: visual)),
+                  // text left (56%), visual right (44%): side by side, so the visual never reaches the words
                   Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Space.gutter,
-                        Space.lg,
-                        0,
-                        Space.md,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 56,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 56,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              Space.gutter,
+                              Space.lg,
+                              Space.sm,
+                              Space.md,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -238,9 +240,17 @@ class HeroCard extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const Spacer(flex: 44),
-                        ],
-                      ),
+                        ),
+                        Expanded(
+                          flex: 44,
+                          child: IgnorePointer(
+                            child: ClipRect(
+                              clipper: const _BleedClipper(),
+                              child: visual,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -313,9 +323,22 @@ class HeroCard extends StatelessWidget {
   }
 }
 
+/// Clips the visual to its own column on the left and top; it may bleed past the card's bottom and right edges.
+class _BleedClipper extends CustomClipper<Rect> {
+  const _BleedClipper();
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, 0, size.width + 200, size.height + 200);
+
+  @override
+  bool shouldReclip(_BleedClipper old) => false;
+}
+
 /// The right 44% of a [HeroCard]: one product cut-out large (120% of the card's height, bottom-anchored, bleeding off
-/// the bottom and right edges, tilted -6°, on a soft ground shadow), a fan of up to three, or one big [icon] in a
-/// 96 dp tinted circle. Fan items after the first sit behind it, left then right.
+/// the bottom and right edges, tilted -6°, on a soft ground shadow), a fan of up to three cut-outs, or one big [icon]
+/// in a 96 dp tinted circle. A photo with no cut-out is never tilted or big: it sits contained in a rounded 104 dp
+/// tile, centred, and a fan with any such photo shows its lead image only. Fan items after the first sit behind it.
 class HeroVisual extends StatelessWidget {
   const HeroVisual({
     super.key,
@@ -329,6 +352,7 @@ class HeroVisual extends StatelessWidget {
   final bool photo; // false for the carousel's off-screen copies in data-saver mode: nothing downloaded
 
   static const _tilt = -6 * math.pi / 180;
+  static const _tile = 104.0;
 
   @override
   Widget build(BuildContext context) {
@@ -347,17 +371,52 @@ class HeroVisual extends StatelessWidget {
         ),
       );
     }
+    return Consumer(
+      builder: (context, ref, _) => ValueListenableBuilder<int>(
+        valueListenable: cutoutMisses,
+        builder: (context, _, _) =>
+            _visual(context, ref.watch(dataSaverProvider) == DataMode.saver),
+      ),
+    );
+  }
+
+  Widget _visual(BuildContext context, bool saver) {
+    // a fan only when every image is a cut-out; unknown until a load fails, then the next build drops to one image
+    final fan =
+        items.length > 1 &&
+        !saver &&
+        items.every((i) => i.path != null && !hasNoCutout(i.path!));
+    final shown = fan ? items.take(3).toList() : [items.first];
     return LayoutBuilder(
       builder: (context, box) {
         final w = box.maxWidth;
         const h = HeroCard.height;
-        Widget cut(HeroItem i, {bool zoom = false}) {
-          final c = Opacity(
-            opacity: i.opacity,
-            child: ProductCutout(photo ? i.path : null),
-          );
-          return zoom ? c.slowZoom(context) : c;
-        }
+        Widget tile(Widget photo) => Center(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox.square(dimension: _tile, child: photo),
+            ),
+          ),
+        );
+        Widget cut(HeroItem i, {Widget Function(Widget)? wrap}) => Opacity(
+          opacity: i.opacity,
+          child: ProductCutout(
+            photo ? i.path : null,
+            wrapCut: wrap,
+            wrapPhoto: fan ? (_) => const SizedBox.shrink() : tile,
+          ),
+        );
 
         Widget placed(
           HeroItem i, {
@@ -366,72 +425,94 @@ class HeroVisual extends StatelessWidget {
           required double height,
           required double bottom,
           required double angle,
-          bool zoom = false,
         }) => Positioned(
           left: centre * w - width / 2,
           bottom: bottom,
           width: width,
           height: height,
-          child: Transform.rotate(
-            angle: angle,
-            child: cut(i, zoom: zoom),
+          child: Transform.rotate(angle: angle, child: cut(i)),
+        );
+
+        // the ground shadow, soft, under the lead cut-out
+        Widget ground(double centre) => Positioned(
+          left: centre * w - w * 0.16,
+          bottom: 12,
+          width: w * 0.32,
+          height: 8,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.all(Radius.elliptical(60, 6)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                ),
+              ],
+            ),
           ),
         );
 
-        final lead = items.first;
-        final (centre, width, height) = items.length == 1
-            ? (0.78, w * 0.5, h * 1.2)
-            : (0.76, w * 0.42, h * 1.05);
+        if (!fan) {
+          // one image: a cut-out big and tilted, or (no cut-out) the contained tile; same box either way
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ground(0.55),
+              Positioned.fill(
+                child: cut(
+                  shown.first,
+                  wrap: (img) => OverflowBox(
+                    minWidth: 0,
+                    minHeight: 0,
+                    maxWidth: w * 0.9,
+                    maxHeight: h * 1.2,
+                    alignment: Alignment.bottomCenter,
+                    child: Transform.translate(
+                      offset: const Offset(0, 20),
+                      child: Transform.rotate(
+                        angle: _tilt,
+                        child: SizedBox(
+                          width: w * 0.9,
+                          height: h * 1.2,
+                          child: img.slowZoom(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            // the ground shadow, soft, under the lead product
-            Positioned(
-              left: centre * w - w * 0.16,
-              bottom: 12,
-              width: w * 0.32,
-              height: 8,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.all(
-                    Radius.elliptical(60, 6),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            ground(0.5),
             // behind the lead: the second to its left, the third to its right
-            if (items.length > 1)
+            placed(
+              shown[1],
+              centre: 0.24,
+              width: w * 0.4,
+              height: h * 0.8,
+              bottom: -8,
+              angle: -14 * math.pi / 180,
+            ),
+            if (shown.length > 2)
               placed(
-                items[1],
-                centre: 0.56,
-                width: w * 0.34,
-                height: h * 0.85,
-                bottom: -8,
-                angle: -14 * math.pi / 180,
-              ),
-            if (items.length > 2)
-              placed(
-                items[2],
-                centre: 0.97,
-                width: w * 0.34,
-                height: h * 0.85,
+                shown[2],
+                centre: 0.9,
+                width: w * 0.4,
+                height: h * 0.8,
                 bottom: -8,
                 angle: 8 * math.pi / 180,
               ),
             placed(
-              lead,
-              centre: centre,
-              width: width,
-              height: height,
-              bottom: items.length == 1 ? -20 : -14,
+              shown.first,
+              centre: 0.5,
+              width: w * 0.62,
+              height: h * 1.0,
+              bottom: -14,
               angle: _tilt,
-              zoom: true,
             ),
           ],
         );

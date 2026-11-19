@@ -97,31 +97,43 @@ class _NetworkPhoto extends ConsumerWidget {
 /// Photos without a cut-out (older uploads, or segmentation failed): straight to the photo from the next build on.
 final _noCut = <String>{};
 
+/// Bumped when a photo is found to have no cut-out, so a banner showing a fan can fall back to one image.
+final cutoutMisses = ValueNotifier<int>(0);
+
+bool hasNoCutout(String path) => _noCut.contains(path);
+
+void markNoCutout(String path) {
+  if (_noCut.add(path)) WidgetsBinding.instance.addPostFrameCallback((_) => cutoutMisses.value++);
+}
+
 /// The product alone, no background ([cutoutUrl]), for heroes and banners; without a cut-out (or in data-saver
 /// mode) the photo inside a soft [tile].
 class ProductCutout extends ConsumerWidget {
-  const ProductCutout(this.path, {super.key, this.tile = Colors.white});
+  const ProductCutout(this.path, {super.key, this.tile = Colors.white, this.wrapCut, this.wrapPhoto});
 
   final String? path;
   final Color tile;
+  final Widget Function(Widget cut)? wrapCut; // styles the cut-out image (a banner tilts it)
+  final Widget Function(Widget photo)? wrapPhoto; // styles the fallback photo tile (a banner shrinks it, no tilt)
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = path;
-    final photo = Center(child: ProductImage(p, radius: Radii.lg, padding: Space.xs, color: tile));
+    final tileImage = Center(child: ProductImage(p, radius: Radii.lg, padding: Space.xs, color: tile));
+    final photo = wrapPhoto?.call(tileImage) ?? tileImage;
     if (p == null || _noCut.contains(p) || ref.watch(dataSaverProvider) == DataMode.saver) return photo;
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return LayoutBuilder(
-      builder: (context, box) => CachedNetworkImage(
+      builder: (context, box) => (wrapCut ?? (w) => w)(CachedNetworkImage(
         imageUrl: cutoutUrl(p),
         fit: BoxFit.contain,
         fadeInDuration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.normal,
         memCacheHeight: box.maxHeight.isFinite ? (box.maxHeight * dpr).round() : null,
         errorWidget: (_, _, _) {
-          _noCut.add(p);
+          markNoCutout(p);
           return photo;
         },
-      ),
+      )),
     );
   }
 }
