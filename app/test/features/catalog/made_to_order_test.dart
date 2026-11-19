@@ -40,13 +40,13 @@ const _cover = Variant(
   leadDays: 3,
 );
 
-final _coverProduct = Product(
+const _coverProduct = Product(
   id: 'bc',
   slug: 'back-cover-any-phone',
   name: 'Back cover',
-  brand: const Brand(id: 'g', slug: 'generic', name: 'Generic'),
-  category: const Category(id: 'cc', slug: 'cases-covers', name: 'Cases & covers', kind: CategoryKind.accessory),
-  variants: const [_cover],
+  brand: Brand(id: 'g', slug: 'generic', name: 'Generic'),
+  category: Category(id: 'cc', slug: 'cases-covers', name: 'Cases & covers', kind: CategoryKind.accessory),
+  variants: [_cover],
 );
 
 ProductCard _card(String id, String name, {bool mto = false, int rupees = 199}) => ProductCard(

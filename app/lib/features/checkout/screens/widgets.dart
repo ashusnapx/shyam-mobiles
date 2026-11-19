@@ -52,7 +52,11 @@ class TotalsRows extends StatelessWidget {
         row('Subtotal', money(subtotalPaise)),
         if (discountPaise > 0 || discountLabel != null)
           row(
-            discountLabel == null ? 'Discount' : '${discountPaise > 0 ? 'Discount' : 'Offer'} · $discountLabel',
+            discountLabel == null
+                ? 'Discount'
+                : discountLabel!.startsWith('Pack saving')
+                    ? discountLabel!
+                    : '${discountPaise > 0 ? 'Discount' : 'Offer'} · $discountLabel',
             discountPaise > 0
                 ? CountTo(
                     discountPaise,

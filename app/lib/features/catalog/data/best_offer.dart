@@ -11,7 +11,7 @@ int? offerSavingOn(Offer o, int pricePaise) {
   final raw = switch (o.kind) {
     OfferKind.percent => math.min(pricePaise * o.value ~/ 100, o.maxDiscountPaise ?? pricePaise),
     OfferKind.flat => math.min(o.value, pricePaise),
-    OfferKind.freeDelivery => 0,
+    OfferKind.freeDelivery || OfferKind.pack => 0, // a pack needs its accessories too
   };
   final saving = math.min(raw, pricePaise - 100);
   return saving > 0 ? saving : null;

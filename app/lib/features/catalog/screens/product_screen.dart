@@ -23,7 +23,9 @@ import '../../cart/widgets/cart_button.dart';
 import '../../exchange/widgets/exchange_widgets.dart' show ExchangeCard;
 import '../../feedback/widgets/feedback_widgets.dart';
 import '../../offers/data/offers.dart';
+import '../../offers/data/packs.dart' show packProvider;
 import '../../offers/widgets/offer_widgets.dart';
+import '../../offers/widgets/pack_card.dart';
 import '../../payments/widgets/emi_line.dart';
 import '../../reviews/data/reviews.dart' show togetherProvider;
 import '../../reviews/widgets/review_widgets.dart';
@@ -477,8 +479,12 @@ class _ProductScreenState extends ConsumerState<ProductScreen> {
             ],
           ),
         ),
+        // a running pack offer replaces the accessory rail with one "Complete your pack" card
         if (p.id.isNotEmpty && phone)
-          ProductRail(title: 'Fits this phone', band: sectionTints.fits, value: ref.watch(fitsProvider(p.slug))),
+          if (ref.watch(packProvider(p.slug)).value case final pack? when v.inStock)
+            CompletePackCard(pack: pack, phoneVariant: v)
+          else
+            ProductRail(title: 'Fits this phone', band: sectionTints.fits, value: ref.watch(fitsProvider(p.slug))),
         Padding(
           padding: side,
           child: Column(

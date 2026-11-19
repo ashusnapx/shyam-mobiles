@@ -16,7 +16,7 @@ class FirebaseOffersAdminRepository implements OffersAdminRepository {
 
   static const _contract = {
     'id', 'title', 'description', 'code', 'kind', 'value', 'maxDiscountPaise', 'minSubtotalPaise', 'appliesTo', 'targets',
-    'startsAt', 'endsAt', 'usageLimit', 'perUserLimit', 'firstOrderOnly', 'onlineOnly', 'isPublic', 'uid', 'isActive', 'showBanner',
+    'startsAt', 'endsAt', 'usageLimit', 'perUserLimit', 'firstOrderOnly', 'onlineOnly', 'isPublic', 'uid', 'isActive', 'showBanner', 'packTypes', 'packWhole',
   };
 
   static Promotion _promotion(String id, Map<String, dynamic> d) {

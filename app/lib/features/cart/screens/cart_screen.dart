@@ -21,7 +21,9 @@ import '../../catalog/widgets/product_rail.dart';
 import '../../checkout/screens/widgets.dart';
 import '../../exchange/widgets/exchange_widgets.dart' show ExchangeCartCard;
 import '../../offers/data/offers.dart';
+import '../../offers/data/packs.dart' show packProvider;
 import '../../offers/widgets/offer_widgets.dart';
+import '../../offers/widgets/pack_card.dart';
 import '../../catalog/screens/product_screen.dart' show leadLine;
 import '../data/cart.dart';
 
@@ -330,6 +332,10 @@ class _CrossSell extends ConsumerWidget {
     final inCart = {for (final l in lines) l.productId};
     List<ProductCard> fresh(List<ProductCard> cards) => [for (final c in cards) if (c.inStock && !inCart.contains(c.id)) c];
     final top = lines.reduce((a, b) => b.variant.pricePaise > a.variant.pricePaise ? b : a);
+    // a phone in the cart with a running pack offer: one "Complete your pack" card instead of the rails
+    final pack = ref.watch(packProvider(top.productSlug));
+    if (pack.isLoading && !pack.hasValue) return const SizedBox.shrink();
+    if (pack.value case final p?) return CompletePackCard(pack: p, phoneVariant: top.variant, inCart: inCart);
     final fits = ref.watch(fitsProvider(top.productSlug)).whenData(fresh);
     if (fits.isLoading && !fits.hasValue) return const SizedBox.shrink(); // decides which rail, so no flicker
     // the cart's one tinted band

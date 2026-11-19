@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -165,6 +166,15 @@ class _FormState extends ConsumerState<_Form> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const ListSection('Marketing'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(PhosphorIconsRegular.package),
+                title: const Text('Phone packs'),
+                subtitle: const Text('A phone with its glass, case and more, X% off together'),
+                trailing: const Icon(PhosphorIconsRegular.caretRight, size: IconSizes.sm),
+                onTap: () => context.push('/admin/offers/pack'),
+              ),
               const ListSection('Delivery'),
               TextFormField(
                 controller: _fee,

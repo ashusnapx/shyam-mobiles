@@ -5,6 +5,7 @@ import '../../../core/firebase.dart';
 import '../../../core/models/models.dart';
 import '../../../core/supabase.dart';
 import 'offers_repository_firebase.dart';
+import 'packs.dart' show PackOffer;
 import 'offers_repository_supabase.dart';
 
 /// Offers customers may use, home banners and Refer & earn (docs/FIREBASE.md §1: publicOffers, users/{uid}/coupons,
@@ -26,6 +27,9 @@ abstract interface class OffersRepository {
 
   /// Links the caller to a friend's code (REFERRAL_*); returns the welcome coupon.
   Future<Offer> applyReferral(String code);
+
+  /// Running phone packs, biggest percent first (the "Complete your pack" card).
+  Future<List<PackOffer>> packs();
 }
 
 final offersRepositoryProvider = Provider<OffersRepository>((ref) => backend == Backend.firebase

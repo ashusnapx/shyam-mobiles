@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/models.dart';
 import '../../catalog/data/catalog.dart' show cardColumns;
 import 'offers_repository.dart';
+import 'packs.dart';
 
 /// Today's offer RPCs (available_offers, offers_for_product, offer_products, my_referral, apply_referral_code).
 class SupabaseOffersRepository implements OffersRepository {
@@ -41,4 +42,8 @@ class SupabaseOffersRepository implements OffersRepository {
   @override
   Future<Offer> applyReferral(String code) async =>
       Offer.fromJson(await _db.rpc<Map<String, dynamic>>('apply_referral_code', params: {'p_code': code}));
+
+  @override
+  Future<List<PackOffer>> packs() async =>
+      [for (final r in await _db.rpc<List<dynamic>>('pack_offers')) PackOffer.fromJson(r as Map<String, dynamic>)];
 }

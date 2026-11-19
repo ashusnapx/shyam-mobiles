@@ -4,7 +4,8 @@
 enum OfferKind {
   percent('percent', 'Percent off'),
   flat('flat', 'Flat amount off'),
-  freeDelivery('free_delivery', 'Free delivery');
+  freeDelivery('free_delivery', 'Free delivery'),
+  pack('pack', 'Phone pack'); // phone + accessories, X% off (Admin > Offers > New pack offer)
 
   const OfferKind(this.value, this.label);
   final String value;
@@ -87,7 +88,11 @@ class Quote {
   final String? couponErrorDetail; // the minimum in paise for COUPON_MIN_ORDER
 
   /// What the summary calls the discount: the code, or the sale's title.
-  String? get discountLabel => promotion == null ? null : promotion!.code ?? promotion!.title;
+  String? get discountLabel => switch (promotion) {
+        null => null,
+        (kind: OfferKind.pack, :final title, code: _, id: _) => 'Pack saving · $title', // the phone pack
+        final p => p.code ?? p.title,
+      };
 
   factory Quote.fromJson(Map<String, dynamic> j) {
     final p = j['promotion'] as Map<String, dynamic>?;
@@ -238,6 +243,8 @@ class Promotion {
     this.uses = 0,
     this.discountTotalPaise = 0,
     this.status,
+    this.packTypes = const [],
+    this.packWhole = false,
   });
 
   final String? id; // null until saved
@@ -262,6 +269,8 @@ class Promotion {
   final Set<(TargetType, String)> targets;
   final int uses;
   final int discountTotalPaise;
+  final List<String> packTypes; // a pack: the accessory types it asks for (glass, case, lens, charger, earphones)
+  final bool packWhole; // a pack: the phone is discounted too
   final PromotionStatus? status; // `admin_promotions()` says; [statusAt] works it out for rows without it
 
   PromotionStatus statusAt(DateTime now) =>
@@ -294,6 +303,8 @@ class Promotion {
         uses: (j['uses'] as num?)?.toInt() ?? 0,
         discountTotalPaise: (j['discount_total_paise'] as num?)?.toInt() ?? 0,
         status: PromotionStatus.values.asNameMap()[j['status']],
+        packTypes: [...(j['pack_types'] as List? ?? const []).cast<String>()],
+        packWhole: j['pack_whole'] ?? false,
       );
 
   /// The `admin_save_promotion(p)` payload: the row's columns plus its targets (which replace the old ones). No
@@ -317,6 +328,8 @@ class Promotion {
         'is_public': isPublic,
         'is_active': isActive,
         'show_banner': showBanner,
+        'pack_types': packTypes,
+        'pack_whole': packWhole,
         'targets': [
           if (!wholeOrder)
             for (final (type, id) in targets) {'target_type': type.name, 'target_id': id},

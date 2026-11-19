@@ -22,6 +22,7 @@ String valueHeadline(OfferKind kind, int value) => switch (kind) {
       OfferKind.percent => '$value% off',
       OfferKind.flat => '${formatInr(value)} off',
       OfferKind.freeDelivery => 'Free delivery',
+      OfferKind.pack => '$value% off a phone pack',
     };
 
 String offerHeadline(Offer o) => valueHeadline(o.kind, o.value);

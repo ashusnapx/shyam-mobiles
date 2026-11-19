@@ -18,7 +18,7 @@ class SupabaseOffersAdminRepository implements OffersAdminRepository {
   /// transaction, checking every rule again.
   @override
   Future<String> savePromotion(Map<String, Object?> promotion) async =>
-      await _db.rpc<String>('admin_save_promotion', params: {'p': promotion});
+      await _db.rpc<String>(promotion['kind'] == 'pack' ? 'admin_save_pack' : 'admin_save_promotion', params: {'p': promotion});
 
   /// RLS deletes only a promotion no live order used; a used one deletes no row, so `.single()` throws PGRST116.
   @override

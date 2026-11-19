@@ -7,6 +7,7 @@ import '../../../core/models/models.dart';
 import '../../catalog/data/catalog_index.dart' show cardOf, indexCards;
 import '../../orders/data/snake.dart';
 import 'offers_repository.dart';
+import 'packs.dart';
 
 /// publicOffers + the caller's users/{uid}/coupons (docs/FIREBASE.md §3), judged like private.offer_open. The
 /// per-user rules come from the caller's own orders (docs/FIREBASE.md §5 "Per-user offer data"); quoteOrder decides.
@@ -62,6 +63,19 @@ class FirebaseOffersRepository implements OffersRepository {
 
   @override
   Future<List<Offer>> available() async => [for (final d in await _open()) _offer(d)];
+
+  /// publicOffers of kind pack: their category targets are the phone categories.
+  @override
+  Future<List<PackOffer>> packs() async => [
+    for (final d in await _open())
+      if (d.data()!['kind'] == 'pack')
+        PackOffer.fromJson({
+          ...snakeMap(d.data()!, d.id),
+          'categories': [
+            for (final t in (d.data()!['targets'] as List? ?? const [])) if (t['type'] == 'category') t['id'] as String,
+          ],
+        }),
+  ]..sort((a, b) => b.percent.compareTo(a.percent));
 
   @override
   Future<List<Offer>> forProduct(String productId) async {

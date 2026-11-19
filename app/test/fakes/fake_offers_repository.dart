@@ -1,5 +1,6 @@
 import 'package:shyam_mobiles/core/models/models.dart';
 import 'package:shyam_mobiles/features/offers/data/offers_repository.dart';
+import 'package:shyam_mobiles/features/offers/data/packs.dart';
 
 import 'fake.dart';
 
@@ -40,6 +41,14 @@ class FakeOffersRepository with Fake implements OffersRepository {
   Future<Referral> myReferral() async {
     record('myReferral');
     return referral;
+  }
+
+  var packOffers = <PackOffer>[];
+
+  @override
+  Future<List<PackOffer>> packs() async {
+    record('packs');
+    return packOffers;
   }
 
   @override

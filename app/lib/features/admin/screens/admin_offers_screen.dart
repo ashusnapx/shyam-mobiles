@@ -77,9 +77,9 @@ class _AdminOffersScreenState extends ConsumerState<AdminOffersScreen> {
     if (!mounted || picked == null) return;
     switch (picked.$1) {
       case 'edit':
-        await context.push('/admin/offers/${p.id}');
+        await context.push(p.kind == OfferKind.pack ? '/admin/offers/pack?id=${p.id}' : '/admin/offers/${p.id}');
       case 'copy':
-        await context.push('/admin/offers/new?copy=${p.id}');
+        await context.push(p.kind == OfferKind.pack ? '/admin/offers/pack?copy=${p.id}' : '/admin/offers/new?copy=${p.id}');
       case 'pause' || 'resume':
         await _run(() => api.savePromotion({'id': p.id, 'is_active': !p.isActive}), p.isActive ? 'Offer paused' : 'Offer resumed');
       case 'end':
@@ -121,7 +121,13 @@ class _AdminOffersScreenState extends ConsumerState<AdminOffersScreen> {
     final value = ref.watch(adminPromotionsProvider);
     return AdminGate(
       child: Scaffold(
-        appBar: AppBar(title: const Text('Offers')),
+        appBar: AppBar(title: const Text('Offers'), actions: [
+          TextButton.icon(
+            onPressed: () => context.push('/admin/offers/pack'),
+            icon: const Icon(PhosphorIconsRegular.package),
+            label: const Text('New pack offer'),
+          ),
+        ]),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/admin/offers/new'),
           icon: const Icon(PhosphorIconsRegular.plus),
@@ -197,7 +203,7 @@ class _Row extends StatelessWidget {
       if (p.kind != OfferKind.freeDelivery) '${shortInr(p.discountTotalPaise)} given',
     ].join(' · ');
     return InkWell(
-      onTap: () => context.push('/admin/offers/${p.id}'),
+      onTap: () => context.push(p.kind == OfferKind.pack ? '/admin/offers/pack?id=${p.id}' : '/admin/offers/${p.id}'),
       child: DecoratedBox(
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.outlineVariant))),
         child: Padding(
@@ -365,7 +371,7 @@ class _EditorState extends ConsumerState<_Editor> {
             _ => 'Enter a percent from 1 to $maxPercentOff.',
           },
         OfferKind.flat => rupeesError(v, minPaise: minFlatPaise, maxPaise: maxAmountPaise),
-        OfferKind.freeDelivery => null,
+        OfferKind.freeDelivery || OfferKind.pack => null,
       };
 
   String? _limitError(String? v) => (v ?? '').isEmpty || (int.tryParse(v!) ?? 0) >= 1 ? null : 'Enter 1 or more, or leave it blank.';
@@ -379,7 +385,7 @@ class _EditorState extends ConsumerState<_Editor> {
         value: switch (_kind) {
           OfferKind.percent => int.parse(_value.text),
           OfferKind.flat => parseRupees(_value.text)!,
-          OfferKind.freeDelivery => 0,
+          OfferKind.freeDelivery || OfferKind.pack => 0,
         },
         maxDiscountPaise: _kind == OfferKind.percent && _cap.text.trim().isNotEmpty ? parseRupees(_cap.text) : null,
         minSubtotalPaise: _min.text.trim().isEmpty ? 0 : parseRupees(_min.text)!,
@@ -474,7 +480,7 @@ class _EditorState extends ConsumerState<_Editor> {
               _gap(),
               PickerField<OfferKind>(
                 label: 'Type',
-                options: OfferKind.values,
+                options: [for (final k in OfferKind.values) if (k != OfferKind.pack) k], // packs: their own form
                 labelOf: (k) => k.label,
                 initialValue: _kind,
                 onChanged: (k) => setState(() {

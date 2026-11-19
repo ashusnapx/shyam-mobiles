@@ -19,6 +19,7 @@ import '../features/admin/screens/admin_dashboard_screen.dart';
 import '../features/admin/screens/admin_feedback_screen.dart';
 import '../features/admin/screens/admin_groups_screen.dart';
 import '../features/admin/screens/admin_offers_screen.dart';
+import '../features/admin/screens/admin_pack_screen.dart';
 import '../features/admin/screens/admin_order_screen.dart';
 import '../features/admin/screens/admin_orders_screen.dart';
 import '../features/admin/screens/admin_product_edit_screen.dart';
@@ -162,6 +163,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   )),
               sub('offers', (_) => const AdminOffersScreen(), routes: [
                 sub('new', (s) => AdminOfferEditScreen(copyOf: s.uri.queryParameters['copy'])),
+                sub('pack', (s) => AdminPackScreen(promotionId: s.uri.queryParameters['id'], copyOf: s.uri.queryParameters['copy'])),
                 sub(':id', (s) => AdminOfferEditScreen(promotionId: s.pathParameters['id'])),
               ]),
               sub('groups', (_) => const AdminGroupsScreen(), routes: [
