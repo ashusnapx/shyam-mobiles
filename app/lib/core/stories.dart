@@ -16,14 +16,12 @@ import 'widgets/widgets.dart';
 /// Share to Instagram / Facebook Story: a 1080x1920 card of a product, handed to the app by MainActivity's
 /// shyam_mobiles/stories channel. No buttons without META_APP_ID (Meta asks for it) or without the app.
 enum StoryApp {
-  instagram('Instagram', PhosphorIconsFill.instagramLogo, BrandColors.instagram),
-  facebook('Facebook', PhosphorIconsFill.facebookLogo, BrandColors.facebook);
+  instagram('Instagram'),
+  facebook('Facebook');
 
-  const StoryApp(this.brand, this.icon, this.color);
+  const StoryApp(this.brand);
 
   final String brand;
-  final IconData icon;
-  final Color color;
 
   String get label => 'Share to $brand Story';
 }
@@ -168,7 +166,7 @@ class StoryTiles extends ConsumerWidget {
         if (divided) const Divider(),
         for (final a in apps)
           ListTile(
-            leading: SizedBox.square(dimension: 36, child: Center(child: Icon(a.icon, size: 24, color: a.color))),
+            leading: SizedBox.square(dimension: 36, child: Center(child: a == StoryApp.instagram ? const InstagramIcon(size: 24) : const FacebookIcon(size: 24))),
             title: Text(a.label),
             onTap: () => onPick != null ? onPick!(a) : shareStory(context, a, story),
           ),

@@ -783,7 +783,75 @@ class WhatsAppIcon extends StatelessWidget {
   static const green = BrandColors.whatsapp;
 
   @override
-  Widget build(BuildContext context) => Icon(PhosphorIconsFill.whatsappLogo, size: size, color: green);
+  Widget build(BuildContext context) =>
+      _onWhite(PhosphorIconsFill.whatsappLogo, green, size ?? IconTheme.of(context).size ?? 24, disc: 0.62);
+}
+
+/// Facebook's logo as the app shows it: the blue disc with a white "f".
+class FacebookIcon extends StatelessWidget {
+  const FacebookIcon({super.key, this.size});
+
+  final double? size;
+
+  @override
+  Widget build(BuildContext context) =>
+      _onWhite(PhosphorIconsFill.facebookLogo, BrandColors.facebook, size ?? IconTheme.of(context).size ?? 24, disc: 0.66);
+}
+
+/// A filled brand glyph whose cut-out parts (WhatsApp's phone, Facebook's f) stay white on any background, as in the
+/// real logos: a white disc of [disc] × size sits under the glyph.
+Widget _onWhite(IconData glyph, Color color, double size, {required double disc}) => SizedBox.square(
+      dimension: size,
+      child: Stack(alignment: Alignment.center, children: [
+        DecoratedBox(
+          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+          child: SizedBox.square(dimension: size * disc),
+        ),
+        Icon(glyph, size: size, color: color),
+      ]),
+    );
+
+/// Instagram's logo: the white camera glyph on its gradient square (yellow at the bottom left to purple at the top).
+class InstagramIcon extends StatelessWidget {
+  const InstagramIcon({super.key, this.size});
+
+  final double? size;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = size ?? IconTheme.of(context).size ?? 24;
+    return CustomPaint(size: Size.square(s), painter: const _InstagramPainter());
+  }
+}
+
+class _InstagramPainter extends CustomPainter {
+  const _InstagramPainter();
+
+  // Instagram's brand gradient, from the bottom-left corner
+  static const _gradient = RadialGradient(
+    center: Alignment(-0.7, 1.1),
+    radius: 1.45,
+    colors: [Color(0xFFFFD600), Color(0xFFFF7A00), Color(0xFFFF0069), Color(0xFFD300C5), Color(0xFF7638FA)],
+    stops: [0, 0.25, 0.5, 0.75, 1],
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width, box = Offset.zero & size;
+    // the square is a hair inside the box, so it lines up with the Phosphor glyphs beside it
+    final tile = RRect.fromRectAndRadius(box.deflate(s * 0.06), Radius.circular(s * 0.24));
+    canvas.drawRRect(tile, Paint()..shader = _gradient.createShader(box));
+    final white = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.075;
+    canvas.drawRRect(RRect.fromRectAndRadius(box.deflate(s * 0.25), Radius.circular(s * 0.15)), white);
+    canvas.drawCircle(box.center, s * 0.12, white);
+    canvas.drawCircle(Offset(s * 0.655, s * 0.345), s * 0.042, white..style = PaintingStyle.fill);
+  }
+
+  @override
+  bool shouldRepaint(_InstagramPainter old) => false;
 }
 
 /// What a status means, and so its colour ([toneColors]): info / in progress (peacock), ok / done or saved (emerald),

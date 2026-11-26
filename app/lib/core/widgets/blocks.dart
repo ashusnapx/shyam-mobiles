@@ -192,13 +192,13 @@ class FollowButtons extends StatelessWidget {
           if (ig != null)
             IconButton(
               tooltip: 'Shyam Mobiles on Instagram',
-              icon: const Icon(PhosphorIconsFill.instagramLogo, color: BrandColors.instagram),
+              icon: const InstagramIcon(),
               onPressed: () => openUri(context, SocialSite.instagram.url(ig)),
             ),
           if (fb != null)
             IconButton(
               tooltip: 'Shyam Mobiles on Facebook',
-              icon: const Icon(PhosphorIconsFill.facebookLogo, color: BrandColors.facebook),
+              icon: const FacebookIcon(),
               onPressed: () => openUri(context, SocialSite.facebook.url(fb)),
             ),
         ],

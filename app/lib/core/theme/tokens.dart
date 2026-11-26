@@ -68,8 +68,7 @@ abstract final class BrandColors {
   static const sandInk = Color(0xFF75603B);
 
   static const whatsapp = Color(0xFF25D366); // WhatsApp's own green: ink text on it (white fails)
-  static const instagram = Color(0xFFC13584); // Instagram's magenta, and Facebook's blue: their own icons only
-  static const facebook = Color(0xFF0866FF);
+  static const facebook = Color(0xFF0866FF); // Facebook's own blue: its logo only (Instagram's is a gradient, InstagramIcon)
 }
 
 /// A background and the text or icon colour that sits on it.
