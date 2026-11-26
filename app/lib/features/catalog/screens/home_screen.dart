@@ -30,12 +30,13 @@ import '../data/social_repository.dart';
 import '../data/variant_options.dart' show initialVariant;
 import '../widgets/product_rail.dart';
 import '../widgets/instagram_row.dart';
+import '../widgets/home_sections.dart';
 import '../widgets/product_tile.dart';
 import '../widgets/store_photos.dart';
 
-/// Products first: a pinned bar (brand, WhatsApp, call, search), one carousel of offers and featured products, why
-/// to buy here, the categories, then what this customer viewed, the phones, one repair strip, budgets, deals, brands
-/// and the newest products; the shop's card last.
+/// Built to sell: a pinned bar (brand, WhatsApp, call, a search whose hint cycles), the carousel of offers and
+/// featured products, the customer's unfinished cart, why to buy here, the categories, coupons to tap, what they
+/// viewed, the phones, budget tiles, the deals, Exchange and Repairs, brands and the newest products; the shop last.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -174,9 +175,11 @@ class HomeScreen extends ConsumerWidget {
           child: PullScale(child: _HeroCarousel(slides, saver: saver)).enter(context),
         ),
       const SliverToBoxAdapter(key: ValueKey('occasion'), child: OccasionChip()), // Campaign calendar's auto-apply offer
+      const SliverToBoxAdapter(key: ValueKey('cart'), child: CartNudge()), // the warmest buyer: finish that order
       if (settings != null)
         SliverToBoxAdapter(key: const ValueKey('trust'), child: _TrustStrip(settings).enter(context, index: 1)),
       SliverToBoxAdapter(key: const ValueKey('categories'), child: _CategoryRow(d.categories).enter(context, index: 2)),
+      const SliverToBoxAdapter(key: ValueKey('coupons'), child: CouponTickets()),
       const SliverToBoxAdapter(key: ValueKey('recent'), child: RecentlyViewedRail()),
       if (phones.isNotEmpty)
         SliverToBoxAdapter(
@@ -188,9 +191,8 @@ class HomeScreen extends ConsumerWidget {
             onSeeAll: () => context.go('/search?category=$phoneCategory'),
           ).enter(context, index: 3),
         ),
-      SliverToBoxAdapter(key: const ValueKey('repair'), child: const _RepairStrip().enter(context, index: 4)),
       // below the fold, sections are simply there: no reveal that could leave one invisible
-      SliverToBoxAdapter(key: const ValueKey('budget'), child: _BudgetRow(phoneCategory)),
+      SliverToBoxAdapter(key: const ValueKey('budget'), child: BudgetTiles(phoneCategory)),
       if (d.accessories.isNotEmpty)
         SliverToBoxAdapter(
           key: const ValueKey('deals'),
@@ -201,6 +203,7 @@ class HomeScreen extends ConsumerWidget {
             onSeeAll: () => context.go('/search?max=150000'),
           ),
         ),
+      const SliverToBoxAdapter(key: ValueKey('services'), child: ServiceTiles()),
       SliverToBoxAdapter(key: const ValueKey('brands'), child: _BrandRow(phones)),
       ..._moreGrid(context, ref),
       const SliverToBoxAdapter(key: ValueKey('instagram'), child: InstagramRow()),
@@ -382,9 +385,7 @@ class _SearchField extends StatelessWidget {
                 children: [
                   Icon(PhosphorIconsRegular.magnifyingGlass, size: 20, color: c.onSurfaceVariant),
                   const SizedBox(width: Space.md),
-                  Expanded(
-                    child: Text('Search phones, cases, chargers…', maxLines: 1, overflow: TextOverflow.ellipsis, style: hint),
-                  ),
+                  Expanded(child: RotatingSearchHint(style: hint)),
                 ],
               ),
             ),
@@ -558,6 +559,7 @@ class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderS
       );
     }
     final dots = !_auto; // nothing fills: small static dots, the current one lit
+    final ink = Theme.of(context).colorScheme.onSurface; // the row sits on the canvas, under the card
     return Padding(
       padding: const EdgeInsets.only(top: Space.xs),
       child: SizedBox(
@@ -620,14 +622,14 @@ class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderS
                                 child: dots
                                     ? DecoratedBox(
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: i == _index ? 1 : 0.4),
+                                          color: ink.withValues(alpha: i == _index ? 0.8 : 0.2),
                                           shape: BoxShape.circle,
                                         ),
                                         child: const SizedBox.square(dimension: 6),
                                       )
                                     : DecoratedBox(
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.3),
+                                          color: ink.withValues(alpha: 0.15),
                                           borderRadius: BorderRadius.circular(2),
                                         ),
                                         child: SizedBox(
@@ -637,9 +639,9 @@ class _HeroCarouselState extends State<_HeroCarousel> with SingleTickerProviderS
                                             alignment: Alignment.centerLeft,
                                             child: FractionallySizedBox(
                                               widthFactor: i < _index ? 1 : (i == _index ? _fill.value : 0),
-                                              child: const DecoratedBox(
-                                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(2))),
-                                                child: SizedBox(height: 3),
+                                              child: DecoratedBox(
+                                                decoration: BoxDecoration(color: ink.withValues(alpha: 0.7), borderRadius: const BorderRadius.all(Radius.circular(2))),
+                                                child: const SizedBox(height: 3),
                                               ),
                                             ),
                                           ),
@@ -811,54 +813,6 @@ class _CategoryTile extends StatelessWidget {
   }
 }
 
-/// The one repair entry on Home's first screens: two lines on cream, "Book free" in saffron.
-class _RepairStrip extends StatelessWidget {
-  const _RepairStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.xl, Space.gutter, 0),
-      child: Material(
-        color: BrandColors.cream,
-        borderRadius: BorderRadius.circular(Radii.lg),
-        child: InkWell(
-          onTap: () => context.push('/repairs/new'),
-          borderRadius: BorderRadius.circular(Radii.lg),
-          child: Padding(
-            padding: const EdgeInsets.all(Space.lg),
-            child: Row(
-              children: [
-                const IconWell(PhosphorIconsFill.wrench, tint: (Colors.white, BrandColors.saffron), size: 40),
-                const SizedBox(width: Space.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Phone repair at our shop', style: t.titleSmall?.copyWith(color: BrandColors.creamInk)),
-                      Text('Screen, battery, charging port · You approve the price first',
-                          style: t.bodySmall?.copyWith(color: BrandColors.creamInk)),
-                      const SizedBox(height: Space.sm),
-                      Row(
-                        spacing: Space.xs,
-                        children: [
-                          Text('Book free', style: t.labelLarge?.copyWith(color: BrandColors.saffron)),
-                          const Icon(PhosphorIconsBold.arrowRight, size: IconSizes.sm, color: BrandColors.saffron),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Why buy here, in one row under the carousel: what the shop promises, from its settings. Tap for the details.
 class _TrustStrip extends StatelessWidget {
   const _TrustStrip(this.settings);
@@ -960,39 +914,6 @@ Future<void> showWhyBuySheet(BuildContext context, StoreSettings s) => showModal
       },
     );
 
-/// "Shop by budget": phone price bands, each opening the phones in it.
-class _BudgetRow extends StatelessWidget {
-  const _BudgetRow(this.category);
-
-  final String category;
-
-  static const _bands = [
-    ('Under ₹10,000', 'max=1000000'),
-    ('Under ₹15,000', 'max=1500000'),
-    ('Under ₹25,000', 'max=2500000'),
-    ('Above ₹25,000', 'min=2500000'),
-  ];
-
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SectionHeader('Shop by budget', gutter: Space.gutter),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-            child: Row(
-              spacing: Space.sm,
-              children: [
-                for (final (label, q) in _bands)
-                  ActionChip(label: Text(label), onPressed: () => context.go('/search?category=$category&$q')),
-              ],
-            ),
-          ),
-        ],
-      );
-}
-
 /// "Shop by brand": every brand as a chip, phone brands first. Hidden until the brands load.
 class _BrandRow extends ConsumerWidget {
   const _BrandRow(this.phones);
@@ -1085,7 +1006,7 @@ class _StoreCard extends StatelessWidget {
                 contentPadding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.xs),
                 minLeadingWidth: 24,
                 horizontalTitleGap: Space.md,
-                leading: const Icon(PhosphorIconsRegular.mapTrifold),
+                leading: Image.asset('assets/brand/google_g.png', width: 22, height: 22, excludeFromSemantics: true),
                 title: const Text('Photos, reviews & hours on Google Maps'),
                 trailing: const Icon(PhosphorIconsRegular.arrowSquareOut, size: 18),
                 onTap: () => openUri(context, listing),

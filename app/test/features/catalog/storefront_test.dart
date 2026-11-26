@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shyam_mobiles/core/format.dart';
 import 'package:shyam_mobiles/core/models/models.dart';
 import 'package:shyam_mobiles/core/theme/tokens.dart';
+import 'package:shyam_mobiles/features/cart/data/cart.dart';
 import 'package:shyam_mobiles/features/catalog/data/catalog.dart';
 import 'package:shyam_mobiles/features/catalog/data/rails.dart';
 import 'package:shyam_mobiles/features/catalog/widgets/product_tile.dart';
@@ -60,7 +61,7 @@ void main() {
     expect(heart.color, BrandColors.plum);
   });
 
-  testWidgets('home: carousel, why buy here, categories, phones, then the one repair strip; deals link to their cap',
+  testWidgets('home: carousel, why buy here, categories, phones, budgets, deals, then Exchange and Repairs; deals link to their cap',
       (tester) async {
     final phones = [cards[0], cards[1], cards[4]];
     await pump(tester, '/', overrides: [
@@ -76,12 +77,12 @@ void main() {
       for (final s in tester.widget<CustomScrollView>(find.byType(CustomScrollView)).slivers)
         if (s.key case ValueKey<String>(:final value)) value,
     ];
-    expect(order.take(10), ['top', 'hero', 'occasion', 'trust', 'categories', 'recent', 'phones', 'repair', 'budget', 'deals']);
-    expect(order, containsAllInOrder(['deals', 'brands', 'more', 'store']));
+    expect(order.take(11), ['top', 'hero', 'occasion', 'cart', 'trust', 'categories', 'coupons', 'recent', 'phones', 'budget', 'deals']);
+    expect(order, containsAllInOrder(['deals', 'services', 'brands', 'more', 'store']));
     expect(find.text('Genuine products'), findsOneWidget);
     expect(find.text('Cash on delivery'), findsOneWidget);
     expect(find.text('Free delivery over ₹999'), findsOneWidget);
-    expect(find.text('Repairs'), findsNothing, reason: 'Repairs is a tab and a strip, not a category');
+    expect(find.text('Repairs'), findsNothing, reason: 'Repairs is a tab and a tile, not a category');
 
     await tester.tap(find.text('Genuine products'));
     await tester.pump(const Duration(seconds: 1));
@@ -196,6 +197,49 @@ void main() {
     expect(find.text('Under ₹1,500'), findsNothing, reason: 'accessory caps are for accessories');
   });
 
+  testWidgets('home: the unfinished cart comes back with its total, and a coupon ticket applies its code', (tester) async {
+    final line = CartLine(
+      variant: variant('navy512', 74999, 3, '512 GB', 'Navy'),
+      qty: 2,
+      productId: 'p',
+      productSlug: 's25',
+      productName: 'Samsung Galaxy S25',
+    );
+    final gone = CartLine(
+      variant: variant('old', 999, 0, '64 GB', 'Red'), // sold out: not counted
+      qty: 1,
+      productId: 'q',
+      productSlug: 'q',
+      productName: 'Old phone',
+    );
+    await pump(tester, '/', userId: 'u1', overrides: [
+      homeProvider.overrideWith((ref) async => (
+            categories: const [Category(id: 'c', slug: 'smartphones', name: 'Smartphones', kind: CategoryKind.phone)],
+            featured: [cards[0]],
+            accessories: [cards[3]],
+          )),
+      catalogRepositoryProvider.overrideWithValue(FakeRailsApi(all: cards)),
+      cartProvider.overrideWith(() => _CartWith([line, gone])),
+      availableOffersProvider.overrideWith((ref) async => [
+            Offer(id: 'o1', title: 'Flat', code: 'SAVE200', kind: OfferKind.flat, value: 20000, minSubtotalPaise: 99900, startsAt: DateTime(2026)),
+            Offer(id: 'o2', title: 'Sale', kind: OfferKind.percent, value: 5, startsAt: DateTime(2026)), // no code: no ticket
+          ]),
+    ]);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Complete your order'), findsOneWidget);
+    expect(find.text('2 items · ${formatInr(2 * 7499900)}'), findsOneWidget);
+    expect(find.text('SAVE200'), findsOneWidget);
+    expect(find.text('Coupons for you'), findsOneWidget);
+    await tester.tap(find.text('SAVE200'));
+    await tester.pump();
+    expect(find.text('SAVE200 applied. It comes off at checkout.'), findsOneWidget);
+    expect(find.text('Applied'), findsOneWidget);
+    await tester.tap(find.text('Checkout'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/cart');
+  });
+
   testWidgets('Home with no deals, no new products and no phones has no empty tail', (tester) async {
     await pump(tester, '/', overrides: [
       homeProvider.overrideWith((ref) async => (
@@ -218,4 +262,13 @@ void main() {
     final viewBottom = tester.getBottomLeft(scrollable).dy;
     expect(viewBottom - cardBottom, lessThanOrEqualTo(Space.section + 1), reason: 'only the end gap below the last card');
   });
+}
+
+class _CartWith extends CartNotifier {
+  _CartWith(this.lines);
+
+  final List<CartLine> lines;
+
+  @override
+  Future<List<CartLine>> build() async => lines;
 }
