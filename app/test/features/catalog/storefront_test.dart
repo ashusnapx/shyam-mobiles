@@ -8,6 +8,7 @@ import 'package:shyam_mobiles/core/theme/tokens.dart';
 import 'package:shyam_mobiles/features/cart/data/cart.dart';
 import 'package:shyam_mobiles/features/catalog/data/catalog.dart';
 import 'package:shyam_mobiles/features/catalog/data/rails.dart';
+import 'package:shyam_mobiles/features/catalog/widgets/home_sections.dart';
 import 'package:shyam_mobiles/features/catalog/widgets/product_tile.dart';
 import 'package:shyam_mobiles/features/offers/data/offers.dart';
 import 'package:shyam_mobiles/features/wishlist/data/wishlist.dart';
@@ -77,7 +78,7 @@ void main() {
       for (final s in tester.widget<CustomScrollView>(find.byType(CustomScrollView)).slivers)
         if (s.key case ValueKey<String>(:final value)) value,
     ];
-    expect(order.take(11), ['top', 'hero', 'occasion', 'cart', 'trust', 'categories', 'coupons', 'recent', 'phones', 'budget', 'deals']);
+    expect(order.take(12), ['top', 'greeting', 'hero', 'occasion', 'cart', 'trust', 'categories', 'coupons', 'recent', 'phones', 'budget', 'deals']);
     expect(order, containsAllInOrder(['deals', 'services', 'brands', 'more', 'store']));
     expect(find.text('Genuine products'), findsOneWidget);
     expect(find.text('Cash on delivery'), findsOneWidget);
@@ -238,6 +239,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(router.routerDelegate.currentConfiguration.uri.toString(), '/cart');
+  });
+
+  test('the greeting follows the clock: morning from 5, afternoon from noon, evening from 5 pm', () {
+    expect([for (final h in [4, 5, 11, 12, 16, 17, 23]) HomeGreeting.hello(h)], [
+      'Good evening', 'Good morning', 'Good morning', 'Good afternoon', 'Good afternoon', 'Good evening', 'Good evening',
+    ]);
   });
 
   testWidgets('Home with no deals, no new products and no phones has no empty tail', (tester) async {

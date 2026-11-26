@@ -169,6 +169,7 @@ class HomeScreen extends ConsumerWidget {
     final phones = [for (final c in d.featured) if (phoneSlugs.contains(c.categorySlug)) c];
     final phoneCategory = phones.firstOrNull?.categorySlug ?? 'smartphones';
     return [
+      SliverToBoxAdapter(key: const ValueKey('greeting'), child: HomeGreeting(hours: settings?.storeHours ?? '')),
       if (slides.isNotEmpty)
         SliverToBoxAdapter(
           key: const ValueKey('hero'),

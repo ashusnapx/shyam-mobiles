@@ -11,6 +11,7 @@ import '../../../core/supabase.dart' show currentUserIdProvider;
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../account/data/profile.dart';
 import '../../cart/data/cart.dart';
 import '../../exchange/widgets/exchange_widgets.dart' show showExchangeSheet;
 import '../../offers/data/auto_apply.dart' show bestAutoApply;
@@ -81,6 +82,42 @@ class _RotatingSearchHintState extends State<RotatingSearchHint> {
           ),
         ],
       );
+}
+
+/// "Good evening, Ravi" over the carousel, warm like a shopkeeper's hello, and the shop's hours under it. The first
+/// name only when signed in with one saved.
+class HomeGreeting extends ConsumerWidget {
+  const HomeGreeting({super.key, this.hours = '', this.now});
+
+  final String hours; // store_settings.store_hours, as the owner wrote it ("9 am – 10 pm")
+  final DateTime? now; // tests pin the clock
+
+  static String hello(int hour) => switch (hour) {
+        >= 5 && < 12 => 'Good morning',
+        >= 12 && < 17 => 'Good afternoon',
+        _ => 'Good evening',
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Theme.of(context).textTheme;
+    final first = ref.watch(profileProvider).value?.fullName?.trim().split(RegExp(r'\s+')).first;
+    final line = hello((now ?? DateTime.now()).hour) + (first == null || first.isEmpty ? '' : ', $first');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.gutter, Space.sm, Space.gutter, Space.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.displaySmall?.copyWith(fontSize: 24, height: 1.15)),
+          if (hours.isNotEmpty)
+            Text('Shop hours $hours · Waidhan',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: t.bodySmall?.copyWith(color: BrandColors.saffron, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
 }
 
 /// "Complete your order": the signed-in customer's cart, back on Home: up to three photos, the count and the total,
@@ -295,16 +332,16 @@ class BudgetTiles extends StatelessWidget {
   final String phoneCategory;
 
   static const _phones = [
-    ('Under', '₹10,000', 'max=1000000'),
-    ('Under', '₹15,000', 'max=1500000'),
-    ('Under', '₹25,000', 'max=2500000'),
-    ('Premium', '₹25,000+', 'min=2500000'),
+    ('Under', '₹10k', 'max=1000000'),
+    ('Under', '₹15k', 'max=1500000'),
+    ('Under', '₹25k', 'max=2500000'),
+    ('Premium', '₹25k+', 'min=2500000'),
   ];
   static const _accessories = [
     ('Under', '₹299', 'max=29900'),
     ('Under', '₹499', 'max=49900'),
     ('Under', '₹999', 'max=99900'),
-    ('Under', '₹1,999', 'max=199900'),
+    ('Under', '₹2k', 'max=199900'),
   ];
 
   @override
@@ -338,9 +375,10 @@ class BudgetTiles extends StatelessWidget {
                                   Text(kicker, style: t.labelSmall?.copyWith(color: tint.$2)),
                                   FittedBox(
                                     fit: BoxFit.scaleDown,
+                                    // big display numerals: the price is the headline
                                     child: Text(price,
                                         maxLines: 1,
-                                        style: t.titleMedium?.copyWith(color: tint.$2, fontWeight: FontWeight.w800)),
+                                        style: t.displaySmall?.copyWith(fontSize: 26, height: 1.1, color: tint.$2)),
                                   ),
                                 ],
                               ),
